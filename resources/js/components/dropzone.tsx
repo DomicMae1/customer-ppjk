@@ -549,7 +549,7 @@ const DropzoneRemoveFile = forwardRef<HTMLButtonElement, DropzoneRemoveFileProps
             type="button"
             size="icon"
             {...props}
-            className={cn('aria-disabled:pointer-events-none aria-disabled:opacity-50', className)}
+            className={cn('bg-black aria-disabled:pointer-events-none aria-disabled:opacity-50', className)}
         >
             {props.children}
             <span className="sr-only">Remove file</span>
