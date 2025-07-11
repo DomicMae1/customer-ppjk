@@ -5,26 +5,26 @@ import { Link } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
 import { MoreHorizontal } from 'lucide-react';
 
-export const columns = (onDeleteClick: (id: number) => void): ColumnDef<MasterCustomer>[] => [
+export const columns = (): ColumnDef<MasterCustomer>[] => [
     {
         accessorKey: 'no_npwp',
         header: 'Nomor NPWP',
         cell: ({ row }) => <div className="px-4 py-2">{row.original.no_npwp}</div>,
     },
     {
-        accessorKey: 'nama_cust',
+        accessorKey: 'nama_perusahaan',
         header: 'Nama Customer',
-        cell: ({ row }) => <div className="px-4 py-2">{row.original.nama_cust}</div>,
+        cell: ({ row }) => <div className="px-4 py-2">{row.original.nama_perusahaan}</div>,
     },
     {
         accessorKey: 'no_telp_pic',
         header: 'No Telp PIC',
-        cell: ({ row }) => <div className="px-4 py-2">{row.original.no_telp_pic || '-'}</div>,
+        cell: ({ row }) => <div className="px-4 py-2">{row.original.no_telp_personal || '-'}</div>,
     },
     {
-        accessorKey: 'pph_info',
-        header: 'PPH Info',
-        cell: ({ row }) => <div className="px-4 py-2">{row.original.pph_info ? 'Yes' : 'No'}</div>,
+        accessorKey: 'status',
+        header: 'Status',
+        cell: ({ row }) => <div className="px-4 py-2">{row.original.email_personal}</div>,
     },
     {
         id: 'actions',
@@ -45,7 +45,7 @@ export const columns = (onDeleteClick: (id: number) => void): ColumnDef<MasterCu
                         <Link href={`/customer/${supplier.id}/edit`}>
                             <DropdownMenuItem>Edit Customer</DropdownMenuItem>
                         </Link>
-                        <DropdownMenuItem onClick={() => onDeleteClick(supplier.id)}>Delete Customer</DropdownMenuItem>
+                        {/* <DropdownMenuItem onClick={() => onDeleteClick(supplier.id)}>Delete Customer</DropdownMenuItem> */}
                     </DropdownMenuContent>
                 </DropdownMenu>
             );
