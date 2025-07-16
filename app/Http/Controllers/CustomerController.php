@@ -220,4 +220,78 @@ class CustomerController extends Controller
                 ->with('error', 'Gagal menghapus Data Customer: ' . $e->getMessage());
         }
     }
+
+    public function generatePdf($id)
+    {
+        $customer = Customer::with('attachments')->findOrFail($id);
+        $user = auth('web')->user();
+
+        return Pdf::view('pdf.customer', [
+            'customer' => $customer,
+            'generated_by' => $user?->name ?? 'Guest',
+        ])
+            ->format('a4')
+            ->name('customer_' . $customer->id . '.pdf')
+            ->withBrowsershot(function (\Spatie\Browsershot\Browsershot $browsershot) {
+                $browsershot
+                    ->setNodeBinary('C:/Program Files/nodejs/node.exe')
+                    ->setChromePath('C:/Program Files/Google/Chrome/Application/chrome.exe')
+                    ->noSandbox();
+            })
+            ->download();
+    }
+
+    public function showPublicForm($token)
+    {
+        // Cari berdasarkan kolom 'token' (bukan 'link_customer')
+        $link = CustomerLink::where('token', $token)->first();
+
+        if (!$link) {
+            abort(404, 'Link tidak valid atau sudah tidak tersedia.');
+        }
+
+        return inertia('m_customer/table/public-data-form', [
+            'customer_name' => $link->nama_customer,
+            'token' => $token,
+            'user_id' => $link->id_user,
+        ]);
+    }
+
+    public function submitPublicForm(Request $request, $token)
+    {
+        $link = CustomerLink::where('token', $token)->first();
+
+        if (!$link) {
+            abort(404, 'Token tidak ditemukan');
+        }
+
+        $validated = $request->validate([
+            'kategori_usaha' => 'required|string',
+            'nama_perusahaan' => 'required|string',
+            'alamat_lengkap' => 'required|string',
+            'bentuk_badan_usaha' => 'required|string',
+            'kota' => 'required|string',
+            'alamat_penagihan' => 'required|string',
+            'email' => 'required|email',
+            'top' => 'required|string',
+            'status_perpajakan' => 'required|string',
+            'nama_pj' => 'required|string',
+            'no_ktp_pj' => 'required|string',
+            'nama_personal' => 'required|string',
+            'jabatan_personal' => 'required|string',
+            'email_personal' => 'required|email',
+            // tambahkan jika perlu: no_telp, website, dsb
+        ]);
+
+        $customer = Customer::create([
+            ...$validated,
+            'id_user' => $link->id_user, // foreign key dari pembuat link
+            'id_perusahaan' => $link->id_perusahaan ?? null, // jika kamu punya kolom ini
+        ]);
+
+        // Opsional: Hapus link agar tidak bisa dipakai ulang
+        // $link->delete();
+
+        return redirect('/')->with('success', 'Data berhasil dikirim.');
+    }
 }
