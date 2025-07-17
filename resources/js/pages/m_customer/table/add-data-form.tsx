@@ -6,7 +6,7 @@ import CustomerForm from './data-form';
 const breadcrumbs: BreadcrumbItem[] = [
     {
         title: 'Master Customer',
-        href: '/master-customer',
+        href: '/customer',
     },
     {
         title: 'Create Customer',
