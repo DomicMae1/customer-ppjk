@@ -65,4 +65,9 @@ class Customer extends Model
     {
         return $this->hasMany(CustomerAttach::class, 'customer_id', 'id');
     }
+
+    public function status()
+    {
+        return $this->hasOne(Customers_Status::class, 'id_Customer');
+    }
 }

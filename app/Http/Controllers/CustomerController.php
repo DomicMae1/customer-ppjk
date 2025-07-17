@@ -82,21 +82,92 @@ class CustomerController extends Controller
             throw UnauthorizedException::forPermissions(['create-master-customer']);
         }
 
+        DB::beginTransaction();
+
+        dd($request->all());
+
         $validated = $request->validate([
-            'nama_cust' => 'required',
-            'no_npwp' => 'nullable',
-            'alamat_npwp' => 'nullable',
-            'alamat_penagihan' => 'nullable',
-            'nama_pic' => 'nullable',
-            'no_telp_pic' => 'nullable',
-            'pph_info' => 'required',
-            'user' => 'required',
-            'ledger_id' => 'required'
+            'kategori_usaha' => 'required|string',
+            'nama_perusahaan' => 'required|string',
+            'bentuk_badan_usaha' => 'required|string',
+            'alamat_lengkap' => 'required|string',
+            'kota' => 'required|string',
+            'no_telp' => 'nullable|string',
+            'no_fax' => 'nullable|string',
+            'alamat_penagihan' => 'required|string',
+            'email' => 'required|email',
+            'website' => 'nullable|string',
+            'top' => 'nullable|string',
+            'status_perpajakan' => 'nullable|string',
+            'no_npwp' => 'nullable|string',
+            'no_npwp_16' => 'nullable|string',
+            'nama_pj' => 'nullable|string',
+            'no_ktp_pj' => 'nullable|string',
+            'no_telp_pj' => 'nullable|string',
+            'nama_personal' => 'nullable|string',
+            'jabatan_personal' => 'nullable|string',
+            'no_telp_personal' => 'nullable|string',
+            'email_personal' => 'nullable|email',
+            'keterangan_reject' => 'nullable|string',
+            'user_id' => 'required|exists:users,id',
+            'approved_1_by' => 'nullable|integer',
+            'approved_2_by' => 'nullable|integer',
+            'rejected_1_by' => 'nullable|integer',
+            'rejected_2_by' => 'nullable|integer',
+            'keterangan' => 'nullable|string',
+            'tgl_approval_1' => 'nullable|date',
+            'tgl_approval_2' => 'nullable|date',
+            'tgl_customer' => 'nullable|date',
+
+            'attachments' => 'required|array',
+            'attachments.*.nama_file' => 'required|string',
+            'attachments.*.path' => 'required|string',
+            'attachments.*.type' => 'required|in:npwp,sppkp,ktp,nib',
         ]);
 
-        Customer::create($validated);
 
-        return redirect()->route('customer.index')->with('success', 'Data Customer berhasil dibuat!');
+        try {
+            $customer = Customer::create(array_merge($validated, [
+                'id_user' => $user->id,
+                'id_perusahaan' => $user->id_perusahaan ?? 0, // sesuaikan jika tersedia
+            ]));
+
+            if (!empty($validated['attachments'])) {
+                foreach ($validated['attachments'] as $attachment) {
+                    CustomerAttach::create([
+                        'customer_id' => $customer->id,
+                        'nama_file' => $attachment['nama_file'],
+                        'path' => $attachment['path'],
+                        'type' => $attachment['type'],
+                    ]);
+                }
+            }
+
+
+            DB::connection('tako-perusahaan')->table('customers_statuses')->insert([
+                'id_Customer' => $customer->id,
+                'id_user' => $user->id,
+                'submit_1_timestamps' => null,
+                'status_1_by' => null,
+                'status_1_timestamps' => null,
+                'status_1_keterangan' => null,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            DB::commit();
+
+            return redirect()->route('customer.index')->with('success', 'Data Customer berhasil dibuat!');
+        } catch (\Throwable $th) {
+            DB::rollBack();
+            return redirect()->back()->withErrors(['error' => 'Terjadi kesalahan: ' . $th->getMessage()]);
+        }
+
+        // Customer::create($validated);
+
+        // return redirect()->route('customer.index')->with('success', 'Data Customer berhasil dibuat!');
+    }
+
     public function storePublic(Request $request)
     {
 

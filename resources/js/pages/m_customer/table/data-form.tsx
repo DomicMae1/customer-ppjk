@@ -8,14 +8,20 @@ import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { Attachment, Auth, MasterCustomer } from '@/types';
 import { router, useForm } from '@inertiajs/react';
-import { CloudUploadIcon, Trash2Icon } from 'lucide-react';
-import { FormEventHandler, useState } from 'react';
+import '@react-pdf-viewer/core/lib/styles/index.css';
+import '@react-pdf-viewer/default-layout/lib/styles/index.css';
+import { CloudUploadIcon, File, Trash2Icon } from 'lucide-react';
+// import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+// import { AlertCircle } from "lucide-react"
+import axios from 'axios';
+import { FormEventHandler, useEffect, useState } from 'react';
+import { PhoneInput } from 'react-international-phone';
+import 'react-international-phone/style.css';
 import { NumericFormat } from 'react-number-format';
 
 export default function CustomerForm({
     auth,
     customer,
-    attachment,
     onSuccess,
 }: {
     auth: Auth;
@@ -23,14 +29,14 @@ export default function CustomerForm({
     attachment?: Attachment;
     onSuccess?: () => void;
 }) {
-    const { data, setData, post, put, processing, errors } = useForm<MasterCustomer>({
+    const { data, setData, processing, errors } = useForm<MasterCustomer>({
         id: customer?.id || null,
         kategori_usaha: customer?.kategori_usaha || '',
         nama_perusahaan: customer?.nama_perusahaan || '',
         bentuk_badan_usaha: customer?.bentuk_badan_usaha || '',
         alamat_lengkap: customer?.alamat_lengkap || '',
         kota: customer?.kota || '',
-        no_telp: customer?.no_telp ?? null,
+        no_telp: customer?.no_telp || '',
         no_fax: customer?.no_fax ?? null,
         alamat_penagihan: customer?.alamat_penagihan || '',
         email: customer?.email || '',
@@ -45,7 +51,7 @@ export default function CustomerForm({
         nama_personal: customer?.nama_personal || '',
         jabatan_personal: customer?.jabatan_personal || '',
         no_telp_personal: customer?.no_telp_personal || '',
-        status_approval: customer?.status_approval || 'pending',
+        email_personal: customer?.email_personal || '',
         keterangan_reject: customer?.keterangan_reject || '',
         user_id: customer?.user_id || auth.user.id,
         approved_1_by: customer?.approved_1_by ?? null,
@@ -60,64 +66,202 @@ export default function CustomerForm({
     });
 
     const [lainKategori, setLainKategori] = useState(customer?.kategori_usaha === 'lain2' ? '' : '');
-    const [errors_kategori, setErrors] = useState<{ kategori_usaha?: string; lain_kategori?: string }>({});
 
-    const [previewImage, setPreviewImage] = useState<string | null>(null);
-    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [errors_kategori, setErrors] = useState<{
+        kategori_usaha?: string;
+        lain_kategori?: string;
+        bentuk_badan_usaha?: string;
+        status_perpajakan?: string;
+        attachments?: string;
+    }>({});
+
+    const [npwpFile, setNpwpFile] = useState<File | null>(null);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const [npwpFileStatuses, setNpwpFileStatuses] = useState<any[]>([]);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const [nibFileStatuses, setNibFileStatuses] = useState<any[]>([]);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const [sppkpFileStatuses, setSppkpFileStatuses] = useState<any[]>([]);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const [ktpFileStatuses, setKtpFileStatuses] = useState<any[]>([]);
+    const [nibFile, setNibFile] = useState<File | null>(null);
+    const [sppkpFile, setSppkpFile] = useState<File | null>(null);
+    const [ktpFile, setKtpFile] = useState<File | null>(null);
+    // const [isModalOpen, setIsModalOpen] = useState(false);
+
+    function formatNpwp16(input: string): string {
+        const raw = input.replace(/\D/g, ''); // Hanya angka
+        const parts = [raw.slice(0, 4), raw.slice(4, 8), raw.slice(8, 12), raw.slice(12, 16)].filter(Boolean);
+        return parts.join(' ');
+    }
+
+    function formatNpwp(input: string) {
+        const raw = input.replace(/\D/g, ''); // Hanya angka
+        const parts = [raw.slice(0, 2), raw.slice(2, 5), raw.slice(5, 8), raw.slice(8, 9), raw.slice(9, 12), raw.slice(12, 15)].filter(Boolean);
+        return parts
+            .map((part, i) => {
+                if (i === 3) return '-' + part;
+                if (i !== 0) return '.' + part;
+                return part;
+            })
+            .join('');
+    }
+
+    useEffect(() => {
+        const existingNpwp = customer?.attachments?.find((a) => a.type === 'npwp');
+        const existingNib = customer?.attachments?.find((a) => a.type === 'nib');
+        const existingSppkp = customer?.attachments?.find((a) => a.type === 'sppkp');
+        const existingKtp = customer?.attachments?.find((a) => a.type === 'ktp');
+
+        if (existingNpwp) {
+            setNpwpFileStatuses([
+                {
+                    id: 'existing-npwp',
+                    status: 'success',
+                    fileName: existingNpwp.nama_file,
+                    result: existingNpwp.path,
+                },
+            ]);
+        }
+        if (existingNib) {
+            setNibFileStatuses([
+                {
+                    id: 'existing-nib',
+                    status: 'success',
+                    fileName: existingNib.nama_file,
+                    result: existingNib.path,
+                },
+            ]);
+        }
+        if (existingSppkp) {
+            setSppkpFileStatuses([
+                {
+                    id: 'existing-sppkp',
+                    status: 'success',
+                    fileName: existingSppkp.nama_file,
+                    result: existingSppkp.path,
+                },
+            ]);
+        }
+        if (existingKtp) {
+            setKtpFileStatuses([
+                {
+                    id: 'existing-ktp',
+                    status: 'success',
+                    fileName: existingKtp.nama_file,
+                    result: existingKtp.path,
+                },
+            ]);
+        }
+    }, [customer]);
 
     // State untuk masing-masing dropzone
     const dropzoneNpwp = useDropzone({
         onDropFile: async (file: File) => {
-            await new Promise((resolve) => setTimeout(resolve, 500));
-            return {
+            setNpwpFile(file);
+
+            const fileStatus = {
+                id: String(Date.now()),
                 status: 'success',
+                fileName: file.name,
                 result: URL.createObjectURL(file),
-            };
+            } as const;
+
+            setNpwpFileStatuses([fileStatus]); // Timpa data lama dengan file baru
+            return fileStatus;
         },
         validation: {
             accept: {
-                'image/*': ['.png', '.jpg', '.jpeg'],
+                'application/pdf': ['.pdf'],
             },
-            maxSize: 10 * 1024 * 1024,
+            maxSize: 5 * 1024 * 1024,
+            maxFiles: 1,
+        },
+    });
+
+    const dropzoneNib = useDropzone({
+        onDropFile: async (file: File) => {
+            setNibFile(file); // ❗️Simpan ke state, belum upload
+            const fileStatus = {
+                id: String(Date.now()),
+                status: 'success',
+                fileName: file.name,
+                result: URL.createObjectURL(file),
+            } as const;
+
+            setNibFileStatuses([fileStatus]); // Timpa data lama dengan file baru
+            return fileStatus;
+        },
+        validation: {
+            accept: {
+                'application/pdf': ['.pdf'],
+            },
+            maxSize: 5 * 1024 * 1024,
             maxFiles: 1,
         },
     });
 
     const dropzoneSppkp = useDropzone({
         onDropFile: async (file: File) => {
-            await new Promise((resolve) => setTimeout(resolve, 500));
-            return {
+            setSppkpFile(file); // ❗️Simpan ke state, belum upload
+
+            const fileStatus = {
+                id: String(Date.now()),
                 status: 'success',
+                fileName: file.name,
                 result: URL.createObjectURL(file),
-            };
+            } as const;
+
+            setSppkpFileStatuses([fileStatus]); // Timpa data lama dengan file baru
+            return fileStatus;
         },
         validation: {
             accept: {
-                'image/*': ['.png', '.jpg', '.jpeg'],
+                'application/pdf': ['.pdf'], // ✅ hanya PDF
             },
-            maxSize: 10 * 1024 * 1024,
+            maxSize: 5 * 1024 * 1024, // ✅ max 5MB
             maxFiles: 1,
         },
     });
 
     const dropzoneKtp = useDropzone({
         onDropFile: async (file: File) => {
-            await new Promise((resolve) => setTimeout(resolve, 500));
-            return {
+            setKtpFile(file); // ❗️Simpan ke state, belum upload
+            const fileStatus = {
+                id: String(Date.now()),
                 status: 'success',
+                fileName: file.name,
                 result: URL.createObjectURL(file),
-            };
+            } as const;
+
+            setKtpFileStatuses([fileStatus]); // Timpa data lama dengan file baru
+            return fileStatus;
         },
         validation: {
             accept: {
-                'image/*': ['.png', '.jpg', '.jpeg'],
+                'application/pdf': ['.pdf'], // ✅ hanya PDF
             },
-            maxSize: 10 * 1024 * 1024,
+            maxSize: 5 * 1024 * 1024, // ✅ max 5MB
             maxFiles: 1,
         },
     });
 
-    const handleSubmit: FormEventHandler = (e) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const extractAttachmentFromStatus = (statuses: any[], type: string) => {
+        if (statuses.length > 0) {
+            const file = statuses[0]; // maxFiles: 1
+            return {
+                id: 0,
+                customer_id: customer?.id ?? 0,
+                nama_file: file.fileName,
+                path: file.result,
+                type,
+            };
+        }
+        return null;
+    };
+
+    const handleSubmit: FormEventHandler = async (e) => {
         e.preventDefault();
 
         const newErrors: typeof errors_kategori = {};
@@ -126,35 +270,152 @@ export default function CustomerForm({
             newErrors.kategori_usaha = 'Kategori usaha wajib dipilih.';
         }
 
+        if (!data.bentuk_badan_usaha) {
+            newErrors.bentuk_badan_usaha = 'Bentuk badan usaha wajib dipilih';
+        }
+
+        if (!data.status_perpajakan) {
+            newErrors.status_perpajakan = 'Status perpajakan wajib dipilih';
+        }
+
         if (data.kategori_usaha === 'lain2' && !lainKategori.trim()) {
             newErrors.lain_kategori = 'Kategori lainnya wajib diisi.';
         }
 
-        setErrors(newErrors);
-
-        if (Object.keys(newErrors).length === 0) {
-            // Lanjutkan submit data
-            // post('/route', data);
-            console.log('Valid! Submitting...', data);
+        if (Object.keys(newErrors).length > 0) {
+            setErrors(newErrors);
+            return; // ⛔ STOP proses di sini!
         }
 
-        if (customer?.id) {
-            put(route('customer.update', customer.id), {
-                onSuccess: () => {
-                    onSuccess?.();
-                },
-                onError: (errors) => {
-                    console.log('Update error:', errors);
-                },
-            });
-            post(route('customer.store'), {
-                onSuccess: () => {
-                    onSuccess?.();
-                },
-                onError: (errors) => {
-                    console.log('Create error:', errors);
-                },
-            });
+        // 🔒 Cek wajib upload file PDF
+        if (!npwpFileStatuses || npwpFileStatuses.length === 0) {
+            const message = 'Dokumen NPWP wajib diunggah.';
+            setErrors((prev) => ({ ...prev, attachments: message }));
+            alert(message); // ⬅️ alert ditambahkan
+            return;
+        }
+        if (!nibFileStatuses || nibFileStatuses.length === 0) {
+            const message = 'Dokumen NIB wajib diunggah.';
+            setErrors((prev) => ({ ...prev, attachments: message }));
+            alert(message);
+            return;
+        }
+        if (!ktpFileStatuses || ktpFileStatuses.length === 0) {
+            const message = 'Dokumen KTP wajib diunggah.';
+            setErrors((prev) => ({ ...prev, attachments: message }));
+            alert(message);
+            return;
+        }
+
+        setErrors(newErrors);
+
+        try {
+            const uploadedAttachments = [];
+
+            // ✅ Upload NPWP
+            if (!npwpFileStatuses) {
+                if (npwpFile) {
+                    const formDataNpwp = new FormData();
+                    formDataNpwp.append('file', npwpFile);
+                    const resNpwp = await axios.post('/customer/upload-temp', formDataNpwp);
+                    uploadedAttachments.push({
+                        id: 0,
+                        customer_id: customer?.id ?? 0,
+                        nama_file: resNpwp.data.nama_file,
+                        path: resNpwp.data.path,
+                        type: 'npwp',
+                    });
+                }
+            }
+
+            // ✅ Upload NIB
+            if (!nibFileStatuses) {
+                if (nibFile) {
+                    const formDataNib = new FormData();
+                    formDataNib.append('file', nibFile);
+                    const resNib = await axios.post('/customer/upload-temp', formDataNib);
+                    uploadedAttachments.push({
+                        id: 0,
+                        customer_id: customer?.id ?? 0,
+                        nama_file: resNib.data.nama_file,
+                        path: resNib.data.path,
+                        type: 'nib',
+                    });
+                }
+            }
+
+            // ✅ Upload SPPKP (opsional)
+            if (!sppkpFileStatuses) {
+                if (sppkpFile) {
+                    const formDataSppkp = new FormData();
+                    formDataSppkp.append('file', sppkpFile);
+                    const resSppkp = await axios.post('/customer/upload-temp', formDataSppkp);
+                    uploadedAttachments.push({
+                        id: 0,
+                        customer_id: customer?.id ?? 0,
+                        nama_file: resSppkp.data.nama_file,
+                        path: resSppkp.data.path,
+                        type: 'sppkp',
+                    });
+                }
+            }
+
+            // ✅ Upload KTP
+            if (!ktpFileStatuses) {
+                if (ktpFile) {
+                    const formDataKtp = new FormData();
+                    formDataKtp.append('file', ktpFile);
+                    const resKtp = await axios.post('/customer/upload-temp', formDataKtp);
+                    uploadedAttachments.push({
+                        id: 0,
+                        customer_id: customer?.id ?? 0,
+                        nama_file: resKtp.data.nama_file,
+                        path: resKtp.data.path,
+                        type: 'ktp',
+                    });
+                }
+            }
+
+            // ✅ Merge existing + uploaded
+            const allAttachmentObjects = [
+                extractAttachmentFromStatus(npwpFileStatuses, 'npwp'),
+                extractAttachmentFromStatus(nibFileStatuses, 'nib'),
+                extractAttachmentFromStatus(sppkpFileStatuses, 'sppkp'),
+                extractAttachmentFromStatus(ktpFileStatuses, 'ktp'),
+            ].filter(Boolean); // remove null
+
+            const updatedAttachments = allAttachmentObjects;
+
+            const finalPayload = {
+                ...data,
+                attachments: updatedAttachments,
+            };
+            if (customer?.id) {
+                // 🔁 UPDATE
+                router.put(route('customer.update', customer.id), finalPayload, {
+                    onSuccess: () => {
+                        console.log('✅ Berhasil update data!');
+                        onSuccess?.();
+                    },
+                    onError: (errors: unknown) => {
+                        console.log('Update error:', errors);
+                    },
+                });
+            } else {
+                // 🆕 CREATE
+                router.post(route('customer.store'), finalPayload, {
+                    onSuccess: () => {
+                        console.log('✅ Berhasil simpan data!');
+                        onSuccess?.();
+                    },
+                    onError: (errors: unknown) => {
+                        console.log('Create error:', errors);
+                    },
+                });
+            }
+        } catch (err) {
+            console.error('Upload gagal:', err);
+            alert('Gagal upload file. Silakan coba lagi.');
         }
     };
 
@@ -162,13 +423,15 @@ export default function CustomerForm({
         <div className="rounded-2xl border p-4">
             <h1 className="mb-4 text-3xl font-semibold">{customer ? 'Edit Data Customer' : 'Buat Data Customer'}</h1>
             <form onSubmit={handleSubmit}>
-                <div className="grid grid-cols-3 gap-4">
-                    <div className="col-span-3 grid grid-cols-3 gap-4">
+                <div className="col-span-3 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    <div className="col-span-3 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                        {/* Kategori Usaha */}
                         <div className="w-full">
                             <Label htmlFor="kategori_usaha">
                                 Kategori Usaha <span className="text-red-500">*</span>
                             </Label>
                             <Select
+                                required
                                 value={data.kategori_usaha}
                                 onValueChange={(value) => {
                                     setData('kategori_usaha', value);
@@ -181,7 +444,6 @@ export default function CustomerForm({
                                         setLainKategori('');
                                     }
                                 }}
-                                required
                             >
                                 <SelectTrigger className="w-full">
                                     <SelectValue placeholder="Pilih Kategori Usaha" />
@@ -233,14 +495,31 @@ export default function CustomerForm({
                             <Label htmlFor="bentuk_badan_usaha">
                                 Bentuk Badan Usaha <span className="text-red-500">*</span>
                             </Label>
-                            <Input
-                                required
-                                id="bentuk_badan_usaha"
+                            <Select
                                 value={data.bentuk_badan_usaha}
-                                onChange={(e) => setData('bentuk_badan_usaha', e.target.value)}
-                                placeholder="Masukkan Bentuk Badan Usaha"
-                            />
-                            <InputError message={errors.bentuk_badan_usaha} />
+                                onValueChange={(value) => {
+                                    setData('bentuk_badan_usaha', value); // kosongkan nilai utama, karena nanti user akan isi manual
+
+                                    setErrors((prev) => ({
+                                        ...prev,
+                                        bentuk_badan_usaha: undefined,
+                                    }));
+                                }}
+                                required
+                            >
+                                <SelectTrigger className="w-full">
+                                    <SelectValue placeholder="Pilih Bentuk Badan Usaha" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="pma">Penanaman Modal Asing (PMA)</SelectItem>
+                                    <SelectItem value="pmdn">Penanaman Modal Dalam Negeri (PMDN)</SelectItem>
+                                    <SelectItem value="pt">Perseroan Terbatas (PT)</SelectItem>
+                                    <SelectItem value="cv">Commanditaire Vennootschap (CV)</SelectItem>
+                                    <SelectItem value="ud">Usaha Dagang (UD)</SelectItem>
+                                    <SelectItem value="po">Perusahaan Perorangan (PO)</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            {errors_kategori && <InputError message={errors_kategori.bentuk_badan_usaha} />}
                         </div>
                         <div className="w-full">
                             <Label htmlFor="alamat_lengkap">
@@ -270,21 +549,19 @@ export default function CustomerForm({
                         </div>
                         <div className="w-full">
                             <Label htmlFor="no_telp">
-                                Nomor Telp <span className="text-red-500">*</span>
+                                Nomor Telp Perusahaan <span className="text-red-500">*</span>
                             </Label>
-                            <NumericFormat
+                            <PhoneInput
                                 required
-                                id="no_telp"
-                                value={data.no_telp}
-                                onChange={(e) => setData('no_telp', e.target.value)}
-                                className={cn(
+                                defaultCountry="id"
+                                value={data.no_telp?.toString() || ''}
+                                onChange={(phone) => setData('no_telp', phone)}
+                                inputClassName={cn(
                                     'file:text-foreground placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground dark:bg-input/30 border-input flex h-9 w-full min-w-0 rounded-md border bg-transparent px-3 py-1 text-base shadow-xs transition-[color,box-shadow] outline-none file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm',
                                     'focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]',
                                     'aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive',
                                 )}
-                                placeholder="Enter nomor telepon"
-                                allowNegative={false}
-                                decimalScale={0}
+                                placeholder="Enter No. Perusahaan"
                             />
                             <InputError message={errors.no_telp} />
                         </div>
@@ -292,7 +569,6 @@ export default function CustomerForm({
                         <div className="w-full">
                             <Label htmlFor="no_fax">Nomor Fax</Label>
                             <NumericFormat
-                                required
                                 id="no_fax"
                                 value={data.no_fax}
                                 onChange={(e) => setData('no_fax', e.target.value)}
@@ -371,52 +647,54 @@ export default function CustomerForm({
                                     <SelectItem value="non-pkp">NON PKP</SelectItem>
                                 </SelectContent>
                             </Select>
-                            <InputError message={errors.status_perpajakan} />
+                            {errors_kategori && <InputError message={errors_kategori.status_perpajakan} />}
                         </div>
                         <div className="w-full">
                             <Label htmlFor="no_npwp">
                                 Nomor NPWP <span className="text-red-500">*</span>
                             </Label>
-                            <NumericFormat
+                            <input
                                 required
+                                type="text"
                                 id="no_npwp"
                                 value={data.no_npwp}
-                                onChange={(e) => setData('no_npwp', e.target.value)}
+                                onChange={(e) => setData('no_npwp', formatNpwp(e.target.value))}
+                                placeholder="Masukkan nomor NPWP"
                                 className={cn(
                                     'file:text-foreground placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground dark:bg-input/30 border-input flex h-9 w-full min-w-0 rounded-md border bg-transparent px-3 py-1 text-base shadow-xs transition-[color,box-shadow] outline-none file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm',
                                     'focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]',
                                     'aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive',
                                 )}
-                                placeholder="Enter nomor NPWP"
-                                allowNegative={false}
-                                decimalScale={0}
                             />
+
                             <InputError message={errors.no_npwp} />
                         </div>
+
                         <div className="w-full">
                             <Label htmlFor="no_npwp_16">
                                 Nomor NPWP (16 Digit) <span className="text-red-500">*</span>
                             </Label>
-                            <NumericFormat
+                            <input
                                 required
+                                type="text"
+                                inputMode="numeric"
+                                maxLength={19} // karena spasi: 4 + 1 + 4 + 1 + 4 + 1 + 4 = 19 total karakter
                                 id="no_npwp_16"
                                 value={data.no_npwp_16}
-                                onChange={(e) => setData('no_npwp_16', e.target.value)}
+                                onChange={(e) => setData('no_npwp_16', formatNpwp16(e.target.value))}
+                                placeholder="Masukkan nomor NPWP 16 digit"
                                 className={cn(
                                     'file:text-foreground placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground dark:bg-input/30 border-input flex h-9 w-full min-w-0 rounded-md border bg-transparent px-3 py-1 text-base shadow-xs transition-[color,box-shadow] outline-none file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm',
                                     'focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]',
                                     'aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive',
                                 )}
-                                placeholder="Enter nomor NPWP (16 digit)"
-                                allowNegative={false}
-                                decimalScale={0}
                             />
                             <InputError message={errors.no_npwp_16} />
                         </div>
                     </div>
-                    <div className="col-span-3 mt-4">
+                    <div className="col-span-3 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                         <h1 className="mb-2 text-xl font-semibold">Data Direktur</h1>
-                        <div className="grid w-full grid-cols-3 gap-4">
+                        <div className="col-span-3 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                             {/* Data Direktur */}
                             <div className="w-full">
                                 <Label htmlFor="nama_pj">
@@ -427,7 +705,7 @@ export default function CustomerForm({
                                     id="nama_pj"
                                     value={data.nama_pj}
                                     onChange={(e) => setData('nama_pj', e.target.value)}
-                                    placeholder="Masukkan Terms of Payment"
+                                    placeholder="Masukkan Nama"
                                 />
                                 <InputError message={errors.nama_pj} />
                             </div>
@@ -455,98 +733,82 @@ export default function CustomerForm({
                                 <Label htmlFor="no_telp_pj">
                                     No. Telp. Direktur <span className="text-red-500">*</span>
                                 </Label>
-                                <NumericFormat
+                                <PhoneInput
                                     required
-                                    id="no_telp_pj"
-                                    value={data.no_telp_pj}
-                                    onChange={(e) => setData('no_telp_pj', e.target.value)}
-                                    className={cn(
+                                    defaultCountry="id"
+                                    value={data.no_telp_pj?.toString() || ''}
+                                    onChange={(phone) => setData('no_telp_pj', phone)}
+                                    inputClassName={cn(
                                         'file:text-foreground placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground dark:bg-input/30 border-input flex h-9 w-full min-w-0 rounded-md border bg-transparent px-3 py-1 text-base shadow-xs transition-[color,box-shadow] outline-none file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm',
                                         'focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]',
                                         'aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive',
                                     )}
                                     placeholder="Enter No. Telp. Direktur"
-                                    allowNegative={false}
-                                    decimalScale={0}
                                 />
                                 <InputError message={errors.no_telp_pj} />
                             </div>
                         </div>
                     </div>
-                    <div className="col-span-3 mt-4">
+                    <div className="col-span-3 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                         <h1 className="mb-2 text-xl font-semibold">Data Personal</h1>
-                        <div className="grid w-full grid-cols-3 gap-4">
+                        <div className="col-span-3 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                             {/* Data Direktur */}
                             <div className="w-full">
-                                <Label htmlFor="nama_pj">
+                                <Label htmlFor="nama_personal">
                                     Nama <span className="text-red-500">*</span>
                                 </Label>
                                 <Input
                                     required
-                                    id="nama_pj"
-                                    value={data.nama_pj}
-                                    onChange={(e) => setData('nama_pj', e.target.value)}
+                                    id="nama_personal"
+                                    value={data.nama_personal}
+                                    onChange={(e) => setData('nama_personal', e.target.value)}
                                     placeholder="Masukkan nama personal"
                                 />
-                                <InputError message={errors.nama_pj} />
+                                <InputError message={errors.nama_personal} />
                             </div>
                             <div className="w-full">
-                                <Label htmlFor="jabatan_pj">
+                                <Label htmlFor="jabatan_personal">
                                     Jabatan <span className="text-red-500">*</span>
                                 </Label>
-                                <NumericFormat
+                                <Input
                                     required
-                                    id="jabatan_pj"
-                                    value={data.no_ktp_pj}
-                                    onChange={(e) => setData('no_ktp_pj', e.target.value)}
-                                    className={cn(
-                                        'file:text-foreground placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground dark:bg-input/30 border-input flex h-9 w-full min-w-0 rounded-md border bg-transparent px-3 py-1 text-base shadow-xs transition-[color,box-shadow] outline-none file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm',
-                                        'focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]',
-                                        'aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive',
-                                    )}
+                                    id="jabatan_personal"
+                                    value={data.jabatan_personal}
+                                    onChange={(e) => setData('jabatan_personal', e.target.value)}
                                     placeholder="Masukkan jabatan personal"
-                                    allowNegative={false}
-                                    decimalScale={0}
                                 />
-                                <InputError message={errors.no_ktp_pj} />
+                                <InputError message={errors.jabatan_personal} />
                             </div>
                             <div className="w-full">
-                                <Label htmlFor="no_telp_pj">
+                                <Label htmlFor="no_telp_personal">
                                     No. Telp. <span className="text-red-500">*</span>
                                 </Label>
-                                <NumericFormat
+                                <PhoneInput
                                     required
-                                    id="no_telp_pj"
-                                    value={data.no_telp_pj}
-                                    onChange={(e) => setData('no_telp_pj', e.target.value)}
-                                    className={cn(
+                                    defaultCountry="id"
+                                    value={data.no_telp_personal?.toString() || ''}
+                                    onChange={(phone) => setData('no_telp_personal', phone)}
+                                    inputClassName={cn(
                                         'file:text-foreground placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground dark:bg-input/30 border-input flex h-9 w-full min-w-0 rounded-md border bg-transparent px-3 py-1 text-base shadow-xs transition-[color,box-shadow] outline-none file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm',
                                         'focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]',
                                         'aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive',
                                     )}
                                     placeholder="Masukkan no. telp personal"
-                                    allowNegative={false}
-                                    decimalScale={0}
                                 />
-                                <InputError message={errors.no_telp_pj} />
+                                <InputError message={errors.no_telp_personal} />
                             </div>
                             <div className="w-full">
-                                <Label htmlFor="email_pj">Email</Label>
-                                <NumericFormat
+                                <Label htmlFor="email_personal">
+                                    Email <span className="text-red-500">*</span>
+                                </Label>
+                                <Input
                                     required
-                                    id="email_pj"
-                                    value={data.no_ktp_pj}
-                                    onChange={(e) => setData('no_ktp_pj', e.target.value)}
-                                    className={cn(
-                                        'file:text-foreground placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground dark:bg-input/30 border-input flex h-9 w-full min-w-0 rounded-md border bg-transparent px-3 py-1 text-base shadow-xs transition-[color,box-shadow] outline-none file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm',
-                                        'focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]',
-                                        'aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive',
-                                    )}
+                                    id="email_personal"
+                                    value={data.email_personal}
+                                    onChange={(e) => setData('email_personal', e.target.value)}
                                     placeholder="Masukkan email personal"
-                                    allowNegative={false}
-                                    decimalScale={0}
                                 />
-                                <InputError message={errors.no_ktp_pj} />
+                                <InputError message={errors.email_personal} />
                             </div>
                         </div>
                     </div>
@@ -554,7 +816,7 @@ export default function CustomerForm({
                         <h1 className="mb-2 text-xl font-semibold">Lampiran</h1>
 
                         {/* 3 Dropzone Kolom */}
-                        <div className="grid grid-cols-3 gap-6">
+                        <div className="col-span-3 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                             {/* NPWP */}
                             <div className="w-full">
                                 <Label htmlFor="file_npwp" className="mb-1 block">
@@ -562,8 +824,8 @@ export default function CustomerForm({
                                 </Label>
                                 <Dropzone {...dropzoneNpwp}>
                                     <DropZoneArea>
-                                        {dropzoneNpwp.fileStatuses.length > 0 ? (
-                                            dropzoneNpwp.fileStatuses.map((file) => (
+                                        {npwpFileStatuses.length > 0 ? (
+                                            npwpFileStatuses.map((file) => (
                                                 <DropzoneFileListItem
                                                     key={file.id}
                                                     file={file}
@@ -571,24 +833,24 @@ export default function CustomerForm({
                                                 >
                                                     {file.status === 'pending' && <div className="aspect-video animate-pulse bg-black/20" />}
                                                     {file.status === 'success' && (
-                                                        <img
-                                                            src={file.result}
-                                                            alt={`uploaded-${file.fileName}`}
-                                                            className="z-10 aspect-video w-full rounded-md object-cover"
+                                                        <div
                                                             onClick={() => {
-                                                                setPreviewImage(file.result);
-                                                                setIsModalOpen(true);
+                                                                if (file.result) {
+                                                                    window.open(file.result, '_blank');
+                                                                }
                                                             }}
-                                                        />
+                                                            className="z-10 flex aspect-video w-full cursor-pointer items-center justify-center rounded-md bg-gray-100 text-sm text-gray-600"
+                                                        >
+                                                            <File className="mr-2 size-6" />
+                                                            {file.fileName}
+                                                        </div>
                                                     )}
+
                                                     <div className="absolute top-2 right-2 z-20">
                                                         <DropzoneRemoveFile>
-                                                            <button
-                                                                onClick={() => console.log('Trash icon clicked for:', file.fileName)}
-                                                                className="rounded-full bg-black/80 p-1"
-                                                            >
+                                                            <span onClick={() => setNpwpFileStatuses([])} className="rounded-full bg-white p-1">
                                                                 <Trash2Icon className="size-4" />
-                                                            </button>
+                                                            </span>
                                                         </DropzoneRemoveFile>
                                                     </div>
                                                 </DropzoneFileListItem>
@@ -597,43 +859,26 @@ export default function CustomerForm({
                                             <DropzoneTrigger className="flex flex-col items-center gap-4 bg-transparent p-10 text-center text-sm">
                                                 <CloudUploadIcon className="size-8" />
                                                 <div>
-                                                    <p className="font-semibold">Upload images</p>
-                                                    <p className="text-muted-foreground text-sm">Click here or drag and drop to upload</p>
+                                                    <p className="font-semibold">Upload PDF</p>
+                                                    <p className="text-muted-foreground text-sm">Click or drag to upload a .pdf file</p>
                                                 </div>
                                             </DropzoneTrigger>
                                         )}
                                     </DropZoneArea>
                                 </Dropzone>
-                                {isModalOpen && previewImage && (
-                                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-                                        <div className="relative mx-4 w-full max-w-3xl rounded-lg bg-white p-4 shadow-lg">
-                                            <img src={previewImage} alt="preview" className="h-auto max-h-[80vh] w-full rounded object-contain" />
-                                            <div className="mt-4 flex justify-end gap-2">
-                                                <button
-                                                    onClick={() => {
-                                                        setIsModalOpen(false);
-                                                        setPreviewImage(null);
-                                                    }}
-                                                    className="rounded-md bg-gray-300 px-4 py-2 hover:bg-gray-400"
-                                                >
-                                                    Tutup
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
+                                <p className="mt-1 text-xs text-red-500">* Wajib unggah NPWP dalam format PDF</p>
                                 <InputError message={errors.attachments} />
                             </div>
 
-                            {/* SPPKP */}
+                            {/* NIB */}
                             <div className="w-full">
-                                <Label htmlFor="file_sppkp" className="mb-1 block">
-                                    Upload SPPKP <span className="text-red-500">*</span>
+                                <Label htmlFor="file_npwp" className="mb-1 block">
+                                    Upload NIB <span className="text-red-500">*</span>
                                 </Label>
-                                <Dropzone {...dropzoneSppkp}>
+                                <Dropzone {...dropzoneNib}>
                                     <DropZoneArea>
-                                        {dropzoneSppkp.fileStatuses.length > 0 ? (
-                                            dropzoneSppkp.fileStatuses.map((file) => (
+                                        {nibFileStatuses.length > 0 ? (
+                                            nibFileStatuses.map((file) => (
                                                 <DropzoneFileListItem
                                                     key={file.id}
                                                     file={file}
@@ -641,24 +886,24 @@ export default function CustomerForm({
                                                 >
                                                     {file.status === 'pending' && <div className="aspect-video animate-pulse bg-black/20" />}
                                                     {file.status === 'success' && (
-                                                        <img
-                                                            src={file.result}
-                                                            alt={`uploaded-${file.fileName}`}
-                                                            className="aspect-video w-full rounded-md object-cover"
+                                                        <div
                                                             onClick={() => {
-                                                                setPreviewImage(file.result);
-                                                                setIsModalOpen(true);
+                                                                if (file.result) {
+                                                                    window.open(file.result, '_blank');
+                                                                }
                                                             }}
-                                                        />
+                                                            className="z-10 flex aspect-video w-full cursor-pointer items-center justify-center rounded-md bg-gray-100 text-sm text-gray-600"
+                                                        >
+                                                            <File className="mr-2 size-6" />
+                                                            {file.fileName}
+                                                        </div>
                                                     )}
-                                                    <div className="absolute top-2 right-2">
+
+                                                    <div className="absolute top-2 right-2 z-20">
                                                         <DropzoneRemoveFile>
-                                                            <button
-                                                                onClick={() => console.log('Trash icon clicked for:', file.fileName)}
-                                                                className="rounded-full bg-black/80 p-1"
-                                                            >
+                                                            <span onClick={() => setNibFileStatuses([])} className="rounded-full bg-white p-1">
                                                                 <Trash2Icon className="size-4" />
-                                                            </button>
+                                                            </span>
                                                         </DropzoneRemoveFile>
                                                     </div>
                                                 </DropzoneFileListItem>
@@ -667,31 +912,66 @@ export default function CustomerForm({
                                             <DropzoneTrigger className="flex flex-col items-center gap-4 bg-transparent p-10 text-center text-sm">
                                                 <CloudUploadIcon className="size-8" />
                                                 <div>
-                                                    <p className="font-semibold">Upload images</p>
-                                                    <p className="text-muted-foreground text-sm">Click here or drag and drop to upload</p>
+                                                    <p className="font-semibold">Upload PDF</p>
+                                                    <p className="text-muted-foreground text-sm">Click or drag to upload a .pdf file</p>
                                                 </div>
                                             </DropzoneTrigger>
                                         )}
                                     </DropZoneArea>
                                 </Dropzone>
-                                {isModalOpen && previewImage && (
-                                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-                                        <div className="relative mx-4 w-full max-w-3xl rounded-lg bg-white p-4 shadow-lg">
-                                            <img src={previewImage} alt="preview" className="h-auto max-h-[80vh] w-full rounded object-contain" />
-                                            <div className="mt-4 flex justify-end gap-2">
-                                                <button
-                                                    onClick={() => {
-                                                        setIsModalOpen(false);
-                                                        setPreviewImage(null);
-                                                    }}
-                                                    className="rounded-md bg-gray-300 px-4 py-2 hover:bg-gray-400"
+                                <p className="mt-1 text-xs text-red-500">* Wajib unggah NIB dalam format PDF</p>
+                                <InputError message={errors.attachments} />
+                            </div>
+
+                            {/* SPTKP */}
+                            <div className="w-full">
+                                <Label htmlFor="file_sppkp" className="mb-1 block">
+                                    Upload SPTKP
+                                </Label>
+                                <Dropzone {...dropzoneSppkp}>
+                                    <DropZoneArea>
+                                        {sppkpFileStatuses.length > 0 ? (
+                                            sppkpFileStatuses.map((file) => (
+                                                <DropzoneFileListItem
+                                                    key={file.id}
+                                                    file={file}
+                                                    className="bg-secondary relative w-full overflow-hidden rounded-md shadow-sm"
                                                 >
-                                                    Tutup
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
+                                                    {file.status === 'pending' && <div className="aspect-video animate-pulse bg-black/20" />}
+                                                    {file.status === 'success' && (
+                                                        <div
+                                                            onClick={() => {
+                                                                if (file.result) {
+                                                                    window.open(file.result, '_blank');
+                                                                }
+                                                            }}
+                                                            className="z-10 flex aspect-video w-full cursor-pointer items-center justify-center rounded-md bg-gray-100 text-sm text-gray-600"
+                                                        >
+                                                            <File className="mr-2 size-6" />
+                                                            {file.fileName}
+                                                        </div>
+                                                    )}
+
+                                                    <div className="absolute top-2 right-2 z-20">
+                                                        <DropzoneRemoveFile>
+                                                            <span onClick={() => setSppkpFileStatuses([])} className="rounded-full bg-white p-1">
+                                                                <Trash2Icon className="size-4" />
+                                                            </span>
+                                                        </DropzoneRemoveFile>
+                                                    </div>
+                                                </DropzoneFileListItem>
+                                            ))
+                                        ) : (
+                                            <DropzoneTrigger className="flex flex-col items-center gap-4 bg-transparent p-10 text-center text-sm">
+                                                <CloudUploadIcon className="size-8" />
+                                                <div>
+                                                    <p className="font-semibold">Upload PDF</p>
+                                                    <p className="text-muted-foreground text-sm">Click or drag to upload a .pdf file</p>
+                                                </div>
+                                            </DropzoneTrigger>
+                                        )}
+                                    </DropZoneArea>
+                                </Dropzone>
                                 <InputError message={errors.attachments} />
                             </div>
 
@@ -702,8 +982,8 @@ export default function CustomerForm({
                                 </Label>
                                 <Dropzone {...dropzoneKtp}>
                                     <DropZoneArea>
-                                        {dropzoneKtp.fileStatuses.length > 0 ? (
-                                            dropzoneKtp.fileStatuses.map((file) => (
+                                        {ktpFileStatuses.length > 0 ? (
+                                            ktpFileStatuses.map((file) => (
                                                 <DropzoneFileListItem
                                                     key={file.id}
                                                     file={file}
@@ -711,24 +991,24 @@ export default function CustomerForm({
                                                 >
                                                     {file.status === 'pending' && <div className="aspect-video animate-pulse bg-black/20" />}
                                                     {file.status === 'success' && (
-                                                        <img
-                                                            src={file.result}
-                                                            alt={`uploaded-${file.fileName}`}
-                                                            className="aspect-video w-full rounded-md object-cover"
+                                                        <div
                                                             onClick={() => {
-                                                                setPreviewImage(file.result);
-                                                                setIsModalOpen(true);
+                                                                if (file.result) {
+                                                                    window.open(file.result, '_blank');
+                                                                }
                                                             }}
-                                                        />
+                                                            className="z-10 flex aspect-video w-full cursor-pointer items-center justify-center rounded-md bg-gray-100 text-sm text-gray-600"
+                                                        >
+                                                            <File className="mr-2 size-6" />
+                                                            {file.fileName}
+                                                        </div>
                                                     )}
-                                                    <div className="absolute top-2 right-2">
+
+                                                    <div className="absolute top-2 right-2 z-20">
                                                         <DropzoneRemoveFile>
-                                                            <button
-                                                                onClick={() => console.log('Trash icon clicked for:', file.fileName)}
-                                                                className="rounded-full bg-black/80 p-1"
-                                                            >
+                                                            <span onClick={() => setKtpFileStatuses([])} className="rounded-full bg-white p-1">
                                                                 <Trash2Icon className="size-4" />
-                                                            </button>
+                                                            </span>
                                                         </DropzoneRemoveFile>
                                                     </div>
                                                 </DropzoneFileListItem>
@@ -737,31 +1017,14 @@ export default function CustomerForm({
                                             <DropzoneTrigger className="flex flex-col items-center gap-4 bg-transparent p-10 text-center text-sm">
                                                 <CloudUploadIcon className="size-8" />
                                                 <div>
-                                                    <p className="font-semibold">Upload images</p>
-                                                    <p className="text-muted-foreground text-sm">Click here or drag and drop to upload</p>
+                                                    <p className="font-semibold">Upload PDF</p>
+                                                    <p className="text-muted-foreground text-sm">Click or drag to upload a .pdf file</p>
                                                 </div>
                                             </DropzoneTrigger>
                                         )}
                                     </DropZoneArea>
                                 </Dropzone>
-                                {isModalOpen && previewImage && (
-                                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-                                        <div className="relative mx-4 w-full max-w-3xl rounded-lg bg-white p-4 shadow-lg">
-                                            <img src={previewImage} alt="preview" className="h-auto max-h-[80vh] w-full rounded object-contain" />
-                                            <div className="mt-4 flex justify-end gap-2">
-                                                <button
-                                                    onClick={() => {
-                                                        setIsModalOpen(false);
-                                                        setPreviewImage(null);
-                                                    }}
-                                                    className="rounded-md bg-gray-300 px-4 py-2 hover:bg-gray-400"
-                                                >
-                                                    Tutup
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
+                                <p className="mt-1 text-xs text-red-500">* Wajib unggah KTP dalam format PDF</p>
                                 <InputError message={errors.attachments} />
                             </div>
                         </div>
@@ -778,7 +1041,8 @@ export default function CustomerForm({
                                         month: 'long',
                                         year: 'numeric',
                                     })}
-                                </strong>
+                                </strong>{' '}
+                                <strong> oleh {data.nama_personal || ''}</strong>
                             </p>
                         </div>
                     </div>

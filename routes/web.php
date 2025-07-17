@@ -17,6 +17,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         return Inertia::render('dashboard');
     })->name('dashboard');
     Route::get('customer/share', [CustomerController::class, 'share'])->name('customer.share');
+    // Di routes/web.php
+    Route::post('/submit-customer-status', [CustomersStatusController::class, 'submit'])->name('customer-status.submit');
     Route::resource('customer', CustomerController::class);
     Route::resource('customer-attachments', CustomerAttach::class);
     // web.php
