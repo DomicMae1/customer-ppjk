@@ -14,6 +14,29 @@ class RoleAndPermissionSeeder extends Seeder
      */
     public function run(): void
     {
+        $customPermissions = [
+            // Email Permissions
+            'create-email-manager-master-customer',
+            'create-email-direktur-master-customer',
+            'create-email-lawyer-master-customer',
+
+            // Manager Permissions
+            'view-manager-master-customer',
+            'create-manager-master-customer',
+
+            // Direktur Permissions
+            'view-direktur-master-customer',
+            'create-direktur-master-customer',
+
+            // Lawyer Permissions
+            'view-lawyer-master-customer',
+            'create-lawyer-master-customer',
+        ];
+
+        foreach ($customPermissions as $perm) {
+            Permission::firstOrCreate(['name' => $perm]);
+        }
+
         // Daftar model yang akan memiliki permission
         $models = [
             'master-customer',
@@ -41,36 +64,68 @@ class RoleAndPermissionSeeder extends Seeder
         $editorRole = Role::firstOrCreate(['name' => 'manager']);
         $userRole = Role::firstOrCreate(['name' => 'user']);
 
-        // Assign permissions to roles
-        // Admin memiliki semua permission
+        // Admin: semua
         $adminRole->syncPermissions(Permission::all());
 
-        // Editor memiliki permission terbatas
-        $editorPermissions = [];
-        foreach ($models as $model) {
-            $editorPermissions[] = "create-{$model}";
-            $editorPermissions[] = "update-{$model}";
-            $editorPermissions[] = "delete-{$model}";
-            $editorPermissions[] = "view-{$model}";
-        }
-        $editorRole->syncPermissions($editorPermissions);
+        // Manager
+        $editorRole->syncPermissions([
+            'create-master-customer',
+            'view-master-customer',
+            'view-manager-master-customer',
+            'create-manager-master-customer',
+            'create-email-manager-master-customer',
+        ]);
 
-        $lawyerPermissions = [];
-        foreach ($models as $model) {
-            $lawyerPermissions[] = "create-{$model}";
-            $lawyerPermissions[] = "update-{$model}";
-            $lawyerPermissions[] = "delete-{$model}";
-            $lawyerPermissions[] = "view-{$model}";
-        }
-        $lawyerRole->syncPermissions($lawyerPermissions);
+        // Direktur
+        $direkturRole = Role::firstOrCreate(['name' => 'direktur']);
+        $direkturRole->syncPermissions([
+            'view-master-customer',
+            'view-direktur-master-customer',
+            'create-direktur-master-customer',
+            'create-email-direktur-master-customer',
+        ]);
 
-        // User hanya memiliki permission view
-        $userPermissions = [];
-        foreach ($models as $model) {
-            $userPermissions[] = "create-{$model}";
-            $userPermissions[] = "update-{$model}";
-            $userPermissions[] = "view-{$model}";
-        }
-        $userRole->syncPermissions($userPermissions);
+        // Lawyer
+        $lawyerRole->syncPermissions([
+            'view-master-customer',
+            'view-lawyer-master-customer',
+            'create-lawyer-master-customer',
+            'create-email-lawyer-master-customer',
+        ]);
+
+        // User: terbatas
+        $userRole->syncPermissions([
+            'create-master-customer',
+            'update-master-customer',
+            'view-master-customer',
+        ]);
+
+        // // Editor memiliki permission terbatas
+        // $editorPermissions = [];
+        // foreach ($models as $model) {
+        //     $editorPermissions[] = "create-{$model}";
+        //     $editorPermissions[] = "update-{$model}";
+        //     $editorPermissions[] = "delete-{$model}";
+        //     $editorPermissions[] = "view-{$model}";
+        // }
+        // $editorRole->syncPermissions($editorPermissions);
+
+        // $lawyerPermissions = [];
+        // foreach ($models as $model) {
+        //     $lawyerPermissions[] = "create-{$model}";
+        //     $lawyerPermissions[] = "update-{$model}";
+        //     $lawyerPermissions[] = "delete-{$model}";
+        //     $lawyerPermissions[] = "view-{$model}";
+        // }
+        // $lawyerRole->syncPermissions($lawyerPermissions);
+
+        // // User hanya memiliki permission view
+        // $userPermissions = [];
+        // foreach ($models as $model) {
+        //     $userPermissions[] = "create-{$model}";
+        //     $userPermissions[] = "update-{$model}";
+        //     $userPermissions[] = "view-{$model}";
+        // }
+        // $userRole->syncPermissions($userPermissions);
     }
 }
