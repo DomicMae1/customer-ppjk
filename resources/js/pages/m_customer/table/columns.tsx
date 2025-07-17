@@ -24,14 +24,14 @@ const downloadPdf = async (id: number) => {
 
 export const columns = (): ColumnDef<MasterCustomer>[] => [
     {
-        accessorKey: 'no_npwp',
-        header: 'Nomor NPWP',
-        cell: ({ row }) => <div className="px-4 py-2">{row.original.no_npwp}</div>,
+        accessorKey: 'nama_perusahaan',
+        header: 'Nama Perusahaan',
+        cell: ({ row }) => <div className="px-4 py-2">{row.original.nama_perusahaan}</div>,
     },
     {
-        accessorKey: 'nama_perusahaan',
-        header: 'Nama Customer',
-        cell: ({ row }) => <div className="px-4 py-2">{row.original.nama_perusahaan}</div>,
+        accessorKey: 'nama_user',
+        header: 'User',
+        cell: ({ row }) => <div className="px-4 py-2">{row.original.creator?.name || ''}</div>,
     },
     {
         accessorKey: 'no_telp_pic',
