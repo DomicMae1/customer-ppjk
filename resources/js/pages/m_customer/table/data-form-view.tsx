@@ -377,7 +377,7 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                     </div>
 
                     <div className="border border-black p-2">
-                        {statusData?.status_1_timestamps && (
+                        {statusData?.submit_1_timestamps && (
                             <div className="text-muted-foreground mt-1 text-sm">
                                 <p>
                                     <strong>{statusData.nama_user}</strong>
