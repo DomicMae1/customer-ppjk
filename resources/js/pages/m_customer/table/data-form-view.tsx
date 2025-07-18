@@ -342,7 +342,7 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                 </>
             )}
 
-            <div className="mt-12 space-x-3">
+            <div className="mt-12 mb-6 space-x-3">
                 {!isAllStatusSubmitted && (
                     <>
                         {userRole === 'user' && (
@@ -361,14 +361,13 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                                 Rejected
                             </Button>
                         )}
-
-                        <Link href="/customer">
-                            <Button variant="secondary" className="border-1 border-black">
-                                Kembali
-                            </Button>
-                        </Link>
                     </>
                 )}
+                <Link href="/customer">
+                    <Button variant="secondary" className="border-1 border-black">
+                        Kembali
+                    </Button>
+                </Link>
             </div>
 
             <div className="grid grid-cols-4 gap-4">
@@ -379,53 +378,63 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
 
                     <div className="border border-black p-2">
                         {statusData?.status_1_timestamps && (
-                            <p className="text-muted-foreground mt-1 text-sm">
-                                Marketing <strong>{statusData.nama_user}</strong> approved tanggal{' '}
-                                <strong>
-                                    {new Date(statusData.submit_1_timestamps).toLocaleDateString('id-ID', {
-                                        day: 'numeric',
-                                        month: 'long',
-                                        year: 'numeric',
-                                    })}
-                                </strong>{' '}
-                                pukul{' '}
-                                <strong>
-                                    {new Date(statusData.submit_1_timestamps).toLocaleTimeString('id-ID', {
-                                        hour: '2-digit',
-                                        minute: '2-digit',
-                                        second: '2-digit',
-                                        hour12: false,
-                                    })}
-                                </strong>
-                            </p>
+                            <div className="text-muted-foreground mt-1 text-sm">
+                                <p>
+                                    <strong>{statusData.nama_user}</strong>
+                                </p>
+                                <p>
+                                    tanggal{' '}
+                                    <strong>
+                                        {new Date(statusData.submit_1_timestamps).toLocaleDateString('id-ID', {
+                                            day: 'numeric',
+                                            month: 'long',
+                                            year: 'numeric',
+                                        })}
+                                    </strong>{' '}
+                                    pukul{' '}
+                                    <strong>
+                                        {new Date(statusData.submit_1_timestamps).toLocaleTimeString('id-ID', {
+                                            hour: '2-digit',
+                                            minute: '2-digit',
+                                            second: '2-digit',
+                                            hour12: false,
+                                        })}
+                                    </strong>
+                                </p>
+                            </div>
                         )}
                     </div>
                 </div>
                 <div>
                     <div className="mb-1 border border-black p-2">
-                        <Label htmlFor="bentuk_badan_usaha">Direvisi</Label>
+                        <Label htmlFor="bentuk_badan_usaha">Diverifikasi</Label>
                     </div>
                     <div className="border border-black p-2">
                         {statusData?.status_1_timestamps && (
-                            <p className="text-muted-foreground mt-1 text-sm">
-                                Manager <strong>{statusData.status_1_by_name}</strong> approved tanggal{' '}
-                                <strong>
-                                    {new Date(statusData.status_1_timestamps).toLocaleDateString('id-ID', {
-                                        day: 'numeric',
-                                        month: 'long',
-                                        year: 'numeric',
-                                    })}
-                                </strong>{' '}
-                                pukul{' '}
-                                <strong>
-                                    {new Date(statusData.status_1_timestamps).toLocaleTimeString('id-ID', {
-                                        hour: '2-digit',
-                                        minute: '2-digit',
-                                        second: '2-digit',
-                                        hour12: false,
-                                    })}
-                                </strong>
-                            </p>
+                            <div className="text-muted-foreground mt-1 text-sm">
+                                <p>
+                                    <strong>{statusData.status_1_by_name}</strong>
+                                </p>
+                                <p>
+                                    tanggal{' '}
+                                    <strong>
+                                        {new Date(statusData.status_1_timestamps).toLocaleDateString('id-ID', {
+                                            day: 'numeric',
+                                            month: 'long',
+                                            year: 'numeric',
+                                        })}
+                                    </strong>{' '}
+                                    pukul{' '}
+                                    <strong>
+                                        {new Date(statusData.status_1_timestamps).toLocaleTimeString('id-ID', {
+                                            hour: '2-digit',
+                                            minute: '2-digit',
+                                            second: '2-digit',
+                                            hour12: false,
+                                        })}
+                                    </strong>
+                                </p>
+                            </div>
                         )}
                     </div>
                 </div>
@@ -435,53 +444,63 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                     </div>
                     <div className="border border-black p-2">
                         {statusData?.status_2_timestamps && (
-                            <p className="text-muted-foreground mt-1 text-sm">
-                                Direktur <strong> {statusData.status_2_by_name} </strong> approved tanggal{' '}
-                                <strong>
-                                    {new Date(statusData.status_2_timestamps).toLocaleDateString('id-ID', {
-                                        day: 'numeric',
-                                        month: 'long',
-                                        year: 'numeric',
-                                    })}
-                                </strong>{' '}
-                                pukul{' '}
-                                <strong>
-                                    {new Date(statusData.status_2_timestamps).toLocaleTimeString('id-ID', {
-                                        hour: '2-digit',
-                                        minute: '2-digit',
-                                        second: '2-digit',
-                                        hour12: false,
-                                    })}
-                                </strong>
-                            </p>
+                            <div className="text-muted-foreground mt-1 text-sm">
+                                <p>
+                                    <strong> {statusData.status_2_by_name} </strong>
+                                </p>
+                                <p>
+                                    tanggal{' '}
+                                    <strong>
+                                        {new Date(statusData.status_2_timestamps).toLocaleDateString('id-ID', {
+                                            day: 'numeric',
+                                            month: 'long',
+                                            year: 'numeric',
+                                        })}
+                                    </strong>{' '}
+                                    pukul{' '}
+                                    <strong>
+                                        {new Date(statusData.status_2_timestamps).toLocaleTimeString('id-ID', {
+                                            hour: '2-digit',
+                                            minute: '2-digit',
+                                            second: '2-digit',
+                                            hour12: false,
+                                        })}
+                                    </strong>
+                                </p>
+                            </div>
                         )}
                     </div>
                 </div>
                 <div>
                     <div className="mb-1 border border-black p-2">
-                        <Label htmlFor="kota">Direview oleh</Label>
+                        <Label htmlFor="kota">Direview</Label>
                     </div>
                     <div className="border border-black p-2">
                         {statusData?.status_3_timestamps && (
-                            <p className="text-muted-foreground mt-1 text-sm">
-                                Lawyer <strong> {statusData.status_3_by_name} </strong> approved tanggal{' '}
-                                <strong>
-                                    {new Date(statusData.status_2_timestamps).toLocaleDateString('id-ID', {
-                                        day: 'numeric',
-                                        month: 'long',
-                                        year: 'numeric',
-                                    })}
-                                </strong>{' '}
-                                pukul{' '}
-                                <strong>
-                                    {new Date(statusData.status_2_timestamps).toLocaleTimeString('id-ID', {
-                                        hour: '2-digit',
-                                        minute: '2-digit',
-                                        second: '2-digit',
-                                        hour12: false,
-                                    })}
-                                </strong>
-                            </p>
+                            <div className="text-muted-foreground mt-1 text-sm">
+                                <p>
+                                    <strong> {statusData.status_3_by_name} </strong>{' '}
+                                </p>
+                                <p>
+                                    <strong>
+                                        tanggal{' '}
+                                        {new Date(statusData.status_2_timestamps).toLocaleDateString('id-ID', {
+                                            day: 'numeric',
+                                            month: 'long',
+                                            year: 'numeric',
+                                        })}
+                                    </strong>{' '}
+                                    pukul{' '}
+                                    <strong>
+                                        {new Date(statusData.status_2_timestamps).toLocaleTimeString('id-ID', {
+                                            hour: '2-digit',
+                                            minute: '2-digit',
+                                            second: '2-digit',
+                                            hour12: false,
+                                        })}
+                                    </strong>
+                                </p>
+                            </div>
                         )}
                     </div>
                 </div>
