@@ -14,12 +14,20 @@ import { CloudUploadIcon, File, Trash2Icon } from 'lucide-react';
 // import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 // import { AlertCircle } from "lucide-react"
 import axios from 'axios';
-import { FormEventHandler, useState } from 'react';
+import { FormEventHandler, useEffect, useState } from 'react';
 import { PhoneInput } from 'react-international-phone';
 import 'react-international-phone/style.css';
 import { NumericFormat } from 'react-number-format';
 
-export default function PublicCustomerForm({ customer, onSuccess }: { customer?: MasterCustomer; onSuccess?: () => void }) {
+export default function PublicCustomerForm({
+    customer,
+    onSuccess,
+    isFilled = false,
+}: {
+    customer?: MasterCustomer;
+    onSuccess?: () => void;
+    isFilled?: boolean;
+}) {
     const { customer_name, token, user_id } = usePage().props as unknown as {
         customer_name: string;
         token: string;
@@ -87,6 +95,13 @@ export default function PublicCustomerForm({ customer, onSuccess }: { customer?:
     const [sppkpFile, setSppkpFile] = useState<File | null>(null);
     const [ktpFile, setKtpFile] = useState<File | null>(null);
     // const [isModalOpen, setIsModalOpen] = useState(false);
+
+    useEffect(() => {
+        if (isFilled) {
+            alert('Form sudah diisi sebelumnya. Kamu tidak bisa mengedit data ini lagi.');
+            router.visit('/'); // atau router.replace() kalau pakai Next.js
+        }
+    }, [isFilled]);
 
     function formatNpwp16(input: string): string {
         const raw = input.replace(/\D/g, ''); // Hanya angka
@@ -336,22 +351,16 @@ export default function PublicCustomerForm({ customer, onSuccess }: { customer?:
             };
             if (!customer || !customer.id) {
                 // 🆕 CREATE
-                router.post(route('customer.public.submit'), finalPayload, {
-                    onSuccess: () => {
-                        console.log('✅ Berhasil simpan data!');
-                        alert('data berhasil dimasukkan');
-                        onSuccess?.(); // Menjalankan fungsi onSuccess lain jika ada
-                    },
-                    onError: (errors) => {
-                        console.error('Create error:', errors);
-                        // Menampilkan error dari server jika ada
-                        if (errors.error) {
-                            alert(`Gagal menyimpan: ${errors.error}`);
-                        } else {
-                            alert('Terjadi kesalahan saat menyimpan data.');
-                        }
-                    },
-                });
+                await axios
+                    .post(route('customer.public.submit'), finalPayload)
+                    .then((res) => {
+                        alert(res.data.message || '✅ Data berhasil disimpan!');
+                        onSuccess?.();
+                    })
+                    .catch((err) => {
+                        console.error(err);
+                        alert(err.response?.data?.error || 'Terjadi kesalahan saat menyimpan data.');
+                    });
             }
         } catch (err) {
             console.error('Upload gagal:', err);

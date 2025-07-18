@@ -437,10 +437,16 @@ class CustomerController extends Controller
             abort(404, 'Link tidak valid atau sudah tidak tersedia.');
         }
 
+        if ($link->is_filled) {
+            // Sudah diisi, redirect atau tampilkan pesan
+            return inertia('m_customer/table/filled-already'); // atau return view('already-filled')
+        }
+
         return inertia('m_customer/table/public-data-form', [
             'customer_name' => $link->nama_customer,
             'token' => $token,
             'user_id' => $link->id_user,
+            'isFilled' => $link->is_filled,
         ]);
     }
 
@@ -470,11 +476,11 @@ class CustomerController extends Controller
             // tambahkan jika perlu: no_telp, website, dsb
         ]);
 
-        $customer = Customer::create([
-            ...$validated,
-            'id_user' => $link->id_user, // foreign key dari pembuat link
-            'id_perusahaan' => $link->id_perusahaan ?? null, // jika kamu punya kolom ini
-        ]);
+        $customer = Customer::create(array_merge($validated, [
+            'id_user' => $link->id_user, // ✅ pakai dari token
+            'id_perusahaan' => 0, // atau isi sesuai kebutuhan jika bisa diketahui
+        ]));
+
 
         // Opsional: Hapus link agar tidak bisa dipakai ulang
         // $link->delete();
