@@ -1,12 +1,12 @@
 import AppLayout from '@/layouts/app-layout';
-import { type BreadcrumbItem, Ledger, MasterCustomer } from '@/types';
+import { type BreadcrumbItem, MasterCustomer } from '@/types';
 import { Head, usePage } from '@inertiajs/react';
-import SupplierForm from './data-form-view';
+import ViewCustomerForm from './data-form-view';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
         title: 'Master Customer',
-        href: '/master-customer',
+        href: '/customer',
     },
     {
         title: 'View Customer',
@@ -16,7 +16,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 export default function PaymentsEdit() {
     const { props } = usePage();
-    const { customer, ledger } = props as unknown as { customer: MasterCustomer; ledger: Ledger };
+    const { customer } = props as unknown as { customer: MasterCustomer };
 
     // console.log(usePage().props);
 
@@ -24,7 +24,7 @@ export default function PaymentsEdit() {
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="View Customer" />
             <div className="p-4">
-                <SupplierForm customer={customer} ledger={ledger} />
+                <ViewCustomerForm customer={customer} />
             </div>
         </AppLayout>
     );

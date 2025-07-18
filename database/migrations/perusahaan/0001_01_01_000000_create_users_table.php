@@ -30,7 +30,9 @@ return new class extends Migration
 
         Schema::connection('tako-perusahaan')->create('sessions', function (Blueprint $table) {
             $table->string('id')->primary();
+            $table->unsignedBigInteger('user_id')->nullable(); // Tambahkan kolom terlebih dahulu
             $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
+
             $table->string('ip_address', 45)->nullable();
             $table->text('user_agent')->nullable();
             $table->longText('payload');

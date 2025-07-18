@@ -19,6 +19,7 @@ return new class extends Migration
 
             // === Status 1 (Marketing Submit)
             $table->timestamp('submit_1_timestamps')->nullable(); // Timestamp saat marketing submit
+            $table->timestamp('submit_1_attachment')->nullable(); // Timestamp saat marketing submit
 
             // === Status 1 (Manager)
             $table->foreignId('status_1_by')->nullable()->constrained('users')->onDelete('set null'); // User yang approve status 1

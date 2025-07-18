@@ -1,209 +1,491 @@
-import InputError from '@/components/input-error';
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { Dropzone, DropZoneArea, DropzoneFileListItem, DropzoneRemoveFile, DropzoneTrigger, useDropzone } from '@/components/dropzone';
 import { Button } from '@/components/ui/button';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { cn } from '@/lib/utils';
-import { Ledger, MasterCustomer } from '@/types';
-import { Link, router, useForm, usePage } from '@inertiajs/react';
-import { Check, ChevronsUpDown } from 'lucide-react';
-import { useState } from 'react';
+import { Attachment, MasterCustomer } from '@/types';
+import { Link, router, usePage } from '@inertiajs/react';
+import axios from 'axios';
+import { CloudUploadIcon, File, Trash2Icon } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
-export default function SupplierForm({ ledger, customer, onSuccess }: { ledger: Ledger; customer: MasterCustomer; onSuccess?: () => void }) {
-    const { data, setData } = useForm({
-        nama_cust: customer?.nama_cust || '',
-        alamat_npwp: customer?.alamat_npwp || '',
-        alamat_penagihan: customer?.alamat_penagihan || '',
-        no_npwp: customer?.no_npwp || '',
-        nama_pic: customer?.nama_pic || '',
-        no_telp_pic: customer?.no_telp_pic || '',
-        pph_info: customer?.pph_info ? 'true' : 'false', // Tetap string
-        ledger_id: customer?.ledger_id ? String(customer.ledger_id) : '',
+export default function ViewCustomerForm({ customer }: { customer: MasterCustomer }) {
+    const [keterangan, setKeterangan] = useState('');
+    // const [attach, setAttach] = useState<File | null>(null);
+    const [attachFile, setAttachFile] = useState<File | null>(null);
+    const [attachFileStatuses, setAttachFileStatuses] = useState<any[]>([]);
+    const [statusData, setStatusData] = useState<any | null>(null);
+    const [isLoadingStatus, setIsLoadingStatus] = useState(true);
+
+    useEffect(() => {
+        if (customer?.id) {
+            axios
+                .get(`/customer-status-check?customer_id=${customer.id}`)
+                .then((res) => {
+                    setStatusData(res.data);
+                })
+                .catch((err) => {
+                    console.error('Gagal mengambil data status:', err);
+                })
+                .finally(() => {
+                    setIsLoadingStatus(false);
+                });
+        }
+    }, [customer?.id]);
+
+    const isAllStatusSubmitted = !!(
+        statusData?.submit_1_timestamps &&
+        statusData?.status_1_timestamps &&
+        statusData?.status_2_timestamps &&
+        statusData?.status_3_timestamps
+    );
+
+    const { props } = usePage<{
+        attachments: Attachment[];
+        auth: {
+            user: {
+                id: number;
+                name: string;
+                email: string;
+                roles: { name: string }[];
+            };
+        };
+    }>();
+
+    const { attachments } = props;
+    console.log('hasil data', props);
+
+    const user = props.auth.user;
+    const userRole = props.auth.user.roles?.[0]?.name?.toLowerCase() ?? '';
+    const allowedRoles = ['manager', 'direktur', 'lawyer'];
+    const showExtraFields = allowedRoles.includes(userRole);
+
+    console.log('User role:', userRole);
+    console.log('berhasil', showExtraFields);
+
+    const dropzoneAttach = useDropzone({
+        onDropFile: async (file: File) => {
+            setAttachFile(file);
+
+            const fileStatus = {
+                id: String(Date.now()),
+                status: 'success',
+                fileName: file.name,
+                result: URL.createObjectURL(file),
+            } as const;
+
+            setAttachFileStatuses([fileStatus]); // Ganti jika user upload baru
+            return fileStatus;
+        },
+        validation: {
+            accept: {
+                'application/pdf': ['.pdf'],
+            },
+            maxSize: 5 * 1024 * 1024,
+            maxFiles: 1,
+        },
     });
 
-    const { errors } = usePage().props;
-
-    const [open, setOpen] = useState(false);
-
-    function handleSubmit(e: React.FormEvent) {
-        e.preventDefault();
-
-        if (customer?.id) {
-            // Update data
-            router.put(route('master-customer.update', customer.id), data, {
-                onSuccess: () => {
-                    if (onSuccess) onSuccess(); // Panggil callback untuk menutup dialog
-                },
-                onError: (serverErrors) => {
-                    console.log('Update error:', serverErrors); // Log error untuk debugging
-                },
-            });
-        } else {
-            // Create data
-            router.post(route('master-customer.store'), data, {
-                onSuccess: () => {
-                    if (onSuccess) onSuccess();
-                },
-                onError: (serverErrors) => {
-                    console.log('Create error:', serverErrors);
-                },
-            });
+    const handleSubmit = async () => {
+        if (!customer.id) {
+            alert('❌ Customer ID tidak ditemukan.');
+            return;
         }
-    }
+        const uploadedAttachments = [];
+
+        // 1️⃣ Upload file ke /customer/upload-temp
+        if (showExtraFields && attachFile) {
+            try {
+                const formDataAttach = new FormData();
+                formDataAttach.append('file', attachFile);
+
+                const resAttach = await axios.post('/customer/upload-temp', formDataAttach, {
+                    headers: {
+                        'Content-Type': 'multipart/form-data',
+                    },
+                });
+
+                uploadedAttachments.push({
+                    id: 0,
+                    customer_id: customer?.id ?? 0,
+                    nama_file: resAttach.data.nama_file,
+                    path: resAttach.data.path,
+                    type: 'note',
+                });
+            } catch (error) {
+                console.error('Upload gagal:', error);
+                alert('❌ Upload file gagal.');
+                return;
+            }
+        }
+
+        console.log(customer.id);
+
+        const formData = new FormData();
+        formData.append('customer_id', customer.id.toString());
+        formData.append('status_1_by', String(props.auth.user.id));
+        console.log('Hasil apaytuh ', props.auth.user.name);
+
+        if (showExtraFields) {
+            formData.append('keterangan', keterangan);
+            if (attachFile) {
+                formData.append('attach', attachFile);
+            }
+        }
+
+        router.post('/submit-customer-status', formData, {
+            preserveScroll: true,
+            preserveState: true,
+            forceFormData: true,
+            onSuccess: () => {
+                alert('✅ Data berhasil disubmit!');
+                setAttachFile(null);
+                setAttachFileStatuses([]);
+                router.visit('/customer');
+            },
+            onError: (errors) => {
+                const firstError = errors[Object.keys(errors)[0]];
+                alert(`❌ Gagal submit: ${firstError}`);
+            },
+        });
+    };
 
     return (
-        <div className="rounded-2xl border p-4">
-            <h1 className="mb-4 text-3xl font-semibold">{customer ? 'View Customer' : 'Create Customer'}</h1>
-            <form onSubmit={handleSubmit}>
-                <div className="grid grid-cols-3 gap-4">
-                    <div>
-                        <Label htmlFor="no_npwp">Nomor NPWP</Label>
-                        <Input
-                            id="no_npwp"
-                            value={data.no_npwp}
-                            onChange={(e) => setData('no_npwp', e.target.value)}
-                            placeholder="Enter Nomor NPWP"
-                            disabled
-                        />
-                        {errors.no_npwp && <div className="mt-1 text-sm text-red-500">{errors.no_npwp}</div>}
-                    </div>
-                    <div>
-                        <Label htmlFor="nama_cust">Nama Customer</Label>
-                        <Input
-                            id="nama_cust"
-                            value={data.nama_cust}
-                            onChange={(e) => setData('nama_cust', e.target.value)}
-                            placeholder="Enter nama customer"
-                            disabled
-                        />
-                        {errors.nama_cust && <div className="mt-1 text-sm text-red-500">{errors.nama_cust}</div>}
-                    </div>
-                    <div className="col-span-3 flex gap-4">
-                        <div className="w-full">
-                            <Label htmlFor="alamat_npwp">Alamat NPWP</Label>
-                            <Textarea
-                                id="alamat_npwp"
-                                value={data.alamat_npwp}
-                                onChange={(e) => setData('alamat_npwp', e.target.value)}
-                                placeholder="Enter alamat NPWP"
-                                className="h-32"
-                                disabled
-                            />
-                            {errors.alamat_npwp && <div className="mt-1 text-sm text-red-500">{errors.alamat_npwp}</div>}
-                        </div>
-                        <div className="w-full">
-                            <Label htmlFor="alamat_penagihan">Alamat Penagihan</Label>
-                            <Textarea
-                                id="alamat_penagihan"
-                                value={data.alamat_penagihan}
-                                onChange={(e) => setData('alamat_penagihan', e.target.value)}
-                                placeholder="Enter alamat penagihan"
-                                className="h-32"
-                                disabled
-                            />
-                            {errors.alamat_penagihan && <div className="mt-1 text-sm text-red-500">{errors.alamat_penagihan}</div>}
-                        </div>
-                    </div>
-                    <div>
-                        <Label htmlFor="nama_pic">Nama PIC</Label>
-                        <Input
-                            id="nama_pic"
-                            value={data.nama_pic}
-                            onChange={(e) => setData('nama_pic', e.target.value)}
-                            placeholder="Enter nama PIC"
-                            disabled
-                        />
-                        {errors.nama_pic && <div className="mt-1 text-sm text-red-500">{errors.nama_pic}</div>}
-                    </div>
-                    <div>
-                        <Label htmlFor="no_telp_pic">No Telp PIC</Label>
-                        <Input
-                            id="no_telp_pic"
-                            value={data.no_telp_pic}
-                            onChange={(e) => setData('no_telp_pic', e.target.value)}
-                            placeholder="Enter nomor telepon PIC"
-                            type="number"
-                            disabled
-                        />
-                        {errors.no_telp_pic && <div className="mt-1 text-sm text-red-500">{errors.no_telp_pic}</div>}
-                    </div>
-                    <div>
-                        <Label htmlFor="pph_info">PPH Info</Label>
-                        <Select value={data.pph_info} onValueChange={(value) => setData('pph_info', value)} disabled>
-                            <SelectTrigger className="w-full">
-                                <SelectValue placeholder="Pilih status PPH" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="true">Ditanggung</SelectItem>
-                                <SelectItem value="false">Tidak Ditanggung</SelectItem>
-                            </SelectContent>
-                        </Select>
-                        {errors.pph_info && <div className="mt-1 text-sm text-red-500">{errors.pph_info}</div>}
-                    </div>
+        <div className="rounded-2xl border-0 p-4">
+            <h1 className="mb-4 text-3xl font-semibold">View Customer</h1>
 
-                    <div>
-                        <Label htmlFor="ledger_id">Perkiraan Jurnal</Label>
-                        <Popover open={open} onOpenChange={setOpen}>
-                            <PopoverTrigger asChild>
-                                <Button variant="outline" role="combobox" aria-expanded={open} className="w-full justify-between" disabled>
-                                    {data.ledger_id
-                                        ? ledger.find((l) => String(l.id) === data.ledger_id)?.kode +
-                                          ' – ' +
-                                          ledger.find((l) => String(l.id) === data.ledger_id)?.nama
-                                        : 'Pilih Perkiraan Jurnal...'}
-                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                </Button>
-                            </PopoverTrigger>
+            <div className="grid grid-cols-3 gap-4">
+                <div>
+                    <Label htmlFor="kategori_usaha">Kategori Usaha</Label>
+                    <Input id="kategori_usaha" value={customer.kategori_usaha} disabled className="border-black" />
+                </div>
+                <div>
+                    <Label htmlFor="bentuk_badan_usaha">Bentuk Badan Usaha</Label>
+                    <Input id="bentuk_badan_usaha" value={customer.bentuk_badan_usaha} disabled className="border-black" />
+                </div>
+                <div>
+                    <Label htmlFor="kota">Kota</Label>
+                    <Input id="kota" value={customer.kota} disabled className="border-black" />
+                </div>
 
-                            <PopoverContent className="w-64 p-0 2xl:w-96">
-                                <Command shouldFilter={true}>
-                                    <CommandInput placeholder="Cari jurnal..." />
-                                    <CommandEmpty>Tidak ditemukan</CommandEmpty>
-                                    <CommandList>
-                                        <ScrollArea className="h-64">
-                                            <CommandGroup>
-                                                {ledger.map((ledger) => (
-                                                    <CommandItem
-                                                        key={ledger.id}
-                                                        value={`${ledger.kode} - ${ledger.nama}`}
-                                                        onSelect={() => {
-                                                            setData('ledger_id', String(ledger.id)); // Update ledger_id di form data
-                                                            setOpen(false); // Tutup popover setelah memilih
-                                                        }}
+                <div className="col-span-3">
+                    <Label htmlFor="alamat_lengkap">Alamat Lengkap</Label>
+                    <Textarea id="alamat_lengkap" value={customer.alamat_lengkap} className="h-24 border-black" disabled />
+                </div>
+
+                <div>
+                    <Label htmlFor="no_telp">No Telp</Label>
+                    <Input id="no_telp" value={customer.no_telp || '-'} disabled className="border-black" />
+                </div>
+                <div>
+                    <Label htmlFor="no_fax">No Fax</Label>
+                    <Input id="no_fax" value={customer.no_fax || '-'} disabled className="border-black" />
+                </div>
+                <div>
+                    <Label htmlFor="email">Email</Label>
+                    <Input id="email" value={customer.email} disabled className="border-black" />
+                </div>
+                <div>
+                    <Label htmlFor="website">Website</Label>
+                    <Input id="website" value={customer.website || '-'} disabled className="border-black" />
+                </div>
+                <div>
+                    <Label htmlFor="top">TOP</Label>
+                    <Input id="top" value={customer.top || '-'} disabled className="border-black" />
+                </div>
+                <div>
+                    <Label htmlFor="status_perpajakan">Status Perpajakan</Label>
+                    <Input id="status_perpajakan" value={customer.status_perpajakan || '-'} disabled className="border-black" />
+                </div>
+                <div>
+                    <Label htmlFor="no_npwp">Nomor NPWP</Label>
+                    <Input id="no_npwp" value={customer.no_npwp || '-'} disabled className="border-black" />
+                </div>
+                <div>
+                    <Label htmlFor="no_npwp_16">NPWP 16 Digit</Label>
+                    <Input id="no_npwp_16" value={customer.no_npwp_16 || '-'} disabled className="border-black" />
+                </div>
+
+                <div className="col-span-3">
+                    <Label htmlFor="alamat_penagihan">Alamat Penagihan</Label>
+                    <Textarea id="alamat_penagihan" value={customer.alamat_penagihan} className="h-24 border-black" disabled />
+                </div>
+
+                <div>
+                    <Label htmlFor="nama_pj">Nama Penanggung Jawab</Label>
+                    <Input id="nama_pj" value={customer.nama_pj || '-'} disabled className="border-black" />
+                </div>
+                <div>
+                    <Label htmlFor="no_ktp_pj">No KTP PJ</Label>
+                    <Input id="no_ktp_pj" value={customer.no_ktp_pj || '-'} disabled className="border-black" />
+                </div>
+                <div>
+                    <Label htmlFor="no_telp_pj">No Telp PJ</Label>
+                    <Input id="no_telp_pj" value={customer.no_telp_pj || '-'} disabled className="border-black" />
+                </div>
+
+                <div>
+                    <Label htmlFor="nama_personal">Nama Personal</Label>
+                    <Input id="nama_personal" value={customer.nama_personal || '-'} disabled className="border-black" />
+                </div>
+                <div>
+                    <Label htmlFor="jabatan_personal">Jabatan Personal</Label>
+                    <Input id="jabatan_personal" value={customer.jabatan_personal || '-'} disabled className="border-black" />
+                </div>
+                <div>
+                    <Label htmlFor="no_telp_personal">No Telp Personal</Label>
+                    <Input id="no_telp_personal" value={customer.no_telp_personal || '-'} disabled className="border-black" />
+                </div>
+                <div>
+                    <Label htmlFor="email_personal">Email Personal</Label>
+                    <Input id="email_personal" value={customer.email_personal || '-'} disabled className="border-black" />
+                </div>
+            </div>
+
+            {/* TAMPILKAN ATTACHMENTS */}
+            {attachments?.length > 0 && (
+                <div className="mt-6">
+                    <h2 className="mb-2 text-xl font-bold">Lampiran Dokumen</h2>
+                    <div className="grid grid-cols-3 gap-4">
+                        {attachments.map((file) => {
+                            console.log(file.path); // Tambahkan console log di sini
+
+                            return (
+                                <div key={file.id} className="rounded border border-black p-2">
+                                    <div className="mb-1 font-medium capitalize">{file.type.toUpperCase()}</div>
+                                    <a href={file.path} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 underline">
+                                        Lihat Dokumen
+                                    </a>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
+            {!isAllStatusSubmitted && (
+                <>
+                    {showExtraFields && (
+                        <div className="mt-6">
+                            <h2 className="text-xl font-bold">Masukkan Data Review</h2>
+                            <div className="mt-4 flex flex-col gap-4 md:flex-row">
+                                {/* Keterangan */}
+                                <div className="w-full md:w-1/2">
+                                    <Label htmlFor="attach" className="mb-1 block">
+                                        Masukkan Keterangan
+                                    </Label>
+                                    <textarea
+                                        className="h-full w-full rounded border p-2"
+                                        placeholder="Masukkan keterangan"
+                                        value={keterangan}
+                                        onChange={(e) => setKeterangan(e.target.value)}
+                                        rows={5}
+                                    />
+                                </div>
+
+                                {/* Dropzone */}
+                                <div className="w-full md:w-1/2">
+                                    <Label htmlFor="attach" className="mb-1 block">
+                                        Upload Lampiran (PDF)
+                                    </Label>
+                                    <Dropzone {...dropzoneAttach}>
+                                        <DropZoneArea>
+                                            {attachFileStatuses.length > 0 ? (
+                                                attachFileStatuses.map((file) => (
+                                                    <DropzoneFileListItem
+                                                        key={file.id}
+                                                        file={file}
+                                                        className="bg-secondary relative w-full overflow-hidden rounded-md shadow-sm"
                                                     >
-                                                        {ledger.kode} – {ledger.nama}
-                                                        <Check
-                                                            className={cn(
-                                                                'ml-auto',
-                                                                data.ledger_id === String(ledger.id) ? 'opacity-100' : 'opacity-0',
-                                                            )}
-                                                        />
-                                                    </CommandItem>
-                                                ))}
-                                            </CommandGroup>
-                                        </ScrollArea>
-                                    </CommandList>
-                                </Command>
-                            </PopoverContent>
-                        </Popover>
-                        <InputError message={errors.ledger_id} />
+                                                        {file.status === 'success' && (
+                                                            <div
+                                                                onClick={() => file.result && window.open(file.result, '_blank')}
+                                                                className="z-10 flex aspect-video w-full cursor-pointer items-center justify-center rounded-md bg-gray-100 text-sm text-gray-600"
+                                                            >
+                                                                <File className="mr-2 size-6" />
+                                                                {file.fileName}
+                                                            </div>
+                                                        )}
+                                                        <div className="absolute top-2 right-2 z-20">
+                                                            <DropzoneRemoveFile>
+                                                                <span
+                                                                    onClick={() => {
+                                                                        setAttachFile(null);
+                                                                        setAttachFileStatuses([]);
+                                                                    }}
+                                                                    className="rounded-full bg-white p-1"
+                                                                >
+                                                                    <Trash2Icon className="size-4 text-black" />
+                                                                </span>
+                                                            </DropzoneRemoveFile>
+                                                        </div>
+                                                    </DropzoneFileListItem>
+                                                ))
+                                            ) : (
+                                                <DropzoneTrigger className="flex flex-col items-center gap-4 bg-transparent p-10 text-center text-sm">
+                                                    <CloudUploadIcon className="size-8" />
+                                                    <div>
+                                                        <p className="font-semibold">Upload PDF</p>
+                                                        <p className="text-muted-foreground text-sm">Click atau drag file .pdf ke sini</p>
+                                                    </div>
+                                                </DropzoneTrigger>
+                                            )}
+                                        </DropZoneArea>
+                                    </Dropzone>
+                                    <p className="mt-1 text-xs text-red-500">* Wajib unggah file PDF maksimal 5MB</p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </>
+            )}
+
+            <div className="mt-12 space-x-3">
+                {!isAllStatusSubmitted && (
+                    <>
+                        {userRole === 'user' && (
+                            <Button variant="default" onClick={handleSubmit}>
+                                Submit
+                            </Button>
+                        )}
+
+                        {['manager', 'direktur', 'lawyer'].includes(userRole) && (
+                            <Button variant="default" onClick={handleSubmit}>
+                                Approved
+                            </Button>
+                        )}
+                        {['lawyer'].includes(userRole) && (
+                            <Button variant="destructive" onClick={handleSubmit} className="text-white">
+                                Rejected
+                            </Button>
+                        )}
+
+                        <Link href="/customer">
+                            <Button variant="secondary" className="border-1 border-black">
+                                Kembali
+                            </Button>
+                        </Link>
+                    </>
+                )}
+            </div>
+
+            <div className="grid grid-cols-4 gap-4">
+                <div>
+                    <div className="mb-1 border border-black p-2">
+                        <Label htmlFor="kategori_usaha">Disubmit</Label>
+                    </div>
+
+                    <div className="border border-black p-2">
+                        {statusData?.status_1_timestamps && (
+                            <p className="text-muted-foreground mt-1 text-sm">
+                                Marketing <strong>{statusData.nama_user}</strong> approved tanggal{' '}
+                                <strong>
+                                    {new Date(statusData.submit_1_timestamps).toLocaleDateString('id-ID', {
+                                        day: 'numeric',
+                                        month: 'long',
+                                        year: 'numeric',
+                                    })}
+                                </strong>{' '}
+                                pukul{' '}
+                                <strong>
+                                    {new Date(statusData.submit_1_timestamps).toLocaleTimeString('id-ID', {
+                                        hour: '2-digit',
+                                        minute: '2-digit',
+                                        second: '2-digit',
+                                        hour12: false,
+                                    })}
+                                </strong>
+                            </p>
+                        )}
                     </div>
                 </div>
-                <div className="mt-4 flex gap-2">
-                    {/* <Button type="submit" disabled={processing}>
-                        {customer ? 'Save' : 'Create'}
-                    </Button> */}
-                    <Link href="/master-customer">
-                        <Button type="button" variant="secondary">
-                            Kembali
-                        </Button>
-                    </Link>
+                <div>
+                    <div className="mb-1 border border-black p-2">
+                        <Label htmlFor="bentuk_badan_usaha">Direvisi</Label>
+                    </div>
+                    <div className="border border-black p-2">
+                        {statusData?.status_1_timestamps && (
+                            <p className="text-muted-foreground mt-1 text-sm">
+                                Manager <strong>{statusData.status_1_by_name}</strong> approved tanggal{' '}
+                                <strong>
+                                    {new Date(statusData.status_1_timestamps).toLocaleDateString('id-ID', {
+                                        day: 'numeric',
+                                        month: 'long',
+                                        year: 'numeric',
+                                    })}
+                                </strong>{' '}
+                                pukul{' '}
+                                <strong>
+                                    {new Date(statusData.status_1_timestamps).toLocaleTimeString('id-ID', {
+                                        hour: '2-digit',
+                                        minute: '2-digit',
+                                        second: '2-digit',
+                                        hour12: false,
+                                    })}
+                                </strong>
+                            </p>
+                        )}
+                    </div>
                 </div>
-            </form>
+                <div>
+                    <div className="mb-1 border border-black p-2">
+                        <Label htmlFor="kota">Mengetahui</Label>
+                    </div>
+                    <div className="border border-black p-2">
+                        {statusData?.status_2_timestamps && (
+                            <p className="text-muted-foreground mt-1 text-sm">
+                                Direktur <strong> {statusData.status_2_by_name} </strong> approved tanggal{' '}
+                                <strong>
+                                    {new Date(statusData.status_2_timestamps).toLocaleDateString('id-ID', {
+                                        day: 'numeric',
+                                        month: 'long',
+                                        year: 'numeric',
+                                    })}
+                                </strong>{' '}
+                                pukul{' '}
+                                <strong>
+                                    {new Date(statusData.status_2_timestamps).toLocaleTimeString('id-ID', {
+                                        hour: '2-digit',
+                                        minute: '2-digit',
+                                        second: '2-digit',
+                                        hour12: false,
+                                    })}
+                                </strong>
+                            </p>
+                        )}
+                    </div>
+                </div>
+                <div>
+                    <div className="mb-1 border border-black p-2">
+                        <Label htmlFor="kota">Direview oleh</Label>
+                    </div>
+                    <div className="border border-black p-2">
+                        {statusData?.status_3_timestamps && (
+                            <p className="text-muted-foreground mt-1 text-sm">
+                                Lawyer <strong> {statusData.status_3_by_name} </strong> approved tanggal{' '}
+                                <strong>
+                                    {new Date(statusData.status_2_timestamps).toLocaleDateString('id-ID', {
+                                        day: 'numeric',
+                                        month: 'long',
+                                        year: 'numeric',
+                                    })}
+                                </strong>{' '}
+                                pukul{' '}
+                                <strong>
+                                    {new Date(statusData.status_2_timestamps).toLocaleTimeString('id-ID', {
+                                        hour: '2-digit',
+                                        minute: '2-digit',
+                                        second: '2-digit',
+                                        hour12: false,
+                                    })}
+                                </strong>
+                            </p>
+                        )}
+                    </div>
+                </div>
+            </div>
         </div>
     );
 }
