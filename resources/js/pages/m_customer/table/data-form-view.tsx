@@ -42,6 +42,8 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
         statusData?.status_3_timestamps
     );
 
+    console.log('Cek-cek', statusData);
+
     const { props } = usePage<{
         attachments: Attachment[];
         auth: {
@@ -61,6 +63,14 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
     const userRole = props.auth.user.roles?.[0]?.name?.toLowerCase() ?? '';
     const allowedRoles = ['manager', 'direktur', 'lawyer'];
     const showExtraFields = allowedRoles.includes(userRole);
+
+    const showUserSubmit = userRole === 'user' && !statusData?.submit_1_timestamps;
+
+    const showManagerApprove = userRole === 'manager' && !!statusData?.submit_1_timestamps && !statusData?.status_1_timestamps;
+
+    const showDirekturApprove = userRole === 'direktur' && !!statusData?.status_1_timestamps && !statusData?.status_2_timestamps;
+
+    const showLawyerApprove = userRole === 'lawyer' && !!statusData?.status_2_timestamps && !statusData?.status_3_timestamps;
 
     console.log('User role:', userRole);
     console.log('berhasil', showExtraFields);
@@ -343,26 +353,35 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
             )}
 
             <div className="mt-12 mb-6 space-x-3">
-                {!isAllStatusSubmitted && (
-                    <>
-                        {userRole === 'user' && (
-                            <Button variant="default" onClick={handleSubmit}>
-                                Submit
-                            </Button>
-                        )}
+                {showUserSubmit && (
+                    <Button variant="default" onClick={handleSubmit}>
+                        Submit
+                    </Button>
+                )}
 
-                        {['manager', 'direktur', 'lawyer'].includes(userRole) && (
-                            <Button variant="default" onClick={handleSubmit}>
-                                Approved
-                            </Button>
-                        )}
-                        {['lawyer'].includes(userRole) && (
-                            <Button variant="destructive" onClick={handleSubmit} className="text-white">
-                                Rejected
-                            </Button>
-                        )}
+                {showManagerApprove && (
+                    <Button variant="default" onClick={handleSubmit}>
+                        Approved
+                    </Button>
+                )}
+
+                {showDirekturApprove && (
+                    <Button variant="default" onClick={handleSubmit}>
+                        Approved
+                    </Button>
+                )}
+
+                {showLawyerApprove && (
+                    <>
+                        <Button variant="default" onClick={handleSubmit}>
+                            Approved
+                        </Button>
+                        <Button variant="destructive" onClick={handleSubmit} className="text-white">
+                            Rejected
+                        </Button>
                     </>
                 )}
+
                 <Link href="/customer">
                     <Button variant="secondary" className="border-1 border-black">
                         Kembali
