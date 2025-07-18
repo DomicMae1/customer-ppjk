@@ -3,6 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\Customer;
+use App\Models\CustomerLink;
+use App\Models\CustomerAttach;
+use App\Models\Customers_Status;
+use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -22,10 +26,63 @@ class CustomerController extends Controller
             throw UnauthorizedException::forPermissions(['view-master-customer']);
         }
 
-        $suppliers = Customer::all();
+        $customerStatus = Customers_Status::on('tako-perusahaan')->get();
+        $query = Customer::with([
+            'creator',
+            'status.submit1By',
+            'status.status1Approver',
+            'status.status2Approver',
+            'status.status3Approver'
+        ]);
+
+
+        // Ambil hasil query
+        $suppliers = $query->get();
+
+        $customerData = $suppliers->map(function ($customer) {
+            $status = $customer->status;
+            $tanggal = null;
+            $label = null;
+            $userName = null;
+
+            if ($status->status_3_timestamps) {
+                $tanggal = $status->status_3_timestamps;
+                $label = 'direview';
+                $userName = $status->status3Approver?->name ?? '-';
+            } elseif ($status->status_2_timestamps) {
+                $tanggal = $status->status_2_timestamps;
+                $label = 'mengetahui';
+                $userName = $status->status2Approver?->name ?? '-';
+            } elseif ($status->status_1_timestamps) {
+                $tanggal = $status->status_1_timestamps;
+                $label = 'diverifikasi';
+                $userName = $status->status1Approver?->name ?? '-';
+            } elseif ($status->submit_1_timestamps) {
+                $tanggal = $status->submit_1_timestamps;
+                $label = 'disubmit';
+                $userName = $status->submit1By?->name ?? '-';
+            } else {
+                $tanggal = $status->created_at;
+                $label = 'diinput';
+                $userName = $customer->creator->name ?? '-'; // ini berarti customer yang mengisi
+            }
+
+            return [
+                'id' => $customer->id,
+                'nama_perusahaan' => $customer->nama_perusahaan,
+                'tanggal_status' => $tanggal,
+                'status_label' => $label,
+                'nama_user' => $userName,
+                'no_telp_personal' => $customer->no_telp_personal,
+                'creator' => [
+                    'name' => $customer->creator->name ?? null,
+                ],
+            ];
+        });
+
 
         return Inertia::render('m_customer/page', [
-            'customers' => $suppliers,
+            'customers' => $customerData,
             'flash' => [
                 'success' => session('success'),
                 'error' => session('error')

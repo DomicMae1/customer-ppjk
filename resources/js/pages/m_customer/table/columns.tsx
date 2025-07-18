@@ -25,23 +25,47 @@ const downloadPdf = async (id: number) => {
 export const columns = (): ColumnDef<MasterCustomer>[] => [
     {
         accessorKey: 'nama_perusahaan',
-        header: 'Nama Perusahaan',
-        cell: ({ row }) => <div className="px-4 py-2">{row.original.nama_perusahaan}</div>,
+        header: () => <div className="px-2 py-2">Nama Perusahaan</div>,
+        cell: ({ row }) => <div className="px-2 py-2">{row.original.nama_perusahaan}</div>,
     },
     {
         accessorKey: 'nama_user',
         header: 'User',
-        cell: ({ row }) => <div className="px-4 py-2">{row.original.creator?.name || ''}</div>,
+        cell: ({ row }) => <div className="px-0">{row.original.creator?.name || ''}</div>,
     },
     {
         accessorKey: 'no_telp_pic',
         header: 'No Telp PIC',
-        cell: ({ row }) => <div className="px-4 py-2">{row.original.no_telp_personal || '-'}</div>,
+        cell: ({ row }) => <div className="px-0">{row.original.no_telp_personal || '-'}</div>,
     },
     {
-        accessorKey: 'status',
-        header: 'Status',
-        cell: ({ row }) => <div className="px-4 py-2">{row.original.email_personal}</div>,
+        accessorKey: 'tanggal_status',
+        header: 'Tanggal Status',
+        cell: ({ row }) => {
+            const tanggal = row.original.tanggal_status;
+            const label = row.original.status_label;
+            const nama_user = row.original.nama_user;
+
+            if (!tanggal && !label) return '-';
+
+            const isInput = label === 'diinput';
+
+            return (
+                <span>
+                    {label}
+                    {!isInput && nama_user ? ` oleh ` : ' '}
+                    {!isInput && nama_user && <strong>{nama_user}</strong>}
+                    {' pada tanggal '}
+                    <strong>
+                        {new Date(tanggal).toLocaleDateString('id-ID', {
+                            day: 'numeric',
+                            month: 'long',
+                            year: 'numeric',
+                        })}
+                    </strong>
+                </span>
+            );
+        },
     },
     {
         id: 'actions',
