@@ -100,6 +100,15 @@ class RoleAndPermissionSeeder extends Seeder
             'view-master-customer',
         ]);
 
+        $allRoles = Role::all();
+        $viewMasterCustomerPermission = Permission::firstOrCreate(['name' => 'view-master-customer']);
+
+        foreach ($allRoles as $role) {
+            if (!$role->hasPermissionTo('view-master-customer')) {
+                $role->givePermissionTo($viewMasterCustomerPermission);
+            }
+        }
+
         // // Editor memiliki permission terbatas
         // $editorPermissions = [];
         // foreach ($models as $model) {
