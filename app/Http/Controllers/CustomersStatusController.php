@@ -121,11 +121,16 @@ class CustomersStatusController extends Controller
         if ($request->hasFile('attach')) {
             $file = $request->file('attach');
             $filename = uniqid() . '.' . $file->getClientOriginalExtension();
+            $path = $file->storeAs('attachments', $filename, 'public');
         }
 
         switch ($role) {
             case 'user':
                 $status->submit_1_timestamps = $now;
+                if ($filename) {
+                    $status->submit_1_nama_file = $filename;
+                    $status->submit_1_path = $path;
+                }
                 break;
 
             case 'manager':

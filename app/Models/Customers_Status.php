@@ -19,21 +19,27 @@ class Customers_Status extends Model
     protected $fillable = [
         'id_user',
         'submit_1_timestamps',
+        'submit_1_nama_file',
+        'submit_1_path',
 
         'status_1_by',
         'status_1_timestamps',
         'status_1_keterangan',
-        'status_1_attach',
+        'status_1_nama_file',
+        'status_1_path',
 
         'status_2_by',
         'status_2_timestamps',
         'status_2_keterangan',
-        'status_2_attach',
+        'status_2_nama_file',
+        'status_2_path',
 
         'status_3_by',
         'status_3_timestamps',
         'status_3_keterangan',
-        'submit_3_attach',
+        'status_3',
+        'submit_3_nama_file',
+        'submit_3_path',
     ];
 
     protected $dates = [

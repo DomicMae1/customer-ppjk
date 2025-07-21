@@ -98,7 +98,29 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
         },
     });
 
-    const handleSubmit = async () => {
+    const dropzoneAttachUser = useDropzone({
+        onDropFile: async (file: File) => {
+            setAttachFileUser(file);
+            const fileStatus = {
+                id: String(Date.now()),
+                status: 'success',
+                fileName: file.name,
+                result: URL.createObjectURL(file),
+            } as const;
+
+            setAttachFileStatuses([fileStatus]); // ganti status untuk user
+            return fileStatus;
+        },
+        validation: {
+            accept: {
+                'application/pdf': ['.pdf'],
+            },
+            maxSize: 5 * 1024 * 1024,
+            maxFiles: 1,
+        },
+    });
+
+    const handleSubmit = async (decision: 'approved' | 'rejected' | null = null) => {
         if (!customer.id) {
             alert('❌ Customer ID tidak ditemukan.');
             return;
@@ -130,13 +152,14 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                 return;
             }
         }
-
-        console.log(customer.id);
-
         const formData = new FormData();
         formData.append('customer_id', customer.id.toString());
         formData.append('status_1_by', String(props.auth.user.id));
         console.log('Hasil apaytuh ', props.auth.user.name);
+
+        if (userRole === 'user' && attachFileUser) {
+            formData.append('attach', attachFileUser);
+        }
 
         if (showExtraFields) {
             formData.append('keterangan', keterangan);
@@ -260,8 +283,7 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                     <h2 className="mb-2 text-xl font-bold">Lampiran Dokumen</h2>
                     <div className="grid grid-cols-3 gap-4">
                         {attachments.map((file) => {
-                            console.log(file.path); // Tambahkan console log di sini
-
+                            console.log('file', attachments);
                             return (
                                 <div key={file.id} className="rounded border border-black p-2">
                                     <div className="mb-1 font-medium capitalize">{file.type.toUpperCase()}</div>
@@ -273,6 +295,62 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                         })}
                     </div>
                 </div>
+            )}
+            {!statusData?.submit_1_timestamps && (
+                <>
+                    {userRole === 'user' && (
+                        <div className="mt-6 w-full md:w-1/2">
+                            <Label htmlFor="attach" className="mb-1 block">
+                                Upload Lampiran (PDF)
+                            </Label>
+                            <Dropzone {...dropzoneAttachUser}>
+                                <DropZoneArea>
+                                    {attachFileStatuses.length > 0 ? (
+                                        attachFileStatuses.map((file) => (
+                                            <DropzoneFileListItem
+                                                key={file.id}
+                                                file={file}
+                                                className="bg-secondary relative w-full overflow-hidden rounded-md shadow-sm"
+                                            >
+                                                {file.status === 'success' && (
+                                                    <div
+                                                        onClick={() => file.result && window.open(file.result, '_blank')}
+                                                        className="z-10 flex aspect-video w-full cursor-pointer items-center justify-center rounded-md bg-gray-100 text-sm text-gray-600"
+                                                    >
+                                                        <File className="mr-2 size-6" />
+                                                        {file.fileName}
+                                                    </div>
+                                                )}
+                                                <div className="absolute top-2 right-2 z-20">
+                                                    <DropzoneRemoveFile>
+                                                        <span
+                                                            onClick={() => {
+                                                                setAttachFileUser(null);
+                                                                setAttachFileStatuses([]);
+                                                            }}
+                                                            className="rounded-full bg-white p-1"
+                                                        >
+                                                            <Trash2Icon className="size-4 text-black" />
+                                                        </span>
+                                                    </DropzoneRemoveFile>
+                                                </div>
+                                            </DropzoneFileListItem>
+                                        ))
+                                    ) : (
+                                        <DropzoneTrigger className="flex flex-col items-center gap-4 bg-transparent p-10 text-center text-sm">
+                                            <CloudUploadIcon className="size-8" />
+                                            <div>
+                                                <p className="font-semibold">Upload PDF</p>
+                                                <p className="text-muted-foreground text-sm">Click atau drag file .pdf ke sini</p>
+                                            </div>
+                                        </DropzoneTrigger>
+                                    )}
+                                </DropZoneArea>
+                            </Dropzone>
+                            <p className="mt-1 text-xs text-red-500">* Wajib unggah file PDF maksimal 5MB</p>
+                        </div>
+                    )}
+                </>
             )}
 
             {!isAllStatusSubmitted && (
@@ -423,6 +501,20 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                             </div>
                         )}
                     </div>
+                    {statusData?.submit_1_nama_file && (
+                        <div className="border-r border-b border-l border-black p-2">
+                            <h4 className="text-muted-foreground text-sm">Keterangan file Marketing</h4>
+                            <a
+                                href={`/storage/attachments/${statusData.submit_1_nama_file}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-2 text-sm text-blue-600 underline"
+                            >
+                                <File className="h-4 w-4" />
+                                Lihat Dokumen Keterangan
+                            </a>
+                        </div>
+                    )}
                 </div>
                 <div>
                     <div className="mb-1 border border-black p-2">
