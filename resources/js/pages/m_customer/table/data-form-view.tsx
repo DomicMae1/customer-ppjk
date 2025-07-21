@@ -8,13 +8,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { Attachment, MasterCustomer } from '@/types';
 import { Link, router, usePage } from '@inertiajs/react';
 import axios from 'axios';
-import { CloudUploadIcon, File, Trash2Icon } from 'lucide-react';
+import { CloudUploadIcon, File, SquareCheck, SquareX, Trash2Icon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 export default function ViewCustomerForm({ customer }: { customer: MasterCustomer }) {
     const [keterangan, setKeterangan] = useState('');
     // const [attach, setAttach] = useState<File | null>(null);
     const [attachFile, setAttachFile] = useState<File | null>(null);
+    const [attachFileUser, setAttachFileUser] = useState<File | null>(null);
     const [attachFileStatuses, setAttachFileStatuses] = useState<any[]>([]);
     const [statusData, setStatusData] = useState<any | null>(null);
     const [isLoadingStatus, setIsLoadingStatus] = useState(true);
@@ -42,7 +43,9 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
         statusData?.status_3_timestamps
     );
 
-    console.log('Cek-cek', statusData);
+    if (statusData?.submit_3_attach) {
+        console.log('Hasilnya adalah', statusData.submit_3_attach);
+    }
 
     const { props } = usePage<{
         attachments: Attachment[];
@@ -166,6 +169,10 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
             if (attachFile) {
                 formData.append('attach', attachFile);
             }
+        }
+
+        if (userRole === 'lawyer' && decision) {
+            formData.append('status_3', decision); // 👈 hanya untuk lawyer
         }
 
         router.post('/submit-customer-status', formData, {
@@ -360,7 +367,7 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                             <h2 className="text-xl font-bold">Masukkan Data Review</h2>
                             <div className="mt-4 flex flex-col gap-4 md:flex-row">
                                 {/* Keterangan */}
-                                <div className="w-full md:w-1/2">
+                                <div className="h-fulll w-full md:w-1/2">
                                     <Label htmlFor="attach" className="mb-1 block">
                                         Masukkan Keterangan
                                     </Label>
@@ -432,29 +439,29 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
 
             <div className="mt-12 mb-6 space-x-3">
                 {showUserSubmit && (
-                    <Button variant="default" onClick={handleSubmit}>
+                    <Button variant="default" onClick={() => handleSubmit()}>
                         Submit
                     </Button>
                 )}
 
                 {showManagerApprove && (
-                    <Button variant="default" onClick={handleSubmit}>
+                    <Button variant="default" onClick={() => handleSubmit()}>
                         Approved
                     </Button>
                 )}
 
                 {showDirekturApprove && (
-                    <Button variant="default" onClick={handleSubmit}>
+                    <Button variant="default" onClick={() => handleSubmit()}>
                         Approved
                     </Button>
                 )}
 
                 {showLawyerApprove && (
                     <>
-                        <Button variant="default" onClick={handleSubmit}>
+                        <Button variant="default" onClick={() => handleSubmit('approved')}>
                             Approved
                         </Button>
-                        <Button variant="destructive" onClick={handleSubmit} className="text-white">
+                        <Button variant="destructive" onClick={() => handleSubmit('rejected')} className="text-white">
                             Rejected
                         </Button>
                     </>
@@ -469,11 +476,11 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
 
             <div className="grid grid-cols-4 gap-4">
                 <div>
-                    <div className="mb-1 border border-black p-2">
+                    <div className="border-t border-r border-b border-l border-black p-2">
                         <Label htmlFor="kategori_usaha">Disubmit</Label>
                     </div>
 
-                    <div className="border border-black p-2">
+                    <div className="border-r border-l border-black p-2">
                         {statusData?.submit_1_timestamps && (
                             <div className="text-muted-foreground mt-1 text-sm">
                                 <p>
@@ -517,10 +524,10 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                     )}
                 </div>
                 <div>
-                    <div className="mb-1 border border-black p-2">
+                    <div className="border-t border-r border-b border-l border-black p-2">
                         <Label htmlFor="bentuk_badan_usaha">Diverifikasi</Label>
                     </div>
-                    <div className="border border-black p-2">
+                    <div className="border-r border-l border-black p-2">
                         {statusData?.status_1_timestamps && (
                             <div className="text-muted-foreground mt-1 text-sm">
                                 <p>
@@ -548,12 +555,36 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                             </div>
                         )}
                     </div>
+                    <div className="border-r border-l border-black p-2">
+                        {statusData?.status_1_timestamps && (
+                            <div className="text-muted-foreground mt-1 text-sm">
+                                <p>
+                                    <strong>Keterangan</strong>
+                                </p>
+                                <p>{statusData.status_1_keterangan}</p>
+                            </div>
+                        )}
+                    </div>
+                    {statusData?.status_1_nama_file && (
+                        <div className="border-r border-b border-l border-black p-2">
+                            <h4 className="text-muted-foreground text-sm">Keterangan file Manager</h4>
+                            <a
+                                href={`/storage/attachments/${statusData.status_1_nama_file}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-2 text-sm text-blue-600 underline"
+                            >
+                                <File className="h-4 w-4" />
+                                Lihat Dokumen Keterangan
+                            </a>
+                        </div>
+                    )}
                 </div>
                 <div>
-                    <div className="mb-1 border border-black p-2">
+                    <div className="border-t border-r border-b border-l border-black p-2">
                         <Label htmlFor="kota">Mengetahui</Label>
                     </div>
-                    <div className="border border-black p-2">
+                    <div className="border-r border-l border-black p-2">
                         {statusData?.status_2_timestamps && (
                             <div className="text-muted-foreground mt-1 text-sm">
                                 <p>
@@ -581,20 +612,60 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                             </div>
                         )}
                     </div>
-                </div>
-                <div>
-                    <div className="mb-1 border border-black p-2">
-                        <Label htmlFor="kota">Direview</Label>
-                    </div>
-                    <div className="border border-black p-2">
-                        {statusData?.status_3_timestamps && (
+                    <div className="border-r border-l border-black p-2">
+                        {statusData?.status_2_timestamps && (
                             <div className="text-muted-foreground mt-1 text-sm">
                                 <p>
-                                    <strong> {statusData.status_3_by_name} </strong>{' '}
+                                    <strong>Keterangan</strong>
                                 </p>
+                                <p>{statusData.status_2_keterangan}</p>
+                            </div>
+                        )}
+                    </div>
+                    {statusData?.status_2_nama_file && (
+                        <div className="border-r border-b border-l border-black p-2">
+                            <h4 className="text-muted-foreground text-sm">Keterangan file Direktur</h4>
+                            <a
+                                href={`/storage/attachments/${statusData.status_2_nama_file}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-2 text-sm text-blue-600 underline"
+                            >
+                                <File className="h-4 w-4" />
+                                Lihat Dokumen Keterangan
+                            </a>
+                        </div>
+                    )}
+                </div>
+                <div>
+                    <div className="border-t border-r border-b border-l border-black p-2">
+                        <Label htmlFor="kota">Direview</Label>{' '}
+                    </div>
+                    <div className="border-r border-l border-black p-2">
+                        {statusData?.status_3_timestamps && (
+                            <div className="text-muted-foreground mt-1 text-sm">
+                                <div className="mb-2 flex items-center justify-between font-semibold">
+                                    <span>
+                                        <strong>{statusData.status_3_by_name}</strong>
+                                    </span>
+                                    <span
+                                        className={`mb-1 flex items-center gap-2 pr-4 ${
+                                            statusData.status_3.toLowerCase() === 'rejected'
+                                                ? 'text-red-600'
+                                                : statusData.status_3.toLowerCase() === 'approved'
+                                                  ? 'text-green-600'
+                                                  : 'text-muted-foreground'
+                                        }`}
+                                    >
+                                        {statusData.status_3.toLowerCase() === 'rejected' && <SquareX className="h-4 w-4" />}
+                                        {statusData.status_3.toLowerCase() === 'approved' && <SquareCheck className="h-4 w-4" />}
+                                        {statusData.status_3}
+                                    </span>
+                                </div>
+
                                 <p>
+                                    tanggal{' '}
                                     <strong>
-                                        tanggal{' '}
                                         {new Date(statusData.status_2_timestamps).toLocaleDateString('id-ID', {
                                             day: 'numeric',
                                             month: 'long',
@@ -611,6 +682,30 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                                         })}
                                     </strong>
                                 </p>
+                            </div>
+                        )}
+                    </div>
+                    <div className="border-r border-b border-l border-black p-2">
+                        {statusData?.status_3_timestamps && (
+                            <div className="text-muted-foreground text-sm">
+                                <p>
+                                    <strong>Keterangan</strong>
+                                </p>
+                                <p>{statusData.status_3_keterangan}</p>
+                            </div>
+                        )}
+                        {statusData?.submit_3_nama_file && (
+                            <div className="mt-2">
+                                <h4 className="text-muted-foreground text-sm">Keterangan Lawyer</h4>
+                                <a
+                                    href={`/storage/attachments/${statusData.submit_3_nama_file}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-2 text-sm text-blue-600 underline"
+                                >
+                                    <File className="h-4 w-4" />
+                                    Lihat Dokumen Keterangan
+                                </a>
                             </div>
                         )}
                     </div>

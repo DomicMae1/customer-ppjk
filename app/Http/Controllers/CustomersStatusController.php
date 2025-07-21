@@ -134,16 +134,12 @@ class CustomersStatusController extends Controller
                 break;
 
             case 'manager':
-                // 🔍 Cek apakah sudah pernah disubmit
-                if ($status->status_1_by || $status->status_1_timestamps) {
-                    return back()->with('error', 'Data sudah pernah disubmit oleh manager.');
-                }
-
                 $status->status_1_by = $userId;
                 $status->status_1_timestamps = $now;
                 $status->status_1_keterangan = $request->keterangan;
                 if ($filename) {
-                    $status->status_1_attach = $filename;
+                    $status->status_1_nama_file = $filename;
+                    $status->status_1_path = $path;
                 }
                 break;
 
@@ -152,7 +148,8 @@ class CustomersStatusController extends Controller
                 $status->status_2_timestamps = $now;
                 $status->status_2_keterangan = $request->keterangan;
                 if ($filename) {
-                    $status->status_2_attach = $filename;
+                    $status->status_2_nama_file = $filename;
+                    $status->status_2_path = $path;
                 }
                 break;
 
@@ -161,7 +158,18 @@ class CustomersStatusController extends Controller
                 $status->status_3_timestamps = $now;
                 $status->status_3_keterangan = $request->keterangan;
                 if ($filename) {
-                    $status->submit_3_attach = $filename;
+                    $status->submit_3_nama_file = $filename;
+                    $status->submit_3_path = $path;
+                }
+
+                // Tambahan: simpan status_3 jika dikirim
+                if ($request->has('status_3')) {
+                    $validStatuses = ['approved', 'rejected'];
+                    $statusValue = strtolower($request->status_3);
+
+                    if (in_array($statusValue, $validStatuses)) {
+                        $status->status_3 = $statusValue;
+                    }
                 }
                 break;
 

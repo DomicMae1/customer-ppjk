@@ -11,7 +11,10 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use Illuminate\Support\Facades\Storage;
 use Spatie\Permission\Exceptions\UnauthorizedException;
+use Spatie\LaravelPdf\Facades\Pdf;
+use Spatie\Browsershot\Browsershot;
 
 class CustomerController extends Controller
 {
@@ -44,19 +47,23 @@ class CustomerController extends Controller
             $tanggal = null;
             $label = null;
             $userName = null;
+            $note = null;
 
             if ($status->status_3_timestamps) {
                 $tanggal = $status->status_3_timestamps;
                 $label = 'direview';
                 $userName = $status->status3Approver?->name ?? '-';
+                $note = $status->status_3_keterangan;
             } elseif ($status->status_2_timestamps) {
                 $tanggal = $status->status_2_timestamps;
                 $label = 'mengetahui';
                 $userName = $status->status2Approver?->name ?? '-';
+                $note = $status->status_2_keterangan;
             } elseif ($status->status_1_timestamps) {
                 $tanggal = $status->status_1_timestamps;
                 $label = 'diverifikasi';
                 $userName = $status->status1Approver?->name ?? '-';
+                $note = $status->status_1_keterangan;
             } elseif ($status->submit_1_timestamps) {
                 $tanggal = $status->submit_1_timestamps;
                 $label = 'disubmit';
@@ -72,6 +79,7 @@ class CustomerController extends Controller
                 'nama_perusahaan' => $customer->nama_perusahaan,
                 'tanggal_status' => $tanggal,
                 'status_label' => $label,
+                'note' => $note,
                 'nama_user' => $userName,
                 'no_telp_personal' => $customer->no_telp_personal,
                 'creator' => [
@@ -333,6 +341,7 @@ class CustomerController extends Controller
         // return redirect()->route('customer.index')->with('success', 'Data Customer berhasil dibuat!');
     }
 
+
     public function upload(Request $request)
     {
         $file = $request->file('file');
@@ -356,7 +365,7 @@ class CustomerController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(Customer $customer, $id)
+    public function show(Customer $customer)
     {
         $user = auth('web')->user();
 
@@ -364,16 +373,16 @@ class CustomerController extends Controller
             throw UnauthorizedException::forPermissions(['view-master-customer']);
         }
 
-        // $ledger = PerkiraanJurnal::all();
+        // Load relasi attachments
+        $customer->load('attachments');
 
-        $payment = Customer::findOrFail($id);
         return Inertia::render('m_customer/table/view-data-form', [
-            'customer' => $payment,
-            // 'ledger' => $ledger,
+            'customer' => $customer,
+            'attachments' => $customer->attachments,
             'flash' => [
                 'success' => session('success'),
-                'error' => session('error')
-            ]
+                'error' => session('error'),
+            ],
         ]);
     }
 
