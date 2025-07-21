@@ -2,7 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'; // pastikan path sesuai
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Link } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import {
     ColumnDef,
     ColumnFiltersState,
@@ -25,6 +25,8 @@ interface DataTableProps<TData, TValue> {
 }
 
 export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData, TValue>) {
+    const { props } = usePage();
+    const userRole = props.auth?.user?.roles?.[0]?.name ?? '';
     const [sorting, setSorting] = React.useState<SortingState>([]);
     const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
     const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
@@ -72,30 +74,32 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                 </div>
 
                 <DataTableViewOptions table={table} />
-                <Dialog>
-                    <DialogTrigger asChild>
-                        <Button className="h-9">Add customer</Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                        <DialogHeader>
-                            <DialogTitle>Pilih Metode</DialogTitle>
-                            <DialogDescription>Apakah Anda ingin membagikan formulir ke customer, atau isi sendiri di sini?</DialogDescription>
-                        </DialogHeader>
-                        <div className="flex flex-col gap-4 py-4">
-                            <Link href="/customer/create?mode=manual">
-                                <Button className="w-full">Buat Sendiri</Button>
-                            </Link>
-                            <Link href="/customer/share">
-                                <Button variant="outline" className="w-full">
-                                    Bagikan ke Customer
-                                </Button>
-                            </Link>
-                        </div>
-                        <DialogFooter>
-                            <p className="text-muted-foreground text-xs">Anda dapat mengubah pilihan ini nanti.</p>
-                        </DialogFooter>
-                    </DialogContent>
-                </Dialog>
+                {userRole === 'user' && (
+                    <Dialog>
+                        <DialogTrigger asChild>
+                            <Button className="h-9">Add customer</Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                            <DialogHeader>
+                                <DialogTitle>Pilih Metode</DialogTitle>
+                                <DialogDescription>Apakah Anda ingin membagikan formulir ke customer, atau isi sendiri di sini?</DialogDescription>
+                            </DialogHeader>
+                            <div className="flex flex-col gap-4 py-4">
+                                <Link href="/customer/create?mode=manual">
+                                    <Button className="w-full">Buat Sendiri</Button>
+                                </Link>
+                                <Link href="/customer/share">
+                                    <Button variant="outline" className="w-full">
+                                        Bagikan ke Customer
+                                    </Button>
+                                </Link>
+                            </div>
+                            <DialogFooter>
+                                <p className="text-muted-foreground text-xs">Anda dapat mengubah pilihan ini nanti.</p>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+                )}
             </div>
 
             <div className="rounded-md border">
