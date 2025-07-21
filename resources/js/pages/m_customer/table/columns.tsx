@@ -92,9 +92,11 @@ export const columns = (): ColumnDef<MasterCustomer>[] => {
                             <Link href={`/customer/${supplier.id}`}>
                                 <DropdownMenuItem>View Customer</DropdownMenuItem>
                             </Link>
-                            <Link href={`/customer/${supplier.id}/edit`}>
-                                <DropdownMenuItem>Edit Customer</DropdownMenuItem>
-                            </Link>
+                            {supplier.creator?.role === 'user' && (
+                                <Link href={`/customer/${supplier.id}/edit`}>
+                                    <DropdownMenuItem>Edit Customer</DropdownMenuItem>
+                                </Link>
+                            )}
                             <Link href={`/customer/${supplier.id}/pdf`}>
                                 <DropdownMenuItem onClick={() => supplier.id != null && downloadPdf(supplier.id)}>Download PDF</DropdownMenuItem>
                             </Link>
