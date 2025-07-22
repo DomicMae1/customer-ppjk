@@ -3,12 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Models\Customers_Status;
+use App\Models\Perusahaan;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
-
+use Illuminate\Support\Facades\Mail;
 
 class CustomersStatusController extends Controller
 {
@@ -102,6 +103,22 @@ class CustomersStatusController extends Controller
             'attach' => 'nullable|file|mimes:pdf|max:5120', // max 5MB
         ]);
 
+        $idPerusahaan = $request->input('id_perusahaan');
+        $emailsToNotify = [];
+        $perusahaan = null;
+
+        if (!empty($idPerusahaan)) {
+            $perusahaan = Perusahaan::find($idPerusahaan);
+
+            if ($perusahaan && !empty($perusahaan->notify_1)) {
+                Log::info('Isi notify_1:', [$perusahaan->notify_1]);
+                $emailsToNotify = explode(',', $perusahaan->notify_1);
+            } else {
+                Log::warning('Perusahaan ditemukan tapi notify_1 kosong atau tidak ada.');
+            }
+        } else {
+            Log::warning('ID perusahaan kosong atau tidak dikirim dari request.');
+        }
 
         $status = Customers_Status::where('id_Customer', $request->customer_id)->first();
 
@@ -167,8 +184,26 @@ class CustomersStatusController extends Controller
                     $validStatuses = ['approved', 'rejected'];
                     $statusValue = strtolower($request->status_3);
 
+                    // ✅ Simpan status_3 ke database
                     if (in_array($statusValue, $validStatuses)) {
                         $status->status_3 = $statusValue;
+                    }
+
+                    // Kirim email jika rejected
+                    if ($statusValue === 'rejected') {
+                        $validEmails = collect($emailsToNotify)
+                            ->map(fn($email) => trim($email))
+                            ->filter(fn($email) => filter_var($email, FILTER_VALIDATE_EMAIL))
+                            ->unique()
+                            ->toArray();
+
+                        Log::info('Akan mengirim email ke:', $validEmails);
+
+                        if (!empty($validEmails)) {
+                            Mail::to($validEmails)->send(new \App\Mail\StatusRejectedMail($status, $user));
+                        } else {
+                            Mail::to('default@example.com')->send(new \App\Mail\StatusRejectedMail($status, $user));
+                        }
                     }
                 }
                 break;
