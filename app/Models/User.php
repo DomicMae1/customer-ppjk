@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class User extends Authenticatable
 {
@@ -26,7 +28,6 @@ class User extends Authenticatable
         'email',
         'password',
         'id_perusahaan',
-        'nama_perusahaan'
     ];
 
     /**
@@ -55,5 +56,13 @@ class User extends Authenticatable
     public function perusahaan()
     {
         return $this->belongsTo(Perusahaan::class, 'id_perusahaan');
+    }
+
+    // Relasi perusahaan fleksibel (baru) lewat pivot
+    public function companies(): BelongsToMany
+    {
+        return $this->belongsToMany(Perusahaan::class, 'perusahaan_user_roles', 'user_id', 'id_perusahaan')
+            ->withPivot('role')
+            ->withTimestamps();
     }
 }
