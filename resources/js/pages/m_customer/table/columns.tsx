@@ -40,13 +40,19 @@ export const columns = (): ColumnDef<MasterCustomer>[] => {
     return [
         {
             accessorKey: 'nama_perusahaan',
-            header: () => <div className="px-2 py-2">Nama Perusahaan</div>,
-            cell: ({ row }) => <div className="px-2 py-2">{row.original.nama_perusahaan}</div>,
+            header: () => <div className="px-2 py-2">Ownership</div>,
+            cell: ({ row }) => <div className="px-2 py-2">{row.original.nama_perusahaan ?? '-'}</div>,
         },
+
         {
             accessorKey: 'nama_user',
-            header: 'User',
+            header: 'Disubmit oleh',
             cell: ({ row }) => <div className="px-0">{row.original.creator?.name || ''}</div>,
+        },
+        {
+            accessorKey: 'nama_customer',
+            header: 'Nama Customer',
+            cell: ({ row }) => <div className="px-0">{row.original.nama_customer || '-'}</div>,
         },
         {
             accessorKey: 'no_telp_pic',
@@ -54,8 +60,8 @@ export const columns = (): ColumnDef<MasterCustomer>[] => {
             cell: ({ row }) => <div className="px-0">{row.original.no_telp_personal || '-'}</div>,
         },
         {
-            accessorKey: 'tanggal_status',
-            header: 'Tanggal Status',
+            accessorKey: 'keterangan_status',
+            header: 'Keterangan Status',
             cell: ({ row }) => {
                 const tanggal = row.original.tanggal_status;
                 const label = row.original.status_label;
@@ -70,7 +76,7 @@ export const columns = (): ColumnDef<MasterCustomer>[] => {
                         {label}
                         {!isInput && nama_user ? ` oleh ` : ' '}
                         {!isInput && nama_user && <strong>{nama_user}</strong>}
-                        {' pada tanggal '}
+                        {' pada '}
                         <strong>
                             {new Date(tanggal).toLocaleDateString('id-ID', {
                                 day: 'numeric',
@@ -83,10 +89,27 @@ export const columns = (): ColumnDef<MasterCustomer>[] => {
             },
         },
         {
+            accessorKey: 'status',
+            header: 'Status',
+            cell: ({ row }) => {
+                const status = row.original.status?.toLowerCase();
+                let displayText = '-';
+
+                if (status === 'rejected') {
+                    displayText = 'bermasalah';
+                } else if (status === 'approved') {
+                    displayText = 'oke';
+                } else if (status) {
+                    displayText = status;
+                }
+
+                return <div className="px-0">{displayText}</div>;
+            },
+        },
+        {
             id: 'actions',
             cell: ({ row }) => {
                 const supplier = row.original;
-
                 return (
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>

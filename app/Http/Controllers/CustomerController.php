@@ -33,6 +33,8 @@ class CustomerController extends Controller
         $customerStatus = Customers_Status::on('tako-perusahaan')->get();
         $query = Customer::with([
             'creator',
+            'perusahaan',
+            'status',
             'status.submit1By',
             'status.status1Approver',
             'status.status2Approver',
@@ -47,13 +49,16 @@ class CustomerController extends Controller
                 $query->whereRaw('1 = 0');
             }
         } elseif ($user->hasRole(['manager', 'direktur', 'lawyer'])) {
-            // Dapatkan perusahaan dari relasi user
-            $perusahaan = $user->perusahaan;
+            // Ambil semua id_perusahaan dari tabel pivot perusahaan_user_roles
+            $perusahaanIds = DB::connection('tako-perusahaan')
+                ->table('perusahaan_user_roles')
+                ->where('user_id', $user->id)
+                ->pluck('id_perusahaan')
+                ->toArray();
 
-            if ($perusahaan) {
-                $query->where('id_perusahaan', $perusahaan->id_Perusahaan);
+            if (!empty($perusahaanIds)) {
+                $query->whereIn('id_perusahaan', $perusahaanIds);
             } else {
-                // Tidak ada perusahaan terkait, return kosong
                 $query->whereRaw('1 = 0');
             }
         }
@@ -95,9 +100,11 @@ class CustomerController extends Controller
 
             return [
                 'id' => $customer->id,
-                'nama_perusahaan' => $customer->nama_perusahaan,
+                'nama_perusahaan' => $customer->perusahaan?->nama_perusahaan ?? '-',
+                'nama_customer' => $customer->nama_perusahaan ?? '-',
                 'tanggal_status' => $tanggal,
                 'status_label' => $label,
+                'status' => $customer->status->status_3 ?? '-',
                 'note' => $note,
                 'nama_user' => $userName,
                 'no_telp_personal' => $customer->no_telp_personal,
@@ -557,8 +564,7 @@ class CustomerController extends Controller
             ->withBrowsershot(function (\Spatie\Browsershot\Browsershot $browsershot) {
                 $browsershot
                     ->setNodeBinary('C:/Program Files/nodejs/node.exe')
-                    ->setChromePath('C:/Program Files/Google/Chrome/Application/chrome.exe')
-                    ->noSandbox();
+                    ->setChromePath('C:/Program Files/Google/Chrome/Application/chrome.exe');
             })
             ->download();
     }

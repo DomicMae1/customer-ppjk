@@ -43,10 +43,34 @@ class HandleInertiaRequests extends Middleware
             'name' => config('app.name'),
             'quote' => ['message' => trim($message), 'author' => trim($author)],
             'auth' => [
-                'user' => $request->user() ? array_merge(
-                    $request->user()->load(['roles', 'perusahaan'])->toArray(),
-                    ['permissions' => $request->user()->getAllPermissions()->pluck('name')]
-                ) : null,
+                'user' => function () use ($request) {
+                    if (!$user = $request->user()) {
+                        return null;
+                    }
+
+                    $user->load(['roles', 'perusahaan', 'companies']);
+
+                    // Default perusahaan: dari kolom id_perusahaan
+                    $perusahaan = $user->perusahaan;
+
+                    // Cek role jika perusahaan masih null
+                    if (!$perusahaan && $user->companies->isNotEmpty()) {
+                        $roleNames = $user->roles->pluck('name')->toArray();
+
+                        // Jika role-nya manager atau direktur, ambil perusahaan dari pivot
+                        if (in_array('manager', $roleNames) || in_array('direktur', $roleNames)) {
+                            $perusahaan = $user->companies->first();
+                        }
+                    }
+
+                    return array_merge(
+                        $user->toArray(),
+                        [
+                            'perusahaan' => $perusahaan,
+                            'permissions' => $user->getAllPermissions()->pluck('name'),
+                        ]
+                    );
+                },
             ],
             'flash' => [
                 'success' => $request->session()->get('success'),
