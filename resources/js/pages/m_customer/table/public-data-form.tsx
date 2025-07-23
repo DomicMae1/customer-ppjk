@@ -860,7 +860,7 @@ export default function PublicCustomerForm({
                         <h1 className="mb-2 text-xl font-semibold">Lampiran</h1>
 
                         {/* 3 Dropzone Kolom */}
-                        <div className="col-span-3 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                        <div className="col-span-4 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
                             {/* NPWP */}
                             <div className="w-full">
                                 <Label htmlFor="file_npwp" className="mb-1 block">
