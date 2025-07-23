@@ -79,6 +79,7 @@ class RoleAndPermissionSeeder extends Seeder
         // Direktur
         $direkturRole = Role::firstOrCreate(['name' => 'direktur']);
         $direkturRole->syncPermissions([
+            'create-master-customer',
             'view-master-customer',
             'view-direktur-master-customer',
             'create-direktur-master-customer',
