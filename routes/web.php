@@ -4,6 +4,7 @@ use App\Http\Controllers\CustomerAttachController;
 use App\Http\Controllers\CustomerLinkController;
 use App\Http\Controllers\CustomersStatusController;
 use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\PerusahaanController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\UserController;
 use App\Models\Customers_Status;
@@ -33,6 +34,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::resource('users', UserController::class);
     Route::resource('role-manager', RoleController::class);
+    Route::resource('companys', PerusahaanController::class);
 });
 Route::post('customer/upload-temp', [CustomerController::class, 'upload'])->name('customer.upload');
 Route::get('/form/{token}', [CustomerController::class, 'showPublicForm'])->name('customer.form.show');

@@ -50,6 +50,21 @@ export interface Permission {
     name: string;
 }
 
+export interface Perusahaan {
+  id: number;
+  nama_perusahaan: string;
+  id_User_1: number | null;
+  id_User_2: number | null;
+  id_User_3: number | null;
+  id_User: number | null;
+  Notify_1: boolean | null;
+  Notify_2: boolean | null;
+  created_at?: string;
+  updated_at?: string;
+  user?: User;
+  [key: string]: unknown;
+}
+
 export type Payment = {
     id: string;
     amount: number;

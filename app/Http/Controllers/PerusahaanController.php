@@ -40,7 +40,48 @@ class PerusahaanController extends Controller
      */
     public function store(Request $request)
     {
-        //
+        $validated = $request->validate([
+            'nama_perusahaan' => 'required|string|max:255',
+            'id_User_1' => 'nullable|integer|exists:users,id',
+            'id_User_2' => 'nullable|integer|exists:users,id',
+            'id_User_3' => 'nullable|integer|exists:users,id',
+            'id_User' => 'nullable|integer|exists:users,id',
+            'notify_1' => 'nullable|string',
+            'notify_2' => 'nullable|string',
+        ]);
+
+        // Ambil hanya field yang ada di tabel perusahaan
+        $perusahaanData = collect($validated)->only([
+            'nama_perusahaan',
+            'notify_1',
+            'notify_2',
+        ])->toArray();
+
+        // Buat perusahaan
+        $perusahaan = Perusahaan::create($perusahaanData);
+
+        // Assign users ke perusahaan melalui pivot
+        $userRoles = [
+            $validated['id_User_1'] ?? null => 'manager',
+            $validated['id_User_2'] ?? null => 'direktur',
+            $validated['id_User_3'] ?? null => 'lawyer',
+        ];
+
+        foreach ($userRoles as $userId => $role) {
+            if ($userId) {
+                $perusahaan->users()->attach($userId, ['role' => $role]);
+            }
+        }
+
+        // Assign user pembuat jika ada
+        if (!empty($validated['id_User'])) {
+            $perusahaan->users()->attach($validated['id_User'], ['role' => 'creator']);
+        }
+
+        return response()->json([
+            'message' => 'Perusahaan berhasil ditambahkan',
+            'data' => $perusahaan->load('users'),
+        ], 201);
     }
 
     /**
@@ -48,7 +89,9 @@ class PerusahaanController extends Controller
      */
     public function show(Perusahaan $perusahaan)
     {
-        //
+        return response()->json([
+            'data' => $perusahaan->load(['user', 'users']),
+        ]);
     }
 
     /**
@@ -56,7 +99,9 @@ class PerusahaanController extends Controller
      */
     public function edit(Perusahaan $perusahaan)
     {
-        //
+        return response()->json([
+            'data' => $perusahaan->load('users'),
+        ]);
     }
 
     /**
@@ -64,7 +109,42 @@ class PerusahaanController extends Controller
      */
     public function update(Request $request, Perusahaan $perusahaan)
     {
-        //
+        $validated = $request->validate([
+            'nama_perusahaan' => 'required|string|max:255',
+            'id_User_1' => 'nullable|integer|exists:users,id',
+            'id_User_2' => 'nullable|integer|exists:users,id',
+            'id_User_3' => 'nullable|integer|exists:users,id',
+            'id_User' => 'nullable|integer|exists:users,id',
+            'notify_1' => 'nullable|string',
+            'notify_2' => 'nullable|string',
+        ]);
+
+        $perusahaan->update($validated);
+
+        // Sync ulang user-role
+        $userRoles = [
+            $validated['id_User_1'] => 'manager',
+            $validated['id_User_2'] => 'direktur',
+            $validated['id_User_3'] => 'lawyer',
+        ];
+
+        // Hapus role-role lama dan sync ulang
+        $syncData = [];
+        foreach ($userRoles as $userId => $role) {
+            if ($userId) {
+                $syncData[$userId] = ['role' => $role];
+            }
+        }
+        if (!empty($validated['id_User'])) {
+            $syncData[$validated['id_User']] = ['role' => 'creator'];
+        }
+
+        $perusahaan->users()->sync($syncData);
+
+        return response()->json([
+            'message' => 'Perusahaan berhasil diperbarui',
+            'data' => $perusahaan->load('users'),
+        ]);
     }
 
     /**
@@ -72,6 +152,11 @@ class PerusahaanController extends Controller
      */
     public function destroy(Perusahaan $perusahaan)
     {
-        //
+        $perusahaan->users()->detach();
+        $perusahaan->delete();
+
+        return response()->json([
+            'message' => 'Perusahaan berhasil dihapus',
+        ]);
     }
 }

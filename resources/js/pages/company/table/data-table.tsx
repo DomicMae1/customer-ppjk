@@ -32,8 +32,8 @@ interface FormState {
     id_User_1: string;
     id_User_2: string;
     id_User_3: string;
-    Notify_1: string;
-    Notify_2?: string;
+    notify_1: string;
+    notify_2?: string;
 }
 
 interface DataTableProps<TData, TValue> {
@@ -57,12 +57,12 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_peru
         id_User_1: '',
         id_User_2: '',
         id_User_3: '',
-        Notify_1: '',
-        Notify_2: '',
+        notify_1: '',
+        notify_2: '',
     });
 
     const handleSubmit = () => {
-        router.post('/perusahaan', form as Record<string, any>, {
+        router.post('/companys', form as Record<string, any>, {
             onSuccess: () => {
                 setOpenCreate(false);
                 setForm({
@@ -70,8 +70,8 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_peru
                     id_User_1: '',
                     id_User_2: '',
                     id_User_3: '',
-                    Notify_1: '',
-                    Notify_2: '',
+                    notify_1: '',
+                    notify_2: '',
                 });
             },
             onError: (errors: Record<string, any>) => {
@@ -169,11 +169,12 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_peru
                         </div>
 
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                            {['Manager', 'Direktur', 'Lawyer'].map((i) => {
-                                const key = `id_User_${i}` as keyof FormState;
+                            {['1', '2', '3'].map((num, idx) => {
+                                const key = `id_User_${num}` as keyof FormState;
+                                const label = ['Manager', 'Direktur', 'Lawyer'][idx];
                                 return (
-                                    <div key={i}>
-                                        <Label htmlFor={key}>User {i}</Label>
+                                    <div key={key}>
+                                        <Label htmlFor={key}>User {label}</Label>
                                         <select
                                             id={key}
                                             className="w-full rounded border px-2 py-1"
@@ -193,18 +194,18 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_peru
                         </div>
 
                         <div>
-                            <Label htmlFor="Notify_1">Notify 1 (email, pisahkan dengan koma)</Label>
+                            <Label htmlFor="notify_1">Notify 1 (email, pisahkan dengan koma)</Label>
                             <textarea
-                                id="Notify_1"
+                                id="notify_1"
                                 className="w-full rounded border px-2 py-1"
                                 rows={3}
-                                value={form.Notify_1}
-                                onChange={(e) => setForm({ ...form, Notify_1: e.target.value })}
+                                value={form.notify_1}
+                                onChange={(e) => setForm({ ...form, notify_1: e.target.value })}
                                 placeholder="contoh@email.com, lain@email.com"
                             />
                         </div>
 
-                        <input type="hidden" value={form.Notify_2} />
+                        <input type="hidden" value={form.notify_2} />
                     </div>
                     <DialogFooter className="sm:justify-start">
                         <Button type="button" onClick={handleSubmit}>
