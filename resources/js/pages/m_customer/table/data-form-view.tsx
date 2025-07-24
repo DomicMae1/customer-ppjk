@@ -20,6 +20,31 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
     const [statusData, setStatusData] = useState<any | null>(null);
     const [isLoadingStatus, setIsLoadingStatus] = useState(true);
 
+    const { props } = usePage<{
+        attachments: Attachment[];
+        auth: {
+            user: {
+                id: number;
+                name: string;
+                email: string;
+                roles: { name: string }[];
+            };
+        };
+    }>();
+
+    const { attachments } = props;
+    console.log('hasil data', props);
+
+    const creatorId = customer?.id_user;
+    const currentUserId = props.auth.user?.id;
+    const creatorRole = customer?.creator_role || 'user';
+    const isCreator = creatorId === currentUserId;
+
+    const rawRole = props.auth.user.roles?.[0]?.name;
+    const userRole = typeof rawRole === 'string' ? rawRole.toLowerCase() : '';
+    const allowedRoles = ['manager', 'direktur', 'lawyer'];
+    const showExtraFields = allowedRoles.includes(userRole);
+
     useEffect(() => {
         if (customer?.id) {
             axios
@@ -43,31 +68,8 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
         statusData?.status_3_timestamps
     );
 
-    if (statusData?.submit_3_attach) {
-        console.log('Hasilnya adalah', statusData.submit_3_attach);
-    }
-
-    const { props } = usePage<{
-        attachments: Attachment[];
-        auth: {
-            user: {
-                id: number;
-                name: string;
-                email: string;
-                roles: { name: string }[];
-            };
-        };
-    }>();
-
-    const { attachments } = props;
-    console.log('hasil data', props);
-
-    const rawRole = props.auth.user.roles?.[0]?.name;
-    const userRole = typeof rawRole === 'string' ? rawRole.toLowerCase() : '';
-    const allowedRoles = ['manager', 'direktur', 'lawyer'];
-    const showExtraFields = allowedRoles.includes(userRole);
-
-    const showUserSubmit = userRole === 'user' && !statusData?.submit_1_timestamps;
+    const showUserSubmit =
+        isCreator && (userRole === 'user' || userRole === 'manager' || userRole === 'direktur') && !statusData?.submit_1_timestamps;
 
     const showManagerApprove = userRole === 'manager' && !!statusData?.submit_1_timestamps && !statusData?.status_1_timestamps;
 
@@ -155,9 +157,15 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                 return;
             }
         }
+
         const formData = new FormData();
+        const now = new Date().toISOString();
+
         formData.append('customer_id', customer.id.toString());
         formData.append('status_1_by', String(props.auth.user.id));
+        if (customer?.id_perusahaan) {
+            formData.append('id_perusahaan', customer.id_perusahaan.toString());
+        }
 
         if (userRole === 'user' && attachFileUser) {
             formData.append('attach', attachFileUser);
@@ -170,8 +178,23 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
             }
         }
 
-        if (customer?.id_perusahaan) {
-            formData.append('id_perusahaan', customer.id_perusahaan.toString());
+        // Penambahan alur status otomatis berdasarkan creator
+        if (creatorId === currentUserId && userRole === 'manager') {
+            formData.append('submit_1_timestamps', now);
+            formData.append('status_1_by', String(currentUserId));
+            formData.append('status_1_timestamps', now);
+        } else if (creatorId === currentUserId && userRole === 'direktur') {
+            formData.append('submit_1_timestamps', now);
+            formData.append('status_2_by', String(currentUserId));
+            formData.append('status_2_timestamps', now);
+        } else if (userRole === 'user') {
+            formData.append('submit_1_timestamps', now);
+        } else if (userRole === 'manager') {
+            formData.append('status_1_by', String(currentUserId));
+            formData.append('status_1_timestamps', now);
+        } else if (userRole === 'direktur') {
+            formData.append('status_2_by', String(currentUserId));
+            formData.append('status_2_timestamps', now);
         }
 
         if (userRole === 'lawyer' && decision) {
@@ -365,10 +388,7 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                 </>
             )}
 
-            {showExtraFields && !isAllStatusSubmitted && (
-                // ((userRole === 'manager' && !statusData?.status_1_timestamps) ||
-                //     (userRole === 'direktur' && !statusData?.status_2_timestamps) ||
-                //     (userRole === 'lawyer' && !statusData?.status_3_timestamps)) && (
+            {(showUserSubmit || showManagerApprove || showDirekturApprove || showLawyerApprove) && (
                 <div className="mt-6">
                     <h2 className="text-xl font-bold">Masukkan Data Review</h2>
                     <div className="mt-4 flex flex-col gap-4 md:flex-row">

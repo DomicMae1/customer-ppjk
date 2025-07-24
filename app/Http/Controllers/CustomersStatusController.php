@@ -102,6 +102,9 @@ class CustomersStatusController extends Controller
             'customer_id' => 'required|exists:customers_statuses,id_Customer',
             'keterangan' => 'nullable|string',
             'attach' => 'nullable|file|mimes:pdf|max:5120', // max 5MB
+            'submit_1_timestamps' => 'nullable|date',
+            'status_1_timestamps' => 'nullable|date',
+            'status_2_timestamps' => 'nullable|date',
         ]);
 
         $idPerusahaan = $request->input('id_perusahaan');
@@ -128,9 +131,23 @@ class CustomersStatusController extends Controller
         $user = Auth::user();
         $userId = $user->id;
         $role = $user->getRoleNames()->first(); // Ambil role pertama user
-
         $now = Carbon::now();
         $nama = $user->name;
+
+        if ($request->filled('submit_1_timestamps')) {
+            $status->submit_1_timestamps = $request->input('submit_1_timestamps');
+        }
+
+        // ✅ Tambahan jika status_1_timestamps dan status_2_timestamps dikirim (otomatis dari frontend)
+        if ($request->filled('status_1_timestamps')) {
+            $status->status_1_timestamps = $request->input('status_1_timestamps');
+            $status->status_1_by = $userId;
+        }
+
+        if ($request->filled('status_2_timestamps')) {
+            $status->status_2_timestamps = $request->input('status_2_timestamps');
+            $status->status_2_by = $userId;
+        }
 
         // Handle attachment
         $filename = null;
