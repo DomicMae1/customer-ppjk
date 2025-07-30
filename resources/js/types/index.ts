@@ -1,4 +1,4 @@
-import { LucideIcon } from 'lucide-react';
+// import { LucideIcon } from 'lucide-react';
 
 export interface Auth {
     user: User;
@@ -14,12 +14,32 @@ export interface NavGroup {
     items: NavItem[];
 }
 
-export interface NavItem {
+export type NavItem = {
     title: string;
     url: string;
-    icon?: LucideIcon | null;
-    isActive?: boolean;
-}
+    icon: React.ElementType;
+};
+
+export type MainNavItem = NavItem & {
+    permissions?: string[];
+    subItems?: (NavItem & { permissions?: string[] })[];
+};
+
+export type UserRole = {
+    name: string;
+};
+
+export type PageProps = {
+    auth: {
+        user: {
+            id: number;
+            name: string;
+            roles: UserRole[];
+            permissions: string[];
+        };
+    };
+};
+
 
 export interface SharedData {
     name: string;
