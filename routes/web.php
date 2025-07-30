@@ -40,6 +40,7 @@ Route::post('customer/upload-temp', [CustomerController::class, 'upload'])->name
 Route::get('/form/{token}', [CustomerController::class, 'showPublicForm'])->name('customer.form.show');
 Route::post('/form/{token}', [CustomerController::class, 'submitPublicForm'])->name('customer.form.submit');
 Route::post('customer/store-public', [CustomerController::class, 'storePublic'])->name('customer.public.submit');
+Route::get('/secure-attachment/{hash}', [SecureFileController::class, 'show'])->middleware('auth')->name('secure.attachment.show');
 
 
 require __DIR__ . '/settings.php';
