@@ -321,9 +321,23 @@ class CustomerController extends Controller
         try {
             $userId = $request->input('user_id');
 
+            // Ambil customer_link yang aktif untuk user ini
+            $link = CustomerLink::on('tako-perusahaan')
+                ->where('id_user', $userId)
+                ->whereNull('id_customer')
+                ->where('is_filled', false)
+                ->latest('id_link')
+                ->first();
+
+            if (!$link) {
+                throw new \Exception('Link tidak ditemukan atau sudah digunakan.');
+            }
+
+            $id_perusahaan = $link->id_perusahaan;
+
             $customer = Customer::create(array_merge($validated, [
                 'id_user' => $userId,
-                'id_perusahaan' => 0, // Atau ambil dari user table jika diperlukan
+                'id_perusahaan' => $id_perusahaan, // Atau ambil dari user table jika diperlukan
             ]));
 
 
@@ -339,8 +353,6 @@ class CustomerController extends Controller
                     }
                 }
             }
-
-
 
             DB::connection('tako-perusahaan')->table('customers_statuses')->insert([
                 'id_Customer' => $customer->id,
@@ -375,10 +387,6 @@ class CustomerController extends Controller
             DB::rollBack();
             return redirect()->back()->withErrors(['error' => 'Terjadi kesalahan: ' . $th->getMessage()], 500);
         }
-
-        // Customer::create($validated);
-
-        // return redirect()->route('customer.index')->with('success', 'Data Customer berhasil dibuat!');
     }
 
 
