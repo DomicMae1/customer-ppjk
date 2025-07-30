@@ -1,17 +1,17 @@
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
-import { type NavItem } from '@/types';
-import { Link } from '@inertiajs/react';
-import { Building2, LayoutGrid, PackageOpen, Shield, Users } from 'lucide-react';
+import { type NavItem, PageProps } from '@/types';
+import { Link, usePage } from '@inertiajs/react';
+import { Building2, Shield, SquareUserRound, Users } from 'lucide-react';
 import AppLogo from './app-logo';
 
 const mainNavItems: NavItem[] = [
-    {
-        title: 'Dashboard',
-        url: '/dashboard',
-        icon: LayoutGrid,
-    },
+    // {
+    //     title: 'Dashboard',
+    //     url: '/dashboard',
+    //     icon: LayoutGrid,
+    // },
     // {
     //     title: 'Payments',
     //     url: '/dashboard/payments',
@@ -20,22 +20,25 @@ const mainNavItems: NavItem[] = [
     {
         title: 'Customers',
         url: '/customer',
-        icon: PackageOpen,
+        icon: SquareUserRound,
     },
     {
         title: 'Manage Users',
         url: '/users',
         icon: Users,
+        adminOnly: true,
     },
     {
         title: 'Manage Role',
         url: '/role-manager',
         icon: Shield,
+        adminOnly: true,
     },
     {
         title: 'Manage Company',
         url: '/companys',
         icon: Building2,
+        adminOnly: true,
     },
 ];
 
@@ -53,13 +56,47 @@ const mainNavItems: NavItem[] = [
 // ];
 
 export function AppSidebar() {
+    const { auth } = usePage<PageProps>().props;
+
+    // Cek apakah user punya role admin
+    const isAdmin = auth?.user?.roles?.some((role: { name: string }) => role.name === 'admin');
+
+    // Ambil semua permission user
+    const userPermissions = auth?.user?.permissions || [];
+
+    // Fungsi pengecekan permission
+    const hasPermission = (requiredPermissions: string[] = []) => {
+        return requiredPermissions.length === 0 || requiredPermissions.some((perm) => userPermissions.includes(perm));
+    };
+
+    // Filter nav items
+    const filteredNavItems = mainNavItems
+        .map((item) => {
+            // Filter jika item hanya untuk admin
+            if (item.adminOnly && !isAdmin) return null;
+
+            if ('subItems' in item) {
+                const filteredSubItems =
+                    item.subItems?.filter((subItem: NavItem & { permissions?: string[] }) => hasPermission(subItem.permissions)) || [];
+
+                if (filteredSubItems.length > 0 || hasPermission(item.permissions)) {
+                    return { ...item, subItems: filteredSubItems };
+                }
+
+                return null;
+            }
+
+            return hasPermission((item as any).permissions ?? []) ? item : null;
+        })
+        .filter((item): item is NavItem => item !== null);
+
     return (
         <Sidebar collapsible="icon" variant="inset">
             <SidebarHeader>
                 <SidebarMenu>
                     <SidebarMenuItem>
                         <SidebarMenuButton size="lg" asChild>
-                            <Link href="/dashboard" prefetch>
+                            <Link href="/customer" prefetch>
                                 <AppLogo />
                             </Link>
                         </SidebarMenuButton>
@@ -68,7 +105,7 @@ export function AppSidebar() {
             </SidebarHeader>
 
             <SidebarContent>
-                <NavMain items={mainNavItems} />
+                <NavMain items={filteredNavItems} />
             </SidebarContent>
 
             <SidebarFooter>
