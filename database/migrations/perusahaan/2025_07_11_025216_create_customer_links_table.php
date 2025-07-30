@@ -15,6 +15,8 @@ return new class extends Migration
             $table->id('id_link'); // Primary key
 
             // FK ke tabel users (marketing/user yang buat link)
+            $table->unsignedBigInteger('id_perusahaan');
+            $table->foreign('id_perusahaan')->references('id')->on('perusahaan')->onDelete('cascade');
             $table->unsignedBigInteger('id_user');
             $table->foreign('id_user')
                 ->references('id')

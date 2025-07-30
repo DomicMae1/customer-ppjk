@@ -21,8 +21,7 @@ return new class extends Migration
 
             // Tambahkan ini untuk user biasa
             $table->unsignedBigInteger('id_perusahaan')->nullable();
-            $table->foreign('id_perusahaan')->references('id_perusahaan')->on('perusahaan')->onDelete('set null');
-
+            $table->foreign('id_perusahaan')->references('id')->on('perusahaan')->onDelete('set null');
 
             $table->rememberToken();
             $table->timestamps();
