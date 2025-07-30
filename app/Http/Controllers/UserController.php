@@ -7,10 +7,13 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use App\Http\Controllers\Controller;
+use App\Models\Perusahaan;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules;
 use Inertia\Response;
+use Illuminate\Support\Facades\Auth;
 use Spatie\Permission\Models\Role;
+use Illuminate\Support\Facades\Log;
 
 class UserController extends Controller
 {
@@ -56,13 +59,17 @@ class UserController extends Controller
             'email' => 'required|string|lowercase|email|max:255|unique:' . User::class,
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
             'role' => 'required|exists:roles,id', // Validasi role harus ada di tabel roles
+            'id_perusahaan' => 'nullable|exists:perusahaan,id',
         ]);
 
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
+            'id_perusahaan' => $request->id_perusahaan,
         ]);
+
+        Log::info('Request Data:', $request->all());
 
         $role = Role::find($request->role); // Cari role berdasarkan ID
         $user->assignRole($role);

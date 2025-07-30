@@ -31,12 +31,16 @@ interface Role {
     id: number;
     name: string;
 }
+interface Perusahaan {
+    id: number;
+    nama_perusahaan: string;
+}
 
 export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData, TValue>) {
-    const { roles } = usePage().props as unknown as {
+    const { roles, companies } = usePage().props as unknown as {
         // const { roles, auth } = usePage().props as unknown as {
         roles: Role[]; // Ubah tipe roles menjadi array of Role
-        // auth: { user: { id: string; name: string; email: string } };
+        companies: Perusahaan[];
     };
 
     const [sorting, setSorting] = React.useState<SortingState>([]);
@@ -51,6 +55,8 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
     const [password, setPassword] = React.useState('');
     const [passwordConfirmation, setPasswordConfirmation] = React.useState('');
     const [selectedRole, setSelectedRole] = React.useState<string>(''); // Ubah tipe menjadi string karena Select mengharapkan string
+    const [selectedCompany, setSelectedCompany] = React.useState<string>('');
+    const selectedRoleName = roles.find((role) => String(role.id) === selectedRole)?.name;
 
     // State lokal untuk filter
     const [filterValue, setFilterValue] = React.useState('');
@@ -94,12 +100,20 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
             return;
         }
 
+        if (selectedRole === 'user' && !selectedCompany) {
+            console.error('Perusahaan harus dipilih untuk role user.');
+            return;
+        }
+
+        console.log(selectedCompany);
+
         const data = {
             name,
             email,
             password,
             password_confirmation: passwordConfirmation,
-            role: selectedRole, // Sekarang selectedRole adalah id role
+            role: selectedRole,
+            id_perusahaan: selectedRoleName === 'user' ? Number(selectedCompany) : null,
         };
 
         router.post('/users', data, {
@@ -110,6 +124,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                 setPassword('');
                 setPasswordConfirmation('');
                 setSelectedRole('');
+                setSelectedCompany('');
             },
             onError: (errors) => {
                 console.error('❌ Error saat menambah user:', errors);
@@ -185,6 +200,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                         setPassword('');
                         setPasswordConfirmation('');
                         setSelectedRole('');
+                        setSelectedCompany('');
                     }
                 }}
             >
@@ -237,6 +253,28 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                 </SelectContent>
                             </Select>
                         </div>
+                        {selectedRoleName === 'user' && (
+                            <div>
+                                <Label htmlFor="company">Perusahaan</Label>
+                                <Select
+                                    onValueChange={(value) => {
+                                        setSelectedCompany(value);
+                                    }}
+                                    value={selectedCompany}
+                                >
+                                    <SelectTrigger className="w-full">
+                                        <SelectValue placeholder="Pilih perusahaan" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {companies.map((company) => (
+                                            <SelectItem key={company.id} value={String(company.id)}>
+                                                {company.nama_perusahaan}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        )}
                         <DialogFooter className="mt-8 sm:justify-start">
                             <Button type="submit">Create</Button>
                             <DialogClose asChild>
