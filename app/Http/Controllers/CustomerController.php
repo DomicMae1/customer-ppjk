@@ -44,7 +44,8 @@ class CustomerController extends Controller
 
         if ($user->hasRole('user')) {
             if ($user->id_perusahaan) {
-                $query->where('id_perusahaan', $user->id_perusahaan);
+                $query->where('id_perusahaan', $user->id_perusahaan)
+                    ->where('id_user', $user->id);
             } else {
                 $query->whereRaw('1 = 0');
             }
@@ -80,7 +81,7 @@ class CustomerController extends Controller
                 $note = $status->status_3_keterangan;
             } elseif ($status->status_2_timestamps) {
                 $tanggal = $status->status_2_timestamps;
-                $label = 'mengetahui';
+                $label = 'diketahui';
                 $userName = $status->status2Approver?->name ?? '-';
                 $note = $status->status_2_keterangan;
             } elseif ($status->status_1_timestamps) {
@@ -110,14 +111,15 @@ class CustomerController extends Controller
                 'no_telp_personal' => $customer->no_telp_personal,
                 'creator' => [
                     'name' => $customer->creator->name ?? null,
+                    'role' => $customer->creator?->roles?->first()?->name ?? null,
                 ],
                 'submit_1_timestamps' => $status->submit_1_timestamps,
+                'status_2_timestamps' => $status->status_2_timestamps,
                 'customer_link' => [
                     'url' => $customer->customer_links->url ?? null,
                 ],
             ];
         });
-
 
         return Inertia::render('m_customer/page', [
             'customers' => $customerData,
