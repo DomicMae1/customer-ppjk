@@ -9,7 +9,7 @@
 <body>
     <h2>Hasil Review</h2>
     <p>Halo,</p>
-    <p>Customer {{$nama->nama_personal}} mendapatkan review <span style="color: red;">bermasalah</span> dengan catatan lawyer sebagai berikut:'</p>
+    <p>Customer {{$nama->nama_personal}} mendapatkan review <span style="color: red;">bermasalah</span> dengan catatan lawyer sebagai berikut:</p>
 
     @if ($status->status_3_keterangan)
     <p><strong>Dengan Keterangan:</strong> </p>

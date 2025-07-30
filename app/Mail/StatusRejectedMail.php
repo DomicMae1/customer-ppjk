@@ -3,6 +3,7 @@
 namespace App\Mail;
 
 use App\Models\Customer;
+use App\Models\CustomerAttach;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
@@ -23,18 +24,59 @@ class StatusRejectedMail extends Mailable
     /**
      * Create a new message instance.
      */
-    public function __construct(Customers_Status $status, User $sender, Customer $nama)
+    public function __construct(Customers_Status $status, User $sender, Customer $nama,)
     {
         $this->nama = $nama;
         $this->status = $status;
         $this->sender = $sender;
     }
 
-    // public function build()
-    // {
-    //     return $this->subject('Status Ditolak oleh ' . $this->sender->name)
-    //         ->view('emails.status_rejected');
-    // }
+    public function build()
+    {
+        $email = $this->subject('Status Ditolak oleh ' . $this->sender->name)
+            ->view('emails.status_rejected');
+
+        // Cek apakah ada file terlampir
+        if ($this->status->submit_3_path) {
+            $path = storage_path('app/public/' . $this->status->submit_3_path);
+
+            if (file_exists($path)) {
+                $email->attach($path, [
+                    'as' => $this->status->submit_3_nama_file ?? 'document.pdf',
+                    'mime' => 'application/pdf',
+                ]);
+            }
+        }
+
+        $customerId = $this->status->id_Customer ?? $this->status->customer_id ?? null;
+
+        if ($customerId) {
+            $files = CustomerAttach::where('customer_id', $customerId)
+                ->whereIn('type', ['npwp', 'nib', 'ktp']) // atau sesuai kebutuhan
+                ->get();
+
+            foreach ($files as $file) {
+                // Jika $file adalah array (hasil dari $files->toArray())
+                $filePathUrl = $file->path;
+
+                $parsedPath = parse_url($filePathUrl, PHP_URL_PATH);
+                $relativePath = str_replace('/storage/', '', $parsedPath);
+                $localPath = storage_path('app/public/' . $relativePath);
+
+                if (file_exists($localPath)) {
+                    $filename = ($file->type ?? 'lampiran') . '_' . ($file->nama_file ?? 'file.pdf');
+
+                    $email->attach($localPath, [
+                        'as' => $filename ?: 'file_customer.pdf', // fallback jika $filename null
+                        'mime' => 'application/pdf',
+                    ]);
+                }
+                // dd($file, $localPath, $filename);
+            }
+        }
+
+        return $email;
+    }
 
     public function envelope(): Envelope
     {
