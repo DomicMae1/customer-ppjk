@@ -601,10 +601,19 @@ class CustomerController extends Controller
             return inertia('m_customer/table/filled-already'); // atau return view('already-filled')
         }
 
+        Log::info('Link detail', [
+            'id_user' => $link->id_user,
+            'id_perusahaan' => $link->id_perusahaan,
+            'token' => $token,
+        ]);
+
+
         return inertia('m_customer/table/public-data-form', [
             'customer_name' => $link->nama_customer,
+            'customer' => null,
             'token' => $token,
             'user_id' => $link->id_user,
+            'id_perusahaan' => $link->id_perusahaan,
             'isFilled' => $link->is_filled,
         ]);
     }
@@ -616,6 +625,10 @@ class CustomerController extends Controller
         if (!$link) {
             abort(404, 'Token tidak ditemukan');
         }
+
+        Log::info('Link detail testing', [
+            'id_perusahaan' => $link->id_perusahaan,
+        ]);
 
         $validated = $request->validate([
             'kategori_usaha' => 'required|string',
@@ -637,7 +650,7 @@ class CustomerController extends Controller
 
         $customer = Customer::create(array_merge($validated, [
             'id_user' => $link->id_user, // ✅ pakai dari token
-            'id_perusahaan' => 0, // atau isi sesuai kebutuhan jika bisa diketahui
+            'id_perusahaan' => $link->id_perusahaan, // atau isi sesuai kebutuhan jika bisa diketahui
         ]));
 
 
