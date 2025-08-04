@@ -14,8 +14,11 @@ use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Storage;
 use Spatie\Permission\Exceptions\UnauthorizedException;
-use Spatie\LaravelPdf\Facades\Pdf;
+// use Spatie\LaravelPdf\Facades\Pdf;
 use Illuminate\Support\Facades\Log;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Clegginabox\PDFMerger\PDFMerger;
+use Illuminate\Support\Str;
 use Spatie\Browsershot\Browsershot;
 
 class CustomerController extends Controller
@@ -572,21 +575,91 @@ class CustomerController extends Controller
 
     public function generatePdf($id)
     {
+        Log::info("📄 Mulai generate PDF untuk customer ID: {$id}");
+
         $customer = Customer::with(['attachments', 'perusahaan'])->findOrFail($id);
         $user = auth('web')->user();
 
-        return Pdf::view('pdf.customer', [
+        $tempDir = storage_path("app/temp");
+        if (!file_exists($tempDir)) {
+            mkdir($tempDir, 0755, true);
+            Log::info("📁 Folder temp dibuat: {$tempDir}");
+        }
+
+        // ✅ Generate PDF utama
+        $mainPdfPath = "{$tempDir}/customer_{$customer->id}_main.pdf";
+        $mainPdf = Pdf::loadView('pdf.customer', [
             'customer' => $customer,
             'generated_by' => $user?->name ?? 'Guest',
-        ])
-            ->format('a4')
-            ->name('customer_' . $customer->id . '.pdf')
-            ->withBrowsershot(function (\Spatie\Browsershot\Browsershot $browsershot) {
-                $browsershot
-                    ->setNodeBinary('C:/Program Files/nodejs/node.exe')
-                    ->setChromePath('C:/Program Files/Google/Chrome/Application/chrome.exe');
-            })
-            ->download();
+        ])->setPaper('a4');
+        file_put_contents($mainPdfPath, $mainPdf->output());
+
+        // ✅ Ambil PDF lampiran
+        $attachmentPdfPaths = [];
+
+        foreach ($customer->attachments as $attachment) {
+            if (!in_array($attachment->type, ['npwp', 'nib', 'ktp'])) continue;
+
+            $parsedPath = parse_url($attachment->path, PHP_URL_PATH);
+            $relativePath = str_replace('/storage/', '', $parsedPath);
+            $localPath = storage_path("app/public/{$relativePath}");
+
+            if (!file_exists($localPath)) continue;
+
+            if (Str::endsWith(strtolower($localPath), '.pdf')) {
+                $attachmentPdfPaths[] = $localPath;
+            } else {
+                $convertedPdfPath = "{$tempDir}/converted_" . $attachment->type . "_{$customer->id}.pdf";
+                $html = view('pdf.attachment-wrapper', [
+                    'title' => strtoupper($attachment->type),
+                    'filePath' => $localPath,
+                    'extension' => pathinfo($localPath, PATHINFO_EXTENSION),
+                ])->render();
+
+                $converted = Pdf::loadHTML($html)->setPaper('a4');
+                file_put_contents($convertedPdfPath, $converted->output());
+
+                $attachmentPdfPaths[] = $convertedPdfPath;
+            }
+        }
+
+        // ✅ Merge PDF
+        $mergedPath = "{$tempDir}/customer_{$customer->id}.pdf";
+        $this->mergePdfsWithGhostscript(array_merge([$mainPdfPath], $attachmentPdfPaths), $mergedPath);
+
+        if (!file_exists($mergedPath) || filesize($mergedPath) < 1000) {
+            Log::error("❌ Merge gagal atau file terlalu kecil: {$mergedPath}");
+            abort(500, 'Merge PDF gagal.');
+        }
+
+        Log::info("✅ Proses selesai, kirim file ke user.");
+
+        return response()->download($mergedPath, "customer_{$customer->id}.pdf", [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="customer_' . $customer->id . '.pdf"',
+        ])->deleteFileAfterSend(true);
+    }
+
+    private function mergePdfsWithGhostscript(array $inputPaths, string $outputPath)
+    {
+        $isWindows = strtoupper(substr(PHP_OS, 0, 3)) === 'WIN';
+        $gsCmd = $isWindows ? 'gswin64c' : 'gs';
+
+        $inputFiles = implode(' ', array_map(function ($path) {
+            return '"' . str_replace('\\', '/', $path) . '"';
+        }, $inputPaths));
+
+        $outputFile = '"' . str_replace('\\', '/', $outputPath) . '"';
+        $cmd = "{$gsCmd} -dBATCH -dNOPAUSE -q -sDEVICE=pdfwrite -sOutputFile={$outputFile} {$inputFiles}";
+
+        Log::info("📦 Jalankan Ghostscript: {$cmd}");
+        exec($cmd . ' 2>&1', $output, $returnVar);
+        Log::info("📤 Output Ghostscript: " . implode("\n", $output));
+        Log::info("📥 Return code: {$returnVar}");
+
+        if ($returnVar !== 0) {
+            throw new \Exception("Ghostscript gagal menggabungkan PDF. Kode: {$returnVar}");
+        }
     }
 
     public function showPublicForm($token)
