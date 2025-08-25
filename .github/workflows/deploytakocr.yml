@@ -38,20 +38,23 @@ jobs:
             php artisan migrate --database=tako-perusahaan --path=database/migrations/perusahaan
             php artisan migrate --database=tako-customer --path=database/migrations/customer
 
-            if ! command -v node >/dev/null 2>&1; then
-              echo "Node.js belum terinstall, menginstall Node.js LTS..."
-              curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-              sudo apt-get install -y nodejs
-            else
+            # Cek Node.js & npm
+            if command -v node >/dev/null 2>&1; then
               echo "Node.js sudah terinstall: $(node -v)"
-            fi
-
-            if ! command -v npm >/dev/null 2>&1; then
-              echo "npm belum tersedia, menginstall npm..."
-              sudo apt install -y npm
             else
-              echo "npm sudah terinstall: $(npm -v)"
+              echo "Node.js belum terinstall! Silakan install Node.js versi LTS di server."
+              exit 1
             fi
 
+            if command -v npm >/dev/null 2>&1; then
+              echo "npm sudah tersedia: $(npm -v)"
+            else
+              echo "npm belum terinstall! Silakan install npm agar frontend bisa dibuild."
+              exit 1
+            fi
+
+            echo "Install frontend dependencies dan build"
             npm install
             npm run build
+
+            echo "Deploy selesai ✅"
