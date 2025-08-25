@@ -39,6 +39,7 @@ jobs:
             php artisan migrate --database=tako-customer --path=database/migrations/customer
 
             if command -v npm > /dev/null 2>&1; then
+              echo "npm sudah terinstall: $(npm -v)"
             else
               export NVM_DIR="$HOME/.nvm"
               if [ ! -d "$NVM_DIR" ]; then
