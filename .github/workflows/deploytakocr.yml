@@ -37,5 +37,21 @@ jobs:
             composer install --no-dev --prefer-dist
             php artisan migrate --database=tako-perusahaan --path=database/migrations/perusahaan
             php artisan migrate --database=tako-customer --path=database/migrations/customer
-            npm i
+
+            if ! command -v node >/dev/null 2>&1; then
+              echo "Node.js belum terinstall, menginstall Node.js LTS..."
+              curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+              sudo apt-get install -y nodejs
+            else
+              echo "Node.js sudah terinstall: $(node -v)"
+            fi
+
+            if ! command -v npm >/dev/null 2>&1; then
+              echo "npm belum tersedia, menginstall npm..."
+              sudo apt install -y npm
+            else
+              echo "npm sudah terinstall: $(npm -v)"
+            fi
+
+            npm install
             npm run build
