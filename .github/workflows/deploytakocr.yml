@@ -38,17 +38,8 @@ jobs:
             php artisan migrate --database=tako-perusahaan --path=database/migrations/perusahaan
             php artisan migrate --database=tako-customer --path=database/migrations/customer
 
-            if command -v node > /dev/null 2>&1; then
-              echo "Node.js sudah terinstall: $(node -v)"
-            else
-              echo "Node.js belum terinstall. Silakan install Node.js versi LTS."
-              exit 1
-            fi
-
             if command -v npm > /dev/null 2>&1; then
-              echo "npm sudah terinstall: $(npm -v)"
             else
-              echo "npm belum terinstall! Menginstall npm via NVM..."
               export NVM_DIR="$HOME/.nvm"
               if [ ! -d "$NVM_DIR" ]; then
                 mkdir -p "$NVM_DIR"
@@ -60,11 +51,7 @@ jobs:
 
               nvm install --lts
               nvm use --lts
-              echo "npm version: $(npm -v)"
             fi
 
-            echo "Install frontend dependencies dan build"
             npm ci
             npm run build
-
-            echo "Deploy selesai ✅"
