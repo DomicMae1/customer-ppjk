@@ -6,21 +6,13 @@ import { Link, usePage } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
 import { MoreHorizontal } from 'lucide-react';
 
-const downloadPdf = async (id: number) => {
-    const response = await fetch(`/customer/${id}/pdf`, {
-        method: 'GET',
-    });
-
-    const blob = await response.blob();
-    const url = window.URL.createObjectURL(blob);
-
+const downloadPdf = (id: number) => {
     const link = document.createElement('a');
-    link.href = url;
-    link.download = `customer_${id}.pdf`;
+    link.href = `/customer/${id}/pdf`;
+    link.setAttribute('download', `customer_${id}.pdf`);
     document.body.appendChild(link);
     link.click();
-    link.remove();
-    window.URL.revokeObjectURL(url);
+    document.body.removeChild(link);
 };
 
 export const columns = (): ColumnDef<MasterCustomer>[] => {

@@ -302,7 +302,7 @@ const useDropzone = <TUploadRes, TUploadError = string>(
                     await onRemoveFile(fileStatuses[index].id);
                 }
 
-                const id = crypto.randomUUID();
+                const id = `${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
                 dispatch({ type: 'add', fileName: file.name, file, id });
                 await _uploadFile(file, id);
             });
