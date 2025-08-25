@@ -35,6 +35,7 @@ jobs:
             git clean -fd
 
             composer install --no-dev --prefer-dist
-            php artisan migrate
+            php artisan migrate --database=tako-perusahaan --path=database/migrations/perusahaan
+            php artisan migrate --database=tako-customer --path=database/migrations/customer
             npm i
             npm run build
