@@ -266,6 +266,14 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
         });
     };
 
+    const getPublicUrl = (relativePath: string | null | undefined): string => {
+        if (!relativePath) {
+            return '#'; // Kembalikan link non-fungsional jika path kosong
+        }
+        // Gabungkan dengan base URL storage
+        return `/storage/${relativePath}`;
+    };
+
     return (
         <div className="rounded-2xl border-0 p-4">
             <h1 className="mb-4 text-3xl font-semibold">View Customer</h1>
@@ -442,7 +450,14 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                         {attachments.map((file) => (
                             <div key={file.id} className="w-full rounded-md border border-gray-500 p-2 dark:bg-neutral-400 dark:text-black">
                                 <div className="mb-1 font-medium capitalize">{file.type.toUpperCase()}</div>
-                                <a href={file.path} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 underline">
+
+                                {/* 👇 PANGGIL FUNGSI HELPER DI SINI */}
+                                <a
+                                    href={getPublicUrl(file.path)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-sm text-blue-600 underline"
+                                >
                                     Lihat Dokumen
                                 </a>
                             </div>
