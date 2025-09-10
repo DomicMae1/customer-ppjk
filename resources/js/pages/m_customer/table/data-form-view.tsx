@@ -475,10 +475,12 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                                                 file={file}
                                                 className="bg-secondary relative h-full w-full overflow-hidden rounded-md shadow-sm"
                                             >
+                                                {file.status === 'pending' && <div className="h-full animate-pulse bg-black/20" />}
+
                                                 {file.status === 'success' && (
                                                     <div
                                                         onClick={() => file.result && window.open(file.result, '_blank')}
-                                                        className="z-10 flex h-full w-full cursor-pointer items-center justify-center bg-gray-100 px-2 text-sm text-ellipsis whitespace-nowrap text-gray-600"
+                                                        className="z-10 flex h-full w-full cursor-pointer items-center justify-center rounded-md bg-gray-100 px-2 text-sm text-ellipsis whitespace-nowrap text-gray-600"
                                                     >
                                                         <File className="mr-2 size-6 shrink-0" />
                                                         {file.fileName}
@@ -492,12 +494,11 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                                                                 setAttachFileUser(null);
                                                                 setAttachFileStatuses([]);
                                                             }}
-                                                            className="bg-white p-1"
+                                                            className="rounded-full bg-white p-1"
                                                         >
                                                             <Trash2Icon className="size-4 text-black" />
                                                         </span>
                                                     </DropzoneRemoveFile>
-                                                    <p className="mt-1 text-xs text-red-500">* Wajib unggah file PDF maksimal 5MB</p>
                                                 </div>
                                             </DropzoneFileListItem>
                                         ))
