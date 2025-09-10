@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // import { LucideIcon } from 'lucide-react';
 
 export interface Auth {
@@ -40,7 +41,6 @@ export type PageProps = {
     };
 };
 
-
 export interface SharedData {
     name: string;
     quote: { message: string; author: string };
@@ -57,6 +57,8 @@ export interface User {
     created_at: string;
     updated_at: string;
     [key: string]: unknown; // This allows for additional properties...
+    roles: { name: string }[]; // 👈 Pastikan ini adalah array objek
+    companies: { id: number; nama_perusahaan: string }[];
 }
 
 export interface Role {
@@ -71,18 +73,18 @@ export interface Permission {
 }
 
 export interface Perusahaan {
-  id: number;
-  nama_perusahaan: string;
-  id_User_1: number | null;
-  id_User_2: number | null;
-  id_User_3: number | null;
-  id_User: number | null;
-  Notify_1: boolean | null;
-  Notify_2: boolean | null;
-  created_at?: string;
-  updated_at?: string;
-  user?: User;
-  [key: string]: unknown;
+    id: number;
+    nama_perusahaan: string;
+    id_User_1: number | null;
+    id_User_2: number | null;
+    id_User_3: number | null;
+    id_User: number | null;
+    Notify_1: boolean | null;
+    Notify_2: boolean | null;
+    created_at?: string;
+    updated_at?: string;
+    user?: User;
+    [key: string]: unknown;
 }
 
 export type Payment = {
@@ -94,6 +96,7 @@ export type Payment = {
 
 export type MasterCustomer = {
     id: number | null;
+    id_perusahaan?: any;
     kategori_usaha: string;
     nama_perusahaan: string;
     bentuk_badan_usaha: string;
@@ -137,10 +140,12 @@ export type Attachment = {
 };
 
 export type DropzoneFileStatus = {
-  id: string;
-  fileName: string;
-  file: File;
-  tries: number;
-  status: 'success';
-  result: string;
+    id: string;
+    fileName: string;
+    file: File;
+    tries: number;
+    status: 'success';
+    result: string;
 };
+
+export type AttachmentType = 'npwp' | 'nib' | 'sppkp' | 'ktp' | 'note';

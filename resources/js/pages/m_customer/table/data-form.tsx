@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
-import { Attachment, Auth, MasterCustomer } from '@/types';
+import { Attachment, AttachmentType, Auth, MasterCustomer } from '@/types';
 import { router, useForm, usePage } from '@inertiajs/react';
 import '@react-pdf-viewer/core/lib/styles/index.css';
 import '@react-pdf-viewer/default-layout/lib/styles/index.css';
@@ -16,7 +16,7 @@ import { CloudUploadIcon, File, Trash2Icon } from 'lucide-react';
 // import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 // import { AlertCircle } from "lucide-react"
 import axios from 'axios';
-import { FormEventHandler, JSXElementConstructor, Key, ReactElement, ReactNode, ReactPortal, useEffect, useState } from 'react';
+import { FormEventHandler, useEffect, useState } from 'react';
 import { PhoneInput } from 'react-international-phone';
 import 'react-international-phone/style.css';
 import { NumericFormat } from 'react-number-format';
@@ -94,13 +94,13 @@ export default function CustomerForm({
     }>({});
 
     const [npwpFile, setNpwpFile] = useState<File | null>(null);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const [npwpFileStatuses, setNpwpFileStatuses] = useState<any[]>([]);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const [nibFileStatuses, setNibFileStatuses] = useState<any[]>([]);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const [sppkpFileStatuses, setSppkpFileStatuses] = useState<any[]>([]);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const [ktpFileStatuses, setKtpFileStatuses] = useState<any[]>([]);
     const [nibFile, setNibFile] = useState<File | null>(null);
     const [sppkpFile, setSppkpFile] = useState<File | null>(null);
@@ -256,7 +256,7 @@ export default function CustomerForm({
         },
     });
 
-    async function uploadAttachment(file: File, type: string): Promise<Attachment> {
+    async function uploadAttachment(file: File, type: AttachmentType): Promise<Attachment> {
         const formData = new FormData();
         formData.append('file', file);
 
@@ -271,8 +271,7 @@ export default function CustomerForm({
         };
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const extractAttachmentFromStatus = (statuses: any[], type: string): Attachment | null => {
+    const extractAttachmentFromStatus = (statuses: any[], type: AttachmentType): Attachment | null => {
         if (statuses.length > 0) {
             const file = statuses[0];
             return {
@@ -561,36 +560,11 @@ export default function CustomerForm({
                                         <SelectValue placeholder="Pilih Perusahaan" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {auth.user?.companies?.map(
-                                            (perusahaan: {
-                                                id_perusahaan: Key | null | undefined;
-                                                nama_perusahaan:
-                                                    | string
-                                                    | number
-                                                    | bigint
-                                                    | boolean
-                                                    | ReactElement<unknown, string | JSXElementConstructor<any>>
-                                                    | Iterable<ReactNode>
-                                                    | ReactPortal
-                                                    | Promise<
-                                                          | string
-                                                          | number
-                                                          | bigint
-                                                          | boolean
-                                                          | ReactPortal
-                                                          | ReactElement<unknown, string | JSXElementConstructor<any>>
-                                                          | Iterable<ReactNode>
-                                                          | null
-                                                          | undefined
-                                                      >
-                                                    | null
-                                                    | undefined;
-                                            }) => (
-                                                <SelectItem key={perusahaan.id} value={String(perusahaan.id)}>
-                                                    {perusahaan.nama_perusahaan}
-                                                </SelectItem>
-                                            ),
-                                        )}
+                                        {auth.user?.companies?.map((perusahaan) => (
+                                            <SelectItem key={perusahaan.id} value={String(perusahaan.id)}>
+                                                {perusahaan.nama_perusahaan}
+                                            </SelectItem>
+                                        ))}
                                     </SelectContent>
                                 </Select>
                             </div>
@@ -799,7 +773,7 @@ export default function CustomerForm({
                             <input
                                 type="text"
                                 id="no_npwp"
-                                value={data.no_npwp}
+                                value={data.no_npwp ?? ''}
                                 onChange={(e) => setData('no_npwp', formatNpwp(e.target.value))}
                                 placeholder="Masukkan nomor NPWP"
                                 className={cn(
@@ -819,7 +793,7 @@ export default function CustomerForm({
                                 inputMode="numeric"
                                 maxLength={19} // karena spasi: 4 + 1 + 4 + 1 + 4 + 1 + 4 = 19 total karakter
                                 id="no_npwp_16"
-                                value={data.no_npwp_16}
+                                value={data.no_npwp_16 ?? ''}
                                 onChange={(e) => setData('no_npwp_16', formatNpwp16(e.target.value))}
                                 placeholder="Masukkan nomor NPWP 16 digit"
                                 className={cn(
@@ -983,7 +957,7 @@ export default function CustomerForm({
                                                 <CloudUploadIcon className="size-8" />
                                                 <div>
                                                     <p className="font-semibold">Upload PDF</p>
-                                                    <p className="text-muted-foreground text-sm">Click atau drag file .pdf ke sini</p>
+                                                    <p className="text-muted-foreground text-sm">Click or drag to upload a .pdf file</p>
                                                 </div>
                                             </DropzoneTrigger>
                                         )}
