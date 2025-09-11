@@ -30,6 +30,7 @@ export const columns = (): ColumnDef<MasterCustomer>[] => {
     const { props } = usePage();
     console.log('Tes', usePage().props);
     const userRole = props.auth?.user?.roles?.[0]?.name ?? '';
+    console.log(userRole);
 
     if (typeof window !== 'undefined') {
         const hasReloaded = localStorage.getItem('hasReloadedCustomerPage');
@@ -146,15 +147,13 @@ export const columns = (): ColumnDef<MasterCustomer>[] => {
             id: 'actions',
             cell: ({ row }) => {
                 const customer = row.original;
-                const { auth } = usePage().props as { auth: Auth };
-                const user = auth.user;
-                const canEdit = !customer.submit_1_timestamps && customer.user_id === user.id;
 
-                // 👇 2. Gunakan hook untuk mendeteksi breakpoint tablet/desktop
+                // 👇 Logika HANYA untuk tombol Edit
+                const canEdit = !customer.submit_1_timestamps;
+
                 const isDesktop = useMediaQuery('(min-width: 768px)');
 
                 if (isDesktop) {
-                    // 👇 3. TAMPILAN DESKTOP (DropdownMenu yang sudah ada)
                     return (
                         <div className="flex justify-end">
                             <DropdownMenu>
@@ -168,12 +167,17 @@ export const columns = (): ColumnDef<MasterCustomer>[] => {
                                     <Link href={`/customer/${customer.id}`}>
                                         <DropdownMenuItem>View Customer</DropdownMenuItem>
                                     </Link>
+
+                                    {/* Tombol Edit hanya muncul jika 'canEdit' true */}
                                     {canEdit && (
                                         <Link href={`/customer/${customer.id}/edit`}>
                                             <DropdownMenuItem>Edit Customer</DropdownMenuItem>
                                         </Link>
                                     )}
+
                                     <DropdownMenuItem onClick={() => customer.id != null && downloadPdf(customer.id)}>Download PDF</DropdownMenuItem>
+
+                                    {/* Tombol Hapus sekarang selalu muncul */}
                                     <DropdownMenuItem className="text-red-600" onClick={() => onDeleteClick(customer.id!)}>
                                         Hapus Customer
                                     </DropdownMenuItem>
@@ -183,7 +187,7 @@ export const columns = (): ColumnDef<MasterCustomer>[] => {
                     );
                 }
 
-                // 👇 4. TAMPILAN MOBILE/TABLET (Drawer)
+                // Tampilan Mobile/Tablet (Drawer)
                 return (
                     <div className="flex justify-end">
                         <Drawer>
@@ -196,7 +200,7 @@ export const columns = (): ColumnDef<MasterCustomer>[] => {
                             <DrawerContent>
                                 <DrawerHeader className="text-left">
                                     <DrawerTitle>Actions</DrawerTitle>
-                                    <DrawerDescription>Pilih aksi yang ingin Anda lakukan untuk customer ini.</DrawerDescription>
+                                    <DrawerDescription>Pilih aksi yang ingin Anda lakukan.</DrawerDescription>
                                 </DrawerHeader>
                                 <div className="flex flex-col gap-2 p-4">
                                     <Link href={`/customer/${customer.id}`}>
@@ -218,6 +222,7 @@ export const columns = (): ColumnDef<MasterCustomer>[] => {
                                     >
                                         Download PDF
                                     </Button>
+                                    {/* Tombol Hapus sekarang selalu muncul */}
                                     <Button
                                         variant="destructive"
                                         className="w-full justify-start text-white"
