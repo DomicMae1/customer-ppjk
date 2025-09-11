@@ -490,7 +490,7 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
 
                             {/* Dropzone */}
                             <div className="w-full md:w-1/2">
-                                <ResettableDropzone label="Upload Lampiran Penawaran Marketing (PDF)" onFileChange={setAttachFile} />
+                                <ResettableDropzone label="Upload Lampiran" onFileChange={setAttachFile} />
                                 <p className="mt-1 text-xs text-red-500">* Wajib unggah file PDF maksimal 5MB</p>
                             </div>
                         </div>
