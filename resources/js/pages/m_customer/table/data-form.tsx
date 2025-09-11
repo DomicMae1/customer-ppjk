@@ -1,10 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { Dropzone, DropZoneArea, DropzoneFileListItem, DropzoneRemoveFile, DropzoneTrigger, useDropzone } from '@/components/dropzone';
-import InputError from '@/components/input-error';
+import { useDropzone } from '@/components/dropzone';
+import { ResettableDropzone } from '@/components/ResettableDropzone'; // 👈 1. Impor komponen baru
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
@@ -12,7 +13,7 @@ import { Attachment, AttachmentType, Auth, MasterCustomer } from '@/types';
 import { router, useForm, usePage } from '@inertiajs/react';
 import '@react-pdf-viewer/core/lib/styles/index.css';
 import '@react-pdf-viewer/default-layout/lib/styles/index.css';
-import { CloudUploadIcon, File, Trash2Icon } from 'lucide-react';
+import { File } from 'lucide-react';
 // import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 // import { AlertCircle } from "lucide-react"
 import axios from 'axios';
@@ -436,19 +437,19 @@ export default function CustomerForm({
         }
 
         // 🔒 Cek wajib upload file PDF
-        if (!npwpFileStatuses || npwpFileStatuses.length === 0) {
+        if (!npwpFile) {
             const message = 'Dokumen NPWP wajib diunggah.';
             setErrors((prev) => ({ ...prev, attachments: message }));
             alert(message); // ⬅️ alert ditambahkan
             return;
         }
-        if (!nibFileStatuses || nibFileStatuses.length === 0) {
+        if (!nibFile) {
             const message = 'Dokumen NIB wajib diunggah.';
             setErrors((prev) => ({ ...prev, attachments: message }));
             alert(message);
             return;
         }
-        if (!ktpFileStatuses || ktpFileStatuses.length === 0) {
+        if (!ktpFile) {
             const message = 'Dokumen KTP wajib diunggah.';
             setErrors((prev) => ({ ...prev, attachments: message }));
             alert(message);
@@ -917,209 +918,39 @@ export default function CustomerForm({
 
                         {/* 4 Dropzone Kolom */}
                         <div className="col-span-4 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-                            {/* NPWP */}
                             <div className="w-full">
-                                <Label htmlFor="file_npwp" className="mb-1 block">
-                                    Upload NPWP <span className="text-red-500">*</span>
-                                </Label>
-                                <Dropzone {...dropzoneNpwp}>
-                                    <DropZoneArea className="h-[200px] min-h-[200px] overflow-hidden">
-                                        {npwpFileStatuses.length > 0 ? (
-                                            npwpFileStatuses.map((file) => (
-                                                <DropzoneFileListItem
-                                                    key={file.id}
-                                                    file={file}
-                                                    className="bg-secondary relative h-full w-full overflow-hidden rounded-md shadow-sm"
-                                                >
-                                                    {file.status === 'pending' && <div className="h-full animate-pulse bg-black/20" />}
-
-                                                    {file.status === 'success' && (
-                                                        <div
-                                                            onClick={() => file.result && window.open(file.result, '_blank')}
-                                                            className="z-10 flex h-full w-full cursor-pointer items-center justify-center rounded-md bg-gray-100 px-2 text-sm text-ellipsis whitespace-nowrap text-gray-600"
-                                                        >
-                                                            <File className="mr-2 size-6 shrink-0" />
-                                                            {file.fileName}
-                                                        </div>
-                                                    )}
-
-                                                    <div className="absolute top-2 right-2 z-20">
-                                                        <DropzoneRemoveFile>
-                                                            <span onClick={() => setNpwpFileStatuses([])} className="rounded-full bg-white p-1">
-                                                                <Trash2Icon className="size-4 text-black" />
-                                                            </span>
-                                                        </DropzoneRemoveFile>
-                                                    </div>
-                                                </DropzoneFileListItem>
-                                            ))
-                                        ) : (
-                                            <DropzoneTrigger className="flex h-full flex-col items-center justify-center gap-4 bg-transparent text-center text-sm">
-                                                <CloudUploadIcon className="size-8" />
-                                                <div>
-                                                    <p className="font-semibold">Upload PDF</p>
-                                                    <p className="text-muted-foreground text-sm">Click or drag to upload a .pdf file</p>
-                                                </div>
-                                            </DropzoneTrigger>
-                                        )}
-                                    </DropZoneArea>
-                                </Dropzone>
+                                <ResettableDropzone
+                                    label="Upload NPWP"
+                                    isRequired={true}
+                                    onFileChange={setNpwpFile}
+                                    existingFile={customer?.attachments?.find((a) => a.type === 'npwp')}
+                                />
                                 <p className="mt-1 text-xs text-red-500">* Wajib unggah NPWP dalam format PDF</p>
-                                <InputError message={errors.attachments} />
                             </div>
-
-                            {/* NIB */}
                             <div className="w-full">
-                                <Label htmlFor="file_npwp" className="mb-1 block">
-                                    Upload NIB <span className="text-red-500">*</span>
-                                </Label>
-                                <Dropzone {...dropzoneNib}>
-                                    <DropZoneArea className="h-[200px] min-h-[200px] overflow-hidden">
-                                        {nibFileStatuses.length > 0 ? (
-                                            nibFileStatuses.map((file) => (
-                                                <DropzoneFileListItem
-                                                    key={file.id}
-                                                    file={file}
-                                                    className="bg-secondary relative h-full w-full overflow-hidden rounded-md shadow-sm"
-                                                >
-                                                    {file.status === 'pending' && <div className="h-full animate-pulse bg-black/20" />}
-
-                                                    {file.status === 'success' && (
-                                                        <div
-                                                            onClick={() => file.result && window.open(file.result, '_blank')}
-                                                            className="z-10 flex h-full w-full cursor-pointer items-center justify-center rounded-md bg-gray-100 px-2 text-sm text-ellipsis whitespace-nowrap text-gray-600"
-                                                        >
-                                                            <File className="mr-2 size-6 shrink-0" />
-                                                            {file.fileName}
-                                                        </div>
-                                                    )}
-
-                                                    <div className="absolute top-2 right-2 z-20">
-                                                        <DropzoneRemoveFile>
-                                                            <span onClick={() => setNibFileStatuses([])} className="rounded-full bg-white p-1">
-                                                                <Trash2Icon className="size-4 text-black" />
-                                                            </span>
-                                                        </DropzoneRemoveFile>
-                                                    </div>
-                                                </DropzoneFileListItem>
-                                            ))
-                                        ) : (
-                                            <DropzoneTrigger className="flex h-full flex-col items-center justify-center gap-4 bg-transparent text-center text-sm">
-                                                <CloudUploadIcon className="size-8" />
-                                                <div>
-                                                    <p className="font-semibold">Upload PDF</p>
-                                                    <p className="text-muted-foreground text-sm">Click or drag to upload a .pdf file</p>
-                                                </div>
-                                            </DropzoneTrigger>
-                                        )}
-                                    </DropZoneArea>
-                                </Dropzone>
+                                <ResettableDropzone
+                                    label="Upload NIB"
+                                    isRequired={true}
+                                    onFileChange={setNibFile}
+                                    existingFile={customer?.attachments?.find((a) => a.type === 'nib')}
+                                />
                                 <p className="mt-1 text-xs text-red-500">* Wajib unggah NIB dalam format PDF</p>
-                                <InputError message={errors.attachments} />
                             </div>
-
-                            {/* SPTKP */}
                             <div className="w-full">
-                                <Label htmlFor="file_sppkp" className="mb-1 block">
-                                    Upload SPTKP
-                                </Label>
-                                <Dropzone {...dropzoneSppkp}>
-                                    <DropZoneArea className="h-[200px] min-h-[200px] overflow-hidden">
-                                        {sppkpFileStatuses.length > 0 ? (
-                                            sppkpFileStatuses.map((file) => (
-                                                <DropzoneFileListItem
-                                                    key={file.id}
-                                                    file={file}
-                                                    className="bg-secondary relative h-full w-full overflow-hidden rounded-md shadow-sm"
-                                                >
-                                                    {file.status === 'pending' && <div className="h-full animate-pulse bg-black/20" />}
-
-                                                    {file.status === 'success' && (
-                                                        <div
-                                                            onClick={() => {
-                                                                if (file.result) window.open(file.result, '_blank');
-                                                            }}
-                                                            className="z-10 flex h-full w-full cursor-pointer items-center justify-center rounded-md bg-gray-100 px-2 text-sm text-ellipsis whitespace-nowrap text-gray-600"
-                                                        >
-                                                            <File className="mr-2 size-6 shrink-0" />
-                                                            {file.fileName}
-                                                        </div>
-                                                    )}
-
-                                                    <div className="absolute top-2 right-2 z-20">
-                                                        <DropzoneRemoveFile>
-                                                            <span onClick={() => setSppkpFileStatuses([])} className="rounded-full bg-white p-1">
-                                                                <Trash2Icon className="size-4 text-black" />
-                                                            </span>
-                                                        </DropzoneRemoveFile>
-                                                    </div>
-                                                </DropzoneFileListItem>
-                                            ))
-                                        ) : (
-                                            <DropzoneTrigger className="flex h-full flex-col items-center justify-center gap-4 bg-transparent text-center text-sm">
-                                                <CloudUploadIcon className="size-8" />
-                                                <div>
-                                                    <p className="font-semibold">Upload PDF</p>
-                                                    <p className="text-muted-foreground text-sm">Click or drag to upload a .pdf file</p>
-                                                </div>
-                                            </DropzoneTrigger>
-                                        )}
-                                    </DropZoneArea>
-                                </Dropzone>
-                                <InputError message={errors.attachments} />
+                                <ResettableDropzone
+                                    label="Upload SPPKP"
+                                    onFileChange={setSppkpFile}
+                                    existingFile={customer?.attachments?.find((a) => a.type === 'sppkp')}
+                                />
                             </div>
-
-                            {/* KTP */}
                             <div className="w-full">
-                                <Label htmlFor="file_ktp" className="mb-1 block">
-                                    Upload KTP <span className="text-red-500">*</span>
-                                </Label>
-                                <Dropzone {...dropzoneKtp}>
-                                    <DropZoneArea className="h-[200px] min-h-[200px] overflow-hidden">
-                                        {ktpFileStatuses.length > 0 ? (
-                                            ktpFileStatuses.map((file) => (
-                                                <DropzoneFileListItem
-                                                    key={file.id}
-                                                    file={file}
-                                                    className="bg-secondary relative h-full w-full overflow-hidden rounded-md shadow-sm"
-                                                >
-                                                    {file.status === 'pending' && <div className="h-full animate-pulse bg-black/20" />}
-
-                                                    {file.status === 'success' && (
-                                                        <div
-                                                            onClick={() => {
-                                                                if (file.result) {
-                                                                    window.open(file.result, '_blank');
-                                                                }
-                                                            }}
-                                                            className="z-10 flex h-full w-full cursor-pointer items-center justify-center rounded-md bg-gray-100 px-2 text-sm text-ellipsis whitespace-nowrap text-gray-600"
-                                                        >
-                                                            <File className="mr-2 size-6 shrink-0" />
-                                                            {file.fileName}
-                                                        </div>
-                                                    )}
-
-                                                    <div className="absolute top-2 right-2 z-20">
-                                                        <DropzoneRemoveFile>
-                                                            <span onClick={() => setKtpFileStatuses([])} className="rounded-full bg-white p-1">
-                                                                <Trash2Icon className="size-4 text-black" />
-                                                            </span>
-                                                        </DropzoneRemoveFile>
-                                                    </div>
-                                                </DropzoneFileListItem>
-                                            ))
-                                        ) : (
-                                            <DropzoneTrigger className="flex h-full flex-col items-center justify-center gap-4 bg-transparent text-center text-sm">
-                                                <CloudUploadIcon className="size-8" />
-                                                <div>
-                                                    <p className="font-semibold">Upload PDF</p>
-                                                    <p className="text-muted-foreground text-sm">Click or drag to upload a .pdf file</p>
-                                                </div>
-                                            </DropzoneTrigger>
-                                        )}
-                                    </DropZoneArea>
-                                </Dropzone>
-                                <p className="mt-1 text-xs text-red-500">* Wajib unggah KTP dalam format PDF</p>
-                                <InputError message={errors.attachments} />
+                                <ResettableDropzone
+                                    label="Upload KTP"
+                                    isRequired={true}
+                                    onFileChange={setKtpFile}
+                                    existingFile={customer?.attachments?.find((a) => a.type === 'ktp')}
+                                />
+                                 <p className="mt-1 text-xs text-red-500">* Wajib unggah KTP dalam format PDF</p>
                             </div>
                         </div>
                     </div>
