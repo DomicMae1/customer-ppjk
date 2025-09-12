@@ -79,9 +79,7 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
             }
         };
 
-        if (customer.id_perusahaan && statusData?.submit_1_timestamps) {
-            fetchManagerStatus();
-        }
+        fetchManagerStatus();
     }, [customer.id_perusahaan, statusData?.submit_1_timestamps]);
 
     const showUserSubmit = isCreator && userRole === 'user' && !statusData?.submit_1_timestamps;
