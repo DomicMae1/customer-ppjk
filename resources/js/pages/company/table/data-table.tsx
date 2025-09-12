@@ -4,7 +4,7 @@ import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogT
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { router, usePage } from '@inertiajs/react'; // ✅ Tambahkan ini
+import { router, usePage } from '@inertiajs/react';
 import {
     ColumnDef,
     ColumnFiltersState,
@@ -27,11 +27,13 @@ interface User {
     name: string;
 }
 
+// 👇 1. Tambahkan id_User ke dalam FormState
 interface FormState {
     nama_perusahaan: string;
-    id_User_1: string;
-    id_User_2: string;
-    id_User_3: string;
+    id_User: string; // Untuk User/Marketing
+    id_User_1: string; // Manager
+    id_User_2: string; // Direktur
+    id_User_3: string; // Lawyer
     notify_1: string;
     notify_2?: string;
 }
@@ -52,8 +54,10 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_peru
     const { props } = usePage<{ users: User[] }>();
     const users = props.users ?? [];
 
+    // 👇 2. Tambahkan id_User ke state awal
     const [form, setForm] = useState<FormState>({
         nama_perusahaan: '',
+        id_User: '',
         id_User_1: '',
         id_User_2: '',
         id_User_3: '',
@@ -65,8 +69,10 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_peru
         router.post('/companys', form as Record<string, any>, {
             onSuccess: () => {
                 setOpenCreate(false);
+                // 👇 3. Reset id_User setelah sukses
                 setForm({
                     nama_perusahaan: '',
+                    id_User: '',
                     id_User_1: '',
                     id_User_2: '',
                     id_User_3: '',
@@ -102,6 +108,14 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_peru
             rowSelection,
         },
     });
+
+    // 👇 4. Buat array untuk mempermudah mapping form
+    const userRoles = [
+        { key: 'id_User', label: 'User/Marketing' },
+        { key: 'id_User_1', label: 'Manager' },
+        { key: 'id_User_2', label: 'Direktur' },
+        { key: 'id_User_3', label: 'Lawyer' },
+    ];
 
     return (
         <div className="w-full space-y-4">
@@ -168,29 +182,26 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_peru
                             />
                         </div>
 
-                        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                            {['1', '2', '3'].map((num, idx) => {
-                                const key = `id_User_${num}` as keyof FormState;
-                                const label = ['Manager', 'Direktur', 'Lawyer'][idx];
-                                return (
-                                    <div key={key}>
-                                        <Label htmlFor={key}>User {label}</Label>
-                                        <select
-                                            id={key}
-                                            className="w-full rounded border px-2 py-1"
-                                            value={form[key]}
-                                            onChange={(e) => handleUserChange(key, e.target.value)}
-                                        >
-                                            <option value="">Pilih User</option>
-                                            {users.map((user) => (
-                                                <option key={user.id} value={user.id}>
-                                                    {user.name}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                );
-                            })}
+                        {/* 👇 5. Gunakan grid 2x2 dan mapping dari array userRoles */}
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                            {userRoles.map(({ key, label }) => (
+                                <div key={key}>
+                                    <Label htmlFor={key}>{label}</Label>
+                                    <select
+                                        id={key}
+                                        className="w-full rounded border px-2 py-1"
+                                        value={form[key as keyof FormState]}
+                                        onChange={(e) => handleUserChange(key as keyof FormState, e.target.value)}
+                                    >
+                                        <option value="">Pilih User</option>
+                                        {users.map((user) => (
+                                            <option key={user.id} value={user.id}>
+                                                {user.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            ))}
                         </div>
 
                         <div>

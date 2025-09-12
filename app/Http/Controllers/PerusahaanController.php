@@ -53,7 +53,7 @@ class PerusahaanController extends Controller
             'id_User_1' => 'nullable|integer|exists:users,id',
             'id_User_2' => 'nullable|integer|exists:users,id',
             'id_User_3' => 'nullable|integer|exists:users,id',
-            'id_User' => 'nullable|integer|exists:users,id',
+            'id_User' => 'nullable|integer|exists:users,id', // Validasi sudah ada, bagus!
             'notify_1' => 'nullable|string',
             'notify_2' => 'nullable|string',
         ]);
@@ -68,28 +68,25 @@ class PerusahaanController extends Controller
         // Buat perusahaan
         $perusahaan = Perusahaan::create($perusahaanData);
 
-        // Assign users ke perusahaan melalui pivot
+        // 👇 1. Tambahkan 'id_User' ke dalam array userRoles
         $userRoles = [
             $validated['id_User_1'] ?? null => 'manager',
             $validated['id_User_2'] ?? null => 'direktur',
             $validated['id_User_3'] ?? null => 'lawyer',
+            $validated['id_User']   ?? null => 'user', // Tambahkan user/marketing di sini
         ];
 
         foreach ($userRoles as $userId => $role) {
             if ($userId) {
+                // Gunakan attach pada relasi untuk memasukkan ke tabel pivot
                 $perusahaan->users()->attach($userId, ['role' => $role]);
             }
         }
 
-        // Assign user pembuat jika ada
-        if (!empty($validated['id_User'])) {
-            $perusahaan->users()->attach($validated['id_User'], ['role' => 'creator']);
-        }
+        // 👇 2. Hapus blok 'creator' yang lama karena sudah ditangani di atas
+        // if (!empty($validated['id_User'])) { ... }
 
-        return response()->json([
-            'message' => 'Perusahaan berhasil ditambahkan',
-            'data' => $perusahaan->load('users'),
-        ], 201);
+        return back()->with('success', 'Perusahaan berhasil ditambahkan.');
     }
 
     /**
