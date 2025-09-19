@@ -159,13 +159,13 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                 {userRole === 'direktur' && (
                     <div>
                         <Select value={statusFilter} onValueChange={(val) => setStatusFilter(val as 'sudah' | 'belum' | 'all')}>
-                            <SelectTrigger className="w-[160px]">
+                            <SelectTrigger className="w-[180px]">
                                 <SelectValue placeholder="Filter status" />
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">Semua</SelectItem>
-                                <SelectItem value="sudah">Sudah Terisi</SelectItem>
-                                <SelectItem value="belum">Belum Terisi</SelectItem>
+                                <SelectItem value="sudah">Sudah Mengetahui</SelectItem>
+                                <SelectItem value="belum">Belum Mengetahui</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
