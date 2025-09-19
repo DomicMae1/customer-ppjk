@@ -562,7 +562,7 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                                                 minute: '2-digit',
                                                 hour12: false,
                                             })
-                                            .replace(':', '.')}{' '}
+                                            .replace('.', ':')}{' '}
                                         WIB
                                     </strong>
                                 </p>
@@ -616,7 +616,7 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                                                     minute: '2-digit',
                                                     hour12: false,
                                                 })
-                                                .replace(':', '.')}{' '}
+                                                .replace('.', ':')}{' '}
                                             WIB
                                         </strong>
                                     </p>
@@ -682,7 +682,7 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                                                 minute: '2-digit',
                                                 hour12: false,
                                             })
-                                            .replace(':', '.')}{' '}
+                                            .replace('.', ':')}{' '}
                                         WIB
                                     </strong>
                                 </p>
@@ -775,7 +775,7 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                                                 minute: '2-digit',
                                                 hour12: false,
                                             })
-                                            .replace(':', '.')}{' '}
+                                            .replace('.', ':')}{' '}
                                         WIB
                                     </strong>
                                 </p>

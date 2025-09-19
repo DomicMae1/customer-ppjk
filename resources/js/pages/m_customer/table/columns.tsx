@@ -97,11 +97,13 @@ export const columns = (): ColumnDef<MasterCustomer>[] => {
                     })
                     .replace(/\./g, '/'); // jaga2 kalau ada titik dari locale
 
-                const jamMenit = dateObj.toLocaleTimeString('id-ID', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    hour12: false,
-                });
+                const jamMenit = dateObj
+                    .toLocaleTimeString('id-ID', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: false,
+                    })
+                    .replace('.', ':');
 
                 const finalTanggal = `${tanggalFormat} ${jamMenit} WIB`;
 
