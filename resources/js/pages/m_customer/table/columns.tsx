@@ -87,6 +87,24 @@ export const columns = (): ColumnDef<MasterCustomer>[] => {
 
                 const isInput = label === 'diinput';
 
+                // Format tanggal
+                const dateObj = new Date(tanggal);
+                const tanggalFormat = dateObj
+                    .toLocaleDateString('id-ID', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                    })
+                    .replace(/\./g, '/'); // jaga2 kalau ada titik dari locale
+
+                const jamMenit = dateObj.toLocaleTimeString('id-ID', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: false,
+                });
+
+                const finalTanggal = `${tanggalFormat} ${jamMenit} WIB`;
+
                 return (
                     <div className="min-w-[200px] truncate px-2 text-sm">
                         <span>
@@ -94,13 +112,7 @@ export const columns = (): ColumnDef<MasterCustomer>[] => {
                             {!isInput && nama_user ? ` oleh ` : ' '}
                             {!isInput && nama_user && <strong>{nama_user}</strong>}
                             {' pada '}
-                            <strong>
-                                {new Date(tanggal).toLocaleDateString('id-ID', {
-                                    day: 'numeric',
-                                    month: 'long',
-                                    year: 'numeric',
-                                })}
-                            </strong>
+                            <strong>{finalTanggal}</strong>
                         </span>
                     </div>
                 );
