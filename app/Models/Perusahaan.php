@@ -12,6 +12,10 @@ class Perusahaan extends Model
 
     protected $table = 'perusahaan';
 
+    protected $primaryKey = 'id'; // ⬅️ tambahkan ini
+    public $incrementing = true;
+    protected $keyType = 'int';
+
     protected $fillable = [
         'nama_perusahaan',
         // 'id_User_1',
