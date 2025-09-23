@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { useDropzone } from '@/components/dropzone';
 import { ResettableDropzone } from '@/components/ResettableDropzone'; // 👈 1. Impor komponen baru
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -840,7 +839,7 @@ export default function CustomerForm({
                             </div>
                             <div className="w-full">
                                 <ResettableDropzone
-                                    label="Upload SPPKP"
+                                    label="Upload SPTKP"
                                     onFileChange={setSppkpFile}
                                     existingFile={customer?.attachments?.find((a) => a.type === 'sppkp')}
                                 />

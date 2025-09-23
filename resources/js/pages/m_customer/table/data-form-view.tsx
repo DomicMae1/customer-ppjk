@@ -444,16 +444,21 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                 <div className="mt-6">
                     <h2 className="mb-2 text-xl font-bold">Lampiran Dokumen</h2>
                     <div
-                        className={`grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-${attachments.length >= 3 ? 3 : attachments.length} lg:grid-cols-${attachments.length >= 4 ? 4 : attachments.length} `}
+                        className={`grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-${attachments.length >= 3 ? 3 : attachments.length} lg:grid-cols-${attachments.length >= 4 ? 4 : attachments.length}`}
                     >
-                        {attachments.map((file) => (
-                            <div key={file.id} className="w-full rounded-md border border-gray-500 p-2 dark:bg-neutral-400 dark:text-black">
-                                <div className="mb-1 font-medium capitalize">{file.type.toUpperCase()}</div>
-                                <a href={file.path} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 underline">
-                                    Lihat Dokumen
-                                </a>
-                            </div>
-                        ))}
+                        {attachments.map((file) => {
+                            // ✅ Ganti label kalau SPPKP -> SPTKP
+                            const label = file.type.toUpperCase() === 'SPPKP' ? 'SPTKP' : file.type.toUpperCase();
+
+                            return (
+                                <div key={file.id} className="w-full rounded-md border border-gray-500 p-2 dark:bg-neutral-400 dark:text-black">
+                                    <div className="mb-1 font-medium capitalize">{label}</div>
+                                    <a href={file.path} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 underline">
+                                        Lihat Dokumen
+                                    </a>
+                                </div>
+                            );
+                        })}
                     </div>
                 </div>
             )}
@@ -793,7 +798,7 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                                         <p>{statusData.status_3_keterangan}</p>
                                     </div>
                                 )}
-                                {statusData.submit_3_keterangan && (
+                                {statusData.submit_3_nama_file && (
                                     <div className="mt-2">
                                         <h4 className="text-muted-foreground text-sm font-bold dark:text-black">Attachment Lawyer</h4>
                                         <a
