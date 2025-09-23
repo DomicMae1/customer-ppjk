@@ -21,7 +21,6 @@ const breadcrumbs: BreadcrumbItem[] = [
 // Sesuaikan interface dengan snake_case dari backend
 interface FormState {
     nama_perusahaan: string;
-    id_User: string;
     id_User_1: string; // manager
     id_User_2: string; // direktur
     id_User_3: string; // lawyer
@@ -38,7 +37,6 @@ export default function ManageCompany() {
 
     const initialFormState: FormState = {
         nama_perusahaan: '',
-        id_User: '',
         id_User_1: '',
         id_User_2: '',
         id_User_3: '',
@@ -55,7 +53,6 @@ export default function ManageCompany() {
     console.log(usePage().props);
 
     const userRoles = [
-        { key: 'id_User', label: 'Marketing' },
         { key: 'id_User_1', label: 'Manager' },
         { key: 'id_User_2', label: 'Direktur' },
         { key: 'id_User_3', label: 'Lawyer' },
@@ -94,14 +91,12 @@ export default function ManageCompany() {
         setSelectedCompany(company);
 
         // ✅ Cari role masing-masing
-        const user = company.users.find((u: any) => u.pivot.role === 'user' || u.pivot.role === 'marketing');
         const manager = company.users.find((u: any) => u.pivot.role === 'manager');
         const direktur = company.users.find((u: any) => u.pivot.role === 'direktur');
         const lawyer = company.users.find((u: any) => u.pivot.role === 'lawyer');
 
         setForm({
             nama_perusahaan: company.nama_perusahaan || '',
-            id_User: user ? String(user.id) : '',
             id_User_1: manager ? String(manager.id) : '',
             id_User_2: direktur ? String(direktur.id) : '',
             id_User_3: lawyer ? String(lawyer.id) : '',

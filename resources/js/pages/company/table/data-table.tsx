@@ -30,7 +30,6 @@ interface User {
 // 👇 1. Tambahkan id_User ke dalam FormState
 interface FormState {
     nama_perusahaan: string;
-    id_User: string; // Untuk User/Marketing
     id_User_1: string; // Manager
     id_User_2: string; // Direktur
     id_User_3: string; // Lawyer
@@ -57,7 +56,6 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_peru
     // 👇 2. Tambahkan id_User ke state awal
     const [form, setForm] = useState<FormState>({
         nama_perusahaan: '',
-        id_User: '',
         id_User_1: '',
         id_User_2: '',
         id_User_3: '',
@@ -72,7 +70,6 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_peru
                 // 👇 3. Reset id_User setelah sukses
                 setForm({
                     nama_perusahaan: '',
-                    id_User: '',
                     id_User_1: '',
                     id_User_2: '',
                     id_User_3: '',
@@ -111,7 +108,6 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_peru
 
     // 👇 4. Buat array untuk mempermudah mapping form
     const userRoles = [
-        { key: 'id_User', label: 'User/Marketing' },
         { key: 'id_User_1', label: 'Manager' },
         { key: 'id_User_2', label: 'Direktur' },
         { key: 'id_User_3', label: 'Lawyer' },
