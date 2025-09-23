@@ -116,40 +116,43 @@ class PerusahaanController extends Controller
     {
         $validated = $request->validate([
             'nama_perusahaan' => 'required|string|max:255',
-            'id_User_1' => 'nullable|integer|exists:users,id',
-            'id_User_2' => 'nullable|integer|exists:users,id',
-            'id_User_3' => 'nullable|integer|exists:users,id',
-            'id_User' => 'nullable|integer|exists:users,id',
-            'notify_1' => 'nullable|string',
-            'notify_2' => 'nullable|string',
+            'id_User'   => 'nullable|integer|exists:users,id',   // user/marketing
+            'id_User_1' => 'nullable|integer|exists:users,id',   // manager
+            'id_User_2' => 'nullable|integer|exists:users,id',   // direktur
+            'id_User_3' => 'nullable|integer|exists:users,id',   // lawyer
+            'notify_1'  => 'nullable|string',
+            'notify_2'  => 'nullable|string',
         ]);
 
-        $perusahaan->update($validated);
+        // Update data perusahaan
+        $perusahaan->update([
+            'nama_perusahaan' => $validated['nama_perusahaan'],
+            'notify_1'        => $validated['notify_1'] ?? null,
+            'notify_2'        => $validated['notify_2'] ?? null,
+        ]);
 
-        // Sync ulang user-role
-        $userRoles = [
-            $validated['id_User_1'] => 'manager',
-            $validated['id_User_2'] => 'direktur',
-            $validated['id_User_3'] => 'lawyer',
-        ];
-
-        // Hapus role-role lama dan sync ulang
+        // Siapkan sync role baru
         $syncData = [];
-        foreach ($userRoles as $userId => $role) {
-            if ($userId) {
-                $syncData[$userId] = ['role' => $role];
-            }
-        }
+
         if (!empty($validated['id_User'])) {
-            $syncData[$validated['id_User']] = ['role' => 'creator'];
+            $syncData[$validated['id_User']] = ['role' => 'user']; // atau 'creator' kalau memang pakai itu
+        }
+        if (!empty($validated['id_User_1'])) {
+            $syncData[$validated['id_User_1']] = ['role' => 'manager'];
+        }
+        if (!empty($validated['id_User_2'])) {
+            $syncData[$validated['id_User_2']] = ['role' => 'direktur'];
+        }
+        if (!empty($validated['id_User_3'])) {
+            $syncData[$validated['id_User_3']] = ['role' => 'lawyer'];
         }
 
+        // Sync ulang user-role (hapus yang lama & isi yang baru)
         $perusahaan->users()->sync($syncData);
 
-        return response()->json([
-            'message' => 'Perusahaan berhasil diperbarui',
-            'data' => $perusahaan->load('users'),
-        ]);
+        return redirect()
+            ->back()
+            ->with('success', 'Perusahaan berhasil diedit');
     }
 
     /**
