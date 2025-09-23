@@ -160,12 +160,16 @@ class PerusahaanController extends Controller
      */
     public function destroy(Perusahaan $perusahaan)
     {
+        // Hapus relasi user-role terlebih dahulu
         $perusahaan->users()->detach();
+
+        // Hapus data perusahaan
         $perusahaan->delete();
 
-        return response()->json([
-            'message' => 'Perusahaan berhasil dihapus',
-        ]);
+        // Kembalikan redirect dengan flash message agar Inertia bisa tangkap
+        return redirect()
+            ->back()
+            ->with('success', 'Perusahaan berhasil dihapus');
     }
 
     public function checkManagerExistence($idPerusahaan)
