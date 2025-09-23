@@ -55,7 +55,9 @@ class User extends Authenticatable
 
     public function perusahaan()
     {
-        return $this->belongsTo(Perusahaan::class, 'id_perusahaan');
+        return $this->belongsToMany(Perusahaan::class, 'perusahaan_user_roles', 'user_id', 'id_perusahaan')
+                    ->withPivot('role')
+                    ->withTimestamps();
     }
 
     // Relasi perusahaan fleksibel (baru) lewat pivot
