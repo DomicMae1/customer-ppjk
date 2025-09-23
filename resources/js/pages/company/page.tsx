@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
-import { useEffect, useState } from 'react';
+import { ChangeEvent, FormEvent, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { columns } from './table/columns';
 import { DataTable } from './table/data-table';
@@ -18,43 +18,82 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
+// Sesuaikan interface dengan snake_case dari backend
 interface FormState {
     nama_perusahaan: string;
-    id_User_1: string;
-    id_User_2: string;
-    id_User_3: string;
-    Notify_1: string;
-    Notify_2?: string;
+    id_User: string;
+    id_User_1: string; // manager
+    id_User_2: string; // direktur
+    id_User_3: string; // lawyer
+    notify_1: string;
+    notify_2: string;
 }
 
 export default function ManageCompany() {
-    const props = usePage().props as Record<string, any>;
-    const companies = props.companies as any[];
-    const flash = props.flash as { success?: string; error?: string };
+    const { props } = usePage();
+    const { companies, flash } = props as {
+        companies: any[];
+        flash: { success?: string; error?: string };
+    };
 
-    const [form, setForm] = useState<FormState>({
+    const initialFormState: FormState = {
         nama_perusahaan: '',
+        id_User: '',
         id_User_1: '',
         id_User_2: '',
         id_User_3: '',
-        Notify_1: '',
-        Notify_2: '',
-    });
+        notify_1: '',
+        notify_2: '',
+    };
 
+    const [form, setForm] = useState<FormState>(initialFormState);
     const [openForm, setOpenForm] = useState(false);
     const [openDelete, setOpenDelete] = useState(false);
     const [selectedCompany, setSelectedCompany] = useState<any | null>(null);
-    const [companyName, setCompanyName] = useState('');
     const [companyIdToDelete, setCompanyIdToDelete] = useState<number | null>(null);
+
+    console.log(usePage().props);
 
     useEffect(() => {
         if (flash.success) toast.success(flash.success);
         if (flash.error) toast.error(flash.error);
     }, [flash]);
 
+    const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
+        const { name, value } = e.target;
+        setForm((prevForm) => ({
+            ...prevForm,
+            [name]: value,
+        }));
+    };
+
+    // Fungsi untuk mereset form dan menutup dialog
+    const resetFormAndClose = () => {
+        setForm(initialFormState);
+        setSelectedCompany(null);
+        setOpenForm(false);
+    };
+
+    // --- FUNGSI INI DIPERBAIKI ---
     const onEditClick = (company: any) => {
         setSelectedCompany(company);
-        setCompanyName(company.nama_perusahaan);
+
+        // ✅ Cari role masing-masing
+        const user = company.users.find((u: any) => u.pivot.role === 'user' || u.pivot.role === 'marketing');
+        const manager = company.users.find((u: any) => u.pivot.role === 'manager');
+        const direktur = company.users.find((u: any) => u.pivot.role === 'direktur');
+        const lawyer = company.users.find((u: any) => u.pivot.role === 'lawyer');
+
+        setForm({
+            nama_perusahaan: company.nama_perusahaan || '',
+            id_User: user ? String(user.id) : '',
+            id_User_1: manager ? String(manager.id) : '',
+            id_User_2: direktur ? String(direktur.id) : '',
+            id_User_3: lawyer ? String(lawyer.id) : '',
+            notify_1: company.notify_1 || '',
+            notify_2: company.notify_2 || '',
+        });
+
         setOpenForm(true);
     };
 
@@ -70,50 +109,57 @@ export default function ManageCompany() {
                 onSuccess: () => {
                     setOpenDelete(false);
                     setCompanyIdToDelete(null);
+                    toast.success('Perusahaan berhasil dihapus');
+
+                    // ✅ reload halaman supaya data terbaru ditarik dari server
+                    router.reload({ only: ['companies'] });
+                },
+                onError: () => {
+                    toast.error('Gagal menghapus perusahaan');
                 },
             });
         }
     };
 
-    const onSubmit = () => {
+    const onSubmit = (e: FormEvent) => {
+        e.preventDefault();
+        // Backend mengharapkan string, jadi tidak perlu di-split
         const data = {
             ...form,
-            Notify_1: form.Notify_1 ? form.Notify_1.split(',').map((email: string) => email.trim()) : [],
-            Notify_2: form.Notify_2 ? form.Notify_2.split(',').map((email: string) => email.trim()) : [],
+            ...(selectedCompany ? { id_perusahaan: selectedCompany.id } : {}),
         };
 
         if (selectedCompany) {
             router.put(`/perusahaan/${selectedCompany.id}`, data, {
                 preserveScroll: true,
                 onSuccess: () => {
-                    setOpenForm(false);
-                    resetForm();
-                    setSelectedCompany(null);
+                    resetFormAndClose();
+                    toast.success('Perusahaan berhasil diperbarui');
+
+                    // ✅ reload hanya data companies
+                    router.reload({ only: ['companies'] });
+                },
+                onError: (errors) => {
+                    console.error('Update Errors:', errors);
+                    toast.error('Gagal memperbarui perusahaan. Periksa konsol untuk detail.');
                 },
             });
         } else {
             router.post('/perusahaan', data, {
                 preserveScroll: true,
                 onSuccess: () => {
-                    setOpenForm(false);
-                    resetForm();
+                    resetFormAndClose();
+                    toast.success('Perusahaan berhasil ditambahkan');
+
+                    // ✅ reload hanya data companies
+                    router.reload({ only: ['companies'] });
                 },
                 onError: (errors) => {
-                    console.error(errors); // Lihat konsol jika validasi Laravel gagal
+                    console.error('Create Errors:', errors);
+                    toast.error('Gagal menambah perusahaan. Periksa konsol untuk detail.');
                 },
             });
         }
-    };
-
-    const resetForm = () => {
-        setForm({
-            nama_perusahaan: '',
-            id_User_1: '',
-            id_User_2: '',
-            id_User_3: '',
-            Notify_1: '',
-            Notify_2: '',
-        });
     };
 
     return (
@@ -141,29 +187,96 @@ export default function ManageCompany() {
                 </DialogContent>
             </Dialog>
 
-            {/* Dialog Form Tambah/Edit */}
-            <Dialog open={openForm} onOpenChange={setOpenForm}>
+            {/* --- DIALOG FORM INI DIPERBAIKI --- */}
+            <Dialog open={openForm} onOpenChange={(isOpen) => !isOpen && resetFormAndClose()}>
                 <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>{selectedCompany ? 'Edit Perusahaan' : 'Tambah Perusahaan'}</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                        <div>
-                            <Label htmlFor="companyName">Nama Perusahaan</Label>
-                            <Input
-                                id="companyName"
-                                value={companyName}
-                                onChange={(e) => setCompanyName(e.target.value)}
-                                placeholder="Contoh: PT. Maju Sejahtera"
-                            />
+                    <form onSubmit={onSubmit}>
+                        <DialogHeader>
+                            <DialogTitle>{selectedCompany ? 'Edit Perusahaan' : 'Tambah Perusahaan'}</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4 py-4">
+                            <div>
+                                <Label htmlFor="nama_perusahaan">Nama Perusahaan</Label>
+                                <Input
+                                    id="nama_perusahaan"
+                                    name="nama_perusahaan"
+                                    value={form.nama_perusahaan}
+                                    onChange={handleInputChange}
+                                    placeholder="Contoh: PT. Maju Sejahtera"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <Label htmlFor="id_User">ID User / Marketing</Label>
+                                <Input
+                                    id="id_User"
+                                    name="id_User"
+                                    value={form.id_User}
+                                    onChange={handleInputChange}
+                                    placeholder="Masukkan ID User untuk Marketing"
+                                />
+                            </div>
+
+                            <div>
+                                <Label htmlFor="id_User_1">ID User Manager</Label>
+                                <Input
+                                    id="id_User_1"
+                                    name="id_User_1"
+                                    value={form.id_User_1}
+                                    onChange={handleInputChange}
+                                    placeholder="Masukkan ID User untuk Manager"
+                                />
+                            </div>
+                            <div>
+                                <Label htmlFor="id_User_2">ID User Direktur</Label>
+                                <Input
+                                    id="id_User_2"
+                                    name="id_User_2"
+                                    value={form.id_User_2}
+                                    onChange={handleInputChange}
+                                    placeholder="Masukkan ID User untuk Direktur"
+                                />
+                            </div>
+                            <div>
+                                <Label htmlFor="id_User_3">ID User Lawyer</Label>
+                                <Input
+                                    id="id_User_3"
+                                    name="id_User_3"
+                                    value={form.id_User_3}
+                                    onChange={handleInputChange}
+                                    placeholder="Masukkan ID User untuk Lawyer"
+                                />
+                            </div>
+                            <div>
+                                <Label htmlFor="notify_1">Notifikasi Email 1</Label>
+                                <Input
+                                    id="notify_1"
+                                    name="notify_1"
+                                    value={form.notify_1}
+                                    onChange={handleInputChange}
+                                    placeholder="email1@contoh.com, email2@contoh.com"
+                                />
+                            </div>
+                            <div>
+                                <Label htmlFor="notify_2">Notifikasi Email 2</Label>
+                                <Input
+                                    id="notify_2"
+                                    name="notify_2"
+                                    value={form.notify_2}
+                                    onChange={handleInputChange}
+                                    placeholder="email3@contoh.com, email4@contoh.com"
+                                />
+                            </div>
                         </div>
-                    </div>
-                    <DialogFooter className="sm:justify-start">
-                        <Button onClick={onSubmit}>{selectedCompany ? 'Update' : 'Create'}</Button>
-                        <DialogClose asChild>
-                            <Button variant="secondary">Batal</Button>
-                        </DialogClose>
-                    </DialogFooter>
+                        <DialogFooter className="sm:justify-start">
+                            <Button type="submit">{selectedCompany ? 'Update' : 'Create'}</Button>
+                            <DialogClose asChild>
+                                <Button variant="secondary" type="button">
+                                    Batal
+                                </Button>
+                            </DialogClose>
+                        </DialogFooter>
+                    </form>
                 </DialogContent>
             </Dialog>
         </AppLayout>
