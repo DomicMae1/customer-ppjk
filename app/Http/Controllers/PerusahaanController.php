@@ -80,6 +80,10 @@ class PerusahaanController extends Controller
             if ($userId) {
                 // Gunakan attach pada relasi untuk memasukkan ke tabel pivot
                 $perusahaan->users()->attach($userId, ['role' => $role]);
+
+                 User::where('id', $userId)->update([
+                'id_perusahaan' => $perusahaan->id
+            ]);
             }
         }
 
