@@ -52,7 +52,7 @@ class StatusRejectedMail extends Mailable
 
         if ($customerId) {
             $files = CustomerAttach::where('customer_id', $customerId)
-                ->whereIn('type', ['npwp', 'nib', 'ktp']) // atau sesuai kebutuhan
+                ->whereIn('type', ['npwp', 'nib', 'ktp', 'sppkp']) // atau sesuai kebutuhan
                 ->get();
 
             foreach ($files as $file) {
@@ -71,7 +71,6 @@ class StatusRejectedMail extends Mailable
                         'mime' => 'application/pdf',
                     ]);
                 }
-                // dd($file, $localPath, $filename);
             }
         }
 
