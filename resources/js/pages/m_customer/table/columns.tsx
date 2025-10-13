@@ -158,11 +158,11 @@ export const columns = (): ColumnDef<MasterCustomer>[] => {
                 const currentUser = auth.user;
 
                 const currentUserRole = currentUser.roles?.[0]?.name;
+                const isAdmin = currentUserRole === 'admin';
 
                 const canEdit =
-                    !customer.submit_1_timestamps && // 1. Belum pernah disubmit
-                    (customer.user_id === currentUser.id || // 2. Dibuat oleh user yang sama (jika user_id ada)
-                        (customer.creator?.role && currentUserRole && customer.creator.role === currentUserRole)); // ATAU role creator sama dengan role user saat ini
+                    !customer.submit_1_timestamps &&
+                    (customer.user_id === currentUser.id || (customer.creator?.role && currentUserRole && customer.creator.role === currentUserRole));
 
                 const isDesktop = useMediaQuery('(min-width: 768px)');
 
@@ -189,17 +189,13 @@ export const columns = (): ColumnDef<MasterCustomer>[] => {
 
                                     <DropdownMenuItem onClick={() => customer.id != null && downloadPdf(customer.id)}>Download PDF</DropdownMenuItem>
 
-                                    {/* Tombol Hapus sekarang selalu muncul */}
-                                    <Link
-                                        href={`/customer/${customer.id}`} // URL diperbaiki (tanpa /destroy)
-                                        method="delete" // Mengirim sebagai request DELETE
-                                        as="button" // Penting agar tetap berfungsi seperti tombol
-                                        className="w-full text-left"
-                                    >
-                                        <DropdownMenuItem className="text-red-600" onSelect={(e) => e.preventDefault()}>
-                                            Hapus Customer
-                                        </DropdownMenuItem>
-                                    </Link>
+                                    {isAdmin && (
+                                        <Link href={`/customer/${customer.id}`} method="delete" as="button" className="w-full text-left">
+                                            <DropdownMenuItem className="text-red-600" onSelect={(e) => e.preventDefault()}>
+                                                Hapus Customer
+                                            </DropdownMenuItem>
+                                        </Link>
+                                    )}
                                 </DropdownMenuContent>
                             </DropdownMenu>
                         </div>
@@ -240,16 +236,13 @@ export const columns = (): ColumnDef<MasterCustomer>[] => {
                                     >
                                         Download PDF
                                     </Button>
-                                    {/* Tombol Hapus sekarang selalu muncul */}
-                                    <Link
-                                        href={`/customer/${customer.id}`} // URL diperbaiki
-                                        method="delete" // Mengirim sebagai request DELETE
-                                        as="button" // Bertindak sebagai tombol
-                                    >
-                                        <Button variant="destructive" className="w-full justify-start text-white">
-                                            Hapus Customer
-                                        </Button>
-                                    </Link>
+                                    {isAdmin && (
+                                        <Link href={`/customer/${customer.id}`} method="delete" as="button" className="w-full text-left">
+                                            <DropdownMenuItem className="text-red-600" onSelect={(e) => e.preventDefault()}>
+                                                Hapus Customer
+                                            </DropdownMenuItem>
+                                        </Link>
+                                    )}
                                 </div>
                                 <DrawerFooter className="pt-2">
                                     <DrawerClose asChild>
