@@ -606,7 +606,7 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                         )}
                     </div>
                     <div className="rounded-b-sm border-r border-b border-l border-gray-500 p-2 dark:bg-neutral-400 dark:text-black">
-                        {statusData?.submit_1_nama_file && (
+                        {userRole !== 'lawyer' && statusData?.submit_1_nama_file && (
                             <div className="">
                                 <h4 className="text-muted-foreground text-sm font-bold dark:text-black">Attachment</h4>
                                 <a
@@ -662,7 +662,7 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                         <div className="rounded-b-sm border-r border-b border-l border-gray-500 p-2 dark:bg-neutral-400 dark:text-black">
                             {statusData?.status_1_timestamps && (
                                 <>
-                                    {statusData.status_1_keterangan && (
+                                    {userRole !== 'lawyer' && statusData.status_1_keterangan && (
                                         <div className="text-muted-foreground mt-1 text-sm dark:text-black">
                                             <p>
                                                 <strong>Keterangan</strong>
@@ -670,7 +670,7 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                                             <p>{statusData.status_1_keterangan}</p>
                                         </div>
                                     )}
-                                    {statusData.status_1_nama_file && (
+                                    {userRole !== 'lawyer' && statusData.status_1_nama_file && (
                                         <div className="border-gray-500 pt-2">
                                             <h4 className="text-muted-foreground text-sm font-bold dark:text-black">Attachment</h4>
                                             <a
@@ -728,7 +728,6 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                     <div className="rounded-b-sm border-r border-b border-l border-gray-500 p-2 dark:bg-neutral-400 dark:text-black">
                         {statusData?.status_2_timestamps && (
                             <>
-                                {statusData.status_2_keterangan && (
                                     <div className="text-muted-foreground mt-1 text-sm dark:text-black">
                                         <p>
                                             <strong>Keterangan</strong>
@@ -736,7 +735,7 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                                         <p>{statusData.status_2_keterangan}</p>
                                     </div>
                                 )}
-                                {statusData.status_2_nama_file && (
+                                {userRole !== 'lawyer' && statusData.status_2_nama_file && (
                                     <div className="border-gray-500 pt-2">
                                         <h4 className="text-muted-foreground text-sm font-bold dark:text-black">Attachment</h4>
                                         <a
