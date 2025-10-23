@@ -39,6 +39,17 @@ class Perusahaan extends Model
         return $this->belongsTo(User::class, 'id_User');
     }
 
+    public function hasManager(): bool
+    {
+        // Cek via relasi pivot
+        $pivotManager = $this->users()->wherePivot('role', 'manager')->exists();
+
+        // Cek via kolom id_User_1
+        $directManager = !is_null($this->id_User_1);
+
+        return $pivotManager || $directManager;
+    }
+
     public function users(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'perusahaan_user_roles', 'id_perusahaan', 'user_id')
