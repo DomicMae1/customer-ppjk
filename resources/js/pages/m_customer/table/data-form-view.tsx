@@ -103,6 +103,8 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
         !statusData?.status_2_timestamps &&
         !statusData?.status_3_timestamps;
 
+    const canEdit = !statusData?.submit_1_timestamps && (isCreator || (creatorRole && userRole && creatorRole === userRole));
+
     const dropzoneAttach = useDropzone({
         onDropFile: async (file: File) => {
             setAttachFile(file);
@@ -561,6 +563,14 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                     </>
                 )}
 
+                {canEdit && (
+                    <Link href={`/customer/${customer.id}/edit`}>
+                        <Button variant="outline" className="border-gray-500" disabled={isLoading}>
+                            Edit Customer
+                        </Button>
+                    </Link>
+                )}
+
                 <Link href="/customer">
                     <Button variant="secondary" className="border border-black" disabled={isLoading}>
                         Kembali
@@ -728,6 +738,7 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                     <div className="rounded-b-sm border-r border-b border-l border-gray-500 p-2 dark:bg-neutral-400 dark:text-black">
                         {statusData?.status_2_timestamps && (
                             <>
+                                {userRole !== 'lawyer' && statusData.status_2_keterangan && (
                                     <div className="text-muted-foreground mt-1 text-sm dark:text-black">
                                         <p>
                                             <strong>Keterangan</strong>
