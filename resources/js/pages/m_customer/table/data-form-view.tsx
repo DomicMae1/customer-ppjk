@@ -284,7 +284,7 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                             id="kategori_usaha"
                             value={customer.kategori_usaha}
                             disabled
-                            className="w-full border-black dark:bg-white dark:text-black"
+                            className="w-full border border-black dark:border-neutral-600 dark:text-white"
                         />
                     </div>
                     <div>
@@ -294,11 +294,17 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                             value={customer.bentuk_badan_usaha}
                             disabled
                             className="w-full border-black dark:bg-white dark:text-black"
+                            className="w-full border border-black dark:border-neutral-600 dark:text-white"
                         />
                     </div>
                     <div>
                         <Label htmlFor="kota">Kota</Label>
-                        <Input id="kota" value={customer.kota} disabled className="w-full border-black dark:bg-white dark:text-black" />
+                        <Input
+                            id="kota"
+                            value={customer.kota}
+                            disabled
+                            className="w-full border border-black dark:border-neutral-600 dark:text-white"
+                        />
                     </div>
                 </div>
 
@@ -307,7 +313,7 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                     <Textarea
                         id="alamat_lengkap"
                         value={customer.alamat_lengkap}
-                        className="h-16 w-full border-black dark:bg-white dark:text-black"
+                        className="h-16 w-full border border-black dark:border-neutral-600 dark:text-white"
                         disabled
                     />
                 </div>
@@ -315,25 +321,51 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                 <div className="col-span-3 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                     <div>
                         <Label htmlFor="no_telp">No Telp</Label>
-                        <Input id="no_telp" value={customer.no_telp || '-'} disabled className="w-full border-black dark:bg-white dark:text-black" />
+                        <Input
+                            id="no_telp"
+                            value={customer.no_telp || '-'}
+                            disabled
+                            className="w-full border border-black dark:border-neutral-600 dark:text-white"
+                        />
                     </div>
                     <div>
                         <Label htmlFor="no_fax">No Fax</Label>
-                        <Input id="no_fax" value={customer.no_fax || '-'} disabled className="w-full border-black dark:bg-white dark:text-black" />
+                        <Input
+                            id="no_fax"
+                            value={customer.no_fax || '-'}
+                            disabled
+                            className="w-full border border-black dark:border-neutral-600 dark:text-white"
+                        />
                     </div>
                     <div>
                         <Label htmlFor="email">Email</Label>
-                        <Input id="email" value={customer.email} disabled className="w-full border-black dark:bg-white dark:text-black" />
+                        <Input
+                            id="email"
+                            value={customer.email}
+                            disabled
+                            className="w-full border border-black dark:border-neutral-600 dark:text-white"
+                        />
                     </div>
                 </div>
+
                 <div className="col-span-3 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                     <div>
                         <Label htmlFor="website">Website</Label>
-                        <Input id="website" value={customer.website || '-'} disabled className="w-full border-black dark:bg-white dark:text-black" />
+                        <Input
+                            id="website"
+                            value={customer.website || '-'}
+                            disabled
+                            className="w-full border border-black dark:border-neutral-600 dark:text-white"
+                        />
                     </div>
                     <div>
                         <Label htmlFor="top">TOP</Label>
-                        <Input id="top" value={customer.top || '-'} disabled className="w-full border-black dark:bg-white dark:text-black" />
+                        <Input
+                            id="top"
+                            value={customer.top || '-'}
+                            disabled
+                            className="w-full border border-black dark:border-neutral-600 dark:text-white"
+                        />
                     </div>
                     <div>
                         <Label htmlFor="status_perpajakan">Status Perpajakan</Label>
@@ -341,14 +373,20 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                             id="status_perpajakan"
                             value={customer.status_perpajakan || '-'}
                             disabled
-                            className="w-full border-black dark:bg-white dark:text-black"
+                            className="w-full border border-black dark:border-neutral-600 dark:text-white"
                         />
                     </div>
                 </div>
+
                 <div className="col-span-3 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                     <div>
                         <Label htmlFor="no_npwp">Nomor NPWP</Label>
-                        <Input id="no_npwp" value={customer.no_npwp || '-'} disabled className="w-full border-black dark:bg-white dark:text-black" />
+                        <Input
+                            id="no_npwp"
+                            value={customer.no_npwp || '-'}
+                            disabled
+                            className="w-full border border-black dark:border-neutral-600 dark:text-white"
+                        />
                     </div>
                     <div>
                         <Label htmlFor="no_npwp_16">NPWP 16 Digit</Label>
@@ -356,7 +394,7 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                             id="no_npwp_16"
                             value={customer.no_npwp_16 || '-'}
                             disabled
-                            className="w-full border-black dark:bg-white dark:text-black"
+                            className="w-full border border-black dark:border-neutral-600 dark:text-white"
                         />
                     </div>
                 </div>
@@ -366,7 +404,7 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                     <Textarea
                         id="alamat_penagihan"
                         value={customer.alamat_penagihan}
-                        className="h-16 w-full border-black dark:bg-white dark:text-black"
+                        className="h-16 w-full border border-black dark:border-neutral-600 dark:text-white"
                         disabled
                     />
                 </div>
@@ -374,7 +412,12 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                 <div className="col-span-3 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                     <div>
                         <Label htmlFor="nama_pj">Nama Penanggung Jawab</Label>
-                        <Input id="nama_pj" value={customer.nama_pj || '-'} disabled className="w-full border-black dark:bg-white dark:text-black" />
+                        <Input
+                            id="nama_pj"
+                            value={customer.nama_pj || '-'}
+                            disabled
+                            className="w-full border border-black dark:border-neutral-600 dark:text-white"
+                        />
                     </div>
                     <div>
                         <Label htmlFor="no_ktp_pj">No KTP PJ</Label>
@@ -382,7 +425,7 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                             id="no_ktp_pj"
                             value={customer.no_ktp_pj || '-'}
                             disabled
-                            className="w-full border-black dark:bg-white dark:text-black"
+                            className="w-full border border-black dark:border-neutral-600 dark:text-white"
                         />
                     </div>
                     <div>
@@ -391,7 +434,7 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                             id="no_telp_pj"
                             value={customer.no_telp_pj || '-'}
                             disabled
-                            className="w-full border-black dark:bg-white dark:text-black"
+                            className="w-full border border-black dark:border-neutral-600 dark:text-white"
                         />
                     </div>
                 </div>
@@ -403,7 +446,7 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                             id="nama_personal"
                             value={customer.nama_personal || '-'}
                             disabled
-                            className="w-full border-black dark:bg-white dark:text-black"
+                            className="w-full border border-black dark:border-neutral-600 dark:text-white"
                         />
                     </div>
                     <div>
@@ -412,7 +455,7 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                             id="jabatan_personal"
                             value={customer.jabatan_personal || '-'}
                             disabled
-                            className="w-full border-black dark:bg-white dark:text-black"
+                            className="w-full border border-black dark:border-neutral-600 dark:text-white"
                         />
                     </div>
                     <div>
@@ -421,10 +464,11 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                             id="no_telp_personal"
                             value={customer.no_telp_personal || '-'}
                             disabled
-                            className="w-full border-black dark:bg-white dark:text-black"
+                            className="w-full border border-black dark:border-neutral-600 dark:text-white"
                         />
                     </div>
                 </div>
+
                 <div className="col-span-3 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                     <div>
                         <Label htmlFor="email_personal">Email Personal</Label>
@@ -432,7 +476,7 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                             id="email_personal"
                             value={customer.email_personal || '-'}
                             disabled
-                            className="w-full border-black dark:bg-white dark:text-black"
+                            className="w-full border border-black dark:border-neutral-600 dark:text-white"
                         />
                     </div>
                 </div>
@@ -448,9 +492,9 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                             const label = file.type.toUpperCase() === 'SPPKP' ? 'SPTKP' : file.type.toUpperCase();
 
                             return (
-                                <div key={file.id} className="w-full rounded-md border border-gray-500 p-2 dark:bg-neutral-400 dark:text-black">
+                                <div key={file.id} className="w-full rounded-md border border-gray-500 p-2 dark:border-neutral-700 dark:text-white">
                                     <div className="mb-1 font-medium capitalize">{label}</div>
-                                    <a href={file.path} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 underline">
+                                    <a href={file.path} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-400 underline">
                                         Lihat Dokumen
                                     </a>
                                 </div>
@@ -499,7 +543,7 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
 
             <div className="mt-6 mb-6 flex flex-wrap gap-2 space-x-3">
                 {(showUserSubmit || showAnotherUserSubmit) && (
-                    <Button variant="default" className="dark:bg-neutral-400" onClick={() => handleSubmit()} disabled={isLoading}>
+                    <Button variant="default" className="" onClick={() => handleSubmit()} disabled={isLoading}>
                         {isLoading ? (
                             <>
                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -512,7 +556,7 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                 )}
 
                 {showManagerApprove && (
-                    <Button variant="default" className="dark:bg-neutral-400" onClick={() => handleSubmit()} disabled={isLoading}>
+                    <Button variant="default" className="" onClick={() => handleSubmit()} disabled={isLoading}>
                         {isLoading ? (
                             <>
                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -525,7 +569,7 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                 )}
 
                 {(showDirekturApprove || showSubmitForDirektur) && (
-                    <Button variant="default" className="dark:bg-neutral-400" onClick={() => handleSubmit()} disabled={isLoading}>
+                    <Button variant="default" className="" onClick={() => handleSubmit()} disabled={isLoading}>
                         {isLoading ? (
                             <>
                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -539,7 +583,7 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
 
                 {showLawyerApprove && (
                     <>
-                        <Button variant="default" className="dark:bg-neutral-400" onClick={() => handleSubmit('approved')} disabled={isLoading}>
+                        <Button variant="default" className="" onClick={() => handleSubmit('approved')} disabled={isLoading}>
                             {isLoading && decision === 'approved' ? (
                                 <>
                                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -565,14 +609,14 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
 
                 {canEdit && (
                     <Link href={`/customer/${customer.id}/edit`}>
-                        <Button variant="outline" className="border-gray-500" disabled={isLoading}>
+                        <Button variant="outline" className="border border-gray-600" disabled={isLoading}>
                             Edit Customer
                         </Button>
                     </Link>
                 )}
 
                 <Link href="/customer">
-                    <Button variant="secondary" className="border border-black" disabled={isLoading}>
+                    <Button variant="outline" className="border border-gray-600" disabled={isLoading}>
                         Kembali
                     </Button>
                 </Link>
@@ -581,11 +625,11 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
             <div className={`grid grid-cols-1 gap-4 md:grid-cols-2 ${managerChecked && !managerExists ? 'lg:grid-cols-3' : 'lg:grid-cols-4'}`}>
                 {/* Disubmit */}
                 <div>
-                    <div className="rounded-t-sm border-t border-r border-b border-l border-gray-500 p-2 dark:bg-neutral-400 dark:text-black">
+                    <div className="rounded-t-sm border-t border-r border-b border-l border-gray-500 p-2 dark:bg-neutral-200 dark:text-black">
                         <Label htmlFor="kategori_usaha">Disubmit</Label>
                     </div>
 
-                    <div className="border-r border-l border-gray-500 p-2 dark:bg-neutral-400 dark:text-black">
+                    <div className="border-r border-l border-gray-500 p-2 dark:bg-neutral-200 dark:text-black">
                         {statusData?.submit_1_timestamps && (
                             <div className="text-muted-foreground mt-1 text-sm dark:text-black">
                                 <p>
@@ -615,7 +659,7 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                             </div>
                         )}
                     </div>
-                    <div className="rounded-b-sm border-r border-b border-l border-gray-500 p-2 dark:bg-neutral-400 dark:text-black">
+                    <div className="rounded-b-sm border-r border-b border-l border-gray-500 p-2 dark:bg-neutral-200 dark:text-black">
                         {userRole !== 'lawyer' && statusData?.submit_1_nama_file && (
                             <div className="">
                                 <h4 className="text-muted-foreground text-sm font-bold dark:text-black">Attachment</h4>
@@ -636,10 +680,10 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                 {/* Diverifikasi */}
                 {managerChecked && managerExists && (
                     <div>
-                        <div className="rounded-t-sm border-t border-r border-b border-l border-gray-500 p-2 dark:bg-neutral-400 dark:text-black">
+                        <div className="rounded-t-sm border-t border-r border-b border-l border-gray-500 p-2 dark:bg-neutral-200 dark:text-black">
                             <Label htmlFor="bentuk_badan_usaha">Diverifikasi</Label>
                         </div>
-                        <div className="border-r border-l border-gray-500 p-2 dark:bg-neutral-400 dark:text-black">
+                        <div className="border-r border-l border-gray-500 p-2 dark:bg-neutral-200 dark:text-black">
                             {statusData?.status_1_timestamps && (
                                 <div className="text-muted-foreground mt-1 text-sm dark:text-black">
                                     <p>
@@ -669,7 +713,7 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                                 </div>
                             )}
                         </div>
-                        <div className="rounded-b-sm border-r border-b border-l border-gray-500 p-2 dark:bg-neutral-400 dark:text-black">
+                        <div className="rounded-b-sm border-r border-b border-l border-gray-500 p-2 dark:bg-neutral-200 dark:text-black">
                             {statusData?.status_1_timestamps && (
                                 <>
                                     {userRole !== 'lawyer' && statusData.status_1_keterangan && (
@@ -702,10 +746,10 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
 
                 {/* Mengetahui */}
                 <div>
-                    <div className="rounded-t-sm border-t border-r border-b border-l border-gray-500 p-2 dark:bg-neutral-400 dark:text-black">
+                    <div className="rounded-t-sm border-t border-r border-b border-l border-gray-500 p-2 dark:bg-neutral-200 dark:text-black">
                         <Label htmlFor="kota">Mengetahui</Label>
                     </div>
-                    <div className="border-r border-l border-gray-500 p-2 dark:bg-neutral-400">
+                    <div className="border-r border-l border-gray-500 p-2 dark:bg-neutral-200">
                         {statusData?.status_2_timestamps && (
                             <div className="text-muted-foreground mt-1 text-sm dark:text-black">
                                 <p>
@@ -735,7 +779,7 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                             </div>
                         )}
                     </div>
-                    <div className="rounded-b-sm border-r border-b border-l border-gray-500 p-2 dark:bg-neutral-400 dark:text-black">
+                    <div className="rounded-b-sm border-r border-b border-l border-gray-500 p-2 dark:bg-neutral-200 dark:text-black">
                         {statusData?.status_2_timestamps && (
                             <>
                                 {userRole !== 'lawyer' && statusData.status_2_keterangan && (
@@ -767,10 +811,10 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
 
                 {/* Direview */}
                 <div>
-                    <div className="rounded-t-sm border-t border-r border-b border-l border-gray-500 p-2 dark:bg-neutral-400 dark:text-black">
+                    <div className="rounded-t-sm border-t border-r border-b border-l border-gray-500 p-2 dark:bg-neutral-200 dark:text-black">
                         <Label htmlFor="kota">Direview</Label>{' '}
                     </div>
-                    <div className="border-r border-l border-gray-500 p-2 dark:bg-neutral-400">
+                    <div className="border-r border-l border-gray-500 p-2 dark:bg-neutral-200">
                         {statusData?.status_3_timestamps && (
                             <div className="text-muted-foreground mt-1 text-sm dark:text-black">
                                 <div className="mb-2 flex items-center justify-between font-semibold">
@@ -828,7 +872,7 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                             </div>
                         )}
                     </div>
-                    <div className="rounded-b-sm border-r border-b border-l border-gray-500 p-2 dark:bg-neutral-400 dark:text-black">
+                    <div className="rounded-b-sm border-r border-b border-l border-gray-500 p-2 dark:bg-neutral-200 dark:text-black">
                         {statusData?.status_3_timestamps && (
                             <>
                                 {statusData.status_3_keterangan && (

@@ -94,7 +94,7 @@ export function ResettableDropzone({
                 key={componentKey}
                 {...getRootProps()}
                 className={cn(
-                    'flex h-[200px] min-h-[200px] cursor-pointer items-center justify-center rounded-md border-2 p-4 text-center transition-colors',
+                    'flex h-[200px] min-h-[200px] cursor-pointer items-center justify-center rounded-md border-2 border-black p-4 text-center transition-colors dark:border-neutral-800',
                     borderColor,
                 )}
             >
@@ -126,7 +126,7 @@ export function ResettableDropzone({
                         )}
                     </div>
                 ) : (
-                    <div className="flex flex-col items-center gap-2 text-sm text-gray-500">
+                    <div className="flex flex-col items-center gap-2 text-sm text-gray-500 dark:text-white">
                         <CloudUploadIcon className="h-10 w-10" />
                         <p>Klik atau drag file PDF ke sini</p>
                     </div>
