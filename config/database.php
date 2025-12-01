@@ -140,6 +140,19 @@ return [
             // 'trust_server_certificate' => env('DB_TRUST_SERVER_CERTIFICATE', 'false'),
         ],
 
+        'central' => [
+            'driver' => 'pgsql',
+            'host' => env('DB_TAKO_HOST', '127.0.0.1'),
+            'port' => env('DB_TAKO_PORT', '5432'),
+            'database' => env('DB_TAKO_DATABASE', 'tako-perusahaan'),
+            'username' => env('DB_TAKO_USERNAME', 'ardon'),
+            'password' => env('DB_TAKO_PASSWORD', '1234'),
+            'charset' => 'utf8',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'search_path' => 'public',
+            'sslmode' => 'prefer',
+        ],
     ],
 
     /*
