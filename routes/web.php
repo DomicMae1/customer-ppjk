@@ -39,12 +39,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('role-manager', RoleController::class);
     Route::resource('perusahaan', PerusahaanController::class);
 });
+
 Route::post('customer/upload-temp', [CustomerController::class, 'upload'])->name('customer.upload');
 Route::get('/form/{token}', [CustomerController::class, 'showPublicForm'])->name('customer.form.show');
 Route::post('/form/{token}', [CustomerController::class, 'submitPublicForm'])->name('customer.form.submit');
 Route::post('customer/store-public', [CustomerController::class, 'storePublic'])->name('customer.public.submit');
 Route::get('/secure-attachment/{hash}', [SecureFileController::class, 'show'])->middleware('auth')->name('secure.attachment.show');
 
+// Tambahkan parameter {company} di tengah
+Route::get('/file/view/{path}', [FileController::class, 'view'])
+    ->where('path', '.*') // <--- INI WAJIB ADA! Regex untuk izinkan slash
+    ->name('file.view');
 
 require __DIR__ . '/settings.php';
 require __DIR__ . '/auth.php';
