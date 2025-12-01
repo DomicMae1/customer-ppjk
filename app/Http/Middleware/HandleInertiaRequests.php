@@ -69,6 +69,11 @@ class HandleInertiaRequests extends Middleware
                     );
                 },
             ],
+            'company' => [
+                'id' => session('company_id'),
+                'name' => session('company_name'),
+                'logo' => session('company_logo'), // sudah asset('storage/...') dari controller login
+            ],
             'flash' => [
                 'success' => $request->session()->get('success'),
                 'error' => $request->session()->get('error'),
