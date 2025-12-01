@@ -89,7 +89,8 @@ export default function PublicCustomerForm({
         setTheme(theme === 'light' ? 'dark' : 'light');
     };
 
-    const [lainKategori, setLainKategori] = useState(customer?.kategori_usaha === 'lain2' ? '' : '');
+    const [lainKategori, setLainKategori] = useState('');
+    const [showLainKategori, setShowLainKategori] = useState(false);
 
     const [errors_kategori, setErrors] = useState<{
         kategori_usaha?: string;
@@ -116,14 +117,6 @@ export default function PublicCustomerForm({
     }>({});
 
     const [npwpFile, setNpwpFile] = useState<File | null>(null);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const [npwpFileStatuses, setNpwpFileStatuses] = useState<any[]>([]);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const [nibFileStatuses, setNibFileStatuses] = useState<any[]>([]);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const [sppkpFileStatuses, setSppkpFileStatuses] = useState<any[]>([]);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const [ktpFileStatuses, setKtpFileStatuses] = useState<any[]>([]);
     const [nibFile, setNibFile] = useState<File | null>(null);
     const [sppkpFile, setSppkpFile] = useState<File | null>(null);
     const [ktpFile, setKtpFile] = useState<File | null>(null);
@@ -168,21 +161,6 @@ export default function PublicCustomerForm({
             type,
         };
     }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const extractAttachmentFromStatus = (statuses: any[], type: AttachmentType): Attachment | null => {
-        if (statuses.length > 0) {
-            const file = statuses[0];
-            return {
-                id: 0,
-                customer_id: customer?.id ?? 0,
-                nama_file: file.fileName,
-                path: file.result,
-                type,
-            };
-        }
-        return null;
-    };
 
     const handleSubmit: FormEventHandler = async (e) => {
         e.preventDefault();
@@ -451,17 +429,23 @@ export default function PublicCustomerForm({
                                         Kategori Usaha <span className="text-red-500">*</span>
                                     </Label>
                                     <Select
-                                        value={data.kategori_usaha}
+                                        value={showLainKategori ? 'lain2' : data.kategori_usaha}
                                         onValueChange={(value) => {
-                                            setData('kategori_usaha', value);
+                                            if (value === 'lain2') {
+                                                setShowLainKategori(true); // tampilkan input tambahan
+                                                setLainKategori(''); // kosongkan dulu input lain-lain
+                                                setData('kategori_usaha', ''); // kosongkan di data
+                                            } else {
+                                                setShowLainKategori(false);
+                                                setLainKategori('');
+                                                setData('kategori_usaha', value);
+                                            }
+
                                             setErrors((prev) => ({
                                                 ...prev,
                                                 kategori_usaha: undefined,
-                                                lain_kategori: value !== 'lain2' ? undefined : prev.lain_kategori,
+                                                lain_kategori: undefined,
                                             }));
-                                            if (value !== 'lain2') {
-                                                setLainKategori('');
-                                            }
                                         }}
                                     >
                                         <SelectTrigger className="w-full">
@@ -476,7 +460,7 @@ export default function PublicCustomerForm({
                                         </SelectContent>
                                     </Select>
 
-                                    {data.kategori_usaha === 'lain2' && (
+                                    {showLainKategori && (
                                         <div className="mt-2">
                                             <Label htmlFor="lain_kategori">Kategori Usaha Lainnya</Label>
                                             <input
@@ -484,7 +468,9 @@ export default function PublicCustomerForm({
                                                 id="lain_kategori"
                                                 value={lainKategori}
                                                 onChange={(e) => {
-                                                    setLainKategori(e.target.value);
+                                                    const value = e.target.value;
+                                                    setLainKategori(value);
+                                                    setData('kategori_usaha', value); // simpan ke data utama
                                                     setErrors((prev) => ({ ...prev, lain_kategori: undefined }));
                                                 }}
                                                 className="focus:border-primary mt-1 block w-full rounded-md border px-3 py-2 text-sm shadow-sm focus:ring"
@@ -845,8 +831,17 @@ export default function PublicCustomerForm({
                             </div>
                         </div>
                         <div className="mt-4 flex gap-2">
-                            <Button type="submit" disabled={processing}>
-                                {customer ? 'Save' : 'Create'}
+                            <Button type="submit" disabled={isLoading || processing}>
+                                {isLoading ? (
+                                    <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        {customer ? 'Saving...' : 'Creating...'}
+                                    </>
+                                ) : customer ? (
+                                    'Save'
+                                ) : (
+                                    'Create'
+                                )}
                             </Button>
                         </div>
                     </form>
