@@ -22,5 +22,13 @@ class AppServiceProvider extends ServiceProvider
     {
         date_default_timezone_set(config('app.timezone'));
         Carbon::setLocale('id');
+
+        \Inertia\Inertia::share([
+            'company' => fn() => [
+                'id' => session('company_id'),
+                'name' => session('company_name'),
+                'logo' => session('company_logo'),
+            ],
+        ]);
     }
 }
