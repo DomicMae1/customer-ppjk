@@ -40,6 +40,12 @@ return new class extends Migration
             $table->string('submit_3_nama_file')->nullable();  
             $table->string('submit_3_path')->nullable(); 
 
+            $table->foreignId('status_4_by')->nullable()->constrained('users')->onDelete('set null');
+            $table->timestamp('status_4_timestamps')->nullable();
+            $table->text('status_4_keterangan')->nullable();
+            $table->string('status_4_nama_file')->nullable(); 
+            $table->string('status_4_path')->nullable(); 
+
             $table->timestamps(); 
         });
     }
