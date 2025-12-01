@@ -17,6 +17,7 @@ class Customer extends Model
     protected $primaryKey = 'id'; 
 
     protected $fillable = [
+        'uid',
         'id_user',
         'id_perusahaan',
         'kategori_usaha',
@@ -41,6 +42,20 @@ class Customer extends Model
         'no_telp_personal',
         'email_personal',
     ];
+
+    protected static function booted()
+    {
+        static::created(function ($customer) {
+            // Kita ambil tahun dan bulan saat ini
+            $prefix = now()->format('Y-m'); // Hasil: 2025-11
+            
+            // Update kolom uid
+            $customer->uid = $prefix . '-' . $customer->id;
+            
+            // Simpan perubahan tanpa memicu event 'updated' (agar hemat resource)
+            $customer->saveQuietly();
+        });
+    }
 
     /**
      * Relasi ke user pembuat (dari database tako-perusahaan).
