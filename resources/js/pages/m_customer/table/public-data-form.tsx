@@ -147,11 +147,19 @@ export default function PublicCustomerForm({
             .join('');
     }
 
-    async function uploadAttachment(file: File, type: AttachmentType): Promise<Attachment> {
+    let counter = 1;
+
+    async function uploadAttachment(file: File, type: AttachmentType, npwpNumber: string): Promise<Attachment> {
         const formData = new FormData();
         formData.append('file', file);
+        formData.append('order', String(counter));
+        formData.append('npwp_number', npwpNumber);
+        formData.append('type', type);
+        formData.append('id_perusahaan', String(id_perusahaan));
 
         const res = await axios.post('/customer/upload-temp', formData);
+
+        counter++;
 
         return {
             id: 0,
@@ -362,22 +370,22 @@ export default function PublicCustomerForm({
             const uploadedAttachments: Attachment[] = [];
 
             if (npwpFile) {
-                const npwp = await uploadAttachment(npwpFile, 'npwp');
+                const npwp = await uploadAttachment(npwpFile, 'npwp', data.no_npwp);
                 uploadedAttachments.push(npwp);
             }
 
             if (nibFile) {
-                const nib = await uploadAttachment(nibFile, 'nib');
+                const nib = await uploadAttachment(nibFile, 'nib', data.no_npwp);
                 uploadedAttachments.push(nib);
             }
 
             if (sppkpFile) {
-                const sppkp = await uploadAttachment(sppkpFile, 'sppkp');
+                const sppkp = await uploadAttachment(sppkpFile, 'sppkp', data.no_npwp);
                 uploadedAttachments.push(sppkp);
             }
 
             if (ktpFile) {
-                const ktp = await uploadAttachment(ktpFile, 'ktp');
+                const ktp = await uploadAttachment(ktpFile, 'ktp', data.no_npwp);
                 uploadedAttachments.push(ktp);
             }
 
