@@ -12,6 +12,10 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Storage;
+use Symfony\Component\Process\Process;
+use Illuminate\Support\Facades\DB;
 
 class CustomersStatusController extends Controller
 {
@@ -31,6 +35,7 @@ class CustomersStatusController extends Controller
             'status1Approver',
             'status2Approver',
             'status3Approver',
+            'status4Approver',
         ])->where('id_Customer', $customerId)->first();
 
         if (!$status) {
@@ -42,6 +47,7 @@ class CustomersStatusController extends Controller
         $statusData['status_1_by_name'] = $status->status1Approver?->name ?? null;
         $statusData['status_2_by_name'] = $status->status2Approver?->name ?? null;
         $statusData['status_3_by_name'] = $status->status3Approver?->name ?? null;
+        $statusData['status_4_by_name'] = $status->status4Approver?->name ?? null;
 
         return response()->json($statusData);
     }
@@ -107,19 +113,25 @@ class CustomersStatusController extends Controller
             'status_2_timestamps' => 'nullable|date',
         ]);
 
+        $status = Customers_Status::where('id_Customer', $request->customer_id)->first();
+        if (!$status) return back()->with('error', 'Data status customer tidak ditemukan.');
+        
+        $customer = $status->customer;
+
+        // 1. Ambil Info Perusahaan untuk Folder Name
         $idPerusahaan = $request->input('id_perusahaan');
-        $emailsToNotify = [];
         $perusahaan = Perusahaan::find($idPerusahaan);
+        
+        // Default slug jika perusahaan tidak ketemu
+        $companySlug = 'general'; 
+        $emailsToNotify = [];
 
         if ($perusahaan) {
+            $companySlug = Str::slug($perusahaan->nama_perusahaan);
+
             if (!empty($perusahaan->notify_1)) {
-                Log::info('Isi notify_1:', [$perusahaan->notify_1]);
                 $emailsToNotify = explode(',', $perusahaan->notify_1);
-            } else {
-                Log::warning("Perusahaan ditemukan, tapi notify_1 kosong. Perusahaan ID: $idPerusahaan");
             }
-        } else {
-            Log::warning("Perusahaan tidak ditemukan. ID: $idPerusahaan");
         }
 
         $status = Customers_Status::where('id_Customer', $request->customer_id)->first();
@@ -134,26 +146,171 @@ class CustomersStatusController extends Controller
         $now = Carbon::now();
         $nama = $user->name;
 
-        if ($request->filled('submit_1_timestamps')) {
-            $status->submit_1_timestamps = $request->input('submit_1_timestamps');
-        }
-
+        if ($request->filled('submit_1_timestamps')) $status->submit_1_timestamps = $request->input('submit_1_timestamps');
         if ($request->filled('status_1_timestamps')) {
             $status->status_1_timestamps = $request->input('status_1_timestamps');
             $status->status_1_by = $userId;
         }
-
         if ($request->filled('status_2_timestamps')) {
             $status->status_2_timestamps = $request->input('status_2_timestamps');
             $status->status_2_by = $userId;
         }
 
         $filename = null;
+        $path = null;
+
         if ($request->hasFile('attach')) {
+
             $file = $request->file('attach');
-            $filename = uniqid() . '.' . $file->getClientOriginalExtension();
-            $path = $file->storeAs('attachments', $filename, 'public');
+            $lastFromAttach = CustomerAttach::where('customer_id', $customer->id)
+                ->get()
+                ->map(function ($row) {
+                    $prefix = substr($row->nama_file, 0, strpos($row->nama_file, '-')); 
+                    return intval($prefix);
+                })
+                ->max() ?? 0;
+
+            $status = Customers_Status::where('id_Customer', $customer->id)->first();
+
+            $statusFields = [
+                'submit_1_nama_file',
+                'status_1_nama_file',
+                'status_2_nama_file',
+                'submit_3_nama_file',
+                'status_4_nama_file',
+            ];
+
+            $lastFromStatus = 0;
+
+            if ($status) {
+                foreach ($statusFields as $field) {
+                    if (!empty($status->$field)) {
+
+                        $fileName = $status->$field;
+
+                        // prefix sebelum tanda "-"
+                        $prefix = substr($fileName, 0, strpos($fileName, '-'));
+
+                        if (is_numeric($prefix)) {
+                            $lastFromStatus = max($lastFromStatus, intval($prefix));
+                        }
+                    }
+                }
+            }
+
+            // Urutan baru
+            $lastOrder = max($lastFromAttach, $lastFromStatus);
+            $newOrder = $lastOrder + 1;
+
+            // Format 3 digit → 001, 002, 003, ...
+            $order = str_pad($newOrder, 3, '0', STR_PAD_LEFT);
+
+            $npwpRaw = $customer->no_npwp ?? '0000000000000000';
+            $npwpSanitized = preg_replace('/[^0-9]/', '', $npwpRaw);
+            
+            // 3. Tipe Dokumen (Berdasarkan Role yang Upload)
+            $docType = match ($role) {
+                'user'     => 'marketing_review',
+                'manager'  => 'manager_review',
+                'direktur' => 'director_review',
+                'lawyer'   => 'lawyer_review',
+                'auditor'  => 'audit_review',
+                default    => 'attachment'
+            };
+
+            // B. BENTUK NAMA FILE
+            // Format: 001-123456789-marketing_att.pdf
+            $ext = $file->getClientOriginalExtension();
+            $filename = "{$order}-{$npwpSanitized}-{$docType}.{$ext}";
+            $mode = 'medium'; // default compress mode
+
+            // Folder final: {companySlug}/attachment
+            $folderPath = $companySlug . '/attachment';
+
+            if (!Storage::disk('customers_external')->exists($folderPath)) {
+                Storage::disk('customers_external')->makeDirectory($folderPath);
+            }
+
+            // Path final (full)
+            $publicRelative = $folderPath . '/' . $filename;
+            $outputFullPath = Storage::disk('customers_external')->path($publicRelative);
+
+            // -------------------- A. KOMPRES PDF ------------------------
+            if ($file->getClientMimeType() === 'application/pdf') {
+
+                // 1. Simpan raw PDF sementara di storage lokal
+                $tempRaw = $file->storeAs('temp', 'raw_' . $filename, 'local');
+                $inputPath = Storage::disk('local')->path($tempRaw);
+
+                $inputWin = str_replace('/', '\\', $inputPath);
+                $outputWin = str_replace('/', '\\', $outputFullPath);
+
+                // CONFIG Ghostscript
+                $settings = [
+                    'medium' => [
+                        '-dPDFSETTINGS=/ebook',
+                        '-dColorImageResolution=200',
+                        '-dGrayImageResolution=200',
+                        '-dMonoImageResolution=200',
+                    ],
+                ];
+
+                $config = $settings['medium'];
+                $gsExe = 'C:\Program Files\gs\gs10.05.1\bin\gswin64c.exe';
+
+                $command = array_merge(
+                    [$gsExe, '-q', '-dSAFER', '-sDEVICE=pdfwrite', '-dCompatibilityLevel=1.4'],
+                    $config,
+                    [
+                        '-dEmbedAllFonts=false',
+                        '-dSubsetFonts=true',
+                        '-dColorImageDownsampleType=/Bicubic',
+                        '-dGrayImageDownsampleType=/Bicubic',
+                        '-dMonoImageDownsampleType=/Bicubic',
+                        '-o', $outputWin,
+                        $inputWin
+                    ]
+                );
+
+                $gsTemp = storage_path('app/gs_temp');
+                if (!file_exists($gsTemp)) mkdir($gsTemp, 0777, true);
+                $gsTempWin = str_replace('/', '\\', $gsTemp);
+
+                $process = new Process(
+                    command: $command,
+                    env: [
+                        'TEMP' => $gsTempWin,
+                        'TMP' => $gsTempWin,
+                        'SystemRoot' => getenv('SystemRoot'),
+                        'Path' => getenv('Path')
+                    ]
+                );
+                $process->setTimeout(300);
+                $process->run();
+
+                // Jika sukses
+                if ($process->isSuccessful() && file_exists($outputFullPath)) {
+
+                    @unlink($inputPath); // hapus raw
+
+                    $path = $publicRelative; // simpan path final
+                }
+                // Jika gagal compress → fallback ke copy original
+                else {
+                    Storage::disk('customers_external')->put($publicRelative, file_get_contents($inputPath));
+                    @unlink($inputPath);
+
+                    $path = $publicRelative;
+                }
+            }
+
+            // -------------------- B. FILE BUKAN PDF ----------------------
+            else {
+                $path = $file->storeAs($folderPath, $filename, 'customers_external');
+            }
         }
+
+        $customer = $status->customer;
 
         switch ($role) {
             case 'user':
@@ -162,6 +319,22 @@ class CustomersStatusController extends Controller
                     $status->submit_1_nama_file = $filename;
                     $status->submit_1_path = $path;
                 }
+
+                // 🔹 Kirim email hanya jika perusahaan TIDAK punya manager
+                // if ($perusahaan && !$perusahaan->hasManager()) {
+                //     if (!empty($perusahaan->notify_1)) {
+                //         $emailsToNotify = explode(',', $perusahaan->notify_1);
+                //     }
+
+                //     if (!empty($emailsToNotify)) {
+                //         try {
+                //             Mail::to($emailsToNotify)->send(new \App\Mail\CustomerSubmittedMail($customer));
+                //         } catch (\Exception $e) {
+                //             Log::error("Gagal kirim email lawyer (tanpa manager): " . $e->getMessage());
+                //         }
+                //     }
+                // }
+
                 break;
 
             case 'manager':
@@ -172,6 +345,19 @@ class CustomersStatusController extends Controller
                     $status->status_1_nama_file = $filename;
                     $status->status_1_path = $path;
                 }
+                // if ($perusahaan && $perusahaan->hasManager()) {
+                //     if (!empty($perusahaan->notify_1)) {
+                //         $emailsToNotify = explode(',', $perusahaan->notify_1);
+                //     }
+
+                //     if (!empty($emailsToNotify)) {
+                //         try {
+                //             Mail::to($emailsToNotify)->send(new \App\Mail\CustomerSubmittedMail($customer));
+                //         } catch (\Exception $e) {
+                //             Log::error("Gagal kirim email lawyer (setelah manager): " . $e->getMessage());
+                //         }
+                //     }
+                // }
                 break;
 
             case 'direktur':
@@ -218,6 +404,16 @@ class CustomersStatusController extends Controller
                             Mail::to('default@example.com')->send(new \App\Mail\StatusRejectedMail($status, $user, $customer));
                         }
                     }
+                }
+                break;
+
+            case 'auditor':
+                $status->status_4_by = $userId;
+                $status->status_4_timestamps = $now;
+                $status->status_4_keterangan = $request->keterangan;
+                if ($filename) {
+                    $status->status_4_nama_file = $filename;
+                    $status->status_4_path = $path;
                 }
                 break;
 

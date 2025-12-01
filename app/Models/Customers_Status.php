@@ -40,6 +40,12 @@ class Customers_Status extends Model
         'status_3',
         'submit_3_nama_file',
         'submit_3_path',
+
+        'status_4_by',
+        'status_4_timestamps',
+        'status_4_keterangan',
+        'status_4_nama_file',
+        'status_4_path',
     ];
 
     protected $dates = [
@@ -49,6 +55,7 @@ class Customers_Status extends Model
         'submit_2_timestamps',
         'status_3_timestamps',
         'submit_3_timestamps',
+        'status_4_timestamps',
         'created_at',
         'updated_at',
     ];
@@ -81,5 +88,10 @@ class Customers_Status extends Model
     public function status3Approver()
     {
         return $this->belongsTo(User::class, 'status_3_by');
+    }
+
+    public function status4Approver()
+    {
+        return $this->belongsTo(User::class, 'status_4_by');
     }
 }
