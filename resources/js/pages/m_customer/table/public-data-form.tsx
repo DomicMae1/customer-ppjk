@@ -10,7 +10,7 @@ import { Attachment, AttachmentType, MasterCustomer } from '@/types';
 import { Head, router, useForm, usePage } from '@inertiajs/react';
 import '@react-pdf-viewer/core/lib/styles/index.css';
 import '@react-pdf-viewer/default-layout/lib/styles/index.css';
-import { File, Moon, Sun } from 'lucide-react';
+import { File, Loader2, Moon, Sun } from 'lucide-react';
 // import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 // import { AlertCircle } from "lucide-react"
 import axios from 'axios';
@@ -71,6 +71,8 @@ export default function PublicCustomerForm({
         tgl_customer: customer?.tgl_customer || null,
         attachments: customer?.attachments || [],
     });
+
+    const [isLoading, setIsLoading] = useState(false);
 
     const [theme, setTheme] = useState<'light' | 'dark'>(() => (localStorage.getItem('theme') as 'light' | 'dark') || 'light');
 
@@ -187,10 +189,13 @@ export default function PublicCustomerForm({
 
         const newErrors: typeof errors_kategori = {};
 
+        setIsLoading(true);
+
         if (!data.kategori_usaha) {
             const message = 'Kategori usaha wajib dipilih';
             setErrors((prev) => ({ ...prev, kategori_usaha: message }));
             alert(message);
+            setIsLoading(false);
             return;
         }
 
@@ -198,6 +203,7 @@ export default function PublicCustomerForm({
             const message = 'Kategori lainnya wajib diisi';
             setErrors((prev) => ({ ...prev, lain_kategori: message }));
             alert(message);
+            setIsLoading(false);
             return;
         }
 
@@ -205,6 +211,7 @@ export default function PublicCustomerForm({
             const message = 'Nama Perusahaan wajib diisi';
             setErrors((prev) => ({ ...prev, nama_perusahaan: message }));
             alert(message);
+            setIsLoading(false);
             return;
         }
 
@@ -212,6 +219,7 @@ export default function PublicCustomerForm({
             const message = 'Bentuk badan usaha wajib dipilih';
             setErrors((prev) => ({ ...prev, bentuk_badan_usaha: message }));
             alert(message);
+            setIsLoading(false);
             return;
         }
 
@@ -219,6 +227,7 @@ export default function PublicCustomerForm({
             const message = 'Alamat lengkap wajib diisi';
             setErrors((prev) => ({ ...prev, alamat_lengkap: message }));
             alert(message);
+            setIsLoading(false);
             return;
         }
 
@@ -226,6 +235,7 @@ export default function PublicCustomerForm({
             const message = 'Kota wajib diisi';
             setErrors((prev) => ({ ...prev, kota: message }));
             alert(message);
+            setIsLoading(false);
             return;
         }
 
@@ -233,6 +243,7 @@ export default function PublicCustomerForm({
             const message = 'No Telpon Perusahaan wajib diisi';
             setErrors((prev) => ({ ...prev, no_telp: message }));
             alert(message);
+            setIsLoading(false);
             return;
         }
 
@@ -240,6 +251,7 @@ export default function PublicCustomerForm({
             const message = 'Alamat Perusahaan wajib diisi';
             setErrors((prev) => ({ ...prev, alamat_penagihan: message }));
             alert(message);
+            setIsLoading(false);
             return;
         }
 
@@ -247,6 +259,7 @@ export default function PublicCustomerForm({
             const message = 'Email Perusahaan wajib diisi';
             setErrors((prev) => ({ ...prev, email: message }));
             alert(message);
+            setIsLoading(false);
             return;
         }
 
@@ -254,6 +267,7 @@ export default function PublicCustomerForm({
             const message = 'Term of Payment wajib diisi';
             setErrors((prev) => ({ ...prev, top: message }));
             alert(message);
+            setIsLoading(false);
             return;
         }
 
@@ -261,6 +275,7 @@ export default function PublicCustomerForm({
             const message = 'Status perpajakan wajib dipilih';
             setErrors((prev) => ({ ...prev, status_perpajakan: message }));
             alert(message);
+            setIsLoading(false);
             return;
         }
 
@@ -268,6 +283,7 @@ export default function PublicCustomerForm({
             const message = 'Nomer NPWP wajib diisi';
             setErrors((prev) => ({ ...prev, no_npwp: message }));
             alert(message);
+            setIsLoading(false);
             return;
         }
 
@@ -275,6 +291,7 @@ export default function PublicCustomerForm({
             const message = 'Nomer NPWP 16 wajib diisi';
             setErrors((prev) => ({ ...prev, no_npwp_16: message }));
             alert(message);
+            setIsLoading(false);
             return;
         }
 
@@ -282,6 +299,7 @@ export default function PublicCustomerForm({
             const message = 'Nama Direktur wajib diisi';
             setErrors((prev) => ({ ...prev, nama_pj: message }));
             alert(message);
+            setIsLoading(false);
             return;
         }
 
@@ -289,6 +307,7 @@ export default function PublicCustomerForm({
             const message = 'NIK Direktur wajib diisi';
             setErrors((prev) => ({ ...prev, no_ktp_pj: message }));
             alert(message);
+            setIsLoading(false);
             return;
         }
 
@@ -296,6 +315,7 @@ export default function PublicCustomerForm({
             const message = 'No Telp Direktur wajib diisi';
             setErrors((prev) => ({ ...prev, no_telp_pj: message }));
             alert(message);
+            setIsLoading(false);
             return;
         }
 
@@ -303,6 +323,7 @@ export default function PublicCustomerForm({
             const message = 'Nama Personal wajib diisi';
             setErrors((prev) => ({ ...prev, nama_personal: message }));
             alert(message);
+            setIsLoading(false);
             return;
         }
 
@@ -310,6 +331,7 @@ export default function PublicCustomerForm({
             const message = 'Jabatan Personal wajib diisi';
             setErrors((prev) => ({ ...prev, jabatan_personal: message }));
             alert(message);
+            setIsLoading(false);
             return;
         }
 
@@ -317,6 +339,7 @@ export default function PublicCustomerForm({
             const message = 'No Telp Personal wajib diisi';
             setErrors((prev) => ({ ...prev, no_telp_personal: message }));
             alert(message);
+            setIsLoading(false);
             return;
         }
 
@@ -324,6 +347,7 @@ export default function PublicCustomerForm({
             const message = 'Email Personal wajib diisi';
             setErrors((prev) => ({ ...prev, email_personal: message }));
             alert(message);
+            setIsLoading(false);
             return;
         }
 
@@ -354,6 +378,7 @@ export default function PublicCustomerForm({
         }
 
         setErrors(newErrors);
+        setIsLoading(true);
 
         try {
             const uploadedAttachments: Attachment[] = [];
@@ -385,19 +410,21 @@ export default function PublicCustomerForm({
                 attachments: updatedAttachments,
             };
             if (!customer || !customer.id) {
-                await axios
-                    .post(route('customer.public.submit'), finalPayload)
-                    .then((res) => {
-                        alert(res.data.message || '✅ Data berhasil disimpan!');
-                    })
-                    .catch((err) => {
-                        console.error(err);
-                        alert(err.response?.data?.error || 'Terjadi kesalahan saat menyimpan data.');
-                    });
+                try {
+                    const res = await axios.post(route('customer.public.submit'), finalPayload);
+
+                    window.alert(`✅ ${res.data.message}`);
+                    setIsLoading(false);
+                    window.location.reload();
+                } catch (error) {
+                    console.error(error);
+                    setIsLoading(false);
+                }
             }
         } catch (err) {
             console.error('Upload gagal:', err);
             alert('Gagal upload file. Silakan coba lagi.');
+            setIsLoading(false);
         }
     };
 
