@@ -5,21 +5,30 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Perusahaan extends Model
 {
+    use HasFactory;
+
     protected $connection = 'tako-perusahaan';
-
     protected $table = 'perusahaan';
-
-    protected $primaryKey = 'id'; 
-    public $incrementing = true;
-    protected $keyType = 'int';
 
     protected $fillable = [
         'nama_perusahaan',
+        'domain',
         'notify_1',
         'notify_2',
+        'path_company_logo',
+        'data',
+        'id_User_1',
+        'id_User_2',
+        'id_User_3',
+        'id_User',
+    ];
+
+    protected $casts = [
+        'data' => 'json',
     ];
 
     public function user1()
@@ -55,5 +64,10 @@ class Perusahaan extends Model
         return $this->belongsToMany(User::class, 'perusahaan_user_roles', 'id_perusahaan', 'user_id')
             ->withPivot('role')
             ->withTimestamps();
+    }
+
+    public function tenant()
+    {
+        return $this->hasOne(Tenant::class, 'perusahaan_id');
     }
 }
