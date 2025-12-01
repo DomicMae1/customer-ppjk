@@ -59,7 +59,7 @@ export default function MasterCustomerPage() {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Master Customer" />
-            <div className="p-4">
+            <div className="md:p-4">
                 <DataTable columns={columns(onDeleteClick)} data={customers} />
             </div>
 

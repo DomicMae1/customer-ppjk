@@ -19,9 +19,13 @@ interface LoginForm {
 interface LoginProps {
     status?: string;
     canResetPassword: boolean;
+    company?: {
+        nama_perusahaan: string;
+        path_company_logo?: string | null;
+    } | null;
 }
 
-export default function Login({ status, canResetPassword }: LoginProps) {
+export default function Login({ status, canResetPassword, company }: LoginProps) {
     const { data, setData, post, processing, errors, reset } = useForm<LoginForm>({
         email: '',
         password: '',
@@ -35,8 +39,17 @@ export default function Login({ status, canResetPassword }: LoginProps) {
         });
     };
 
+    const companyName = company?.nama_perusahaan || 'Welcome to';
+    const companyLogo = company?.path_company_logo || null;
+
     return (
-        <AuthLayout title="Log in to your account" description="Enter your email and password below to log in">
+        <AuthLayout
+            company_name={companyName}
+            company_logo={companyLogo}
+            app_name="Customer Registration"
+            title="Log in to your account"
+            description="Enter your email and password below to log in"
+        >
             <Head title="Log in" />
 
             <form className="flex flex-col gap-6" onSubmit={submit}>
