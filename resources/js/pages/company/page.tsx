@@ -264,6 +264,22 @@ export default function ManageCompany() {
                                     placeholder="email3@contoh.com, email4@contoh.com"
                                 />
                             </div>
+                            <div>
+                                <ResettableDropzoneImage
+                                    key={form.path_company_logo}
+                                    label="Upload Logo Perusahaan"
+                                    isRequired={false}
+                                    onFileChange={setCompanyLogoFile}
+                                    existingFile={
+                                        form.path_company_logo
+                                            ? {
+                                                  nama_file: form.path_company_logo.split('/').pop() ?? 'logo.png',
+                                                  path: form.path_company_logo,
+                                              }
+                                            : null
+                                    }
+                                />
+                            </div>
                         </div>
                         <DialogFooter className="sm:justify-start">
                             <Button type="submit">{selectedCompany ? 'Update' : 'Create'}</Button>

@@ -42,7 +42,8 @@ export function ResettableDropzoneImage({
     const [componentKey, setComponentKey] = useState(Date.now());
 
     React.useEffect(() => {
-        if (existingFile && existingFile.path) {
+        // Jika user sudah upload file baru, jangan timpa dengan existingFile
+        if (!fileStatus && existingFile && existingFile.path) {
             setFileStatus({
                 id: `existing-${existingFile.nama_file}`,
                 status: 'success',
