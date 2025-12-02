@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useDropzone } from '@/components/dropzone';
 import { ResettableDropzone } from '@/components/ResettableDropzone';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -105,51 +104,6 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
         !statusData?.status_3_timestamps;
 
     const canEdit = !statusData?.submit_1_timestamps && (isCreator || (creatorRole && userRole && creatorRole === userRole));
-
-    const dropzoneAttach = useDropzone({
-        onDropFile: async (file: File) => {
-            setAttachFile(file);
-
-            const fileStatus = {
-                id: String(Date.now()),
-                status: 'success',
-                fileName: file.name,
-                result: URL.createObjectURL(file),
-            } as const;
-
-            setAttachFileStatuses([fileStatus]);
-            return fileStatus;
-        },
-        validation: {
-            accept: {
-                'application/pdf': ['.pdf'],
-            },
-            maxSize: 5 * 1024 * 1024,
-            maxFiles: 1,
-        },
-    });
-
-    const dropzoneAttachUser = useDropzone({
-        onDropFile: async (file: File) => {
-            setAttachFileUser(file);
-            const fileStatus = {
-                id: String(Date.now()),
-                status: 'success',
-                fileName: file.name,
-                result: URL.createObjectURL(file),
-            } as const;
-
-            setAttachFileStatuses([fileStatus]);
-            return fileStatus;
-        },
-        validation: {
-            accept: {
-                'application/pdf': ['.pdf'],
-            },
-            maxSize: 5 * 1024 * 1024,
-            maxFiles: 1,
-        },
-    });
 
     const handleSubmit = async (decision: 'approved' | 'rejected' | null = null) => {
         if (!customer.id) {
@@ -266,26 +220,29 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
         });
     };
 
-    const getPublicUrl = (relativePath: string | null | undefined): string => {
-        if (!relativePath) {
-            return '#';
-        }
-        return `/storage/${relativePath}`;
-    };
-
     return (
         <div className="rounded-2xl border-0 p-4">
             <h1 className="mb-4 text-3xl font-semibold">View Customer</h1>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                <div className="col-span-3 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="space-y-6">
+                {/* 🔹 Informasi Usaha */}
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                     <div>
                         <Label htmlFor="kategori_usaha">Kategori Usaha</Label>
                         <Input
                             id="kategori_usaha"
                             value={customer.kategori_usaha}
                             disabled
-                            className="w-full border border-black dark:border-neutral-600 dark:text-white"
+                            className="w-full border border-gray-300 dark:border-neutral-600 dark:text-white"
+                        />
+                    </div>
+                    <div>
+                        <Label htmlFor="bentuk_badan_usaha">Nama Perusahaan</Label>
+                        <Input
+                            id="bentuk_badan_usaha"
+                            value={customer.nama_perusahaan}
+                            disabled
+                            className="w-full border border-gray-300 dark:border-neutral-600 dark:text-white"
                         />
                     </div>
                     <div>
@@ -294,7 +251,20 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                             id="bentuk_badan_usaha"
                             value={customer.bentuk_badan_usaha}
                             disabled
-                            className="w-full border border-black dark:border-neutral-600 dark:text-white"
+                            className="w-full border border-gray-300 dark:border-neutral-600 dark:text-white"
+                        />
+                    </div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {/* 🔹 Alamat Lengkap */}
+                    <div>
+                        <Label htmlFor="alamat_lengkap">Alamat Lengkap</Label>
+                        <Textarea
+                            id="alamat_lengkap"
+                            value={customer.alamat_lengkap}
+                            disabled
+                            className="h-20 w-full border border-gray-300 dark:border-neutral-600 dark:text-white"
                         />
                     </div>
                     <div>
@@ -303,38 +273,38 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                             id="kota"
                             value={customer.kota}
                             disabled
-                            className="w-full border border-black dark:border-neutral-600 dark:text-white"
+                            className="w-full border border-gray-300 dark:border-neutral-600 dark:text-white"
                         />
                     </div>
-                </div>
-
-                <div className="col-span-3">
-                    <Label htmlFor="alamat_lengkap">Alamat Lengkap</Label>
-                    <Textarea
-                        id="alamat_lengkap"
-                        value={customer.alamat_lengkap}
-                        className="h-16 w-full border border-black dark:border-neutral-600 dark:text-white"
-                        disabled
-                    />
-                </div>
-
-                <div className="col-span-3 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                     <div>
-                        <Label htmlFor="no_telp">No Telp</Label>
+                        <Label htmlFor="no_telp">No. Telp</Label>
                         <Input
                             id="no_telp"
                             value={customer.no_telp || '-'}
                             disabled
-                            className="w-full border border-black dark:border-neutral-600 dark:text-white"
+                            className="w-full border border-gray-300 dark:border-neutral-600 dark:text-white"
                         />
                     </div>
+                </div>
+
+                {/* 🔹 Kontak Perusahaan */}
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                     <div>
-                        <Label htmlFor="no_fax">No Fax</Label>
+                        <Label htmlFor="no_fax">No. Fax</Label>
                         <Input
                             id="no_fax"
                             value={customer.no_fax || '-'}
                             disabled
-                            className="w-full border border-black dark:border-neutral-600 dark:text-white"
+                            className="w-full border border-gray-300 dark:border-neutral-600 dark:text-white"
+                        />
+                    </div>
+                    <div>
+                        <Label htmlFor="alamat_penagihan">Alamat Penagihan</Label>
+                        <Textarea
+                            id="alamat_penagihan"
+                            value={customer.alamat_penagihan}
+                            disabled
+                            className="h-20 w-full border border-gray-300 dark:border-neutral-600 dark:text-white"
                         />
                     </div>
                     <div>
@@ -343,28 +313,29 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                             id="email"
                             value={customer.email}
                             disabled
-                            className="w-full border border-black dark:border-neutral-600 dark:text-white"
+                            className="w-full border border-gray-300 dark:border-neutral-600 dark:text-white"
                         />
                     </div>
                 </div>
 
-                <div className="col-span-3 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {/* 🔹 Info Tambahan */}
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                     <div>
                         <Label htmlFor="website">Website</Label>
                         <Input
                             id="website"
                             value={customer.website || '-'}
                             disabled
-                            className="w-full border border-black dark:border-neutral-600 dark:text-white"
+                            className="w-full border border-gray-300 dark:border-neutral-600 dark:text-white"
                         />
                     </div>
                     <div>
-                        <Label htmlFor="top">TOP</Label>
+                        <Label htmlFor="top">Terms Of Payment</Label>
                         <Input
                             id="top"
                             value={customer.top || '-'}
                             disabled
-                            className="w-full border border-black dark:border-neutral-600 dark:text-white"
+                            className="w-full border border-gray-300 dark:border-neutral-600 dark:text-white"
                         />
                     </div>
                     <div>
@@ -373,19 +344,20 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                             id="status_perpajakan"
                             value={customer.status_perpajakan || '-'}
                             disabled
-                            className="w-full border border-black dark:border-neutral-600 dark:text-white"
+                            className="w-full border border-gray-300 dark:border-neutral-600 dark:text-white"
                         />
                     </div>
                 </div>
 
-                <div className="col-span-3 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {/* 🔹 NPWP */}
+                <div className="grid gap-4 md:grid-cols-2">
                     <div>
                         <Label htmlFor="no_npwp">Nomor NPWP</Label>
                         <Input
                             id="no_npwp"
                             value={customer.no_npwp || '-'}
                             disabled
-                            className="w-full border border-black dark:border-neutral-600 dark:text-white"
+                            className="w-full border border-gray-300 dark:border-neutral-600 dark:text-white"
                         />
                     </div>
                     <div>
@@ -394,59 +366,51 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                             id="no_npwp_16"
                             value={customer.no_npwp_16 || '-'}
                             disabled
-                            className="w-full border border-black dark:border-neutral-600 dark:text-white"
+                            className="w-full border border-gray-300 dark:border-neutral-600 dark:text-white"
                         />
                     </div>
                 </div>
 
-                <div className="col-span-3">
-                    <Label htmlFor="alamat_penagihan">Alamat Penagihan</Label>
-                    <Textarea
-                        id="alamat_penagihan"
-                        value={customer.alamat_penagihan}
-                        className="h-16 w-full border border-black dark:border-neutral-600 dark:text-white"
-                        disabled
-                    />
-                </div>
-
-                <div className="col-span-3 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {/* 🔹 Penanggung Jawab */}
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                     <div>
                         <Label htmlFor="nama_pj">Nama Penanggung Jawab</Label>
                         <Input
                             id="nama_pj"
                             value={customer.nama_pj || '-'}
                             disabled
-                            className="w-full border border-black dark:border-neutral-600 dark:text-white"
+                            className="w-full border border-gray-300 dark:border-neutral-600 dark:text-white"
                         />
                     </div>
                     <div>
-                        <Label htmlFor="no_ktp_pj">No KTP PJ</Label>
+                        <Label htmlFor="no_ktp_pj">No. KTP PJ</Label>
                         <Input
                             id="no_ktp_pj"
                             value={customer.no_ktp_pj || '-'}
                             disabled
-                            className="w-full border border-black dark:border-neutral-600 dark:text-white"
+                            className="w-full border border-gray-300 dark:border-neutral-600 dark:text-white"
                         />
                     </div>
                     <div>
-                        <Label htmlFor="no_telp_pj">No Telp PJ</Label>
+                        <Label htmlFor="no_telp_pj">No. Telp PJ</Label>
                         <Input
                             id="no_telp_pj"
                             value={customer.no_telp_pj || '-'}
                             disabled
-                            className="w-full border border-black dark:border-neutral-600 dark:text-white"
+                            className="w-full border border-gray-300 dark:border-neutral-600 dark:text-white"
                         />
                     </div>
                 </div>
 
-                <div className="col-span-3 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {/* 🔹 Personal Contact */}
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                     <div>
                         <Label htmlFor="nama_personal">Nama Personal</Label>
                         <Input
                             id="nama_personal"
                             value={customer.nama_personal || '-'}
                             disabled
-                            className="w-full border border-black dark:border-neutral-600 dark:text-white"
+                            className="w-full border border-gray-300 dark:border-neutral-600 dark:text-white"
                         />
                     </div>
                     <div>
@@ -455,28 +419,29 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                             id="jabatan_personal"
                             value={customer.jabatan_personal || '-'}
                             disabled
-                            className="w-full border border-black dark:border-neutral-600 dark:text-white"
+                            className="w-full border border-gray-300 dark:border-neutral-600 dark:text-white"
                         />
                     </div>
                     <div>
-                        <Label htmlFor="no_telp_personal">No Telp Personal</Label>
+                        <Label htmlFor="no_telp_personal">No. Telp Personal</Label>
                         <Input
                             id="no_telp_personal"
                             value={customer.no_telp_personal || '-'}
                             disabled
-                            className="w-full border border-black dark:border-neutral-600 dark:text-white"
+                            className="w-full border border-gray-300 dark:border-neutral-600 dark:text-white"
                         />
                     </div>
                 </div>
 
-                <div className="col-span-3 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {/* 🔹 Email Personal */}
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                     <div>
                         <Label htmlFor="email_personal">Email Personal</Label>
                         <Input
                             id="email_personal"
                             value={customer.email_personal || '-'}
                             disabled
-                            className="w-full border border-black dark:border-neutral-600 dark:text-white"
+                            className="w-full border border-gray-300 dark:border-neutral-600 dark:text-white"
                         />
                     </div>
                 </div>
@@ -485,16 +450,21 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
             {attachments?.length > 0 && (
                 <div className="mt-6">
                     <h2 className="mb-2 text-xl font-bold">Lampiran Dokumen</h2>
-                    <div
-                        className={`grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-${attachments.length >= 3 ? 3 : attachments.length} lg:grid-cols-${attachments.length >= 4 ? 4 : attachments.length}`}
-                    >
+                    <div className={`grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-${Math.min(attachments.length, 4)}`}>
                         {attachments.map((file) => {
                             const label = file.type.toUpperCase() === 'SPPKP' ? 'SPTKP' : file.type.toUpperCase();
 
                             return (
                                 <div key={file.id} className="w-full rounded-md border border-gray-500 p-2 dark:border-neutral-700 dark:text-white">
                                     <div className="mb-1 font-medium capitalize">{label}</div>
-                                    <a href={file.path} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-400 underline">
+
+                                    {/* LINK UNTUK MEMBUKA PDF */}
+                                    <a
+                                        href={file.path}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-sm text-blue-400 underline transition-colors hover:text-blue-600"
+                                    >
                                         Lihat Dokumen
                                     </a>
                                 </div>
@@ -622,7 +592,7 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                 </Link>
             </div>
 
-            <div className={`grid grid-cols-1 gap-4 md:grid-cols-2 ${managerChecked && !managerExists ? 'lg:grid-cols-3' : 'lg:grid-cols-4'}`}>
+            <div className={`grid grid-cols-1 gap-4 pb-8 md:grid-cols-2 ${managerChecked && !managerExists ? 'lg:grid-cols-3' : 'lg:grid-cols-4'}`}>
                 {/* Disubmit */}
                 <div>
                     <div className="rounded-t-sm border-t border-r border-b border-l border-gray-500 p-2 dark:bg-neutral-200 dark:text-black">
