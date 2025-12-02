@@ -1,0 +1,43 @@
+version: '3.9'
+
+services:
+  app:
+    image: php:8.2-fpm
+    container_name: laravel-app
+    working_dir: /var/www/html
+    volumes:
+      - ./:/var/www/html
+    networks:
+      - app-network
+    depends_on:
+      - db
+    env_file:
+      - .env
+    command: >
+      sh -c "composer install &&
+             npm install --prefix ./resources/js &&
+             npm run dev --prefix ./resources/js &
+             php artisan serve --host=0.0.0.0 --port=8000"
+    ports:
+      - '8000:8000'
+
+  db:
+    image: postgres:15
+    container_name: postgres-db
+    environment:
+      POSTGRES_DB: ${DB_SECOND_DATABASE}
+      POSTGRES_USER: ${DB_SECOND_USERNAME}
+      POSTGRES_PASSWORD: ${DB_SECOND_PASSWORD}
+    ports:
+      - '${DB_SECOND_PORT}:5432'
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  db-data:
