@@ -304,7 +304,6 @@ class CustomersStatusController extends Controller
                 }
             }
 
-            // -------------------- B. FILE BUKAN PDF ----------------------
             else {
                 $path = $file->storeAs($folderPath, $filename, 'customers_external');
             }

@@ -12,7 +12,6 @@ class FileController extends Controller
     {
         // $path sekarang berisi string lengkap, contoh: "cv-delta/attachment/12345.pdf"
         
-        // Cek file di disk customers_external
         if (!Storage::disk('customers_external')->exists($path)) {
             abort(404, 'File not found.');
         }
