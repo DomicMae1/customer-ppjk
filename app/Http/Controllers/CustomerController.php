@@ -19,6 +19,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Clegginabox\PDFMerger\PDFMerger;
 use Illuminate\Support\Str;
 use Spatie\Browsershot\Browsershot;
+use Symfony\Component\Process\Process;
 
 class CustomerController extends Controller
 {
@@ -95,7 +96,7 @@ class CustomerController extends Controller
                 $label = 'disubmit';
                 $userName = $status->submit1By?->name ?? '-';
             } else {
-                $tanggal = $status->created_at;
+                $tanggal = $customer->created_at;
                 $label = 'diinput';
                 $userName = $customer->creator->name ?? '-';
             }
@@ -126,10 +127,15 @@ class CustomerController extends Controller
 
         return Inertia::render('m_customer/page', [
             'customers' => $customerData,
+            'company' => [
+                'id' => session('company_id'),
+                'name' => session('company_name'),
+                'logo' => session('company_logo'),
+            ],
             'flash' => [
                 'success' => session('success'),
-                'error' => session('error')
-            ]
+                'error' => session('error'),
+            ],
         ]);
     }
 
@@ -250,7 +256,6 @@ class CustomerController extends Controller
                     }
                 }
             }
-
 
             DB::connection('tako-perusahaan')->table('customers_statuses')->insert([
                 'id_Customer' => $customer->id,
@@ -378,7 +383,7 @@ class CustomerController extends Controller
             DB::commit();
 
             return response()->json([
-                'message' => 'Data Customer berhasil dibuat!',
+                'message' => 'Data Anda berhasil dibuat!',
             ], 200);
         } catch (\Throwable $th) {
             DB::rollBack();
