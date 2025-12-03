@@ -149,44 +149,70 @@ class PerusahaanController extends Controller
     /**
      * Update the specified resource in storage.
      */
+
     public function update(Request $request, Perusahaan $perusahaan)
     {
         $validated = $request->validate([
             'nama_perusahaan' => 'required|string|max:255',
-            'id_User'   => 'nullable|integer|exists:users,id',   
-            'id_User_1' => 'nullable|integer|exists:users,id', 
-            'id_User_2' => 'nullable|integer|exists:users,id', 
-            'id_User_3' => 'nullable|integer|exists:users,id', 
-            'notify_1'  => 'nullable|string',
-            'notify_2'  => 'nullable|string',
+
+            // user roles
+            'id_User'   => 'nullable|integer|exists:users,id',
+            'id_User_1' => 'nullable|integer|exists:users,id',
+            'id_User_2' => 'nullable|integer|exists:users,id',
+            'id_User_3' => 'nullable|integer|exists:users,id',
+
+            // notify
+            'notify_1' => 'nullable|string',
+            'notify_2' => 'nullable|string',
+
+            // logo
+            'company_logo' => 'nullable|image|mimes:jpg,jpeg,png,webp,svg|max:2048',
         ]);
 
+        // ========================================
+        // 1. Update logo
+        // ========================================
+        if ($request->hasFile('company_logo')) {
+            // Hapus logo lama
+            if ($perusahaan->path_company_logo && Storage::disk('public')->exists($perusahaan->path_company_logo)) {
+                Storage::disk('public')->delete($perusahaan->path_company_logo);
+            }
+
+            // Upload baru
+            $perusahaan->path_company_logo = $request->file('company_logo')->store('company_logo', 'public');
+        }
+
+        // ========================================
+        // 2. Update perusahaan
+        // ========================================
         $perusahaan->update([
-            'nama_perusahaan' => $validated['nama_perusahaan'],
-            'notify_1'        => $validated['notify_1'] ?? null,
-            'notify_2'        => $validated['notify_2'] ?? null,
+            'nama_perusahaan'   => $validated['nama_perusahaan'],
+            'notify_1'          => $validated['notify_1'] ?? null,
+            'notify_2'          => $validated['notify_2'] ?? null,
+            'path_company_logo' => $perusahaan->path_company_logo,
         ]);
 
-        $syncData = [];
+        // ========================================
+        // 3. Sync user roles
+        // ========================================
+        $sync = [];
 
         if (!empty($validated['id_User'])) {
-            $syncData[$validated['id_User']] = ['role' => 'user']; 
+            $sync[$validated['id_User']] = ['role' => 'user'];
         }
         if (!empty($validated['id_User_1'])) {
-            $syncData[$validated['id_User_1']] = ['role' => 'manager'];
+            $sync[$validated['id_User_1']] = ['role' => 'manager'];
         }
         if (!empty($validated['id_User_2'])) {
-            $syncData[$validated['id_User_2']] = ['role' => 'direktur'];
+            $sync[$validated['id_User_2']] = ['role' => 'direktur'];
         }
         if (!empty($validated['id_User_3'])) {
-            $syncData[$validated['id_User_3']] = ['role' => 'lawyer'];
+            $sync[$validated['id_User_3']] = ['role' => 'lawyer'];
         }
 
-        $perusahaan->users()->sync($syncData);
+        $perusahaan->users()->sync($sync);
 
-        return redirect()
-            ->back()
-            ->with('success', 'Perusahaan berhasil diedit');
+        return back()->with('success', 'Perusahaan berhasil diedit.');
     }
 
     /**
