@@ -2,67 +2,58 @@ version: '3.9'
 
 services:
   app:
-    # image: php:8.2-fpm
     build: .
     container_name: laravel-app
-    working_dir: /var/www/html
-    volumes:
-      - ./:/var/www/html
-    networks:
-      - app-network
-    depends_on:
-      - db
+    restart: always
+    # Menghubungkan port 80 server ke port 80 container (Apache)
+    ports:
+      - '80:80'
+
+    # Environment variable dari file .env akan dibaca di sini
     env_file:
       - .env
 
     environment:
-      # PENTING: Ganti 127.0.0.1 menjadi nama service database ('db')
-      - DB_CONNECTION=pgsql
+      # Memaksa Laravel menggunakan host 'db' untuk koneksi database
       - DB_HOST=db
+      - DB_CONNECTION=pgsql
       - DB_PORT=5432
-      # Menggunakan variabel dari .env Anda untuk kredensial
-      - DB_DATABASE=${DB_SECOND_DATABASE}
-      - DB_USERNAME=${DB_SECOND_USERNAME}
-      - DB_PASSWORD=${DB_SECOND_PASSWORD}
+      # Pastikan APP_URL di .env sesuai domain/IP server kamu
+      - APP_URL=${APP_URL}
 
-      # Jika Anda juga menggunakan koneksi kedua (Perusahaan) ke database yang sama:
-      - DB_TAKO_HOST=db
-      - DB_TAKO_PORT=5432
+    volumes:
+      # Hanya mount folder uploads agar file user tidak hilang saat redeploy
+      # Jika kamu butuh edit code live di server (tidak disarankan), uncomment baris di bawah:
+      # - ./:/var/www/html
+      - ./storage/app/public:/var/www/html/storage/app/public
 
-      # Memastikan host kedua juga mengarah ke container 'db'
-      - DB_SECOND_HOST=db
-      - DB_SECOND_PORT=5432
+    depends_on:
+      - db
 
-    # Beri tanda pagar (#) pada command lama agar tidak hilang (comment)
-    # command: >
-    #   sh -c "composer install &&
-    #          npm install --prefix ./resources/js &&
-    #          npm run dev --prefix ./resources/js &
-    #          php artisan serve --host=0.0.0.0 --port=8000"
-
-    # Masukkan command baru di sini:
-    command: tail -f /dev/null
-
-    ports:
-      - '8000:8000'
+    networks:
+      - app-network
 
   db:
     image: postgres:15
     container_name: postgres-db
+    restart: always
     environment:
+      # Mengambil variabel dari .env
       POSTGRES_DB: ${DB_SECOND_DATABASE}
       POSTGRES_USER: ${DB_SECOND_USERNAME}
       POSTGRES_PASSWORD: ${DB_SECOND_PASSWORD}
-    ports:
-      - '${DB_SECOND_PORT}:5432'
     volumes:
-      - db-data:/var/lib/postgresql/data
+      # Data database disimpan di volume docker (aman meski container dihapus)
+      - postgres_data:/var/lib/postgresql/data
     networks:
       - app-network
+    ports:
+      # Opsional: Buka port ini jika kamu ingin akses DB dari laptopmu via tool remote DB
+      - '${DB_SECOND_PORT:-5432}:5432'
 
 networks:
   app-network:
     driver: bridge
 
 volumes:
-  db-data:
+  postgres_data:
