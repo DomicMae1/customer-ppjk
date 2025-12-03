@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { ResettableDropzone } from '@/components/ResettableDropzone'; // 👈 1. Impor komponen baru
+import { ResettableDropzone } from '@/components/ResettableDropzone';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -56,6 +56,7 @@ export default function CustomerForm({
         no_telp_personal: customer?.no_telp_personal || '',
         email_personal: customer?.email_personal || '',
         keterangan_reject: customer?.keterangan_reject || '',
+        user_id: customer?.user_id || auth.user.id,
         approved_1_by: customer?.approved_1_by ?? null,
         approved_2_by: customer?.approved_2_by ?? null,
         rejected_1_by: customer?.rejected_1_by ?? null,
@@ -166,11 +167,20 @@ export default function CustomerForm({
         );
     }, [customer]);
 
-    async function uploadAttachment(file: File, type: AttachmentType): Promise<Attachment> {
+    let counter = 1;
+
+    async function uploadAttachment(file: File, type: AttachmentType, npwpNumber: string): Promise<Attachment> {
         const formData = new FormData();
+        const id_perusahaan = auth.user.id_perusahaan;
         formData.append('file', file);
+        formData.append('order', String(counter));
+        formData.append('npwp_number', npwpNumber);
+        formData.append('type', type);
+        formData.append('id_perusahaan', String(id_perusahaan));
 
         const res = await axios.post('/customer/upload-temp', formData);
+
+        counter++;
 
         return {
             id: 0,
@@ -389,27 +399,28 @@ export default function CustomerForm({
         }
 
         setErrors(newErrors);
+        setIsLoading(true);
 
         try {
             const uploadedAttachments: Attachment[] = [];
 
             if (npwpFile) {
-                const npwp = await uploadAttachment(npwpFile, 'npwp');
+                const npwp = await uploadAttachment(npwpFile, 'npwp', data.no_npwp);
                 uploadedAttachments.push(npwp);
             }
 
             if (nibFile) {
-                const nib = await uploadAttachment(nibFile, 'nib');
+                const nib = await uploadAttachment(nibFile, 'nib', data.no_npwp);
                 uploadedAttachments.push(nib);
             }
 
             if (sppkpFile) {
-                const sppkp = await uploadAttachment(sppkpFile, 'sppkp');
+                const sppkp = await uploadAttachment(sppkpFile, 'sppkp', data.no_npwp);
                 uploadedAttachments.push(sppkp);
             }
 
             if (ktpFile) {
-                const ktp = await uploadAttachment(ktpFile, 'ktp');
+                const ktp = await uploadAttachment(ktpFile, 'ktp', data.no_npwp);
                 uploadedAttachments.push(ktp);
             }
 
@@ -709,7 +720,9 @@ export default function CustomerForm({
                                 type="text"
                                 id="no_npwp"
                                 value={data.no_npwp ?? ''}
-                                onChange={(e) => setData('no_npwp', formatNpwp(e.target.value))}
+                                onChange={(e) => {
+                                    setData('no_npwp', formatNpwp(e.target.value));
+                                }}
                                 placeholder="Masukkan nomor NPWP"
                                 className={cn(
                                     'file:text-foreground placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground border-input flex h-9 w-full min-w-0 rounded-md border bg-transparent px-3 py-1 text-base shadow-xs transition-[color,box-shadow] outline-none file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm',
