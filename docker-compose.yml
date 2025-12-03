@@ -5,31 +5,45 @@ services:
     build: .
     container_name: laravel-app
     restart: always
-    # Menghubungkan port 80 server ke port 80 container (Apache)
     ports:
       - '80:80'
-
-    # Environment variable dari file .env akan dibaca di sini
     env_file:
       - .env
 
+    # BAGIAN INI SANGAT PENTING (OVERRIDE KONFIGURASI .ENV)
     environment:
-      # Memaksa Laravel menggunakan host 'db' untuk koneksi database
-      - DB_HOST=db
+      # 1. Setting Koneksi Default (Customer)
       - DB_CONNECTION=pgsql
+      - DB_HOST=db
       - DB_PORT=5432
-      # Pastikan APP_URL di .env sesuai domain/IP server kamu
+      - DB_DATABASE=${DB_SECOND_DATABASE}
+      - DB_USERNAME=${DB_SECOND_USERNAME}
+      - DB_PASSWORD=${DB_SECOND_PASSWORD}
+
+      # 2. Setting Koneksi Perusahaan (WAJIB DIARAHKAN KE 'db')
+      - DB_TAKO_CONNECTION=pgsql
+      - DB_TAKO_HOST=db
+      - DB_TAKO_PORT=5432
+      - DB_TAKO_DATABASE=${DB_TAKO_DATABASE}
+      - DB_TAKO_USERNAME=${DB_TAKO_USERNAME}
+      - DB_TAKO_PASSWORD=${DB_TAKO_PASSWORD}
+
+      # 3. Setting Koneksi Second (WAJIB DIARAHKAN KE 'db')
+      - DB_SECOND_CONNECTION=pgsql
+      - DB_SECOND_HOST=db
+      - DB_SECOND_PORT=5432
+      - DB_SECOND_DATABASE=${DB_SECOND_DATABASE}
+      - DB_SECOND_USERNAME=${DB_SECOND_USERNAME}
+      - DB_SECOND_PASSWORD=${DB_SECOND_PASSWORD}
+
+      # Setup URL
       - APP_URL=${APP_URL}
 
     volumes:
-      # Hanya mount folder uploads agar file user tidak hilang saat redeploy
-      # Jika kamu butuh edit code live di server (tidak disarankan), uncomment baris di bawah:
-      # - ./:/var/www/html
       - ./storage/app/public:/var/www/html/storage/app/public
 
     depends_on:
       - db
-
     networks:
       - app-network
 
@@ -38,17 +52,16 @@ services:
     container_name: postgres-db
     restart: always
     environment:
-      # Mengambil variabel dari .env
+      # Membuat user dan password master dari .env
       POSTGRES_DB: ${DB_SECOND_DATABASE}
       POSTGRES_USER: ${DB_SECOND_USERNAME}
       POSTGRES_PASSWORD: ${DB_SECOND_PASSWORD}
     volumes:
-      # Data database disimpan di volume docker (aman meski container dihapus)
       - postgres_data:/var/lib/postgresql/data
     networks:
       - app-network
     ports:
-      # Opsional: Buka port ini jika kamu ingin akses DB dari laptopmu via tool remote DB
+      # Menggunakan port default 5432
       - '${DB_SECOND_PORT:-5432}:5432'
 
 networks:
