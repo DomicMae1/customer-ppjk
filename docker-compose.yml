@@ -12,15 +12,7 @@ services:
 
     # BAGIAN INI SANGAT PENTING (OVERRIDE KONFIGURASI .ENV)
     environment:
-      # 1. Setting Koneksi Default (Customer)
-      - DB_CONNECTION=pgsql
-      - DB_HOST=db
-      - DB_PORT=5432
-      - DB_DATABASE=${DB_SECOND_DATABASE}
-      - DB_USERNAME=${DB_SECOND_USERNAME}
-      - DB_PASSWORD=${DB_SECOND_PASSWORD}
-
-      # 2. Setting Koneksi Perusahaan (WAJIB DIARAHKAN KE 'db')
+      # 1. Setting Koneksi Perusahaan (WAJIB DIARAHKAN KE 'db')
       - DB_TAKO_CONNECTION=pgsql
       - DB_TAKO_HOST=db
       - DB_TAKO_PORT=5432
@@ -28,7 +20,7 @@ services:
       - DB_TAKO_USERNAME=${DB_TAKO_USERNAME}
       - DB_TAKO_PASSWORD=${DB_TAKO_PASSWORD}
 
-      # 3. Setting Koneksi Second (WAJIB DIARAHKAN KE 'db')
+      # 2. Setting Koneksi Second (WAJIB DIARAHKAN KE 'db')
       - DB_SECOND_CONNECTION=pgsql
       - DB_SECOND_HOST=db
       - DB_SECOND_PORT=5432
