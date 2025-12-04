@@ -62,7 +62,8 @@ return [
 
         'customers_external' => [
             'driver' => 'local',
-            'root' => 'C:/Users/IT/Herd/customers',
+            'root' => storage_path('external_data'), 
+            'url' => env('APP_URL') . '/storage/external',
             'visibility' => 'public',
             'throw' => false,
         ],
@@ -81,7 +82,7 @@ return [
     */
 
     'links' => [
-        public_path('storage') => storage_path('app/public'),
+        public_path('storage') => '/mnt/CR',
     ],
 
 ];

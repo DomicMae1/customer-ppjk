@@ -447,15 +447,16 @@ class CustomerController extends Controller
         $protocol = $request->secure() ? 'https://' : 'http://';
         $baseUrl = $customDomain ? ($protocol . $customDomain) : $request->getSchemeAndHttpHost();
 
+        $disk = Storage::disk('customers_external');
+
         $folderPathRel = $companySlug . '/customers'; 
-        $publicPathRel = $folderPathRel . '/' . $filename; 
         
         // URL Final example: http://alpha.test/file/view/pt-alpha/1234_file.pdf
         $finalUrl = $baseUrl . '/file/view/' . $companySlug . '/customers/' . $filename;
 
         // Create a Folder If It Doesn't Exist (IMPORTANT!)
-        if (!Storage::disk('customers_external')->exists($folderPathRel)) {
-            Storage::disk('customers_external')->makeDirectory($folderPathRel);
+        if (!$disk->exists($folderPathRel)) {
+            $disk->makeDirectory($folderPathRel);
         }
 
         // Process Files (PDF / Non-PDF)
@@ -464,10 +465,18 @@ class CustomerController extends Controller
             
             $tempPathRaw = $file->storeAs('temp', 'raw_' . $filename, 'local');
             $inputPath = Storage::disk('local')->path($tempPathRaw);
-            $outputPath = Storage::disk('customers_external')->path($publicPathRel);
+            
+            // Path Output (Target ke /mnt/CR lewat mapping docker)
+            $publicPathRel = $folderPathRel . '/' . $filename;
+            $outputPath = $disk->path($publicPathRel);
 
-            $inputPathWin = str_replace('/', '\\', $inputPath);
-            $outputPathWin = str_replace('/', '\\', $outputPath);
+            if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+                $inputOSPath  = str_replace('/', '\\', $inputPath);
+                $outputOSPath = str_replace('/', '\\', $outputPath);
+            } else {
+                $inputOSPath  = $inputPath;
+                $outputOSPath = $outputPath;
+            }
 
             $settings = [
                 'ultra_small' => ['-dPDFSETTINGS=/screen', '-dColorImageResolution=72', '-dGrayImageResolution=72', '-dMonoImageResolution=72', '-dDownsampleColorImages=true'],
@@ -482,11 +491,13 @@ class CustomerController extends Controller
             ];
             //Default compress 'medium'
             $selectedConfig = $settings[$mode] ?? $settings['medium'];
-            $gsExe = 'C:\Program Files\gs\gs10.05.1\bin\gswin64c.exe';
+            $gsExe = strtoupper(substr(PHP_OS, 0, 3)) === 'WIN'
+                ? 'C:\Program Files\gs\gs10.05.1\bin\gswin64c.exe'
+                : '/usr/bin/gs';
             $commandArgs = array_merge(
                 [$gsExe, '-q', '-dSAFER', '-sDEVICE=pdfwrite', '-dCompatibilityLevel=1.4'],
                 $selectedConfig,
-                ['-dEmbedAllFonts=false', '-dSubsetFonts=true', '-dColorImageDownsampleType=/Bicubic', '-dGrayImageDownsampleType=/Bicubic', '-dMonoImageDownsampleType=/Bicubic', '-o', $outputPathWin, $inputPathWin]
+                ['-dEmbedAllFonts=false', '-dSubsetFonts=true', '-dColorImageDownsampleType=/Bicubic', '-dGrayImageDownsampleType=/Bicubic', '-dMonoImageDownsampleType=/Bicubic', '-o', $outputOSPath, $inputOSPath]
             );
             $gsTempDir = storage_path('app/gs_temp');
             if (!file_exists($gsTempDir)) mkdir($gsTempDir, 0777, true);
@@ -503,7 +514,7 @@ class CustomerController extends Controller
                     'info' => 'Compressed (' . $mode . ')'
                 ]);
             } else {
-                Storage::disk('customers_external')->put($publicPathRel, file_get_contents($inputPath));
+                $disk->put($publicPathRel, file_get_contents($inputPath));
                 @unlink($inputPath);
 
                 return response()->json([

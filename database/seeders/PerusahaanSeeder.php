@@ -33,10 +33,12 @@ class PerusahaanSeeder extends Seeder
                 'perusahaan_id' => $perusahaan->id, // RELASI PENTING: Sambungkan ke ID Perusahaan
             ]);
 
+            $appDomain = env('APP_DOMAIN');
+
             // 3. Buat Data Routing (Domain)
             // Ini agar URL alpha.localhost bisa diakses
             $tenant->domains()->create([
-                'domain' => $data['subdomain'] . '.' . ('customer-review-tako.test'), // Hasil: alpha.localhost
+                'domain' => $data['subdomain'] . '.' . "{$appDomain}", // Hasil: alpha.localhost
             ]);
         }
     }
