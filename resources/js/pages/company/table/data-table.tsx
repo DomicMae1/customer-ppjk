@@ -75,6 +75,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_peru
 
         // field biasa
         fd.append('nama_perusahaan', form.nama_perusahaan);
+        fd.append('domain', form.domain);
         fd.append('id_User_1', form.id_User_1);
         fd.append('id_User_2', form.id_User_2);
         fd.append('id_User_3', form.id_User_3);

@@ -105,7 +105,7 @@ class PerusahaanController extends Controller
 
         // Buat Domain untuk Tenant tersebut
         $tenant->domains()->create([
-            'domain' => $rawDomain
+            'domain' => $rawDomain,
         ]);
 
         // ========================================
@@ -129,7 +129,7 @@ class PerusahaanController extends Controller
             }
         }
 
-        return back()->with('success', 'Perusahaan berhasil ditambahkan. Domain: ' . $fullDomain);
+        return back()->with('success', 'Perusahaan berhasil ditambahkan. Domain: ' . $rawDomain);
     }
 
     /**
