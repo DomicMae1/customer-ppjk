@@ -473,18 +473,33 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
             </Dialog>
 
             <Dialog open={isLinkDialogOpen} onOpenChange={setIsLinkDialogOpen}>
-                <DialogContent>
+                <DialogContent className="w-[95vw] max-w-[95vw] overflow-y-auto rounded-xl p-4 sm:max-w-md">
                     <DialogHeader>
-                        <DialogTitle>Link Berhasil Dibuat</DialogTitle>
-                        <DialogDescription>Salin link berikut dan kirimkan ke customer.</DialogDescription>
+                        <DialogTitle className="text-base sm:text-lg">Link Berhasil Dibuat</DialogTitle>
+                        <DialogDescription className="text-sm">Salin link berikut dan kirimkan ke customer.</DialogDescription>
                     </DialogHeader>
-                    <div className="flex items-center justify-between rounded bg-gray-100 px-3 py-2 dark:bg-black">
-                        <span className="truncate text-sm">{generatedLink}</span>
-                        <button onClick={handleCopy} className="ml-4 text-blue-600 hover:text-blue-800">
+
+                    <div className="mt-3 flex items-center justify-between gap-3 rounded bg-gray-100 px-3 py-2 dark:bg-neutral-900">
+                        <div className="flex-1 overflow-x-auto whitespace-nowrap">
+                            <span className="text-xs sm:text-sm">{generatedLink}</span>
+                        </div>
+
+                        <button onClick={handleCopy} className="hidden shrink-0 text-blue-600 hover:text-blue-800 sm:block">
                             <Copy className="h-5 w-5" />
                         </button>
                     </div>
-                    <Button onClick={() => setIsLinkDialogOpen(false)} className="w-full bg-green-600 hover:bg-green-700">
+
+                    <button
+                        onClick={handleCopy}
+                        className="mt-3 block w-full rounded-lg bg-blue-600 py-2 text-sm text-white hover:bg-blue-700 sm:hidden"
+                    >
+                        Copy
+                    </button>
+
+                    <Button
+                        onClick={() => setIsLinkDialogOpen(false)}
+                        className="mt-4 w-full rounded-lg bg-green-600 py-2 text-sm hover:bg-green-700"
+                    >
                         Tutup
                     </Button>
                 </DialogContent>
