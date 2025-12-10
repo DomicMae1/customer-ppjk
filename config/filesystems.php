@@ -62,7 +62,7 @@ return [
 
         'customers_external' => [
             'driver' => 'local',
-            'root' => storage_path('external_data'), 
+            'root' => '/mnt/Customer_Registration',
             'url' => env('APP_URL') . '/storage/external',
             'visibility' => 'public',
             'throw' => false,
@@ -86,7 +86,7 @@ return [
         public_path('storage') => storage_path('app/public'),
         
         // (Opsional) Tambahkan link kedua khusus untuk /mnt/CR jika mau diakses publik
-        public_path('storage/external') => storage_path('external_data'), 
+        public_path('storage/external') =>  '/mnt/Customer_Registration', 
     ],
 
 ];
