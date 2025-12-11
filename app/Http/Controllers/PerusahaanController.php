@@ -25,7 +25,7 @@ class PerusahaanController extends Controller
             abort(403, 'Unauthorized access. Only admin can access this page.');
         }
 
-        $perusahaans = Perusahaan::with(['user', 'users'])->get();
+        $perusahaans = Perusahaan::with(['user', 'users','tenant','tenant.domains'])->get();
         $users = User::select('id', 'name')->get();
 
         return Inertia::render('company/page', [
@@ -81,7 +81,9 @@ class PerusahaanController extends Controller
 
         $rawDomain = $validated['domain'];
 
-        $tenantId = Str::slug($rawDomain);
+        $tenantId = $validated['nama_perusahaan'];
+
+        $rawTenant= Str::slug($tenantId);
 
         // $appDomain = env('APP_DOMAIN', 'registration.tako.co.id'); // Ambil dari .env (misal: registration.tako.co.id)
         // $baseSlug = Str::slug($validated['nama_perusahaan']);
@@ -99,7 +101,7 @@ class PerusahaanController extends Controller
         // Buat Tenant Baru
         // ID Tenant kita samakan dengan subdomain agar mudah dibaca (opsional, bisa juga UUID)
         $tenant = Tenant::create([
-            'id' => $tenantId, 
+            'id' => $rawTenant, 
             'perusahaan_id' => $perusahaan->id, // Sambungkan Relasi ke Perusahaan
         ]);
 
@@ -161,6 +163,8 @@ class PerusahaanController extends Controller
         $validated = $request->validate([
             'nama_perusahaan' => 'required|string|max:255',
 
+            'domain'          => 'required|string|max:255|unique:domains,domain',
+
             // user roles
             'id_User'   => 'nullable|integer|exists:users,id',
             'id_User_1' => 'nullable|integer|exists:users,id',
@@ -196,6 +200,31 @@ class PerusahaanController extends Controller
             'notify_1'          => $validated['notify_1'] ?? null,
             'notify_2'          => $validated['notify_2'] ?? null,
             'path_company_logo' => $perusahaan->path_company_logo,
+        ]);
+
+        $rawDomain = $validated['domain'];
+
+        $tenantId = $validated['nama_perusahaan'];
+
+        $rawTenant= Str::slug($tenantId);
+
+        // Cari tenant berdasarkan perusahaan_id
+        $tenant = Tenant::where('perusahaan_id', $perusahaan->id)->first();
+
+        if (!$tenant) {
+            // Jika tenant belum ada (kasus langka)
+            $tenant = Tenant::create([
+                'id' => Str::slug($rawTenant),
+                'perusahaan_id' => $perusahaan->id,
+            ]);
+        }
+
+        // Hapus semua domain lama
+        $tenant->domains()->delete();
+
+        // Buat domain baru
+        $tenant->domains()->create([
+            'domain' => $rawDomain,
         ]);
 
         // ========================================

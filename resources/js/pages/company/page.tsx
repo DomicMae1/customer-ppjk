@@ -98,11 +98,9 @@ export default function ManageCompany() {
         const direktur = company.users.find((u: any) => u.pivot.role === 'direktur');
         const lawyer = company.users.find((u: any) => u.pivot.role === 'lawyer');
 
-        const existingDomain = company.tenant?.domains?.[0]?.domain || '';
-
         setForm({
             nama_perusahaan: company.nama_perusahaan || '',
-            domain: existingDomain,
+            domain: company.tenant?.domains?.[0]?.domain || '',
             id_User_1: manager ? String(manager.id) : '',
             id_User_2: direktur ? String(direktur.id) : '',
             id_User_3: lawyer ? String(lawyer.id) : '',
