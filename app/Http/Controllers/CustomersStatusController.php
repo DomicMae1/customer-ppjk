@@ -161,7 +161,7 @@ class CustomersStatusController extends Controller
         $filename = null;
         $path = null;
 
-        if ($request->filled('attach_path') && $request->filled('attach_filename')) {
+        if (in_array($role, ['user', 'manager', 'direktur', 'lawyer', 'auditor']) && $request->filled('attach_path') && $request->filled('attach_filename')) {
 
             $tempPath = $request->attach_path;  
             $tempFull = Storage::disk('customers_external')->path($tempPath);
