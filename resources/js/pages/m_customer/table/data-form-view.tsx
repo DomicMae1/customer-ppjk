@@ -134,6 +134,8 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
             setAttachmentError(null);
         }
 
+        const formData = new FormData();
+
         if (showExtraFields && attachFile) {
             try {
                 const formDataAttach = new FormData();
@@ -152,6 +154,8 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                     path: resAttach.data.path,
                     type: 'note',
                 });
+                formData.append('attach_path', resAttach.data.path);
+                formData.append('attach_filename', resAttach.data.nama_file);
             } catch (error) {
                 console.error('Upload gagal:', error);
                 alert('❌ Upload file gagal.');
@@ -159,9 +163,6 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                 return;
             }
         }
-
-        const formData = new FormData();
-        const now = new Date().toISOString();
 
         formData.append('customer_id', customer.id.toString());
         formData.append('status_1_by', String(props.auth.user.id));

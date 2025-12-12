@@ -161,9 +161,15 @@ class CustomersStatusController extends Controller
         $filename = null;
         $path = null;
 
-        if ($request->hasFile('attach')) {
+        if ($request->filled('attach_path') && $request->filled('attach_filename')) {
 
-            $file = $request->file('attach');
+            $path = $request->attach_path;
+            $filename = $request->attach_filename;
+        }
+
+        elseif ($request->hasFile('attach') || $request->hasFile('file')) {
+
+            $file = $request->file('attach') ?? $request->file('file');
             $lastFromAttach = CustomerAttach::where('customer_id', $customer->id)
                 ->get()
                 ->map(function ($row) {
@@ -230,7 +236,6 @@ class CustomersStatusController extends Controller
             // Format: 001-123456789-marketing_att.pdf
             $ext = $file->getClientOriginalExtension();
             $filename = "{$npwpSanitized}-{$order}-{$docType}.{$ext}";
-            $mode = 'medium'; // default compress mode
 
             // Folder final: {companySlug}/attachment
             $folderPath = $companySlug . '/attachment';
@@ -243,15 +248,11 @@ class CustomersStatusController extends Controller
             $publicRelative = $folderPath . '/' . $filename;
             $outputFullPath = Storage::disk('customers_external')->path($publicRelative);
 
-            // -------------------- A. KOMPRES PDF ------------------------
             if ($file->getClientMimeType() === 'application/pdf') {
 
                 // 1. Simpan raw PDF sementara di storage lokal
                 $tempRaw = $file->storeAs('temp', 'raw_' . $filename, 'local');
                 $inputPath = Storage::disk('local')->path($tempRaw);
-
-                $inputWin = str_replace('/', '\\', $inputPath);
-                $outputWin = str_replace('/', '\\', $outputFullPath);
 
                 // CONFIG Ghostscript
                 $settings = [
@@ -264,33 +265,33 @@ class CustomersStatusController extends Controller
                 ];
 
                 $config = $settings['medium'];
-                $gsExe = 'C:\Program Files\gs\gs10.05.1\bin\gswin64c.exe';
+                $gsExe = '/usr/bin/gs';
 
                 $command = array_merge(
-                    [$gsExe, '-q', '-dSAFER', '-sDEVICE=pdfwrite', '-dCompatibilityLevel=1.4'],
+                    [
+                        $gsExe,
+                        '-q',
+                        '-dSAFER',
+                        '-sDEVICE=pdfwrite',
+                        '-dCompatibilityLevel=1.4'
+                    ],
                     $config,
                     [
-                        '-dEmbedAllFonts=false',
-                        '-dSubsetFonts=true',
-                        '-dColorImageDownsampleType=/Bicubic',
-                        '-dGrayImageDownsampleType=/Bicubic',
-                        '-dMonoImageDownsampleType=/Bicubic',
-                        '-o', $outputWin,
-                        $inputWin
+                        '-o',
+                        $outputFullPath,
+                        $inputPath
                     ]
                 );
 
                 $gsTemp = storage_path('app/gs_temp');
                 if (!file_exists($gsTemp)) mkdir($gsTemp, 0777, true);
-                $gsTempWin = str_replace('/', '\\', $gsTemp);
 
                 $process = new Process(
                     command: $command,
                     env: [
-                        'TEMP' => $gsTempWin,
-                        'TMP' => $gsTempWin,
-                        'SystemRoot' => getenv('SystemRoot'),
-                        'Path' => getenv('Path')
+                        'TMPDIR' => $gsTemp,
+                        'TEMP'   => $gsTemp,
+                        'TMP'    => $gsTemp,
                     ]
                 );
                 $process->setTimeout(300);
@@ -312,8 +313,8 @@ class CustomersStatusController extends Controller
                 }
             }
 
-            else {
-                $path = $file->storeAs($folderPath, $filename, 'customers_external');
+            if (!$path || !$filename) {
+                return back()->with('error', 'Gagal memproses file attachment');
             }
         }
 
