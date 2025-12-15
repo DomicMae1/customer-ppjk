@@ -53,19 +53,12 @@ RUN composer install --optimize-autoloader --no-dev
 # Install dependency JS (NPM) & Build
 RUN npm install && npm run build
 
-RUN mkdir -p /mnt/Customer_Registration
-
 # Buat Script Startup (Entrypoint) Langsung di dalam Dockerfile
 RUN echo '#!/bin/bash\n\
 \n\
 # Pastikan folder permission storage internal benar\n\
 chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache\n\
 chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache\n\
-\n\
-# Tangani Folder External (/mnt/Customer_Registration)\n\
-# Kita ubah ownernya jadi www-data agar Apache bisa baca/tulis\n\
-chown -R www-data:www-data /mnt/Customer_Registration\n\
-chmod -R 775 /mnt/Customer_Registration\n\
 \n\
 # Jalankan storage:link\n\
 # Ini akan membaca config filesystems.php Anda dan membuat symlink\n\
