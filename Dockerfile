@@ -19,8 +19,15 @@ RUN apt-get update && apt-get install -y \
     && docker-php-ext-install -j$(nproc) gd pdo pdo_pgsql zip \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
+RUN echo "file_uploads = On\n\
+memory_limit = 256M\n\
+upload_max_filesize = 64M\n\
+post_max_size = 64M\n\
+max_execution_time = 600\n\
+" > /usr/local/etc/php/conf.d/uploads.ini
+
 # Aktifkan mod_rewrite untuk URL rewriting Laravel
-RUN a2enmod rewrite
+RUN a2enmod rewrite ssl
 
 # Ubah DocumentRoot Apache ke folder /public Laravel
 ENV APACHE_DOCUMENT_ROOT /var/www/html/public
