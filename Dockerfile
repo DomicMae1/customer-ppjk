@@ -60,6 +60,11 @@ RUN echo '#!/bin/bash\n\
 chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache\n\
 chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache\n\
 \n\
+# Tangani Folder External (/mnt/Customer_Registration)\n\
+# Kita ubah ownernya jadi www-data agar Apache bisa baca/tulis\n\
+chown -R www-data:www-data /mnt/Customer_Registration\n\
+chmod -R 775 /mnt/Customer_Registration\n\
+\n\
 # Jalankan storage:link\n\
 # Ini akan membaca config filesystems.php Anda dan membuat symlink\n\
 # baik untuk public/storage maupun public/storage/external\n\
