@@ -491,6 +491,7 @@ class CustomerController extends Controller
             ];
             //Default compress 'medium'
             $selectedConfig = $settings[$mode] ?? $settings['medium'];
+            $isWindows = strtoupper(substr(PHP_OS, 0, 3)) === 'WIN';
             $gsExe = strtoupper(substr(PHP_OS, 0, 3)) === 'WIN'
                 ? 'C:\Program Files\gs\gs10.05.1\bin\gswin64c.exe'
                 : '/usr/bin/gs';
