@@ -33,6 +33,9 @@ services:
     volumes:
       - ./:/var/www/html
       - ./storage/app/public:/var/www/html/storage/app/public
+      - ./docker/apache/sites-available:/etc/apache2/sites-available
+      - ./docker/apache/sites-enabled:/etc/apache2/sites-enabled
+      - /mnt/Customer_Registration:/mnt/Customer_Registration
 
     depends_on:
       - db

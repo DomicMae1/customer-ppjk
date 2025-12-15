@@ -13,8 +13,11 @@ RUN apt-get update && apt-get install -y \
     git \
     curl \
     ghostscript \
+    nano \
+    mc \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install -j$(nproc) gd pdo pdo_pgsql zip
+    && docker-php-ext-install -j$(nproc) gd pdo pdo_pgsql zip \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Aktifkan mod_rewrite untuk URL rewriting Laravel
 RUN a2enmod rewrite
@@ -43,12 +46,33 @@ RUN composer install --optimize-autoloader --no-dev
 # Install dependency JS (NPM) & Build
 RUN npm install && npm run build
 
-# Atur permission folder storage dan bootstrap cache agar bisa ditulisi oleh Apache
-RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
-RUN chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
+RUN mkdir -p /mnt/Customer_Registration
+
+# Buat Script Startup (Entrypoint) Langsung di dalam Dockerfile
+RUN echo '#!/bin/bash\n\
+\n\
+# Pastikan folder permission storage internal benar\n\
+chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache\n\
+chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache\n\
+\n\
+# Tangani Folder External (/mnt/Customer_Registration)\n\
+# Kita ubah ownernya jadi www-data agar Apache bisa baca/tulis\n\
+chown -R www-data:www-data /mnt/Customer_Registration\n\
+chmod -R 775 /mnt/Customer_Registration\n\
+\n\
+# Jalankan storage:link\n\
+# Ini akan membaca config filesystems.php Anda dan membuat symlink\n\
+# baik untuk public/storage maupun public/storage/external\n\
+php artisan storage:link\n\
+\n\
+# Jalankan Apache\n\
+exec apache2-foreground\n\
+' > /usr/local/bin/docker-entrypoint.sh
+
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 # Expose port 80
 EXPOSE 80
 
-# Jalankan Apache di foreground
-CMD ["apache2-foreground"]
+# Gunakan Script Startup sebagai perintah utama
+CMD ["/usr/local/bin/docker-entrypoint.sh"]
