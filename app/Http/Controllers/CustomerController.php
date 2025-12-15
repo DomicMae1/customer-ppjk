@@ -501,7 +501,19 @@ class CustomerController extends Controller
             );
             $gsTempDir = storage_path('app/gs_temp');
             if (!file_exists($gsTempDir)) mkdir($gsTempDir, 0777, true);
-            $gsTempDirWin = str_replace('/', '\\', $gsTempDir);
+            $gsTempEnv = $isWindows ? str_replace('/', '\\', $gsTempDir) : $gsTempDir;
+
+            // Setup Environment Variables
+            $envVars = [
+                'TEMP' => $gsTempEnv,
+                'TMP'  => $gsTempEnv,
+            ];
+
+            // Tambahan untuk Windows agar GS bisa jalan
+            if ($isWindows) {
+                $envVars['SystemRoot'] = getenv('SystemRoot');
+                $envVars['Path'] = getenv('Path');
+            }
             $process = new Process(command: $commandArgs, env: ['TEMP' => $gsTempDirWin, 'TMP' => $gsTempDirWin, 'SystemRoot' => getenv('SystemRoot'), 'Path' => getenv('Path')]);
             $process->setTimeout(300);
             $process->run();
