@@ -65,12 +65,19 @@ chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache\n\
 chown -R www-data:www-data /mnt/Customer_Registration\n\
 chmod -R 775 /mnt/Customer_Registration\n\
 \n\
-\n\
 if [ -f /tmp/hosts_external ]; then\n\
-    echo "" >> /etc/hosts\n\
-    echo "# --- IMPORTED FROM HOST SERVER ---" >> /etc/hosts\n\
-    cat /tmp/hosts_external | grep -v "127.0.0.1" | grep -v "::1" >> /etc/hosts\n\
-    echo "✅ Success append host /etc/hosts to container"\n\
+    echo "Processing /etc/hosts insertion..."\n\
+    \n\
+    # Langkah A: Ambil isi dari host server, buang localhost/ipv6 loopback\n\
+    # Simpan ke file sementara dulu (/tmp/clean_hosts)\n\
+    grep -v "127.0.0.1" /tmp/hosts_external | grep -v "::1" > /tmp/clean_hosts\n\
+    \n\
+    # Langkah B: Gunakan SED untuk menyisipkan isi /tmp/clean_hosts \n\
+    # Tepat SETELAH baris yang mengandung "127.0.0.1.*localhost"\n\
+    # Perintah 'r' di sed artinya "read file and append after match"\n\
+    sed -i "/127.0.0.1.*localhost/r /tmp/clean_hosts" /etc/hosts\n\
+    \n\
+    echo "✅ Success inserted external hosts directly below localhost"\n\
 fi\n\
 \n\
 # Jalankan storage:link\n\
