@@ -45,8 +45,10 @@ class StatusRejectedMail extends Mailable
             );
 
             if (file_exists($fullPath)) {
+                $namaFileLawyer = $this->status->submit_3_nama_file ?? basename($fullPath);
+
                 $email->attach($fullPath, [
-                    'as' =>  'Document Lawyer.pdf',
+                    'as' => $namaFileLawyer,
                     'mime' => 'application/pdf',
                 ]);
             }
@@ -76,7 +78,7 @@ class StatusRejectedMail extends Mailable
 
                 if (file_exists($realPath)) {
                     $email->attach($realPath, [
-                        'as' => strtoupper($file->type) . '.pdf', // contoh: NPWP.pdf
+                        'as' => $file->nama_file, // contoh: NPWP.pdf
                         'mime' => 'application/pdf',
                     ]);
                 }
