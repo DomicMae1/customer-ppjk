@@ -68,14 +68,15 @@ chmod -R 775 /mnt/Customer_Registration\n\
 if [ -f /tmp/hosts_external ]; then\n\
     echo "Processing /etc/hosts insertion..."\n\
     \n\
-    # Langkah A: Ambil isi dari host server, buang localhost/ipv6 loopback\n\
-    # Simpan ke file sementara dulu (/tmp/clean_hosts)\n\
+    # Langkah A: Bersihkan file dari host (buang localhost)\n\
     grep -v "127.0.0.1" /tmp/hosts_external | grep -v "::1" > /tmp/clean_hosts\n\
     \n\
-    # Langkah B: Gunakan SED untuk menyisipkan isi /tmp/clean_hosts \n\
-    # Tepat SETELAH baris yang mengandung "127.0.0.1.*localhost"\n\
-    # Perintah 'r' di sed artinya "read file and append after match"\n\
-    sed -i "/127.0.0.1.*localhost/r /tmp/clean_hosts" /etc/hosts\n\
+    # Langkah B: Buat file baru gabungan (JANGAN pakai sed -i langsung ke /etc/hosts)\n\
+    # Cari baris localhost, sisipkan isi clean_hosts di bawahnya, output ke file temp\n\
+    sed "/127.0.0.1.*localhost/r /tmp/clean_hosts" /etc/hosts > /tmp/hosts.new\n\
+    \n\
+    # Langkah C: TIMPA isi /etc/hosts dengan isi file temp (Teknik 'cat' aman untuk Docker)\n\
+    cat /tmp/hosts.new > /etc/hosts\n\
     \n\
     echo "✅ Success inserted external hosts directly below localhost"\n\
 fi\n\
