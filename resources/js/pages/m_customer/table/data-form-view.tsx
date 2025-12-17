@@ -1065,7 +1065,7 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                     <div className="rounded-b-sm border-r border-b border-l border-gray-500 p-2 dark:bg-neutral-200 dark:text-black">
                         {statusData?.status_4_timestamps && (
                             <>
-                                {statusData.status_4_keterangan && (
+                                {userRole !== 'lawyer' && statusData.status_4_keterangan && (
                                     <div className="text-muted-foreground text-sm dark:text-black">
                                         <p>
                                             <strong>Keterangan</strong>
@@ -1073,9 +1073,9 @@ export default function ViewCustomerForm({ customer }: { customer: MasterCustome
                                         <p>{statusData.status_4_keterangan}</p>
                                     </div>
                                 )}
-                                {statusData.status_4_nama_file && (
+                                {userRole !== 'lawyer' && statusData.status_4_nama_file && (
                                     <div className="mt-2">
-                                        <h4 className="text-muted-foreground text-sm font-bold dark:text-black">Attachment Lawyer</h4>
+                                        <h4 className="text-muted-foreground text-sm font-bold dark:text-black">Attachment Auditor</h4>
                                         <a
                                             href={`/file/view/${statusData.status_4_path}`}
                                             target="_blank"
