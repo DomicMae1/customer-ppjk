@@ -3,10 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Models\Perusahaan;
+use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use Stancl\Tenancy\Database\Models\Domain;
 
 class PerusahaanController extends Controller
 {
@@ -17,12 +21,11 @@ class PerusahaanController extends Controller
     {
         $user = Auth::user();
 
-        // Hanya izinkan akses jika user memiliki role 'admin'
         if (!$user->hasRole('admin')) {
             abort(403, 'Unauthorized access. Only admin can access this page.');
         }
 
-        $perusahaans = Perusahaan::with(['user', 'users'])->get();
+        $perusahaans = Perusahaan::with(['user', 'users','tenant','tenant.domains'])->get();
         $users = User::select('id', 'name')->get();
 
         return Inertia::render('company/page', [
@@ -50,46 +53,85 @@ class PerusahaanController extends Controller
     {
         $validated = $request->validate([
             'nama_perusahaan' => 'required|string|max:255',
-            'id_User_1' => 'nullable|integer|exists:users,id',
-            'id_User_2' => 'nullable|integer|exists:users,id',
-            'id_User_3' => 'nullable|integer|exists:users,id',
-            'id_User' => 'nullable|integer|exists:users,id',
+
+            'domain'          => 'required|string|max:255|unique:domains,domain',
+
+            'id_User_1' => 'nullable|integer|exists:users,id', // manager
+            'id_User_2' => 'nullable|integer|exists:users,id', // direktur
+            'id_User_3' => 'nullable|integer|exists:users,id', // lawyer
+            'id_User'   => 'nullable|integer|exists:users,id', // user
+
             'notify_1' => 'nullable|string',
             'notify_2' => 'nullable|string',
+
+            'company_logo' => 'nullable|image|mimes:jpg,jpeg,png,webp,svg|max:2048',
         ]);
 
-        // Ambil hanya field yang ada di tabel perusahaan
-        $perusahaanData = collect($validated)->only([
-            'nama_perusahaan',
-            'notify_1',
-            'notify_2'
-        ])->toArray();
+        $logoPath = null;
+        if ($request->hasFile('company_logo')) {
+            $logoPath = $request->file('company_logo')->store('company_logo', 'public');
+        }
 
-        // Buat perusahaan
-        $perusahaan = Perusahaan::create($perusahaanData);
+        $perusahaan = Perusahaan::create([
+            'nama_perusahaan'   => $validated['nama_perusahaan'],
+            'notify_1'          => $validated['notify_1'] ?? null,
+            'notify_2'          => $validated['notify_2'] ?? null,
+            'path_company_logo' => $logoPath,
+        ]);
 
-        // Assign users ke perusahaan melalui pivot
-        $userRoles = [
+        $rawDomain = $validated['domain'];
+
+        $tenantId = $validated['nama_perusahaan'];
+
+        $rawTenant= Str::slug($tenantId);
+
+        // $appDomain = env('APP_DOMAIN', 'registration.tako.co.id'); // Ambil dari .env (misal: registration.tako.co.id)
+        // $baseSlug = Str::slug($validated['nama_perusahaan']);
+        
+        // // Pastikan subdomain unik di tabel DOMAINS
+        // $subdomain = $baseSlug;
+        // $counter = 1;
+        // while (Domain::where('domain', "registration.{$subdomain}.{$appDomain}")->exists()) {
+        //     $subdomain = "{$baseSlug}-{$counter}";
+        //     $counter++;
+        // }
+
+        // $fullDomain = "{$subdomain}.{$appDomain}";
+
+        // Buat Tenant Baru
+        // ID Tenant kita samakan dengan subdomain agar mudah dibaca (opsional, bisa juga UUID)
+        $tenant = Tenant::create([
+            'id' => $rawTenant, 
+            'perusahaan_id' => $perusahaan->id, // Sambungkan Relasi ke Perusahaan
+        ]);
+
+        // Buat Domain untuk Tenant tersebut
+        $tenant->domains()->create([
+            'domain' => $rawDomain,
+        ]);
+
+        // ========================================
+        // 4. Simpan user roles
+        // ========================================
+        $roles = [
             $validated['id_User_1'] ?? null => 'manager',
             $validated['id_User_2'] ?? null => 'direktur',
             $validated['id_User_3'] ?? null => 'lawyer',
+            $validated['id_User']   ?? null => 'user',
         ];
 
-        foreach ($userRoles as $userId => $role) {
+        foreach ($roles as $userId => $role) {
             if ($userId) {
                 $perusahaan->users()->attach($userId, ['role' => $role]);
+
+                // Opsional: Update id_perusahaan di tabel users jika perlu fallback
+                User::where('id', $userId)->update([
+                    'id_perusahaan' => $perusahaan->id
+                ]);
             }
         }
 
-        // Assign user pembuat jika ada
-        if (!empty($validated['id_User'])) {
-            $perusahaan->users()->attach($validated['id_User'], ['role' => 'creator']);
-        }
-
-        return response()->json([
-            'message' => 'Perusahaan berhasil ditambahkan',
-            'data' => $perusahaan->load('users'),
-        ], 201);
+        return back()->with('success', 'Perusahaan berhasil ditambahkan. Domain: ' . $rawDomain);
     }
 
     /**
@@ -115,44 +157,97 @@ class PerusahaanController extends Controller
     /**
      * Update the specified resource in storage.
      */
+
     public function update(Request $request, Perusahaan $perusahaan)
     {
         $validated = $request->validate([
             'nama_perusahaan' => 'required|string|max:255',
+
+            'domain'          => 'required|string|max:255|unique:domains,domain',
+
+            // user roles
+            'id_User'   => 'nullable|integer|exists:users,id',
             'id_User_1' => 'nullable|integer|exists:users,id',
             'id_User_2' => 'nullable|integer|exists:users,id',
             'id_User_3' => 'nullable|integer|exists:users,id',
-            'id_User' => 'nullable|integer|exists:users,id',
+
+            // notify
             'notify_1' => 'nullable|string',
             'notify_2' => 'nullable|string',
+
+            // logo
+            'company_logo' => 'nullable|image|mimes:jpg,jpeg,png,webp,svg|max:2048',
         ]);
 
-        $perusahaan->update($validated);
-
-        // Sync ulang user-role
-        $userRoles = [
-            $validated['id_User_1'] => 'manager',
-            $validated['id_User_2'] => 'direktur',
-            $validated['id_User_3'] => 'lawyer',
-        ];
-
-        // Hapus role-role lama dan sync ulang
-        $syncData = [];
-        foreach ($userRoles as $userId => $role) {
-            if ($userId) {
-                $syncData[$userId] = ['role' => $role];
+        // ========================================
+        // 1. Update logo
+        // ========================================
+        if ($request->hasFile('company_logo')) {
+            // Hapus logo lama
+            if ($perusahaan->path_company_logo && Storage::disk('public')->exists($perusahaan->path_company_logo)) {
+                Storage::disk('public')->delete($perusahaan->path_company_logo);
             }
-        }
-        if (!empty($validated['id_User'])) {
-            $syncData[$validated['id_User']] = ['role' => 'creator'];
+
+            // Upload baru
+            $perusahaan->path_company_logo = $request->file('company_logo')->store('company_logo', 'public');
         }
 
-        $perusahaan->users()->sync($syncData);
-
-        return response()->json([
-            'message' => 'Perusahaan berhasil diperbarui',
-            'data' => $perusahaan->load('users'),
+        // ========================================
+        // 2. Update perusahaan
+        // ========================================
+        $perusahaan->update([
+            'nama_perusahaan'   => $validated['nama_perusahaan'],
+            'notify_1'          => $validated['notify_1'] ?? null,
+            'notify_2'          => $validated['notify_2'] ?? null,
+            'path_company_logo' => $perusahaan->path_company_logo,
         ]);
+
+        $rawDomain = $validated['domain'];
+
+        $tenantId = $validated['nama_perusahaan'];
+
+        $rawTenant= Str::slug($tenantId);
+
+        // Cari tenant berdasarkan perusahaan_id
+        $tenant = Tenant::where('perusahaan_id', $perusahaan->id)->first();
+
+        if (!$tenant) {
+            // Jika tenant belum ada (kasus langka)
+            $tenant = Tenant::create([
+                'id' => Str::slug($rawTenant),
+                'perusahaan_id' => $perusahaan->id,
+            ]);
+        }
+
+        // Hapus semua domain lama
+        $tenant->domains()->delete();
+
+        // Buat domain baru
+        $tenant->domains()->create([
+            'domain' => $rawDomain,
+        ]);
+
+        // ========================================
+        // 3. Sync user roles
+        // ========================================
+        $sync = [];
+
+        if (!empty($validated['id_User'])) {
+            $sync[$validated['id_User']] = ['role' => 'user'];
+        }
+        if (!empty($validated['id_User_1'])) {
+            $sync[$validated['id_User_1']] = ['role' => 'manager'];
+        }
+        if (!empty($validated['id_User_2'])) {
+            $sync[$validated['id_User_2']] = ['role' => 'direktur'];
+        }
+        if (!empty($validated['id_User_3'])) {
+            $sync[$validated['id_User_3']] = ['role' => 'lawyer'];
+        }
+
+        $perusahaan->users()->sync($sync);
+
+        return back()->with('success', 'Perusahaan berhasil diedit.');
     }
 
     /**
@@ -161,11 +256,12 @@ class PerusahaanController extends Controller
     public function destroy(Perusahaan $perusahaan)
     {
         $perusahaan->users()->detach();
+
         $perusahaan->delete();
 
-        return response()->json([
-            'message' => 'Perusahaan berhasil dihapus',
-        ]);
+        return redirect()
+            ->back()
+            ->with('success', 'Perusahaan berhasil dihapus');
     }
 
     public function checkManagerExistence($idPerusahaan)

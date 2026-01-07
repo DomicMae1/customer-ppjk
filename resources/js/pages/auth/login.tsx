@@ -19,9 +19,13 @@ interface LoginForm {
 interface LoginProps {
     status?: string;
     canResetPassword: boolean;
+    company?: {
+        nama_perusahaan: string;
+        path_company_logo?: string | null;
+    } | null;
 }
 
-export default function Login({ status, canResetPassword }: LoginProps) {
+export default function Login({ status, canResetPassword, company }: LoginProps) {
     const { data, setData, post, processing, errors, reset } = useForm<LoginForm>({
         email: '',
         password: '',
@@ -35,8 +39,17 @@ export default function Login({ status, canResetPassword }: LoginProps) {
         });
     };
 
+    const companyName = company?.nama_perusahaan || 'Testing';
+    const companyLogo = company?.path_company_logo || null;
+
     return (
-        <AuthLayout title="Log in to your account" description="Enter your email and password below to log in">
+        <AuthLayout
+            company_name={companyName}
+            company_logo={companyLogo}
+            app_name="PPJK Tracking"
+            title="Log in to your account"
+            description="Enter your email and password below to log in"
+        >
             <Head title="Log in" />
 
             <form className="flex flex-col gap-6" onSubmit={submit}>
@@ -90,13 +103,6 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                         {processing && <LoaderCircle className="h-4 w-4 animate-spin" />}
                         Log in
                     </Button>
-                </div>
-
-                <div className="text-muted-foreground text-center text-sm">
-                    Don't have an account?{' '}
-                    <TextLink href={route('register')} tabIndex={5}>
-                        Sign up
-                    </TextLink>
                 </div>
             </form>
 

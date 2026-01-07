@@ -60,6 +60,14 @@ return [
             'report' => false,
         ],
 
+        'customers_external' => [
+            'driver' => 'local',
+            'root' => 'C:/Users/IT/Herd/customers',
+            'url' => env('APP_URL').'/files',
+            'visibility' => 'public',
+            'throw' => false,
+        ],
+
     ],
 
     /*
@@ -74,7 +82,11 @@ return [
     */
 
     'links' => [
+        // Link standar: public/storage -> storage/app/public
         public_path('storage') => storage_path('app/public'),
+        
+        // (Opsional) Tambahkan link kedua khusus untuk /mnt/CR jika mau diakses publik
+        public_path('storage/external') =>  '/mnt/Customer_Registration', 
     ],
 
 ];

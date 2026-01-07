@@ -7,19 +7,9 @@ import { Building2, Shield, SquareUserRound, Users } from 'lucide-react';
 import AppLogo from './app-logo';
 
 const mainNavItems: NavItem[] = [
-    // {
-    //     title: 'Dashboard',
-    //     url: '/dashboard',
-    //     icon: LayoutGrid,
-    // },
-    // {
-    //     title: 'Payments',
-    //     url: '/dashboard/payments',
-    //     icon: CreditCard,
-    // },
     {
-        title: 'Customers',
-        url: '/customer',
+        title: 'Shipment',
+        url: '/shipping',
         icon: SquareUserRound,
     },
     {
@@ -36,7 +26,7 @@ const mainNavItems: NavItem[] = [
     },
     {
         title: 'Manage Company',
-        url: '/companys',
+        url: '/perusahaan',
         icon: Building2,
         adminOnly: true,
     },
@@ -58,18 +48,14 @@ const mainNavItems: NavItem[] = [
 export function AppSidebar() {
     const { auth } = usePage<PageProps>().props;
 
-    // Cek apakah user punya role admin
     const isAdmin = auth?.user?.roles?.some((role: { name: string }) => role.name === 'admin');
 
-    // Ambil semua permission user
     const userPermissions = auth?.user?.permissions || [];
 
-    // Fungsi pengecekan permission
     const hasPermission = (requiredPermissions: string[] = []) => {
         return requiredPermissions.length === 0 || requiredPermissions.some((perm) => userPermissions.includes(perm));
     };
 
-    // Filter nav items
     const filteredNavItems = mainNavItems
         .map((item) => {
             // Filter jika item hanya untuk admin
@@ -96,7 +82,7 @@ export function AppSidebar() {
                 <SidebarMenu>
                     <SidebarMenuItem>
                         <SidebarMenuButton size="lg" asChild>
-                            <Link href="/customer" prefetch>
+                            <Link href="/shipping" prefetch>
                                 <AppLogo />
                             </Link>
                         </SidebarMenuButton>

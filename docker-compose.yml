@@ -1,0 +1,70 @@
+services:
+  app:
+    build: .
+    container_name: laravel-app
+    restart: always
+    ports:
+      - '80:80'
+      - '443:443'
+    env_file:
+      - .env
+
+    # BAGIAN INI SANGAT PENTING (OVERRIDE KONFIGURASI .ENV)
+    environment:
+      # 1. Setting Koneksi Perusahaan (WAJIB DIARAHKAN KE 'db')
+      - DB_TAKO_CONNECTION=pgsql
+      - DB_TAKO_HOST=db
+      - DB_TAKO_PORT=5432
+      - DB_TAKO_DATABASE=${DB_TAKO_DATABASE}
+      - DB_TAKO_USERNAME=${DB_TAKO_USERNAME}
+      - DB_TAKO_PASSWORD=${DB_TAKO_PASSWORD}
+
+      # 2. Setting Koneksi Second (WAJIB DIARAHKAN KE 'db')
+      - DB_SECOND_CONNECTION=pgsql
+      - DB_SECOND_HOST=db
+      - DB_SECOND_PORT=5432
+      - DB_SECOND_DATABASE=${DB_SECOND_DATABASE}
+      - DB_SECOND_USERNAME=${DB_SECOND_USERNAME}
+      - DB_SECOND_PASSWORD=${DB_SECOND_PASSWORD}
+
+      # Setup URL
+      - APP_URL=${APP_URL}
+
+    volumes:
+      - ./:/var/www/html
+      - ./storage/app/public:/var/www/html/storage/app/public
+      - /mnt/Customer_Registration:/mnt/Customer_Registration
+      - /home/it-admin/sites-available:/etc/apache2/sites-available
+      - /home/it-admin/sites-enabled:/etc/apache2/sites-enabled
+      - /home/it-admin/letsencrypt:/etc/letsencrypt
+      # Untuk Update host didalam docker
+      - /etc/hosts:/tmp/hosts_external:ro
+
+    depends_on:
+      - db
+    networks:
+      - app-network
+
+  db:
+    image: postgres:15
+    container_name: postgres-db
+    restart: always
+    environment:
+      # Membuat user dan password master dari .env
+      POSTGRES_DB: ${DB_TAKO_DATABASE}
+      POSTGRES_USER: ${DB_TAKO_USERNAME}
+      POSTGRES_PASSWORD: ${DB_TAKO_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+    ports:
+      # Menggunakan port default 5432
+      - '${DB_SECOND_PORT:-5432}:5432'
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  postgres_data:

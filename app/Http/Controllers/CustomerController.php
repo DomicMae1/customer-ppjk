@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\Customer;
 use App\Models\CustomerLink;
 use App\Models\CustomerAttach;
-use App\Models\Customers_Status;
 use App\Models\Perusahaan;
 use App\Models\User;
 use Carbon\Carbon;
@@ -14,12 +13,12 @@ use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Storage;
 use Spatie\Permission\Exceptions\UnauthorizedException;
-// use Spatie\LaravelPdf\Facades\Pdf;
 use Illuminate\Support\Facades\Log;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Clegginabox\PDFMerger\PDFMerger;
 use Illuminate\Support\Str;
 use Spatie\Browsershot\Browsershot;
+use Symfony\Component\Process\Process;
 
 class CustomerController extends Controller
 {
@@ -34,104 +33,21 @@ class CustomerController extends Controller
             throw UnauthorizedException::forPermissions(['view-master-customer']);
         }
 
-        $customerStatus = Customers_Status::on('tako-perusahaan')->get();
         $query = Customer::with([
             'creator',
             'perusahaan',
-            'status',
-            'status.submit1By',
-            'status.status1Approver',
-            'status.status2Approver',
-            'status.status3Approver',
-            'customer_links'
         ]);
 
-        if ($user->hasRole('user')) {
-            if ($user->id_perusahaan) {
-                $query->where('id_perusahaan', $user->id_perusahaan)
-                    ->where('id_user', $user->id);
-            } else {
-                $query->whereRaw('1 = 0');
-            }
-        } elseif ($user->hasRole(['manager', 'direktur', 'lawyer'])) {
-            // Ambil semua id_perusahaan dari tabel pivot perusahaan_user_roles
-            $perusahaanIds = DB::connection('tako-perusahaan')
-                ->table('perusahaan_user_roles')
-                ->where('user_id', $user->id)
-                ->pluck('id_perusahaan')
-                ->toArray();
-
-            if (!empty($perusahaanIds)) {
-                $query->whereIn('id_perusahaan', $perusahaanIds);
-            } else {
-                $query->whereRaw('1 = 0');
-            }
-        }
-
-        // Ambil hasil query
-        $suppliers = $query->get();
-
-        $customerData = $suppliers->map(function ($customer) {
-            $status = $customer->status;
-            $tanggal = null;
-            $label = null;
-            $userName = null;
-            $note = null;
-
-            if ($status->status_3_timestamps) {
-                $tanggal = $status->status_3_timestamps;
-                $label = 'direview';
-                $userName = $status->status3Approver?->name ?? '-';
-                $note = $status->status_3_keterangan;
-            } elseif ($status->status_2_timestamps) {
-                $tanggal = $status->status_2_timestamps;
-                $label = 'diketahui';
-                $userName = $status->status2Approver?->name ?? '-';
-                $note = $status->status_2_keterangan;
-            } elseif ($status->status_1_timestamps) {
-                $tanggal = $status->status_1_timestamps;
-                $label = 'diverifikasi';
-                $userName = $status->status1Approver?->name ?? '-';
-                $note = $status->status_1_keterangan;
-            } elseif ($status->submit_1_timestamps) {
-                $tanggal = $status->submit_1_timestamps;
-                $label = 'disubmit';
-                $userName = $status->submit1By?->name ?? '-';
-            } else {
-                $tanggal = $status->created_at;
-                $label = 'diinput';
-                $userName = $customer->creator->name ?? '-'; // ini berarti customer yang mengisi
-            }
-
-            return [
-                'id' => $customer->id,
-                'nama_perusahaan' => $customer->perusahaan?->nama_perusahaan ?? '-',
-                'nama_customer' => $customer->nama_perusahaan ?? '-',
-                'tanggal_status' => $tanggal,
-                'status_label' => $label,
-                'status' => $customer->status->status_3 ?? '-',
-                'note' => $note,
-                'nama_user' => $userName,
-                'creator_name' => $customer->creator->name ?? '-',
-                'no_telp_personal' => $customer->no_telp_personal,
-                'creator' => [
-                    'name' => $customer->creator->name ?? null,
-                    'role' => $customer->creator?->roles?->first()?->name ?? null,
-                ],
-                'submit_1_timestamps' => $status->submit_1_timestamps,
-                'status_2_timestamps' => $status->status_2_timestamps,
-                'customer_link' => [
-                    'url' => $customer->customer_links->url ?? null,
-                ],
-            ];
-        });
-
         return Inertia::render('m_customer/page', [
-            'customers' => $customerData,
+            'company' => [
+                'id' => session('company_id'),
+                'name' => session('company_name'),
+                'logo' => session('company_logo'),
+            ],
             'flash' => [
                 'success' => session('success'),
-                'error' => session('error')
-            ]
+                'error' => session('error'),
+            ],
         ]);
     }
 
@@ -230,42 +146,15 @@ class CustomerController extends Controller
             $roles = $user->getRoleNames();
 
             if ($roles->contains('user')) {
-                // Ambil dari relasi langsung user
                 $idPerusahaan = $user->id_perusahaan;
             } elseif ($roles->contains('manager') || $roles->contains('direktur')) {
-                // Ambil dari input request
                 $idPerusahaan = $request->id_perusahaan;
             }
 
             $customer = Customer::create(array_merge($validated, [
                 'id_user' => $user->id,
-                'id_perusahaan' => $idPerusahaan, // ✅ ambil dari inputan user
+                'id_perusahaan' => $idPerusahaan,
             ]));
-
-            if (!empty($validated['attachments'])) {
-                foreach ($validated['attachments'] as $attachment) {
-                    if (!str_starts_with($attachment['path'], 'blob:')) { // 👈 tambahkan ini
-                        CustomerAttach::create([
-                            'customer_id' => $customer->id,
-                            'nama_file' => $attachment['nama_file'],
-                            'path' => $attachment['path'],
-                            'type' => $attachment['type'],
-                        ]);
-                    }
-                }
-            }
-
-
-            DB::connection('tako-perusahaan')->table('customers_statuses')->insert([
-                'id_Customer' => $customer->id,
-                'id_user' => $user->id,
-                'submit_1_timestamps' => null,
-                'status_1_by' => null,
-                'status_1_timestamps' => null,
-                'status_1_keterangan' => null,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
 
             DB::commit();
 
@@ -280,8 +169,6 @@ class CustomerController extends Controller
     {
 
         DB::beginTransaction();
-
-        // dd($request->all());
 
         $validated = $request->validate([
             'kategori_usaha' => 'required|string',
@@ -325,68 +212,10 @@ class CustomerController extends Controller
 
         try {
             $userId = $request->input('user_id');
-
-            // Ambil customer_link yang aktif untuk user ini
-            $link = CustomerLink::on('tako-perusahaan')
-                ->where('id_user', $userId)
-                ->whereNull('id_customer')
-                ->where('is_filled', false)
-                ->latest('id_link')
-                ->first();
-
-            if (!$link) {
-                throw new \Exception('Link tidak ditemukan atau sudah digunakan.');
-            }
-
-            $id_perusahaan = $link->id_perusahaan;
-
-            $customer = Customer::create(array_merge($validated, [
-                'id_user' => $userId,
-                'id_perusahaan' => $id_perusahaan, // Atau ambil dari user table jika diperlukan
-            ]));
-
-
-            if (!empty($validated['attachments'])) {
-                foreach ($validated['attachments'] as $attachment) {
-                    if (!str_starts_with($attachment['path'], 'blob:')) {
-                        CustomerAttach::create([
-                            'customer_id' => $customer->id,
-                            'nama_file' => $attachment['nama_file'],
-                            'path' => $attachment['path'],
-                            'type' => $attachment['type'],
-                        ]);
-                    }
-                }
-            }
-
-            DB::connection('tako-perusahaan')->table('customers_statuses')->insert([
-                'id_Customer' => $customer->id,
-                'id_user' => $userId,
-                'submit_1_timestamps' => null,
-                'status_1_by' => null,
-                'status_1_timestamps' => null,
-                'status_1_keterangan' => null,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-
-            // ✅ UPDATE customer_links (tako-perusahaan)
-            CustomerLink::on('tako-perusahaan')
-                ->where('id_user', $userId)
-                ->whereNull('id_customer')
-                ->where('is_filled', false)
-                ->latest('id_link')
-                ->first()?->update([
-                    'id_customer' => $customer->id,
-                    'is_filled' => true,
-                    'filled_at' => now(),
-                ]);
-
-
             DB::commit();
 
             return response()->json([
-                'message' => 'Data Customer berhasil dibuat!',
+                'message' => 'Data Anda berhasil dibuat!',
             ], 200);
         } catch (\Throwable $th) {
             DB::rollBack();
@@ -394,49 +223,238 @@ class CustomerController extends Controller
         }
     }
 
+    // public function upload(Request $request)
+    // {
+    //     $file = $request->file('file');
+
+    //     $filename = time() . '_' . $file->getClientOriginalName();
+
+    //     $path = $file->storeAs('customers', $filename, 'public');
+
+    //     $url = url(Storage::url($path)); 
+
+    //     return response()->json([
+    //         'path' => $url,           
+    //         'nama_file' => $filename,
+    //     ]);
+    // }
 
     public function upload(Request $request)
     {
-        $file = $request->file('file');
+        // Validasi File
+        $file = $request->file('pdf') ?? $request->file('file');
+        if (!$file) {
+            return response()->json(['error' => 'File tidak ditemukan'], 400);
+        }
 
-        // Buat nama file unik
-        $filename = time() . '_' . $file->getClientOriginalName();
+        // Ambil Parameter untuk Nama File
+        $order       = str_pad((int)$request->input('order'), 3, '0', STR_PAD_LEFT);
+        $npwp        = preg_replace('/[^0-9]/', '', $request->input('npwp_number'));
+        $type        = strtolower($request->input('type'));
 
-        // Simpan ke folder 'customers' di disk 'public'
-        $path = $file->storeAs('customers', $filename, 'public');
+        // Simpan mode kompresi di nama file atau return ke frontend agar bisa dikirim balik saat store
+        // Di sini kita hanya butuh nama file temp yang unik
+        $ext         = $file->getClientOriginalExtension();
+        $filename    = "{$npwp}-{$order}-{$type}.{$ext}";
 
-        // URL akses publik
-        $url = url(Storage::url($path)); // hasil: /storage/customers/filename.pdf
+        $disk        = Storage::disk('customers_external');
+        $tempDir     = 'temp';
+
+        // Buat folder temp jika belum ada
+        if (!$disk->exists($tempDir)) {
+            $disk->makeDirectory($tempDir);
+        }
+
+        // Simpan File RAW langsung ke Temp (Tanpa Kompresi)
+        $tempRel = "{$tempDir}/{$filename}";
+
+        // Gunakan stream untuk efisiensi memori saat save
+        $disk->put($tempRel, file_get_contents($file->getRealPath()));
 
         return response()->json([
-            'path' => $url,            // untuk diakses di frontend (misal window.open)
-            'nama_file' => $filename,  // untuk ditampilkan di UI
+            'status'    => 'success',
+            'path'      => $tempRel,        // Path ini akan dikirim balik saat submit
+            'nama_file' => $filename,
+            'is_temp'   => true,
+            'info'      => 'File uploaded to temp (uncompressed)'
         ]);
     }
 
+    public function processAttachment(Request $request)
+    {
+        $request->validate([
+            'path' => 'required|string',
+            'nama_file' => 'required|string',
+            'id_perusahaan' => 'nullable|integer',
+            'mode' => 'nullable|string',
+            'role' => 'nullable|string',
+            'type' => 'nullable|string',
+            'npwp_number' => 'nullable|string',
+            'customer_id' => 'required|integer', // TAMBAHAN: Butuh ID Customer untuk cek urutan file terakhir
+        ]);
+
+        $tempPath = $request->path;
+        $originalName = $request->nama_file;
+        $mode = $request->mode ?? 'medium';
+        $idPerusahaan = $request->id_perusahaan;
+        $role = strtolower($request->role ?? 'user');
+        $customerId = $request->customer_id;
+
+        // 1. Setup Disk & Slug
+        $disk = Storage::disk('customers_external');
+
+        $companySlug = 'general';
+        if ($idPerusahaan) {
+            $perusahaan = Perusahaan::find($idPerusahaan);
+            if ($perusahaan) {
+                $companySlug = Str::slug($perusahaan->nama_perusahaan);
+            }
+        }
+
+        if (!$disk->exists($tempPath)) {
+            return response()->json(['error' => 'File temp tidak ditemukan'], 404);
+        }
+
+        // =========================================================
+        // B. GENERATE NAMA FILE BARU
+        // =========================================================
+
+        $npwp = preg_replace('/[^0-9]/', '', $request->npwp_number) ?: '0000000000000000';
+
+        $docType = $request->type ? strtolower($request->type) : 'document';
+
+        // Mapping tipe dokumen
+        if ($docType === 'lampiran_marketing') $docType = 'marketing_review';
+        if ($docType === 'lampiran_auditor') $docType = 'audit_review';
+        if ($docType === 'lampiran_review_general') {
+            $docType = match ($role) {
+                'manager'  => 'manager_review',
+                'direktur' => 'director_review',
+                'lawyer'   => 'lawyer_review',
+                'auditor'  => 'audit_review',
+                default    => 'document'
+            };
+        }
+
+        $ext = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
+        // Gunakan $orderString hasil perhitungan di atas
+        $newFileName = "{$npwp}-{$docType}.{$ext}";
+
+        // =========================================================
+        // C. TENTUKAN FOLDER TUJUAN
+        // =========================================================
+
+        $subFolder = ($role === 'user') ? 'attachment' : 'customers';
+        if (in_array($docType, ['npwp', 'nib', 'sppkp', 'ktp'])) {
+            $subFolder = 'attachment';
+        }
+
+        $targetDir = "{$companySlug}/{$subFolder}";
+        if (!$disk->exists($targetDir)) {
+            $disk->makeDirectory($targetDir);
+        }
+
+        $finalRelPath = "{$targetDir}/{$newFileName}";
+
+        // =========================================================
+        // D. PROSES KOMPRESI & PINDAH (LOGIC TETAP SAMA)
+        // =========================================================
+
+        $success = false;
+
+        if ($ext === 'pdf') {
+            $localInputName = 'gs_in_' . uniqid() . '.pdf';
+            $localOutputName = 'gs_out_' . uniqid() . '.pdf';
+
+            Storage::disk('local')->put("gs_processing/{$localInputName}", $disk->get($tempPath));
+
+            $localInputPath = Storage::disk('local')->path("gs_processing/{$localInputName}");
+            $localOutputPath = Storage::disk('local')->path("gs_processing/{$localOutputName}");
+
+            $compressResult = $this->runGhostscript($localInputPath, $localOutputPath, $mode);
+
+            if ($compressResult && file_exists($localOutputPath)) {
+                $disk->put($finalRelPath, file_get_contents($localOutputPath));
+                $success = true;
+                @unlink($localOutputPath);
+            } else {
+                Log::warning("Ghostscript Gagal. Menggunakan file asli.");
+            }
+            @unlink($localInputPath);
+        }
+
+        if (!$success) {
+            if ($disk->exists($finalRelPath)) $disk->delete($finalRelPath);
+            $disk->move($tempPath, $finalRelPath);
+        } else {
+            if ($disk->exists($tempPath)) $disk->delete($tempPath);
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'final_path' => $finalRelPath,
+            'nama_file' => $newFileName,
+            'compressed' => $success
+        ]);
+    }
+
+    // Helper Ghostscript (Private)
+    private function runGhostscript($inputPath, $outputPath, $mode)
+    {
+        $settings = [
+            'small'  => ['-dPDFSETTINGS=/ebook', '-dColorImageResolution=150', '-dGrayImageResolution=150', '-dMonoImageResolution=150'],
+            'medium' => ['-dPDFSETTINGS=/ebook', '-dColorImageResolution=200', '-dGrayImageResolution=200', '-dMonoImageResolution=200'],
+            'high'   => ['-dPDFSETTINGS=/printer', '-dColorImageResolution=300', '-dGrayImageResolution=300', '-dMonoImageResolution=300'],
+        ];
+        $config = $settings[$mode] ?? $settings['medium'];
+
+        // Deteksi OS untuk Path Ghostscript
+        $isWindows = strtoupper(substr(PHP_OS, 0, 3)) === 'WIN';
+        $gsExe = $isWindows ? 'C:\Program Files\gs\gs10.05.1\bin\gswin64c.exe' : '/usr/bin/gs';
+
+        // Pastikan input path kompatibel dengan OS (terutama Windows backslashes)
+        if ($isWindows) {
+            $inputPath = str_replace('/', '\\', $inputPath);
+            $outputPath = str_replace('/', '\\', $outputPath);
+        }
+
+        $cmd = array_merge([
+            $gsExe,
+            '-q',
+            '-dSAFER',
+            '-sDEVICE=pdfwrite',
+            '-dCompatibilityLevel=1.4',
+            '-o',
+            $outputPath,
+            $inputPath
+        ], $config);
+
+        try {
+            $process = new Process($cmd);
+            $process->setTimeout(300);
+            $process->run();
+
+            // Log Error Output jika gagal (Sangat membantu debugging)
+            if (!$process->isSuccessful()) {
+                Log::error('Ghostscript Error Output: ' . $process->getErrorOutput());
+                return false;
+            }
+
+            return file_exists($outputPath) && filesize($outputPath) > 0;
+        } catch (\Exception $e) {
+            Log::error("GS Process Exception: " . $e->getMessage());
+            return false;
+        }
+    }
 
     /**
      * Display the specified resource.
      */
-    public function show(Customer $customer)
+    public function show()
     {
         $user = auth('web')->user();
 
-        if (!$user->hasPermissionTo('view-master-customer')) {
-            throw UnauthorizedException::forPermissions(['view-master-customer']);
-        }
-
-        // Load relasi attachments
-        $customer->load('attachments');
-
-        return Inertia::render('m_customer/table/view-data-form', [
-            'customer' => $customer,
-            'attachments' => $customer->attachments,
-            'flash' => [
-                'success' => session('success'),
-                'error' => session('error'),
-            ],
-        ]);
+        return Inertia::render('m_customer/table/view-data-form', []);
     }
 
     /**
@@ -446,17 +464,10 @@ class CustomerController extends Controller
     {
         $user = auth('web')->user();
 
-        if (! $user->hasPermissionTo('update-master-customer')) {
-            throw UnauthorizedException::forPermissions(['update-master-customer']);
-        }
-
         $customer->load('attachments');
-
-        // $attachment = $customer->attachments;
 
         return Inertia::render('m_customer/table/edit-data-form', [
             'customer' => $customer->load('attachments'),
-            // 'attachments' => $attachment,
         ]);
     }
 
@@ -471,11 +482,7 @@ class CustomerController extends Controller
         $createdDate = \Carbon\Carbon::parse($customer->created_at)->toDateString();
         $today = now()->toDateString();
 
-        $canEditToday = $createdDate === $today && $user->hasPermissionTo('update-master-customer');
-
-        if (! $canEditToday) {
-            throw \Spatie\Permission\Exceptions\UnauthorizedException::forPermissions(['update-master-customer']);
-        }
+        $canEditToday = $createdDate === $today;
 
         $validated = $request->validate([
             'kategori_usaha' => 'required|string',
@@ -520,19 +527,7 @@ class CustomerController extends Controller
             DB::beginTransaction();
 
             $customer->update($validated);
-
-            // Hapus attachment lama
-            CustomerAttach::where('customer_id', $customer->id)->delete();
-
-            // Tambahkan attachment baru
-            foreach ($validated['attachments'] as $attachment) {
-                CustomerAttach::create([
-                    'customer_id' => $customer->id,
-                    'nama_file' => $attachment['nama_file'],
-                    'path' => $attachment['path'],
-                    'type' => $attachment['type'],
-                ]);
-            }
+            $roles = $user->getRoleNames();
 
             DB::commit();
             return redirect()->route('customer.index')->with('success', 'Data Customer berhasil diperbarui!');
@@ -545,26 +540,18 @@ class CustomerController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Customer $customer, $id)
+    public function destroy(Customer $customer)
     {
-        $user = auth('web')->user();
-
-        if (!$user->hasPermissionTo('delete-master-customer')) {
-            throw UnauthorizedException::forPermissions(['delete-master-customer']);
-        }
-
-        $orderCustomer = Customer::findOrFail($id);
 
         try {
             DB::beginTransaction();
 
-            // Soft delete data m_supplier
-            $orderCustomer->delete();
+            $customer->delete();
 
             DB::commit();
 
             return redirect()->route('customer.index')
-                ->with('success', 'Data Customer berhasil dihapus!');
+                ->with('success', 'Data Customer berhasil dihapus (soft delete)!');
         } catch (\Exception $e) {
             DB::rollBack();
 
@@ -586,7 +573,6 @@ class CustomerController extends Controller
             Log::info("📁 Folder temp dibuat: {$tempDir}");
         }
 
-        // ✅ Generate PDF utama
         $mainPdfPath = "{$tempDir}/customer_{$customer->id}_main.pdf";
         $mainPdf = Pdf::loadView('pdf.customer', [
             'customer' => $customer,
@@ -594,7 +580,6 @@ class CustomerController extends Controller
         ])->setPaper('a4');
         file_put_contents($mainPdfPath, $mainPdf->output());
 
-        // ✅ Ambil PDF lampiran
         $attachmentPdfPaths = [];
 
         foreach ($customer->attachments as $attachment) {
@@ -623,18 +608,24 @@ class CustomerController extends Controller
             }
         }
 
-        // ✅ Merge PDF
         $mergedPath = "{$tempDir}/customer_{$customer->id}.pdf";
-        $this->mergePdfsWithGhostscript(array_merge([$mainPdfPath], $attachmentPdfPaths), $mergedPath);
+        try {
+            $this->mergePdfsWithGhostscript(array_merge([$mainPdfPath], $attachmentPdfPaths), $mergedPath);
 
-        if (!file_exists($mergedPath) || filesize($mergedPath) < 1000) {
-            Log::error("❌ Merge gagal atau file terlalu kecil: {$mergedPath}");
-            abort(500, 'Merge PDF gagal.');
+            if (!file_exists($mergedPath) || filesize($mergedPath) < 1000) {
+                Log::error("❌ Merge gagal atau file terlalu kecil: {$mergedPath}");
+                throw new \Exception('Merge PDF gagal.');
+            }
+
+            $finalPath = $mergedPath;
+        } catch (\Throwable $e) {
+            Log::error("⚠️ Ghostscript gagal, fallback ke main PDF. Error: " . $e->getMessage());
+            $finalPath = $mainPdfPath;
         }
 
         Log::info("✅ Proses selesai, kirim file ke user.");
 
-        return response()->download($mergedPath, "customer_{$customer->id}.pdf", [
+        return response()->download($finalPath, "customer_{$customer->id}.pdf", [
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'attachment; filename="customer_' . $customer->id . '.pdf"',
         ])->deleteFileAfterSend(true);
@@ -652,86 +643,10 @@ class CustomerController extends Controller
         $outputFile = '"' . str_replace('\\', '/', $outputPath) . '"';
         $cmd = "{$gsCmd} -dBATCH -dNOPAUSE -q -sDEVICE=pdfwrite -sOutputFile={$outputFile} {$inputFiles}";
 
-        Log::info("📦 Jalankan Ghostscript: {$cmd}");
         exec($cmd . ' 2>&1', $output, $returnVar);
-        Log::info("📤 Output Ghostscript: " . implode("\n", $output));
-        Log::info("📥 Return code: {$returnVar}");
 
         if ($returnVar !== 0) {
             throw new \Exception("Ghostscript gagal menggabungkan PDF. Kode: {$returnVar}");
         }
-    }
-
-    public function showPublicForm($token)
-    {
-        // Cari berdasarkan kolom 'token' (bukan 'link_customer')
-        $link = CustomerLink::where('token', $token)->first();
-
-        if (!$link) {
-            abort(404, 'Link tidak valid atau sudah tidak tersedia.');
-        }
-
-        if ($link->is_filled) {
-            // Sudah diisi, redirect atau tampilkan pesan
-            return inertia('m_customer/table/filled-already'); // atau return view('already-filled')
-        }
-
-        Log::info('Link detail', [
-            'id_user' => $link->id_user,
-            'id_perusahaan' => $link->id_perusahaan,
-            'token' => $token,
-        ]);
-
-
-        return inertia('m_customer/table/public-data-form', [
-            'customer_name' => $link->nama_customer,
-            'customer' => null,
-            'token' => $token,
-            'user_id' => $link->id_user,
-            'id_perusahaan' => $link->id_perusahaan,
-            'isFilled' => $link->is_filled,
-        ]);
-    }
-
-    public function submitPublicForm(Request $request, $token)
-    {
-        $link = CustomerLink::where('token', $token)->first();
-
-        if (!$link) {
-            abort(404, 'Token tidak ditemukan');
-        }
-
-        Log::info('Link detail testing', [
-            'id_perusahaan' => $link->id_perusahaan,
-        ]);
-
-        $validated = $request->validate([
-            'kategori_usaha' => 'required|string',
-            'nama_perusahaan' => 'required|string',
-            'alamat_lengkap' => 'required|string',
-            'bentuk_badan_usaha' => 'required|string',
-            'kota' => 'required|string',
-            'alamat_penagihan' => 'required|string',
-            'email' => 'required|email',
-            'top' => 'required|string',
-            'status_perpajakan' => 'required|string',
-            'nama_pj' => 'required|string',
-            'no_ktp_pj' => 'required|string',
-            'nama_personal' => 'required|string',
-            'jabatan_personal' => 'required|string',
-            'email_personal' => 'required|email',
-            // tambahkan jika perlu: no_telp, website, dsb
-        ]);
-
-        $customer = Customer::create(array_merge($validated, [
-            'id_user' => $link->id_user, // ✅ pakai dari token
-            'id_perusahaan' => $link->id_perusahaan, // atau isi sesuai kebutuhan jika bisa diketahui
-        ]));
-
-
-        // Opsional: Hapus link agar tidak bisa dipakai ulang
-        // $link->delete();
-
-        return redirect('/')->with('success', 'Data berhasil dikirim.');
     }
 }

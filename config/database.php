@@ -16,7 +16,7 @@ return [
     |
     */
 
-    'default' => env('DB_CONNECTION', 'tako-perusahaan'),
+    'default' => env('DB_CONNECTION', 'tako-user'),
 
     /*
     |--------------------------------------------------------------------------
@@ -99,11 +99,11 @@ return [
 
         'tako-perusahaan' => [
             'driver' => 'pgsql',
-            'host' => env('DB_TAKO_HOST', '127.0.0.1'),
-            'port' => env('DB_TAKO_PORT', '5432'),
-            'database' => env('DB_TAKO_DATABASE', 'tako-perusahaan'),
-            'username' => env('DB_TAKO_USERNAME', 'ardon'),
-            'password' => env('DB_TAKO_PASSWORD', '1234'),
+            'host' => env('DB_TAKO_HOST'),
+            'port' => env('DB_TAKO_PORT'),
+            'database' => env('DB_TAKO_DATABASE'),
+            'username' => env('DB_TAKO_USERNAME'),
+            'password' => env('DB_TAKO_PASSWORD'),
             'charset' => 'utf8',
             'prefix' => '',
             'prefix_indexes' => true,
@@ -111,13 +111,13 @@ return [
             'sslmode' => 'prefer',
         ],
 
-        'tako-customer' => [
+        'tako-user' => [
             'driver' => 'pgsql',
-            'host' => env('DB_SECOND_HOST', '127.0.0.1'),
-            'port' => env('DB_SECOND_PORT', '5432'),
-            'database' => env('DB_SECOND_DATABASE', 'tako-customer'),
-            'username' => env('DB_SECOND_USERNAME', 'ardon'),
-            'password' => env('DB_SECOND_PASSWORD', '1234'),
+            'host' => env('DB_SECOND_HOST'),
+            'port' => env('DB_SECOND_PORT'),
+            'database' => env('DB_SECOND_DATABASE'),
+            'username' => env('DB_SECOND_USERNAME'),
+            'password' => env('DB_SECOND_PASSWORD'),
             'charset' => 'utf8',
             'prefix' => '',
             'prefix_indexes' => true,
@@ -140,6 +140,19 @@ return [
             // 'trust_server_certificate' => env('DB_TRUST_SERVER_CERTIFICATE', 'false'),
         ],
 
+        'central' => [
+            'driver' => 'pgsql',
+            'host' => env('DB_SECOND_HOST', '127.0.0.1'),
+            'port' => env('DB_SECOND_PORT', '5432'),
+            'database' => env('DB_SECOND_DATABASE'),
+            'username' => env('DB_SECOND_USERNAME'),
+            'password' => env('DB_SECOND_PASSWORD'),
+            'charset' => 'utf8',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'search_path' => 'public',
+            'sslmode' => 'prefer',
+        ],
     ],
 
     /*

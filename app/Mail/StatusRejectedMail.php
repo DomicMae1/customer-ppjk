@@ -12,6 +12,7 @@ use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 use App\Models\Customers_Status;
 use App\Models\User;
+use Illuminate\Support\Facades\Storage;
 
 class StatusRejectedMail extends Mailable
 {
@@ -36,13 +37,18 @@ class StatusRejectedMail extends Mailable
         $email = $this->subject('Status Ditolak oleh ' . $this->sender->name)
             ->view('emails.status_rejected');
 
-        // Cek apakah ada file terlampir
         if ($this->status->submit_3_path) {
-            $path = storage_path('app/public/' . $this->status->submit_3_path);
 
-            if (file_exists($path)) {
-                $email->attach($path, [
-                    'as' => $this->status->submit_3_nama_file ?? 'document.pdf',
+            // Path absolut dari disk 'customers_external'
+            $fullPath = Storage::disk('customers_external')->path(
+                $this->status->submit_3_path
+            );
+
+            if (file_exists($fullPath)) {
+                $namaFileLawyer = $this->status->submit_3_nama_file ?? basename($fullPath);
+
+                $email->attach($fullPath, [
+                    'as' => $namaFileLawyer,
                     'mime' => 'application/pdf',
                 ]);
             }
@@ -52,26 +58,30 @@ class StatusRejectedMail extends Mailable
 
         if ($customerId) {
             $files = CustomerAttach::where('customer_id', $customerId)
-                ->whereIn('type', ['npwp', 'nib', 'ktp']) // atau sesuai kebutuhan
+                ->whereIn('type', ['npwp', 'nib', 'ktp', 'sppkp'])
                 ->get();
 
             foreach ($files as $file) {
-                // Jika $file adalah array (hasil dari $files->toArray())
-                $filePathUrl = $file->path;
 
-                $parsedPath = parse_url($filePathUrl, PHP_URL_PATH);
-                $relativePath = str_replace('/storage/', '', $parsedPath);
-                $localPath = storage_path('app/public/' . $relativePath);
+                $url = $file->path;
 
-                if (file_exists($localPath)) {
-                    $filename = ($file->type ?? 'lampiran') . '_' . ($file->nama_file ?? 'file.pdf');
+                // Ambil path mulai dari /file/view/...
+                $parsed = parse_url($url, PHP_URL_PATH);
 
-                    $email->attach($localPath, [
-                        'as' => $filename ?: 'file_customer.pdf', // fallback jika $filename null
+                // Buang prefix "/file/view/"
+                $cleanPath = preg_replace('#^/file/view/#', '', $parsed);
+
+                // Sekarang cleanPath = "ud-cherry/customers/xxx-npwp.pdf"
+                // Ini valid untuk disk customers_external
+
+                $realPath = Storage::disk('customers_external')->path($cleanPath);
+
+                if (file_exists($realPath)) {
+                    $email->attach($realPath, [
+                        'as' => $file->nama_file, // contoh: NPWP.pdf
                         'mime' => 'application/pdf',
                     ]);
                 }
-                // dd($file, $localPath, $filename);
             }
         }
 

@@ -157,6 +157,7 @@ type UseDropzoneProps<TUploadRes, TUploadError> = {
       });
 
 interface UseDropzoneReturn<TUploadRes, TUploadError> {
+    reset(): unknown;
     getRootProps: ReturnType<typeof rootUseDropzone>['getRootProps'];
     getInputProps: ReturnType<typeof rootUseDropzone>['getInputProps'];
     onRemoveFile: (id: string) => Promise<void>;

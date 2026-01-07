@@ -1,10 +1,10 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+import { ResettableDropzoneImage } from '@/components/ResettableDropzoneImage';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { router, usePage } from '@inertiajs/react'; // ✅ Tambahkan ini
+import { router, usePage } from '@inertiajs/react';
 import {
     ColumnDef,
     ColumnFiltersState,
@@ -18,7 +18,7 @@ import {
     VisibilityState,
 } from '@tanstack/react-table';
 import * as React from 'react';
-import { useState } from 'react';
+import { ChangeEvent, useState } from 'react';
 import { DataTableViewOptions } from './data-table-view-options';
 import { DataTablePagination } from './pagination';
 
@@ -29,6 +29,7 @@ interface User {
 
 interface FormState {
     nama_perusahaan: string;
+    domain: string;
     id_User_1: string;
     id_User_2: string;
     id_User_3: string;
@@ -52,8 +53,16 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_peru
     const { props } = usePage<{ users: User[] }>();
     const users = props.users ?? [];
 
+    const [companyLogoFile, setCompanyLogoFile] = useState<File | null>(null);
+
+    const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
+        const { name, value } = e.target;
+        setForm((prev) => ({ ...prev, [name]: value }));
+    };
+
     const [form, setForm] = useState<FormState>({
         nama_perusahaan: '',
+        domain: '',
         id_User_1: '',
         id_User_2: '',
         id_User_3: '',
@@ -62,20 +71,39 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_peru
     });
 
     const handleSubmit = () => {
-        router.post('/companys', form as Record<string, any>, {
+        const fd = new FormData();
+
+        // field biasa
+        fd.append('nama_perusahaan', form.nama_perusahaan);
+        fd.append('domain', form.domain);
+        fd.append('id_User_1', form.id_User_1);
+        fd.append('id_User_2', form.id_User_2);
+        fd.append('id_User_3', form.id_User_3);
+        fd.append('notify_1', form.notify_1 ?? '');
+        fd.append('notify_2', form.notify_2 ?? '');
+
+        // file logo jika ada
+        if (companyLogoFile) {
+            fd.append('company_logo', companyLogoFile);
+        }
+
+        router.post('/perusahaan', fd, {
+            forceFormData: true,
             onSuccess: () => {
                 setOpenCreate(false);
                 setForm({
                     nama_perusahaan: '',
+                    domain: '',
                     id_User_1: '',
                     id_User_2: '',
                     id_User_3: '',
                     notify_1: '',
                     notify_2: '',
                 });
+                setCompanyLogoFile(null);
             },
-            onError: (errors: Record<string, any>) => {
-                console.error('❌ Gagal menyimpan perusahaan:', errors);
+            onError: (errors) => {
+                console.error('❌ Error:', errors);
             },
         });
     };
@@ -95,13 +123,14 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_peru
         getFilteredRowModel: getFilteredRowModel(),
         onColumnVisibilityChange: setColumnVisibility,
         onRowSelectionChange: setRowSelection,
-        state: {
-            sorting,
-            columnFilters,
-            columnVisibility,
-            rowSelection,
-        },
+        state: { sorting, columnFilters, columnVisibility, rowSelection },
     });
+
+    const userRoles = [
+        { key: 'id_User_1', label: 'Manager' },
+        { key: 'id_User_2', label: 'Direktur' },
+        { key: 'id_User_3', label: 'Lawyer' },
+    ];
 
     return (
         <div className="w-full space-y-4">
@@ -151,7 +180,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_peru
 
             <DataTablePagination table={table} />
 
-            {/* Dialog */}
+            {/* Dialog Tambah */}
             <Dialog open={openCreate} onOpenChange={setOpenCreate}>
                 <DialogContent className="sm:max-w-lg">
                     <DialogHeader>
@@ -168,29 +197,45 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_peru
                             />
                         </div>
 
-                        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                            {['1', '2', '3'].map((num, idx) => {
-                                const key = `id_User_${num}` as keyof FormState;
-                                const label = ['Manager', 'Direktur', 'Lawyer'][idx];
-                                return (
-                                    <div key={key}>
-                                        <Label htmlFor={key}>User {label}</Label>
-                                        <select
-                                            id={key}
-                                            className="w-full rounded border px-2 py-1"
-                                            value={form[key]}
-                                            onChange={(e) => handleUserChange(key, e.target.value)}
-                                        >
+                        <div>
+                            <Label htmlFor="domain">Domain Lengkap</Label>
+                            <Input
+                                id="domain"
+                                name="domain"
+                                value={form.domain}
+                                onChange={handleInputChange}
+                                placeholder="Contoh: alpha.registration.tako.co.id"
+                                required
+                            />
+                            <p className="text-muted-foreground mt-1 text-xs">Masukkan domain lengkap secara manual (Full URL).</p>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                            {userRoles.map(({ key, label }) => (
+                                <div key={key}>
+                                    <Label htmlFor={key}>{label}</Label>
+                                    <select
+                                        id={key}
+                                        className="w-full rounded border px-2 py-1"
+                                        value={form[key as keyof FormState]}
+                                        onChange={(e) => handleUserChange(key as keyof FormState, e.target.value)}
+                                    >
+                                        <div className="text-black">
                                             <option value="">Pilih User</option>
+
                                             {users.map((user) => (
                                                 <option key={user.id} value={user.id}>
                                                     {user.name}
                                                 </option>
                                             ))}
-                                        </select>
-                                    </div>
-                                );
-                            })}
+                                        </div>
+                                    </select>
+                                </div>
+                            ))}
+                        </div>
+
+                        <div>
+                            <ResettableDropzoneImage label="Upload Logo Perusahaan" isRequired={false} onFileChange={setCompanyLogoFile} />
                         </div>
 
                         <div>
@@ -201,12 +246,21 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_peru
                                 rows={3}
                                 value={form.notify_1}
                                 onChange={(e) => setForm({ ...form, notify_1: e.target.value })}
-                                placeholder="contoh@email.com, lain@email.com"
+                                placeholder="email1@contoh.com, email2@contoh.com"
                             />
+                            <div>
+                                <Label htmlFor="notify_2">Notifikasi Email 2</Label>
+                                <Input
+                                    id="notify_2"
+                                    name="notify_2"
+                                    value={form.notify_2}
+                                    onChange={handleInputChange}
+                                    placeholder="email2@contoh.com"
+                                />
+                            </div>
                         </div>
-
-                        <input type="hidden" value={form.notify_2} />
                     </div>
+
                     <DialogFooter className="sm:justify-start">
                         <Button type="button" onClick={handleSubmit}>
                             Simpan
