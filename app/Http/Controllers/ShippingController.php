@@ -809,7 +809,6 @@ class ShippingController extends Controller
 
         $user = auth('web')->user();
 
-        // Cek jika user eksternal
         if ($user->role === 'eksternal') {
             // Cari perusahaan terkait
             $perusahaan = \App\Models\Perusahaan::find($user->id_perusahaan);
