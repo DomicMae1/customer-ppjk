@@ -21,7 +21,7 @@ Route::get('/', function () {
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', function () {
-        return redirect('customer');
+        return redirect('shipping');
     });
 
     Route::resource('customer', CustomerController::class);
