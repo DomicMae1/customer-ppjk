@@ -22,7 +22,6 @@ class MasterDocument extends Model
     protected $fillable = [
         'attribute',
         'nama_file',
-        'url_path_file',
         'link_path_example_file',
         'link_path_template_file',
         'link_url_video_file',

@@ -18,7 +18,6 @@ return new class extends Migration
             // 3. Data File & Atribut
             $table->boolean('attribute')->default(0); // 1 = mandatory, 0 = optional
             $table->string('nama_file');
-            $table->string('url_path_file')->nullable(); // Lokasi penyimpanan file utama (jika ada)
 
             // 4. Link Pendukung (Pindahan dari master_documents)
             $table->string('link_path_example_file')->nullable();

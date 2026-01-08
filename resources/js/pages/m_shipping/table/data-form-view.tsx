@@ -57,8 +57,6 @@ export default function ViewCustomerForm({ customer, shipmentDataProp }: any) {
         hsCodes: [],
     };
 
-    console.log(shipmentData.hsCodes);
-
     const sectionsConfig = [
         {
             id: 'ppjk',
@@ -202,7 +200,7 @@ export default function ViewCustomerForm({ customer, shipmentDataProp }: any) {
                 onSuccess: () => {
                     router.visit(window.location.pathname, { replace: true });
                 },
-            }
+            },
         );
     };
 
