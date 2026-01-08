@@ -17,7 +17,6 @@ return new class extends Migration
             $table->unsignedBigInteger('id_perusahaan_int')->nullable(); // Internal
             $table->unsignedBigInteger('id_customer')->nullable();       // External
 
-            $table->unsignedBigInteger('id_hscode')->nullable();
             $table->string('spk_code')->nullable(); // Keterangan HS Code
             $table->string('shipment_type')->nullable(); // Import/Export
 

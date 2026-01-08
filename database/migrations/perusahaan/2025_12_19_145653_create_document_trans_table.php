@@ -11,13 +11,14 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('master_documents', function (Blueprint $table) {
+        Schema::create('document_trans', function (Blueprint $table) {
             // 1. Primary Key
             $table->id('id_dokumen');
 
             // 2. Foreign Keys (Relation)
             $table->unsignedBigInteger('id_spk')->nullable();
-            $table->unsignedBigInteger('id_section')->nullable(); // Menghubungkan ke tabel master_sections
+
+            $table->unsignedBigInteger('id_section')->nullable();
 
             // 3. Atribut Dokumen
             $table->boolean('attribute')->default(0); // 1 = mandatory, 0 = non-mandatory
@@ -52,10 +53,10 @@ return new class extends Migration
                 ->references('id')->on('spk')
                 ->onDelete('cascade');
 
-            // Relasi ke Master Section (1. PPJK, 2. PIB, dll)
             $table->foreign('id_section')
-                ->references('id_section')->on('master_sections')
-                ->onDelete('cascade');
+                ->references('id_section') 
+                ->on('master_sections')
+                ->onDelete('cascade');    
         });
     }
 

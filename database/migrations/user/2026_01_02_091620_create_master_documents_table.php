@@ -11,12 +11,9 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::connection('tako-user')->create('template_documents', function (Blueprint $table) {
+        Schema::connection('tako-user')->create('master_documents', function (Blueprint $table) {
             // 1. Primary Key (sesuai request: id_dokumen)
             $table->id('id_dokumen');
-
-            // 2. Foreign Key
-            $table->unsignedBigInteger('id_section')->nullable();
 
             // 3. Data File & Atribut
             $table->boolean('attribute')->default(0); // 1 = mandatory, 0 = optional
@@ -42,6 +39,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::connection('tako-user')->dropIfExists('template_documents');
+        Schema::connection('tako-user')->dropIfExists('master_documents');
     }
 };
