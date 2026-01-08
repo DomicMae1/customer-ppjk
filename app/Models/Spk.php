@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Spk extends Model
 {
@@ -16,7 +17,6 @@ class Spk extends Model
     protected $fillable = [
         'id_perusahaan_int', // ID Perusahaan (Internal)
         'id_customer',       // ID Customer (External)
-        'id_hscode',         // Relasi ke tabel hs_codes
         'spk_code',          // Keterangan / BL Number / SI Number
         'shipment_type',     // Import / Export
         'created_by',        // ID User pembuat
@@ -69,9 +69,9 @@ class Spk extends Model
     /**
      * Relasi ke HS Code.
      */
-    public function hsCodeData(): BelongsTo
+    public function hsCodes(): HasMany
     {
-        // Asumsi nama model nanti adalah HsCode
-        return $this->belongsTo(HsCode::class, 'id_hscode', 'id_hscode');
+        // Parameter: Model Tujuan, Foreign Key di tabel tujuan, Local Key di tabel ini
+        return $this->hasMany(HsCode::class, 'id_spk', 'id');
     }
 }

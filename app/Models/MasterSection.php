@@ -41,6 +41,6 @@ class MasterSection extends Model
     public function documents(): HasMany
     {
         // Model MasterDocument akan kita buat setelah ini
-        return $this->hasMany(MasterDocument::class, 'id_section', 'id_section');
+        return $this->hasMany(DocumentTrans::class, 'id_section', 'id_section');
     }
 }
