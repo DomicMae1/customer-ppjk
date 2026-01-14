@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { router } from '@inertiajs/react';
+import axios from 'axios';
 import { ChevronDown, ChevronUp, CircleHelp, Play, Plus, Save, Search, Trash2, Undo2, X } from 'lucide-react';
 import { nanoid } from 'nanoid';
 import { useEffect, useState } from 'react';
@@ -232,31 +233,80 @@ export default function ViewCustomerForm({
         setActiveSection(sectionId === activeSection ? null : sectionId);
     };
 
-    const handleSaveSection = (sectionId: number) => {
-        // Set loading state
+    const handleSaveSection = async (sectionId: number) => {
+        // 1. Set loading
         setProcessingSectionId(sectionId);
 
-        router.post(
-            '/shipping/section-reminder',
-            {
-                section: sectionId,
-                spk_id: shipmentData?.id_spk || shipmentData?.id || null,
-                documents: tempFiles,
-            },
-            {
-                preserveScroll: true,
-                onSuccess: () => {
-                    // Tutup accordion dan matikan loading state setelah sukses
-                    setActiveSection(null);
-                    setProcessingSectionId(null);
-                    // router.visit tidak perlu dipanggil manual jika return dari controller sudah benar (redirect/back)
-                },
-                onError: () => {
-                    setProcessingSectionId(null); // Matikan loading jika error
-                    alert('Gagal menyimpan data section.');
-                },
-            },
-        );
+        console.log('Current Temp Files State:', tempFiles); // Debugging Step 1
+
+        // 2. Ambil data section saat ini
+        const currentSection = sectionsTransProp.find((s: SectionTrans) => s.id === sectionId);
+
+        if (!currentSection || !currentSection.documents) {
+            alert('Section tidak ditemukan atau kosong.');
+            setProcessingSectionId(null);
+            return;
+        }
+
+        // 3. Filter dokumen yang memiliki file temp
+        // Ensure ID comparison is type-safe (convert both to string just in case)
+        const filesToProcess = currentSection.documents.filter((doc) => {
+            const hasFile = tempFiles[doc.id];
+            // Debugging per document
+            // console.log(`Checking doc ID: ${doc.id}, Has Temp File: ${hasFile}`);
+            return hasFile;
+        });
+
+        console.log('Files to process:', filesToProcess); // Debugging Step 2
+
+        if (filesToProcess.length === 0) {
+            alert('Tidak ada file baru yang diupload di section ini untuk dites.');
+            setProcessingSectionId(null);
+            return;
+        }
+
+        try {
+            // 4. Looping dan Kirim Request satu per satu
+            await Promise.all(
+                filesToProcess.map(async (doc) => {
+                    const tempPath = tempFiles[doc.id];
+
+                    console.log(`Processing: ${doc.nama_file} -> ${tempPath}`);
+
+                    const response = await axios.post('/shipping/process-attachment', {
+                        path: tempPath, // Path file di folder temp
+                        spk_code: shipmentData.spkNumber, // Kode SPK
+                        type: doc.nama_file, // Tipe dokumen
+                        mode: 'medium', // Mode kompresi
+                        customer_id: customer?.id_customer || customer?.id, // ID Customer
+                    });
+
+                    console.log(`Success ${doc.nama_file}:`, response.data);
+                }),
+            );
+
+            // 5. Jika semua berhasil
+            alert('TES BERHASIL! Semua file PDF telah di proses dan dipindahkan.');
+
+            // Opsional: Bersihkan state tempFiles agar tidak terkirim lagi
+            const newTempFiles = { ...tempFiles };
+            filesToProcess.forEach((doc) => delete newTempFiles[doc.id]);
+            setTempFiles(newTempFiles);
+
+            // Close accordion only after success
+            setActiveSection(null);
+        } catch (error: any) {
+            console.error('Error processing attachment:', error);
+
+            if (error.response && error.response.data) {
+                alert(`Gagal: ${error.response.data.message || JSON.stringify(error.response.data)}`);
+            } else {
+                alert('Terjadi kesalahan saat memindahkan file.');
+            }
+        } finally {
+            // Stop loading state regardless of success/error
+            setProcessingSectionId(null);
+        }
     };
 
     const handleModalCheckboxChange = (id: string, checked: boolean) => {
@@ -487,15 +537,26 @@ export default function ViewCustomerForm({
                                                                     },
                                                                 }}
                                                                 onFileChange={(file, response) => {
-                                                                    if (response && response.success) {
-                                                                        console.log('Upload success:', response);
+                                                                    // LOG DEBUG: Lihat apa isi response sebenarnya
+                                                                    console.log('Raw Upload Response:', response);
 
-                                                                        // SIMPAN TEMP PATH KE STATE
-                                                                        // response.path berasal dari controller upload ('temp/filename.pdf')
+                                                                    // PERBAIKAN DISINI:
+                                                                    // Cek 'response.status === "success"' ATAU pastikan 'response.path' ada
+                                                                    if (response && (response.status === 'success' || response.path)) {
+                                                                        console.log(`Menyimpan path ke state untuk Doc ID: ${doc.id}`);
+
                                                                         setTempFiles((prev) => ({
                                                                             ...prev,
                                                                             [doc.id]: response.path,
                                                                         }));
+                                                                    } else if (file === null) {
+                                                                        // Logic jika user menghapus file (klik silang di dropzone)
+                                                                        console.log(`Menghapus state untuk Doc ID: ${doc.id}`);
+                                                                        setTempFiles((prev) => {
+                                                                            const newState = { ...prev };
+                                                                            delete newState[doc.id];
+                                                                            return newState;
+                                                                        });
                                                                     }
                                                                 }}
                                                             />

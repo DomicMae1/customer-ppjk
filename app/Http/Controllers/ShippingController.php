@@ -778,118 +778,119 @@ class ShippingController extends Controller
 
     public function processAttachment(Request $request)
     {
+        // 1. Validasi Input
         $request->validate([
-            'path' => 'required|string',
-            'nama_file' => 'required|string',
-            'id_perusahaan' => 'nullable|integer',
-            'mode' => 'nullable|string',
-            'role' => 'nullable|string',
-            'type' => 'nullable|string',
-            'npwp_number' => 'nullable|string',
-            'customer_id' => 'required|integer', // TAMBAHAN: Butuh ID Customer untuk cek urutan file terakhir
+            'path'      => 'required|string', // Path temp dari response upload
+            'spk_code'  => 'required|string', // Kunci utama penamaan
+            'type'      => 'required|string', // Jenis dokumen
+            'mode'      => 'nullable|string', // Mode kompresi (screen, ebook, printer, etc)
         ]);
 
+        // Ambil Data Request
         $tempPath = $request->path;
-        $originalName = $request->nama_file;
-        $mode = $request->mode ?? 'medium';
-        $idPerusahaan = $request->id_perusahaan;
-        $role = strtolower($request->role ?? 'user');
-        $customerId = $request->customer_id;
+        $spkCode  = $request->spk_code;
+        $type     = strtolower($request->type);
+        $mode     = $request->mode ?? 'medium'; // Default kompresi
 
-        // 1. Setup Disk & Slug
+        // 2. Setup Disk
+        // Root: C:/Users/IT/Herd/customers
         $disk = Storage::disk('customers_external');
 
-        $companySlug = 'general';
-        if ($idPerusahaan) {
-            $perusahaan = Perusahaan::find($idPerusahaan);
-            if ($perusahaan) {
-                $companySlug = Str::slug($perusahaan->nama_perusahaan);
-            }
-        }
-
+        // Cek keberadaan file temp
         if (!$disk->exists($tempPath)) {
             return response()->json(['error' => 'File temp tidak ditemukan'], 404);
         }
 
         // =========================================================
-        // B. GENERATE NAMA FILE BARU
+        // A. TENTUKAN FOLDER TUJUAN & NAMA FILE
         // =========================================================
 
-        $npwp = preg_replace('/[^0-9]/', '', $request->npwp_number) ?: '0000000000000000';
+        // Folder tujuan relative terhadap root disk
+        // Hasil: C:/Users/IT/Herd/customers/documents/master
+        $targetDir = 'documents/master';
 
-        $docType = $request->type ? strtolower($request->type) : 'document';
-
-        // Mapping tipe dokumen
-        if ($docType === 'lampiran_marketing') $docType = 'marketing_review';
-        if ($docType === 'lampiran_auditor') $docType = 'audit_review';
-        if ($docType === 'lampiran_review_general') {
-            $docType = match ($role) {
-                'manager'  => 'manager_review',
-                'direktur' => 'director_review',
-                'lawyer'   => 'lawyer_review',
-                'auditor'  => 'audit_review',
-                default    => 'document'
-            };
-        }
-
-        $ext = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
-        // Gunakan $orderString hasil perhitungan di atas
-        $newFileName = "{$npwp}-{$docType}.{$ext}";
-
-        // =========================================================
-        // C. TENTUKAN FOLDER TUJUAN
-        // =========================================================
-
-        $subFolder = ($role === 'user') ? 'attachment' : 'customers';
-        if (in_array($docType, ['npwp', 'nib', 'sppkp', 'ktp'])) {
-            $subFolder = 'attachment';
-        }
-
-        $targetDir = "{$companySlug}/{$subFolder}";
+        // Buat folder jika belum ada
         if (!$disk->exists($targetDir)) {
             $disk->makeDirectory($targetDir);
         }
 
+        // Ambil ekstensi dari file temp
+        $ext = pathinfo($tempPath, PATHINFO_EXTENSION);
+
+        // Generate Nama File Baru yang Bersih
+        // Format: [SPK]-[TYPE].[EXT] -> Contoh: SPK001-invoice.pdf
+        // Jika ingin tetap unik agar tidak menimpa, tambahkan uniqid() atau timestamp
+        $newFileName = "{$spkCode}-{$type}.{$ext}"; 
+        
+        // Path Tujuan Akhir
         $finalRelPath = "{$targetDir}/{$newFileName}";
 
         // =========================================================
-        // D. PROSES KOMPRESI & PINDAH (LOGIC TETAP SAMA)
+        // B. PROSES KOMPRESI (GHOSTSCRIPT) & PEMINDAHAN
         // =========================================================
 
         $success = false;
 
-        if ($ext === 'pdf') {
-            $localInputName = 'gs_in_' . uniqid() . '.pdf';
+        // Cek apakah file PDF, jika ya lakukan kompresi
+        if (strtolower($ext) === 'pdf') {
+            // Siapkan nama file temporary untuk proses di Local Disk (C:/)
+            $localInputName  = 'gs_in_' . uniqid() . '.pdf';
             $localOutputName = 'gs_out_' . uniqid() . '.pdf';
 
+            // 1. Simpan file dari Disk Customers ke Local Storage (temporary processing)
             Storage::disk('local')->put("gs_processing/{$localInputName}", $disk->get($tempPath));
 
-            $localInputPath = Storage::disk('local')->path("gs_processing/{$localInputName}");
+            // Dapatkan Absolute Path untuk Ghostscript command
+            $localInputPath  = Storage::disk('local')->path("gs_processing/{$localInputName}");
             $localOutputPath = Storage::disk('local')->path("gs_processing/{$localOutputName}");
 
+            // 2. Jalankan Fungsi Ghostscript (Pastikan function ini ada di controller/trait Anda)
             $compressResult = $this->runGhostscript($localInputPath, $localOutputPath, $mode);
 
+            // 3. Cek Hasil Kompresi
             if ($compressResult && file_exists($localOutputPath)) {
+                // Jika sukses, simpan file HASIL KOMPRESI ke folder tujuan (documents/master)
                 $disk->put($finalRelPath, file_get_contents($localOutputPath));
                 $success = true;
+
+                // Hapus file output lokal
                 @unlink($localOutputPath);
             } else {
-                Log::warning("Ghostscript Gagal. Menggunakan file asli.");
+                Log::warning("Ghostscript Gagal atau File tidak terbentuk. Menggunakan file asli.");
             }
+
+            // Hapus file input lokal
             @unlink($localInputPath);
         }
 
+        // =========================================================
+        // C. FINALISASI (MOVE / DELETE TEMP)
+        // =========================================================
+
         if (!$success) {
-            if ($disk->exists($finalRelPath)) $disk->delete($finalRelPath);
+            // KONDISI: Bukan PDF atau Kompresi Gagal
+            // Pindahkan file ASLI dari temp ke documents/master
+            
+            // Hapus file lama di tujuan jika ada (agar replace)
+            if ($disk->exists($finalRelPath)) {
+                $disk->delete($finalRelPath);
+            }
+            
+            // Move file (otomatis menghapus file di temp)
             $disk->move($tempPath, $finalRelPath);
         } else {
-            if ($disk->exists($tempPath)) $disk->delete($tempPath);
+            // KONDISI: Kompresi Sukses
+            // File hasil kompresi sudah di-put di atas ($finalRelPath)
+            // Kita tinggal menghapus file temp originalnya
+            if ($disk->exists($tempPath)) {
+                $disk->delete($tempPath);
+            }
         }
 
         return response()->json([
-            'status' => 'success',
-            'final_path' => $finalRelPath,
-            'nama_file' => $newFileName,
+            'status'     => 'success',
+            'final_path' => $finalRelPath,  // documents/master/SPK001-type.pdf
+            'nama_file'  => $newFileName,   // SPK001-type.pdf
             'compressed' => $success
         ]);
     }
