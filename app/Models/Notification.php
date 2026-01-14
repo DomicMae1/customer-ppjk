@@ -21,12 +21,11 @@ class Notification extends Model
         'id_spk',
         'id_section',
         'id_dokumen',
-        'status',
         'data',
-        'user_id',
         'role',
-        'uploaded_by',
+        'send_to',
         'created_by',
+        'read_at'
     ];
 
     /*
@@ -63,9 +62,9 @@ class Notification extends Model
     /**
      * Relasi ke User (Yang mengupload/trigger aksi)
      */
-    public function uploader(): BelongsTo
+    public function send(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'uploaded_by', 'id');
+        return $this->belongsTo(User::class, 'send_to', 'id');
     }
 
     /**

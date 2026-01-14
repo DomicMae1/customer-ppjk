@@ -21,14 +21,12 @@ return new class extends Migration
             $table->unsignedBigInteger('id_dokumen')->nullable(); // Nullable jika notif umum SPK
 
             // 3. Data Kolom
-            $table->string('status'); // Contoh: 'uploaded', 'rejected', 'approved'
             $table->json('data'); // Contoh: 'uploaded', 'rejected', 'approved'
             $table->enum('role', ['internal', 'eksternal']);
             
             // 4. User Info
-            $table->unsignedBigInteger('user_id')->nullable(); // User yang melakukan aksi (upload)
-            $table->unsignedBigInteger('uploaded_by')->nullable(); // User yang melakukan aksi (upload)
-            $table->unsignedBigInteger('created_by')->nullable();  // User yang membuat notif (sistem/admin)
+            $table->unsignedBigInteger('send_to')->nullable(); // User yang melakukan aksi (upload)
+            $table->timestamp('read_at')->nullable(); // User yang melakukan aksi (upload)
 
             // 5. Timestamps (created_at, updated_at)
             $table->timestamps();
