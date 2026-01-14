@@ -442,7 +442,7 @@ export default function ViewCustomerForm({
             <div className="w-full space-y-3">
                 {sectionsTransProp && sectionsTransProp.length > 0 ? (
                     sectionsTransProp.map((section) => {
-                        const isOpen = activeSection === section.id_section; // Gunakan ID transaksi
+                        const isOpen = activeSection === section.id; // FIX: Use section.id to match onClick
 
                         return (
                             <div key={section.id_section} className="rounded-lg border border-gray-200 px-1 transition-all">

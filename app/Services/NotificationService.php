@@ -43,16 +43,16 @@ class NotificationService
                 'role' => $data['role'] ?? null,
                 'id_section' => $data['id_section'] ?? null,
                 'id_spk' => $data['id_spk'] ?? null,
-                'id_document' => $data['id_document'] ?? null,
+                'id_dokumen' => $data['id_dokumen'] ?? null, // FIX: Match database column name
                 'data' => $data['data'], // Contains: type, title, message, url, etc.
             ]);
 
             // Broadcast notification via WebSocket
-            Log::info('NotificationService: Broadcasting event for notification ' . $notification->id);
+            Log::info('NotificationService: Broadcasting event for notification ' . $notification->id_notification);
             broadcast(new NotificationSent($notification));
 
             Log::info('NotificationService: Notification sent', [
-                'id' => $notification->id,
+                'id_notification' => $notification->id_notification,
                 'type' => $notification->data['type'] ?? null,
                 'user_id' => $notification->user_id,
                 'role' => $notification->role,
@@ -107,7 +107,7 @@ class NotificationService
                     'role' => $data['role'], // Keep role for reference
                     'id_section' => $data['id_section'] ?? null,
                     'id_spk' => $data['id_spk'] ?? null,
-                    'id_document' => $data['id_document'] ?? null,
+                    'id_dokumen' => $data['id_dokumen'] ?? null, // FIX: Match database column name
                     'data' => $data['data'], // Contains: type, title, message, url, etc.
                 ]);
                 
@@ -140,7 +140,7 @@ class NotificationService
     public static function markAsRead(int $notificationId, int $userId): bool
     {
         try {
-            $notification = Notification::where('id', $notificationId)
+            $notification = Notification::where('id_notification', $notificationId) // FIX: Use id_notification
                 ->where('user_id', $userId)
                 ->first();
 

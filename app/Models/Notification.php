@@ -11,14 +11,15 @@ class Notification extends Model
     use HasFactory;
     
     // Connection managed by stancl/tenancy - no hardcoded connection needed
-    protected $table = 'notifications';
+    protected $table = 'notification'; // FIX: Database uses 'notification' (singular)
+    protected $primaryKey = 'id_notification'; // FIX: Table uses id_notification, not id
 
     protected $fillable = [
         'user_id',
         'role',
         'id_section',    // NEW: dedicated section column
         'id_spk',
-        'id_document',
+        'id_dokumen',
         'data',          // Contains: type, title, message, url, etc.
         'read_at',
     ];
@@ -30,6 +31,16 @@ class Notification extends Model
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
+
+    /**
+     * Override toArray to include 'id' for frontend compatibility
+     */
+    public function toArray()
+    {
+        $array = parent::toArray();
+        $array['id'] = $this->id_notification; // Explicitly add 'id' for frontend
+        return $array;
+    }
 
     /*
     |--------------------------------------------------------------------------
@@ -44,7 +55,7 @@ class Notification extends Model
 
     public function document(): BelongsTo
     {
-        return $this->belongsTo(DocumentTrans::class, 'id_document', 'id');
+        return $this->belongsTo(DocumentTrans::class, 'id_dokumen', 'id');
     }
 
     public function user(): BelongsTo
@@ -73,6 +84,7 @@ class Notification extends Model
     {
         return $query->where('user_id', $userId);
     }
+
 
 
 

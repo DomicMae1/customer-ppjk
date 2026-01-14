@@ -48,7 +48,7 @@ class NotificationSent implements ShouldBroadcast
     public function broadcastWith(): array
     {
         return [
-            'id' => $this->notification->id,
+            'id' => $this->notification->id_notification, // Map id_notification to 'id' for frontend
             'id_section' => $this->notification->id_section,
             'data' => $this->notification->data,  // Contains: type, title, message, url, etc.
             'created_at' => $this->notification->created_at->toISOString(),
