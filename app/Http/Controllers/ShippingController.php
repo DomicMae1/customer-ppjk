@@ -1369,4 +1369,90 @@ class ShippingController extends Controller
 
         return redirect()->back();
     }
+
+    /**
+     * Update deadline_date for sections
+     * Supports both unified (same date for all) and individual (per-section) mode
+     * 
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function updateSectionDeadline(Request $request)
+    {
+        $user = auth('web')->user();
+        
+        // Initialize tenant context
+        if ($user && $user->id_perusahaan) {
+            $tenant = Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
+            if ($tenant) {
+                tenancy()->initialize($tenant);
+            }
+        }
+
+        $request->validate([
+            'spk_id' => 'required|integer',
+            'unified' => 'required|boolean',
+            'global_deadline' => 'nullable|date',
+            'section_deadlines' => 'nullable|array',
+            'section_deadlines.*' => 'nullable|date',
+        ]);
+
+        try {
+            $spkId = $request->input('spk_id');
+            $isUnified = $request->input('unified');
+            $globalDeadline = $request->input('global_deadline');
+            $sectionDeadlines = $request->input('section_deadlines', []);
+
+            // Get all sections for this SPK
+            $sections = SectionTrans::where('id_spk', $spkId)->get();
+
+            if ($isUnified && $globalDeadline) {
+                // Unified mode: Apply same deadline to all sections
+                foreach ($sections as $section) {
+                    $section->update([
+                        'deadline' => true,
+                        'deadline_date' => Carbon::parse($globalDeadline),
+                    ]);
+                }
+                
+                Log::info('Deadline updated (unified mode)', [
+                    'spk_id' => $spkId,
+                    'deadline' => $globalDeadline,
+                    'sections_count' => $sections->count(),
+                ]);
+            } else {
+                // Individual mode: Update each section separately
+                foreach ($sections as $section) {
+                    $sectionId = $section->id;
+                    if (isset($sectionDeadlines[$sectionId]) && $sectionDeadlines[$sectionId]) {
+                        $section->update([
+                            'deadline' => true,
+                            'deadline_date' => Carbon::parse($sectionDeadlines[$sectionId]),
+                        ]);
+                    }
+                }
+                
+                Log::info('Deadline updated (individual mode)', [
+                    'spk_id' => $spkId,
+                    'deadlines' => $sectionDeadlines,
+                ]);
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Deadline updated successfully',
+            ]);
+
+        } catch (\Throwable $e) {
+            Log::error('Failed to update deadline', [
+                'error' => $e->getMessage(),
+                'request' => $request->all(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update deadline: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
 }

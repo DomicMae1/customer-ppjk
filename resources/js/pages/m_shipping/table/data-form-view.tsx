@@ -52,6 +52,7 @@ interface SectionTrans {
     section_name: string;
     section_order: number;
     deadline: boolean;
+    deadline_date?: string | null; // NEW: Tanggal deadline per section
     sla?: string | null;
     documents: DocumentTrans[];
 }
@@ -86,7 +87,11 @@ export default function ViewCustomerForm({
     shipmentDataProp,
     sectionsTransProp, // Data Section Transaksional
     masterDocProp, // Data Master Document (opsional, untuk fallback help)
+    userRole, // NEW: User role for role-based visibility
 }: any) {
+    // Check if user is internal (not external)
+    const isInternalUser = userRole !== 'eksternal';
+
     const [tempFiles, setTempFiles] = useState<Record<number, string>>({});
     const [activeSection, setActiveSection] = useState<number | null>(null);
     const [isAdditionalDocsOpen, setIsAdditionalDocsOpen] = useState(true);
@@ -95,7 +100,12 @@ export default function ViewCustomerForm({
     const [hsCodes, setHsCodes] = useState<any[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false); // State untuk buka/tutup modal
     const [searchQuery, setSearchQuery] = useState(''); // State untuk search bar
-    const [deadlineDate, setDeadlineDate] = useState(''); // State untuk tanggal deadline
+    const [deadlineDate, setDeadlineDate] = useState(''); // State untuk tanggal deadline (additional docs)
+
+    // NEW: Deadline Date Feature States
+    const [useUnifiedDeadline, setUseUnifiedDeadline] = useState(true); // Checkbox: apply same deadline to all
+    const [globalDeadlineDate, setGlobalDeadlineDate] = useState(''); // Global deadline (garis kuning)
+    const [sectionDeadlines, setSectionDeadlines] = useState<Record<number, string>>({}); // Per-section deadlines (garis orange)
 
     const [helpModalOpen, setHelpModalOpen] = useState(false);
     const [selectedHelpData, setSelectedHelpData] = useState<MasterDocument | null>(null);
@@ -109,6 +119,53 @@ export default function ViewCustomerForm({
             setIsVideoPlaying(false);
         }
     }, [helpModalOpen, selectedHelpData]);
+
+    // Initialize deadline states from database data
+    useEffect(() => {
+        if (sectionsTransProp && sectionsTransProp.length > 0) {
+            const deadlinesFromDb: Record<number, string> = {};
+            let hasAnyDeadline = false;
+            let firstDeadline = '';
+            let allSameDeadline = true;
+
+            sectionsTransProp.forEach((section: SectionTrans) => {
+                if (section.deadline_date) {
+                    // Extract YYYY-MM-DD from any date format without timezone conversion
+                    // Supports: "2026-01-18", "2026-01-18T00:00:00", "2026-01-18 00:00:00", ISO strings
+                    const dateStr = String(section.deadline_date);
+
+                    // Use regex to extract year, month, day directly (no Date object = no timezone issues)
+                    const match = dateStr.match(/(\d{4})-(\d{2})-(\d{2})/);
+                    const dateValue = match ? `${match[1]}-${match[2]}-${match[3]}` : '';
+
+                    if (dateValue) {
+                        deadlinesFromDb[section.id] = dateValue;
+
+                        if (!hasAnyDeadline) {
+                            firstDeadline = dateValue;
+                            hasAnyDeadline = true;
+                        } else if (dateValue !== firstDeadline) {
+                            allSameDeadline = false;
+                        }
+                    }
+                }
+            });
+
+            // Set per-section deadlines from DB
+            if (Object.keys(deadlinesFromDb).length > 0) {
+                setSectionDeadlines(deadlinesFromDb);
+            }
+
+            // If all sections have same deadline, set unified mode
+            if (hasAnyDeadline && allSameDeadline) {
+                setGlobalDeadlineDate(firstDeadline);
+                setUseUnifiedDeadline(true);
+            } else if (hasAnyDeadline) {
+                // Different deadlines = individual mode
+                setUseUnifiedDeadline(false);
+            }
+        }
+    }, [sectionsTransProp]);
 
     const [processingSectionId, setProcessingSectionId] = useState<number | null>(null);
 
@@ -252,62 +309,74 @@ export default function ViewCustomerForm({
         }
 
         // 3. Filter dokumen yang memiliki file temp
-        // Ensure ID comparison is type-safe (convert both to string just in case)
         const filesToProcess = currentSection.documents.filter((doc) => {
             const hasFile = tempFiles[doc.id];
-            // Debugging per document
-            // console.log(`Checking doc ID: ${doc.id}, Has Temp File: ${hasFile}`);
             return hasFile;
         });
 
         console.log('Files to process:', filesToProcess); // Debugging Step 2
 
-        if (filesToProcess.length === 0) {
-            alert('Tidak ada file baru yang diupload di section ini untuk dites.');
-            setProcessingSectionId(null);
-            return;
-        }
-
         try {
-            // 4. Looping dan Kirim Request satu per satu
-            await Promise.all(
-                filesToProcess.map(async (doc) => {
-                    const tempPath = tempFiles[doc.id];
+            // 4. Process documents (if any)
+            if (filesToProcess.length > 0) {
+                await Promise.all(
+                    filesToProcess.map(async (doc) => {
+                        const tempPath = tempFiles[doc.id];
+                        console.log(`Processing: ${doc.nama_file} -> ${tempPath}`);
 
-                    console.log(`Processing: ${doc.nama_file} -> ${tempPath}`);
+                        const response = await axios.post('/shipping/process-attachment', {
+                            path: tempPath,
+                            spk_code: shipmentData.spkNumber,
+                            type: doc.nama_file,
+                            mode: 'medium',
+                            customer_id: customer?.id_customer || customer?.id,
+                        });
 
-                    const response = await axios.post('/shipping/process-attachment', {
-                        path: tempPath, // Path file di folder temp
-                        spk_code: shipmentData.spkNumber, // Kode SPK
-                        type: doc.nama_file, // Tipe dokumen
-                        mode: 'medium', // Mode kompresi
-                        customer_id: customer?.id_customer || customer?.id, // ID Customer
-                    });
+                        console.log(`Success ${doc.nama_file}:`, response.data);
+                    }),
+                );
 
-                    console.log(`Success ${doc.nama_file}:`, response.data);
-                }),
-            );
+                // Bersihkan state tempFiles
+                const newTempFiles = { ...tempFiles };
+                filesToProcess.forEach((doc) => delete newTempFiles[doc.id]);
+                setTempFiles(newTempFiles);
+            }
 
-            // 5. Jika semua berhasil
-            alert('TES BERHASIL! Semua file PDF telah di proses dan dipindahkan.');
+            // 5. Save deadline untuk section ini
+            const deadlineValue = useUnifiedDeadline
+                ? globalDeadlineDate
+                : (sectionDeadlines[sectionId] || null);
 
-            // Opsional: Bersihkan state tempFiles agar tidak terkirim lagi
-            const newTempFiles = { ...tempFiles };
-            filesToProcess.forEach((doc) => delete newTempFiles[doc.id]);
-            setTempFiles(newTempFiles);
+            if (deadlineValue) {
+                await axios.post('/shipping/update-deadline', {
+                    spk_id: shipmentData.id_spk,
+                    unified: false, // Individual mode - hanya section ini
+                    section_deadlines: { [sectionId]: deadlineValue },
+                });
+            }
 
-            // Close accordion only after success
+            // 6. Success message
+            const parts = [];
+            if (filesToProcess.length > 0) parts.push(`${filesToProcess.length} dokumen diproses`);
+            if (deadlineValue) parts.push('deadline tersimpan');
+
+            if (parts.length > 0) {
+                alert(`Berhasil: ${parts.join(', ')}`);
+            } else {
+                alert('Tidak ada perubahan untuk disimpan.');
+            }
+
+            // Close accordion after success
             setActiveSection(null);
         } catch (error: any) {
-            console.error('Error processing attachment:', error);
+            console.error('Error saving section:', error);
 
             if (error.response && error.response.data) {
                 alert(`Gagal: ${error.response.data.message || JSON.stringify(error.response.data)}`);
             } else {
-                alert('Terjadi kesalahan saat memindahkan file.');
+                alert('Terjadi kesalahan saat menyimpan.');
             }
         } finally {
-            // Stop loading state regardless of success/error
             setProcessingSectionId(null);
         }
     };
@@ -323,12 +392,63 @@ export default function ViewCustomerForm({
         setIsModalOpen(false);
     };
 
-    const handleFinalSave = () => {
-        // Logika penyimpanan data ke database bisa diletakkan di sini
-        // Menampilkan alert browser standar sesuai permintaan gambar
-        window.alert('Document request saved');
+    const handleFinalSave = async () => {
+        try {
+            // 1. Process all documents from all sections that have temp files
+            const allDocsToProcess: { doc: any; sectionId: number }[] = [];
 
-        router.visit(`/customer/1`, { replace: true, preserveState: false });
+            sectionsTransProp.forEach((section: SectionTrans) => {
+                if (section.documents) {
+                    section.documents.forEach((doc) => {
+                        if (tempFiles[doc.id]) {
+                            allDocsToProcess.push({ doc, sectionId: section.id });
+                        }
+                    });
+                }
+            });
+
+            // Process all documents
+            if (allDocsToProcess.length > 0) {
+                await Promise.all(
+                    allDocsToProcess.map(async ({ doc }) => {
+                        const tempPath = tempFiles[doc.id];
+                        console.log(`Processing: ${doc.nama_file} -> ${tempPath}`);
+
+                        await axios.post('/shipping/process-attachment', {
+                            path: tempPath,
+                            spk_code: shipmentData.spkNumber,
+                            type: doc.nama_file,
+                            mode: 'medium',
+                            customer_id: customer?.id_customer || customer?.id,
+                        });
+                    }),
+                );
+
+                // Clear temp files
+                setTempFiles({});
+            }
+
+            // 2. Save all deadlines
+            await axios.post('/shipping/update-deadline', {
+                spk_id: shipmentData.id_spk,
+                unified: useUnifiedDeadline,
+                global_deadline: useUnifiedDeadline ? globalDeadlineDate : null,
+                section_deadlines: !useUnifiedDeadline ? sectionDeadlines : {},
+            });
+
+            // 3. Success message
+            const parts = [];
+            if (allDocsToProcess.length > 0) parts.push(`${allDocsToProcess.length} dokumen`);
+            if (globalDeadlineDate || Object.keys(sectionDeadlines).length > 0) parts.push('deadline');
+
+            window.alert(`Berhasil menyimpan: ${parts.join(', ')}`);
+
+            // Navigate back
+            router.visit(`/shipping/${shipmentData.id_spk}`, { replace: true, preserveState: false });
+        } catch (error: any) {
+            console.error('Error in final save:', error);
+            alert('Gagal menyimpan: ' + (error.response?.data?.message || error.message));
+        }
     };
 
     return (
@@ -489,6 +609,38 @@ export default function ViewCustomerForm({
                 </div>
             </div>
 
+            {/* NEW: Global Deadline Section - ONLY for Internal Users */}
+            {isInternalUser && (
+                <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
+                    <div className="flex flex-col gap-3">
+                        {/* Garis Kuning: Global Deadline Field */}
+                        <div className="flex items-center gap-3">
+                            <label className="text-sm font-bold text-gray-700 whitespace-nowrap">Set Deadline:</label>
+                            <Input
+                                type="date"
+                                className={`h-9 flex-1 border-gray-300 ${!useUnifiedDeadline ? 'bg-gray-100 opacity-50 cursor-not-allowed' : 'bg-white'}`}
+                                value={globalDeadlineDate}
+                                onChange={(e) => setGlobalDeadlineDate(e.target.value)}
+                                disabled={!useUnifiedDeadline}
+                            />
+                        </div>
+
+                        {/* Garis Hijau: Checkbox Apply to All */}
+                        <div className="flex items-center gap-2">
+                            <Checkbox
+                                id="unified_deadline"
+                                className="h-4 w-4 rounded border-2 border-gray-400 data-[state=checked]:bg-black data-[state=checked]:text-white"
+                                checked={useUnifiedDeadline}
+                                onCheckedChange={(checked) => setUseUnifiedDeadline(checked === true)}
+                            />
+                            <label htmlFor="unified_deadline" className="cursor-pointer text-sm text-gray-600">
+                                Apply same deadline to all sections
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <div className="w-full space-y-3">
                 {sectionsTransProp && sectionsTransProp.length > 0 ? (
                     sectionsTransProp.map((section: any) => {
@@ -498,11 +650,29 @@ export default function ViewCustomerForm({
                             <div key={section.id_section} className="rounded-lg border border-gray-200 px-1 transition-all">
                                 {/* Header Section */}
                                 <div
-                                    className="flex cursor-pointer items-center justify-between px-3 py-3"
+                                    className="flex cursor-pointer items-center gap-2 px-3 py-3"
                                     onClick={() => handleEditSection(section.id)}
                                 >
                                     {isOpen ? <ChevronUp className="h-4 w-4 text-gray-500" /> : <ChevronDown className="h-4 w-4 text-gray-500" />}
-                                    <span className="text-sm font-bold text-gray-900 uppercase">{section.section_name}</span>
+                                    <div className="flex flex-col flex-1">
+                                        <span className="text-sm font-bold text-gray-900 uppercase">{section.section_name}</span>
+
+                                        {/* Deadline Warning - ONLY for External Users */}
+                                        {!isInternalUser && section.deadline && section.deadline_date && (
+                                            <div className="flex items-center gap-1 mt-1">
+                                                <span className="text-red-500 text-lg font-bold">ⓘ</span>
+                                                <span className="text-red-500 text-xs font-bold">
+                                                    Please submit before {new Date(section.deadline_date).toLocaleDateString('en-GB', {
+                                                        day: '2-digit',
+                                                        month: '2-digit',
+                                                        year: 'numeric',
+                                                        hour: '2-digit',
+                                                        minute: '2-digit',
+                                                    })} WIB
+                                                </span>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
 
                                 {/* Content Section */}
