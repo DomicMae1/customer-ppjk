@@ -22,6 +22,7 @@ return new class extends Migration
 
             $table->unsignedBigInteger('created_by')->nullable();   // User Eksternal
             $table->unsignedBigInteger('validated_by')->nullable(); // User Internal
+            $table->string('penjaluran')->nullable(); // Import/Export
 
             $table->timestamps();
         });

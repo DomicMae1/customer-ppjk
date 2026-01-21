@@ -34,7 +34,6 @@ class DocumentTrans extends Model
     protected $casts = [
         'verify' => 'boolean',
         'correction_attachment' => 'boolean',
-        'logs' => 'array',
         'kuota_revisi' => 'integer',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
