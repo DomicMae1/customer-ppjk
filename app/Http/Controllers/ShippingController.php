@@ -1359,7 +1359,7 @@ class ShippingController extends Controller
         // Karena koneksi sudah pindah ke tenant
         $spk = Spk::with(['creator','hsCodes', 'customer'])->findOrFail($id);
 
-        dd($spk->toArray());
+        // dd($spk->toArray());
 
         $latestStatus = SpkStatus::where('id_spk', $spk->id)
         ->orderBy('id', 'desc') // Ambil yang paling terakhir dibuat
