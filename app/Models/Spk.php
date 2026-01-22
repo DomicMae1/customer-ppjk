@@ -15,7 +15,7 @@ class Spk extends Model
     protected $table = 'spk';
 
     protected $fillable = [
-        'id_perusahaan_int', // ID Perusahaan (Internal)
+        'id_perusahaan', // ID Perusahaan (Internal)
         'id_customer',       // ID Customer (External)
         'spk_code',          // Keterangan / BL Number / SI Number
         'shipment_type',     // Import / Export
@@ -40,7 +40,7 @@ class Spk extends Model
      */
     public function perusahaan(): BelongsTo
     {
-        return $this->belongsTo(Perusahaan::class, 'id_perusahaan_int', 'id_perusahaan_int');
+        return $this->belongsTo(Perusahaan::class, 'id_perusahaan', 'id_perusahaan');
     }
 
     /**

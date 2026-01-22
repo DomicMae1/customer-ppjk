@@ -29,7 +29,6 @@ class DocumentTrans extends Model
         'kuota_revisi',
         'count_revisi', // NEW
         'mapping_insw',
-        'deadline_document',
         'sla_document',
         'is_internal',
     ];
