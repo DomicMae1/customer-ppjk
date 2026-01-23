@@ -84,7 +84,21 @@ class ShippingController extends Controller
             tenancy()->initialize($tenant);
 
             // Query ke tabel SPK (di database tenant)
-            $query = \App\Models\Spk::with(['customer', 'creator']);
+            $query = Spk::with([
+                'customer', 
+                'creator', 
+                'latestStatus',
+                'sections' => function ($q) {
+                    // 1. Urutkan section agar rapi
+                    $q->orderBy('section_order', 'asc');
+                    
+                    // 2. Pilih kolom spesifik (Opsional, tapi bagus untuk performa)
+                    // Pastikan 'id' dan 'id_spk' terpilih agar relasi tetap jalan
+                    $q->select('id', 'id_spk', 'section_name', 'section_order', 'deadline', 'deadline_date');
+                    
+                    // 3. Relasi 'documents' DIHILANGKAN sesuai permintaan
+                }
+            ]);
 
             // Jika user eksternal, filter hanya data miliknya
             if ($user->role === 'eksternal' && $user->id_customer) {
@@ -93,14 +107,16 @@ class ShippingController extends Controller
 
             // Mapping data agar sesuai dengan kolom Frontend
             $spkData = $query->latest()->get()->map(function ($item) {
+                $maxDeadline = $item->sections->pluck('deadline_date')->filter()->max();
                 return [
                     'id'              => $item->id,
                     'spk_code'        => $item->spk_code, // Sesuai permintaan
                     'nama_customer'   => $item->customer->nama_perusahaan ?? '-', // Sesuai permintaan
                     'tanggal_status'  => $item->created_at, // Sesuai permintaan
-                    'status_label'    => 'diinput',
+                    'status_label'    => $item->latestStatus->status ?? 'Draft/Pending',
                     'nama_user'       => $item->creator->name ?? 'System',
-                    'jalur'           => 'hijau', // Sesuai permintaan (Dummy dulu)
+                    'jalur'           => $item->penjaluran, // Sesuai permintaan (Dummy dulu)
+                    'deadline_date'   => $maxDeadline,
                 ];
             });
         }
@@ -209,6 +225,7 @@ class ShippingController extends Controller
                 'id_perusahaan_int' => $user->id_perusahaan,
                 'id_customer'       => $validated['id_customer'],
                 'created_by'        => $userId,
+                'penjaluran'        => null,
             ]);
 
             $statusId = 6;
@@ -1358,8 +1375,6 @@ class ShippingController extends Controller
         // 4. Baru sekarang aman untuk Query ke tabel SPK
         // Karena koneksi sudah pindah ke tenant
         $spk = Spk::with(['creator','hsCodes', 'customer'])->findOrFail($id);
-
-        // dd($spk->toArray());
 
         $latestStatus = SpkStatus::where('id_spk', $spk->id)
         ->orderBy('id', 'desc') // Ambil yang paling terakhir dibuat
