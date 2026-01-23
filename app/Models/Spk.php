@@ -21,6 +21,7 @@ class Spk extends Model
         'shipment_type',     // Import / Export
         'created_by',        // ID User pembuat
         'validated_by',      // ID User validator
+        'penjaluran',
         'internal_can_upload',       // Boolean
     ];
 
@@ -85,5 +86,25 @@ class Spk extends Model
     {
         // Parameter: Model Tujuan, Foreign Key di tabel tujuan, Local Key di tabel ini
         return $this->hasMany(HsCode::class, 'id_spk', 'id');
+    }
+
+    public function statuses(): HasMany
+    {
+        return $this->hasMany(SpkStatus::class, 'id_spk', 'id');
+    }
+
+    /**
+     * Relasi ke STATUS TERAKHIR (Current Status)
+     * Menggunakan latestOfMany() agar efisien saat dipanggil di list/table
+     */
+    public function latestStatus()
+    {
+        return $this->hasOne(SpkStatus::class, 'id_spk', 'id')->latestOfMany();
+    }
+
+    public function sections()
+    {
+        // Relasi SPK ke Section Transaksi
+        return $this->hasMany(SectionTrans::class, 'id_spk', 'id');
     }
 }
