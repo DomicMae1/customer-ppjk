@@ -25,23 +25,27 @@ interface MasterSection {
     section_name: string;
 }
 
-interface MasterDocument {
-    id_dokumen: number;
+interface DocumentData {
+    id_dokumen: number; // ID Mapping dari backend
     id_section: number;
     nama_file: string;
     description_file: string;
-    // Tambahkan properti lain sesuai kebutuhan (link, dll)
+    source?: 'master' | 'trans'; // Penanda asal data
+    section?: MasterSection;
 }
 
 interface PageProps {
-    documents: MasterDocument[];
+    documents: DocumentData[];
     sections: MasterSection[];
     flash: { success?: string; error?: string };
     [key: string]: any;
 }
 
 export default function ManageDocuments() {
-    const { documents, sections, flash } = usePage<PageProps>().props;
+    const { documents, sections, flash, auth } = usePage<PageProps>().props;
+
+    const userRole = auth.user?.roles?.[0]?.name;
+    const isManager = ['manager', 'supervisor'].includes(userRole);
 
     // --- STATE EDIT ---
     const [openEdit, setOpenEdit] = useState(false);
@@ -120,7 +124,7 @@ export default function ManageDocuments() {
             <Dialog open={openEdit} onOpenChange={setOpenEdit}>
                 <DialogContent className="sm:max-w-lg">
                     <DialogHeader>
-                        <DialogTitle>Edit Master Document</DialogTitle>
+                        <DialogTitle>Edit Dokumen {isManager ? '(Internal Perusahaan)' : '(Master)'}</DialogTitle>
                         <DialogDescription>Update document details.</DialogDescription>
                     </DialogHeader>
                     <form onSubmit={onConfirmEdit} className="space-y-4">
