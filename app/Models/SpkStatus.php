@@ -16,7 +16,6 @@ class SpkStatus extends Model
         'id_spk',
         'id_status',
         'status',
-        'priority',
     ];
 
     /**

@@ -7,6 +7,7 @@ use App\Models\Customer;
 use App\Models\DocumentTrans;
 use App\Models\HsCode;
 use App\Models\MasterDocument;
+use App\Models\MasterDocumentTrans;
 use App\Models\Spk;
 use App\Models\Perusahaan;
 use App\Models\Tenant;
@@ -237,14 +238,13 @@ class ShippingController extends Controller
                 'status'  => "SPK $statusPriority",
             ]);
 
-            // 2. LOOP CREATE HS CODES (Sebanyak jumlah data array)
+            // 2. LOOP CREATE HS CODES
             foreach ($validated['hs_codes'] as $index => $hsData) {
                 $filePath = null;
                 $fileNameToSave = null;
 
                 if (isset($hsData['file']) && $hsData['file'] instanceof \Illuminate\Http\UploadedFile) {
                     $extension = $hsData['file']->getClientOriginalExtension();
-                    // Tambahkan uniqid agar nama file tidak bentrok jika kode sama
                     $fileNameToSave = $hsData['code'] . '_' . uniqid() . '.' . $extension;
                     
                     $path = $hsData['file']->storeAs(
@@ -255,55 +255,67 @@ class ShippingController extends Controller
                     $filePath = $path;
                 }
 
-                // Create HS Code terhubung ke SPK
                 $newHsCode = HsCode::create([
-                    'id_spk'         => $spk->id, // FK ke SPK
+                    'id_spk'         => $spk->id,
                     'hs_code'        => $hsData['code'],
                     'link_insw'      => $fileNameToSave ?? ($hsData['link'] ?? null),
                     'path_link_insw' => $filePath,
-                    'created_by'     => $userId, // Sesuaikan nama kolom di DB (created_by / updated_by)
+                    'created_by'     => $userId,
                     'updated_by'     => $userId,
                     'logs'           => json_encode(['action' => 'created', 'by' => $user->name, 'at' => now()]),
                 ]);
-
-                // Ambil ID HS Code pertama untuk update tabel SPK (Main HS Code)
-                if ($index === 0) {
-                    $firstHsCodeId = $newHsCode->id_hscode;
-                }
             }
 
             // --- 3. GENERATE SECTION TRANSAKSI ---
+            // Mengambil section dari DB Master (Global) dan copy ke Transaksi (Tenant)
             $masterSections = MasterSection::on('tako-user')->get();
 
             foreach ($masterSections as $masterSec) {
                 SectionTrans::create([
-                    'id_section'    => $masterSec->id_section, // Referensi ke Master
+                    'id_section'    => $masterSec->id_section,
                     'id_spk'        => $spk->id,
                     'section_name'  => $masterSec->section_name,
                     'section_order' => $masterSec->section_order,
-                    
-                    // Default Values untuk Transaksi
-                    'deadline'      => false, // Default false/0
-                    
+                    'deadline'      => false,
                     'created_at'    => now(),
                     'updated_at'    => now(),
                 ]);
             }
 
-            // --- 4. GENERATE DOKUMEN TRANSAKSI & STATUS AWAL ---
+            // --- 4. GENERATE DOKUMEN TRANSAKSI (UPDATED LOGIC) ---
+            // Alur: MasterDocument (Global) -> MasterDocumentTrans (Tenant) -> DocumentTrans (Tenant Transaction)
+            
             $masterDocs = MasterDocument::on('tako-user')->with('section')->get();
 
             foreach ($masterDocs as $masterDoc) {
+                // A. Simpan/Cek dahulu ke Master Document Trans (Di Database Tenant)
+                $masterDocTrans = MasterDocumentTrans::firstOrCreate(
+                    [
+                        'id_section' => $masterDoc->id_section,
+                        'nama_file'  => $masterDoc->nama_file,
+                    ],
+                    [
+                        // Data yang akan dicopy jika belum ada
+                        'is_internal'             => $masterDoc->is_internal,
+                        'attribute'               => $masterDoc->attribute,
+                        'link_path_example_file'  => $masterDoc->link_path_example_file,
+                        'link_path_template_file' => $masterDoc->link_path_template_file,
+                        'link_url_video_file'     => $masterDoc->link_url_video_file,
+                        'description_file'        => $masterDoc->description_file,
+                        'updated_by'              => $userId,
+                    ]
+                );
+
                 // Siapkan Log Message
                 $sectionName = $masterDoc->section ? $masterDoc->section->section_name : 'Unknown Section';
                 $logMessage = "Document {$sectionName} requested " . now()->format('d-m-Y H:i') . " WIB";
 
                 $newDocTrans = DocumentTrans::create([
                     'id_spk'                     => $spk->id,
-                    'id_dokumen'                 => $masterDoc->id_dokumen,
-                    'id_section'                 => $masterDoc->id_section,
-                    'nama_file'                  => $masterDoc->nama_file,
-                    'is_internal'                => $masterDoc->is_internal ?? false,
+                    'id_dokumen'                 => $masterDocTrans->id_dokumen, // Menggunakan PK dari MasterDocumentTrans
+                    'id_section'                 => $masterDocTrans->id_section,
+                    'nama_file'                  => $masterDocTrans->nama_file,
+                    'is_internal'                => $masterDocTrans->is_internal ?? false,
                     'url_path_file'              => null,
                     'verify'                     => false,
                     'correction_attachment'      => false,
@@ -317,9 +329,10 @@ class ShippingController extends Controller
                     'updated_at'                 => now(),
                 ]);
 
+                // Create Initial Status
                 DocumentStatus::create([
-                    'id_dokumen_trans' => $newDocTrans->id, // Ambil ID dari dokumen yang baru dibuat
-                    'status'           => $logMessage,      // Status awal
+                    'id_dokumen_trans' => $newDocTrans->id,
+                    'status'           => $logMessage,
                     'by'               => $userId,
                     'created_at'       => now(),
                     'updated_at'       => now(),
