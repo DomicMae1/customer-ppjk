@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\MasterDocument;
 use App\Models\MasterSection; // Asumsi ada model ini
+use App\Models\MasterDocumentTrans;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
@@ -16,14 +17,65 @@ class DocumentController extends Controller
      */
     public function index(Request $request)
     {
-        // Ambil data dokumen dengan relasi section
-        // Kita gunakan paginate agar performa terjaga
-        $documents = MasterDocument::with('section')->get();
+        $user = Auth::user();
+        $documents = [];
 
-        // Ambil data section untuk dropdown di form Create/Edit
+        // --- LOGIC PEMISAHAN DATA BERDASARKAN ROLE ---
+        
+        if ($user->hasRole(['manager', 'supervisor'])) {
+            // 1. INISIALISASI TENANT TERLEBIH DAHULU
+            // Kita harus "masuk" ke database perusahaan user agar bisa baca tabel 'master_documents_trans'
+            
+            $tenant = null;
+            if ($user->id_perusahaan) {
+                // Pastikan Anda mengimport model Tenant di atas: use App\Models\Tenant;
+                $tenant = \App\Models\Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
+            }
+
+            if ($tenant) {
+                // Aktifkan koneksi ke Database Tenant
+                tenancy()->initialize($tenant);
+
+                // 2. Query Data dari Database Tenant yang aktif
+                $documents = MasterDocumentTrans::with('section')
+                    // HAPUS filter 'id_perusahaan' karena database sudah terisolasi per tenant
+                    // ->where('id_perusahaan', $user->id_perusahaan) 
+                    ->get()
+                    ->map(function($item) {
+                        return [
+                            'id_dokumen' => $item->id_dokumen, // Pastikan sesuai PK model (id_dokumen)
+                            'id_section' => $item->id_section,
+                            'nama_file' => $item->nama_file,
+                            'description_file' => $item->description_file, // Pastikan nama kolom sesuai DB
+                            'section' => $item->section,
+                            'source' => 'trans'
+                        ];
+                    });
+                    
+                // Optional: Jika ingin kembali ke central context (biasanya otomatis handle, tapi untuk aman)
+                // tenancy()->end(); 
+            }
+
+        } elseif ($user->hasRole('admin')) {
+            // 2. Jika Admin: Ambil dari table master_document (Default - Koneksi 'tako-user')
+            // Karena model MasterDocument punya property $connection = 'tako-user', dia aman walau tenancy aktif/tidak
+            $documents = MasterDocument::with('section')
+                ->get()
+                ->map(function($item) {
+                    return [
+                        'id_dokumen' => $item->id_dokumen,
+                        'id_section' => $item->id_section,
+                        'nama_file' => $item->nama_file,
+                        'description_file' => $item->description_file,
+                        'section' => $item->section,
+                        'source' => 'master'
+                    ];
+                });
+        }
+
+        // Ambil data section untuk dropdown
+        // Asumsi MasterSection ada di database 'tako-user' (Global)
         $sections = MasterSection::orderBy('section_order', 'asc')->get();
-
-        // dd($sections);
 
         return Inertia::render('m_document/page', [
             'documents' => $documents,
