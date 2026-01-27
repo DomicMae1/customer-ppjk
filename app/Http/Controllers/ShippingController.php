@@ -122,9 +122,21 @@ class ShippingController extends Controller
             });
         }
 
+        // NEW: Fetch Internal Staff for Supervisor Assignment
+        $internalStaff = [];
+        if ($user->role === 'internal') {
+            $internalStaff = \App\Models\User::on('tako-user')
+                ->where('role', 'internal')
+                ->where('role_internal', 'staff')
+                ->where('id_perusahaan', $user->id_perusahaan)
+                ->select('id_user', 'name')
+                ->get();
+        }
+
         return Inertia::render('m_shipping/page', [
             'customers' => $spkData,
             'externalCustomers' => $externalCustomers,
+            'internalStaff' => $internalStaff, // Pass staff list
             'company' => [
                 'id' => session('company_id'),
                 'name' => session('company_name'),
@@ -197,6 +209,7 @@ class ShippingController extends Controller
             'hs_codes.*.code' => 'required|string',
             'hs_codes.*.link' => 'nullable|string',
             'hs_codes.*.file' => 'nullable|file|image|mimes:jpeg,png,jpg|max:5120',
+            'assigned_pic'    => 'nullable|integer|exists:users,id_user', // Validasi Assigned PIC
         ]);
 
         // --- Logic Tenant ---
@@ -310,6 +323,7 @@ class ShippingController extends Controller
                 $sectionName = $masterDoc->section ? $masterDoc->section->section_name : 'Unknown Section';
                 $logMessage = "Document {$sectionName} requested " . now()->format('d-m-Y H:i') . " WIB";
 
+                // B. Buat Document Transaksi (Nyata)
                 $newDocTrans = DocumentTrans::create([
                     'id_spk'                     => $spk->id,
                     'id_dokumen'                 => $masterDocTrans->id_dokumen, // Menggunakan PK dari MasterDocumentTrans
@@ -319,12 +333,9 @@ class ShippingController extends Controller
                     'url_path_file'              => null,
                     'verify'                     => false,
                     'correction_attachment'      => false,
-                    'correction_attachment_file' => null,
-                    'correction_description'     => null,
                     'kuota_revisi'               => 3,
-                    'mapping_insw'               => null,
-                    'sla_document'               => null,
                     'updated_by'                 => $userId,
+                    'logs'                       => $logMessage,
                     'created_at'                 => now(),
                     'updated_at'                 => now(),
                 ]);
@@ -339,9 +350,18 @@ class ShippingController extends Controller
                 ]);
             }
 
-            if ($user->role === 'internal' && $user->role_internal === 'staff') {
-                // If internal staff creates it, auto-validate
-                 $spk->update(['validated_by' => $userId]);
+            if ($user->role === 'internal') {
+                if ($user->role_internal === 'supervisor' && !empty($validated['assigned_pic'])) {
+                    // SUPERVISOR: Assign to Selected Staff
+                    $spk->update(['validated_by' => $validated['assigned_pic']]);
+                    
+                    // Optional: Notification Logic to Assigned Staff can be added here
+                    /* NotificationService::send([...]); */
+
+                } elseif ($user->role_internal === 'staff') {
+                   // STAFF: Auto-assign to Self
+                   $spk->update(['validated_by' => $userId]);
+                }
             }
 
             DB::commit();
@@ -388,35 +408,73 @@ class ShippingController extends Controller
                              Log::error("Failed to send SPK Created Notification to {$staff->id_user}: " . $e->getMessage());
                         }
                     }
-                } elseif (strtolower($user->role) === 'internal' && $user->role_internal === 'staff') {
-                   // Logic: Notify External Customer
-                   
-                   // 1. Find External Users associated with the SPK's Customer
-                   // We query the central user table.
+                } elseif ($user->role === 'internal') {
+                    // Fetch Customer Name for Notification Context
+                    $customerName = 'Unknown Customer';
+                    $customerObj = Customer::find($validated['id_customer']);
+                    if ($customerObj) {
+                        $customerName = $customerObj->nama_cust ?? $customerObj->nama_perusahaan ?? $customerName;
+                    }
+
+                    // 1. If Supervisor & Assigned Staff -> Notify the Staff
+                    if ($user->role_internal === 'supervisor' && !empty($validated['assigned_pic'])) {
+                        $assignedStaff = \App\Models\User::on('tako-user')->find($validated['assigned_pic']);
+                        if ($assignedStaff) {
+                             // Email
+                            try {
+                                SectionReminderService::sendSpkCreated($assignedStaff, $spk, $user);
+                            } catch (\Exception $e) {
+                                Log::error("Failed to send Assignment Email to Staff {$assignedStaff->email}: " . $e->getMessage());
+                            }
+
+                            // Notification
+                            try {
+                                NotificationService::send([
+                                    'send_to' => $assignedStaff->id_user,
+                                    'created_by' => $userId,
+                                    'role' => 'internal',
+                                    'id_spk' => $spk->id,
+                                    'data' => [
+                                        'type' => 'spk_created',
+                                        'title' => 'Penunjukan PIC SPK', // Assignment Title
+                                        // "kamu menjadi pic untuk customer berikut"
+                                        'message' => "Anda telah ditunjuk sebagai PIC untuk customer {$customerName} (SPK: {$spk->spk_code}) oleh {$user->name}",
+                                        'url' => "/shipping/{$spk->id}",
+                                        'spk_code' => $spk->spk_code
+                                    ]
+                                ]);
+                            } catch (\Exception $e) {
+                                Log::error("Failed to send Assignment Notification to {$assignedStaff->id_user}: " . $e->getMessage());
+                            }
+                        }
+                    }
+
+                   // 2. Notify External Customer (For both Staff and Supervisor)
+                   // We query the central user table for users of this customer
                    $externalUsers = \App\Models\User::on('tako-user')
                         ->where('id_customer', $spk->id_customer)
                         ->where('role', 'eksternal')
                         ->get();
 
                    foreach ($externalUsers as $extUser) {
-                        // 2. Send Email
+                        // Email
                         try {
                             SectionReminderService::sendSpkCreated($extUser, $spk, $user);
                         } catch (\Exception $e) {
                              Log::error("Failed to send SPK Email to External {$extUser->email}: " . $e->getMessage());
                         }
                         
-                        // 3. Send In-App Notification
+                        // Notification
                         try {
                             NotificationService::send([
                                 'send_to' => $extUser->id_user,
                                 'created_by' => $userId,
-                                'role' => 'eksternal', // Context for the receiver (Required by DB NOT NULL)
+                                'role' => 'eksternal',
                                 'id_spk' => $spk->id,
                                 'data' => [
                                     'type' => 'spk_created',
-                                    'title' => 'New SPK Created',
-                                    'message' => "New SPK {$spk->spk_code} created by Staff {$user->name}",
+                                    'title' => 'SPK Baru Dibuat',
+                                    'message' => "SPK Baru {$spk->spk_code} telah dibuat oleh {$user->name}",
                                     'url' => "/shipping/{$spk->id}",
                                     'spk_code' => $spk->spk_code
                                 ]
