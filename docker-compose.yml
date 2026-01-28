@@ -76,7 +76,25 @@ services:
       - app-network
     depends_on:
       - redis # INI YANG SEBELUMNYA ERROR, SEKARANG SUDAH AMAN KARENA ADA SERVICE REDIS DIBAWAH
-
+  queue:
+    build: .
+    container_name: laravel-queue
+    restart: always
+    working_dir: /var/www/html
+    volumes:
+      - ./:/var/www/html
+      - ./.env:/var/www/html/.env
+    command: php artisan queue:work --sleep=1 --tries=3
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - DB_CONNECTION=pgsql
+      - DB_HOST=db
+    networks:
+      - app-network
+    depends_on:
+      - redis
+      - db
   # --- SERVICE REDIS (YANG BARU ANDA TAMBAHKAN) ---
   redis:
     image: 'redis:alpine'
