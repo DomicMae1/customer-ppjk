@@ -73,7 +73,7 @@ services:
     volumes:
       - '.:/var/www/html'
     networks:
-      - sail # atau nama network docker yang Anda gunakan
+      - app-network
     depends_on:
       - redis # Reverb membutuhkan Redis untuk scaling (opsional tapi direkomendasikan)
 
