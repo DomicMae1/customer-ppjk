@@ -884,9 +884,9 @@ export default function ViewCustomerForm({
                                                                 existingFile={
                                                                     !item.file && item.link
                                                                         ? {
-                                                                              nama_file: item.link,
-                                                                              path: `/file/view/${item.link}`,
-                                                                          }
+                                                                            nama_file: item.link,
+                                                                            path: `/file/view/${item.link}`,
+                                                                        }
                                                                         : undefined
                                                                 }
                                                                 onFileChange={(file) => {
@@ -1279,10 +1279,10 @@ export default function ViewCustomerForm({
                                                                                 existingFile={
                                                                                     tempFiles[doc.id]
                                                                                         ? {
-                                                                                              nama_file:
-                                                                                                  doc.master_document?.nama_dokumen || doc.nama_file,
-                                                                                              path: tempFiles[doc.id],
-                                                                                          }
+                                                                                            nama_file:
+                                                                                                doc.master_document?.nama_dokumen || doc.nama_file,
+                                                                                            path: tempFiles[doc.id],
+                                                                                        }
                                                                                         : undefined
                                                                                 }
                                                                                 uploadConfig={{
