@@ -43,7 +43,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('shipping/update-deadline', [ShippingController::class, 'updateSectionDeadline'])->name('shipping.updateDeadline');
     Route::post('shipping/{id}/verify', [ShippingController::class, 'verifyDocument'])->name('shipping.verify');
     Route::post('shipping/{id}/reject', [ShippingController::class, 'rejectDocument'])->name('shipping.reject');
+    Route::post('shipping/{id}/reject', [ShippingController::class, 'rejectDocument'])->name('shipping.reject');
     Route::post('shipping/batch-verify', [ShippingController::class, 'batchVerifyDocuments'])->name('shipping.batchVerify');
+    Route::post('shipping/{id}/assign-staff', [ShippingController::class, 'assignStaff'])->name('shipping.assignStaff');
     
     // Notification routes
     Route::get('notifications', [NotificationController::class, 'index'])->name('notifications.index');

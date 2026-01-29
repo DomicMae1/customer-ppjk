@@ -1667,6 +1667,18 @@ class ShippingController extends Controller
     {
         $user = auth('web')->user();
 
+        // NEW: Fetch Internal Staff for Supervisor Assignment (Consistent with index)
+        // Moved here to ensure we query the CENTRAL database (tako-user) before tenancy context is switched.
+        $internalStaff = [];
+        if ($user->role === 'internal') {
+            $internalStaff = \App\Models\User::on('tako-user')
+                ->where('role', 'internal')
+                ->where('role_internal', 'staff')
+                ->where('id_perusahaan', $user->id_perusahaan)
+                ->select('id_user', 'name')
+                ->get();
+        }
+
         // 2. LOGIKA MENCARI TENANT (Copy dari function store)
         // Kita harus tahu dulu user ini milik tenant mana agar bisa buka databasenya
         $tenant = null;
@@ -1830,6 +1842,7 @@ class ShippingController extends Controller
             'customer' => $spk->customer,
             'shipmentDataProp' => $shipmentData,
             'sectionsTransProp' => $sectionsTrans,
+            'internalStaff' => $internalStaff, // Pass staff list
         ]);
     }
 
@@ -2017,6 +2030,74 @@ class ShippingController extends Controller
             Log::error("Batch Process Error: " . $e->getMessage());
             return response()->json(['message' => $e->getMessage()], 500);
         }
+    }
+
+    /**
+     * Assign Staff manually (Supervisor Only)
+     */
+    public function assignStaff(Request $request, $id)
+    {
+        $user = auth('web')->user();
+
+        // 1. Authorization Check
+        if ($user->role !== 'internal' || $user->role_internal !== 'supervisor') {
+             abort(403, 'Unauthorized action.');
+        }
+
+        $validated = $request->validate([
+            'assigned_pic' => 'required|integer|exists:users,id_user'
+        ]);
+
+        // 2. Resolve Tenant
+        $tenant = null;
+        if ($user->id_perusahaan) {
+            $tenant = Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
+        } 
+
+        if (!$tenant) {
+            return response()->json(['message' => 'Tenant not found'], 404);
+        }
+
+        tenancy()->initialize($tenant);
+
+        // 3. Update SPK
+        $spk = Spk::findOrFail($id);
+        
+        // Prevent re-assigning same user to avoid spam
+        if ($spk->validated_by == $validated['assigned_pic']) {
+            return response()->json(['message' => 'User is already assigned.']);
+        }
+
+        $spk->update([
+            'validated_by' => $validated['assigned_pic']
+        ]);
+
+        // 4. Send Notification to Assigned Staff
+        // We can reuse NotificationService or manually trigger event
+        try {
+            $assignedUser = User::on('tako-user')->find($validated['assigned_pic']);
+            if ($assignedUser) {
+                // Remove old notifications for this SPK
+                \App\Models\Notification::where('id_spk', $spk->id)->delete();
+
+                // Create new notification
+                NotificationService::send([
+                    'send_to' => $assignedUser->id_user,
+                    'created_by' => $user->id_user,
+                    'id_spk' => $spk->id,
+                    'data' => [
+                        'type' => 'assignment',
+                        'title' => 'Assigned to SPK',
+                        'message' => "You have been assigned to SPK: {$spk->spk_code}",
+                        'url' => route('shipping.show', $spk->id),
+                    ]
+                ]);
+            }
+        } catch (\Exception $e) {
+            Log::error("Failed to send assignment notification: " . $e->getMessage());
+        }
+
+        return redirect()->back()->with('success', 'Staff has been assigned successfully.');
     }
 
     /**
