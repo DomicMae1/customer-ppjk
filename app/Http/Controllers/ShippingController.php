@@ -966,6 +966,7 @@ class ShippingController extends Controller
             }
         }
         
+        
         if ($tenant) {
             tenancy()->initialize($tenant);
         }
@@ -1667,6 +1668,18 @@ class ShippingController extends Controller
     {
         $user = auth('web')->user();
 
+        // NEW: Fetch Internal Staff for Supervisor Assignment (Consistent with index)
+        // Moved here to ensure we query the CENTRAL database (tako-user) before tenancy context is switched.
+        $internalStaff = [];
+        if ($user->role === 'internal') {
+            $internalStaff = \App\Models\User::on('tako-user')
+                ->where('role', 'internal')
+                ->where('role_internal', 'staff')
+                ->where('id_perusahaan', $user->id_perusahaan)
+                ->select('id_user', 'name')
+                ->get();
+        }
+
         // 2. LOGIKA MENCARI TENANT (Copy dari function store)
         // Kita harus tahu dulu user ini milik tenant mana agar bisa buka databasenya
         $tenant = null;
@@ -1830,6 +1843,7 @@ class ShippingController extends Controller
             'customer' => $spk->customer,
             'shipmentDataProp' => $shipmentData,
             'sectionsTransProp' => $sectionsTrans,
+            'internalStaff' => $internalStaff, // Pass staff list
         ]);
     }
 
@@ -1914,6 +1928,8 @@ class ShippingController extends Controller
                 }
 
                 // Check Reupload
+                $isReupload = false; // Must initialize!
+                
                 // Condition: 
                 // 1. Fixing Rejection (correction_attachment is TRUE)
                 // 2. Replacing Existing File (url_path_file not empty)
@@ -1924,6 +1940,8 @@ class ShippingController extends Controller
                 ) {
                     $isReupload = true;
                 }
+                
+                Log::info("Batch Process Doc ID {$docId}: Path=[{$targetDoc->url_path_file}], Correction=[{$targetDoc->correction_attachment}] -> IsReupload? " . ($isReupload ? 'YES' : 'NO'));
 
                 // --- MAIN PROCESSING LOGIC (Adapted from upload) ---
                 $fileContent = Storage::disk('customers_external')->get($tempPath);
@@ -1949,7 +1967,20 @@ class ShippingController extends Controller
                 // Post-Processing (Ghostscript/Resize)
                 if (strtolower($ext) === 'pdf') {
                     // Optimized GS settings for screen
-                    $this->runGhostscript($absPath, $absPath, 'medium'); 
+                    // FIX: Use temp output path to avoid overwriting input file during read
+                    $tempGsOutIdx = uniqid('gs_temp_');
+                    $tempGsOutPath = str_replace('.pdf', "_$tempGsOutIdx.pdf", $absPath);
+                    $gsSuccess = $this->runGhostscript($absPath, $tempGsOutPath, 'medium');
+                    
+                    if ($gsSuccess && file_exists($tempGsOutPath) && filesize($tempGsOutPath) > 0) {
+                        // Replace original with compressed
+                        if (file_exists($absPath)) @unlink($absPath);
+                        rename($tempGsOutPath, $absPath);
+                    } else {
+                        // Cleanup failed temp
+                         if (file_exists($tempGsOutPath)) @unlink($tempGsOutPath);
+                         Log::warning("GS Compression skipped/failed for $finalRelPath");
+                    }
                 } 
                 elseif (in_array(strtolower($ext), ['jpg', 'jpeg', 'png'])) {
                     // Simple Resize logic 
@@ -1960,18 +1991,37 @@ class ShippingController extends Controller
                 Storage::disk('customers_external')->delete($tempPath);
 
                 // Update DB
-                $targetDoc->update([
-                    'url_path_file' => $finalRelPath,
-                    'nama_file'     => $newFileName,
-                    'verify'        => $spk->internal_can_upload ? true : null, // Auto-verify if internal override
-                    'correction_attachment' => false,
-                    'kuota_revisi'  => ($targetDoc->kuota_revisi > 0) ? $targetDoc->kuota_revisi - 1 : 0, 
-                    'updated_at'    => now(),
-                ]);
+                // Update DB or Create New Version
+                if ($isReupload) {
+                     // VERSIONING: Replicate existing doc to create a NEW history entry
+                     $newDoc = $targetDoc->replicate();
+                     $newDoc->url_path_file = $finalRelPath;
+                     // $newDoc->nama_file = $newFileName; // Keep existing label
+                     $newDoc->verify = $spk->internal_can_upload ? true : null;
+                     $newDoc->correction_attachment = false;
+                     $newDoc->kuota_revisi = ($targetDoc->kuota_revisi > 0) ? $targetDoc->kuota_revisi - 1 : 0;
+                     $newDoc->created_at = now();
+                     $newDoc->updated_at = now();
+                     $newDoc->save();
+                     
+                     // Update logging target
+                     $logTargetId = $newDoc->id;
+                } else {
+                     // First Upload: Update the placeholder
+                     $targetDoc->update([
+                        'url_path_file' => $finalRelPath,
+                         // 'nama_file'     => $newFileName, // DISABLED
+                        'verify'        => $spk->internal_can_upload ? true : null,
+                        'correction_attachment' => false,
+                        'kuota_revisi'  => ($targetDoc->kuota_revisi > 0) ? $targetDoc->kuota_revisi - 1 : 0, 
+                        'updated_at'    => now(),
+                     ]);
+                     $logTargetId = $targetDoc->id;
+                }
 
                 // Create Log
                 DocumentStatus::on($tenantConnection)->create([
-                    'id_dokumen_trans' => $targetDoc->id,
+                    'id_dokumen_trans' => $logTargetId,
                     'status'           => 'Uploaded',
                     'by'               => $user->name,
                 ]);
@@ -2017,6 +2067,74 @@ class ShippingController extends Controller
             Log::error("Batch Process Error: " . $e->getMessage());
             return response()->json(['message' => $e->getMessage()], 500);
         }
+    }
+
+    /**
+     * Assign Staff manually (Supervisor Only)
+     */
+    public function assignStaff(Request $request, $id)
+    {
+        $user = auth('web')->user();
+
+        // 1. Authorization Check
+        if ($user->role !== 'internal' || $user->role_internal !== 'supervisor') {
+             abort(403, 'Unauthorized action.');
+        }
+
+        $validated = $request->validate([
+            'assigned_pic' => 'required|integer|exists:users,id_user'
+        ]);
+
+        // 2. Resolve Tenant
+        $tenant = null;
+        if ($user->id_perusahaan) {
+            $tenant = Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
+        } 
+
+        if (!$tenant) {
+            return response()->json(['message' => 'Tenant not found'], 404);
+        }
+
+        tenancy()->initialize($tenant);
+
+        // 3. Update SPK
+        $spk = Spk::findOrFail($id);
+        
+        // Prevent re-assigning same user to avoid spam
+        if ($spk->validated_by == $validated['assigned_pic']) {
+            return response()->json(['message' => 'User is already assigned.']);
+        }
+
+        $spk->update([
+            'validated_by' => $validated['assigned_pic']
+        ]);
+
+        // 4. Send Notification to Assigned Staff
+        // We can reuse NotificationService or manually trigger event
+        try {
+            $assignedUser = User::on('tako-user')->find($validated['assigned_pic']);
+            if ($assignedUser) {
+                // Remove old notifications for this SPK
+                \App\Models\Notification::where('id_spk', $spk->id)->delete();
+
+                // Create new notification
+                NotificationService::send([
+                    'send_to' => $assignedUser->id_user,
+                    'created_by' => $user->id_user,
+                    'id_spk' => $spk->id,
+                    'data' => [
+                        'type' => 'assignment',
+                        'title' => 'Assigned to SPK',
+                        'message' => "You have been assigned to SPK: {$spk->spk_code}",
+                        'url' => route('shipping.show', $spk->id),
+                    ]
+                ]);
+            }
+        } catch (\Exception $e) {
+            Log::error("Failed to send assignment notification: " . $e->getMessage());
+        }
+
+        return redirect()->back()->with('success', 'Staff has been assigned successfully.');
     }
 
     /**

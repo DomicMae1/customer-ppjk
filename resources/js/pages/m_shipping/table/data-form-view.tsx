@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { router, usePage } from '@inertiajs/react';
@@ -28,6 +29,7 @@ interface ShipmentData {
     shipmentType: string;
     is_internal: boolean;
     internal_can_upload?: boolean; // Added
+    validated_by?: number; // Added for initial value
     spkDate: string;
     type: string;
     siNumber: string;
@@ -105,13 +107,17 @@ export default function ViewCustomerForm({
     sectionsTransProp, // Data Section Transaksional
     masterDocProp, // Data Master Document (opsional, untuk fallback help)
     userRole, // NEW: User role for role-based visibility
+    internalStaff = [], // NEW: Internal Staff list for supervisor
 }: any) {
     const { props } = usePage();
     const trans = props.trans_general as Record<string, string>;
     const currentLocale = props.locale as string;
 
     // Check if user is internal (not external)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const auth = (props.auth as any) || {};
     const isInternalUser = userRole !== 'eksternal';
+    const isSupervisor = auth.user?.role === 'internal' && auth.user?.role_internal === 'supervisor';
 
     const [tempFiles, setTempFiles] = useState<Record<number, string>>({});
     const [activeSection, setActiveSection] = useState<number | null>(null);
@@ -134,6 +140,11 @@ export default function ViewCustomerForm({
     const videoUrl = selectedHelpData?.link_url_video_file;
     const videoId = videoUrl ? getYouTubeId(videoUrl) : null;
     const thumbnailUrl = videoId ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg` : null;
+
+    const [deadlines, setDeadlines] = useState<Record<number, string>>({});
+
+    // New State for Staff Assignment
+    const [selectedStaff, setSelectedStaff] = useState<string>(shipmentDataProp?.validated_by ? String(shipmentDataProp.validated_by) : '');
 
     // Verification states
     const [verifyingDocId, setVerifyingDocId] = useState<number | null>(null);
@@ -749,12 +760,64 @@ export default function ViewCustomerForm({
         }
     };
 
+    const handleAssignStaff = () => {
+        if (!selectedStaff) {
+            toast.warning(trans.select_staff_placeholder || 'Please select a staff member');
+            return;
+        }
+
+        router.post(`/shipping/${shipmentData.id_spk}/assign-staff`, {
+            assigned_pic: selectedStaff
+        }, {
+            preserveScroll: true,
+            onSuccess: () => {
+                toast.success('Staff assigned successfully');
+            },
+            onError: (errors) => {
+                toast.error('Failed to assign staff');
+                console.error(errors);
+            }
+        });
+    };
+
     return (
         <div className="w-full max-w-md bg-white p-4 font-sans text-sm text-gray-900">
             {/* --- SPK Created Card --- */}
             <div className="mb-5 rounded-lg border border-gray-200 p-3 shadow-sm">
                 <div className="font-bold text-black">{shipmentData.status ? shipmentData.status.toUpperCase() : 'STATUS UNKNOWN'}</div>
                 <div className="text-gray-600">{shipmentData.spkDate}</div>
+
+                {/* SUPERVISOR: Assign Staff */}
+                {isSupervisor && (
+                    <div className="mt-4 border-t pt-3">
+                        <Label className="mb-2 block text-xs font-bold text-gray-700">{trans.assign_staff || 'Assign Staff'}</Label>
+                        <div className="flex items-center gap-2">
+                            <Select value={selectedStaff} onValueChange={setSelectedStaff}>
+                                <SelectTrigger className="h-8 flex-1 text-xs">
+                                    <SelectValue placeholder={trans.select_staff_placeholder || 'Select Staff'} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {internalStaff.length > 0 ? (
+                                        internalStaff.map((staff: any) => (
+                                            <SelectItem key={staff.id_user} value={String(staff.id_user)} className="text-xs">
+                                                {staff.name}
+                                            </SelectItem>
+                                        ))
+                                    ) : (
+                                        <div className="p-2 text-center text-xs text-gray-500">{trans.data_not_found || 'No staff found'}</div>
+                                    )}
+                                </SelectContent>
+                            </Select>
+                            <Button
+                                onClick={handleAssignStaff}
+                                className="h-8 rounded bg-black px-3 text-xs font-bold text-white hover:bg-gray-800"
+                                title={trans.assign || 'Assign'}
+                            >
+                                <Save className="h-3 w-3" />
+                            </Button>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* --- Shipment Details --- */}
@@ -821,9 +884,9 @@ export default function ViewCustomerForm({
                                                                 existingFile={
                                                                     !item.file && item.link
                                                                         ? {
-                                                                              nama_file: item.link,
-                                                                              path: `/file/view/${item.link}`,
-                                                                          }
+                                                                            nama_file: item.link,
+                                                                            path: `/file/view/${item.link}`,
+                                                                        }
                                                                         : undefined
                                                                 }
                                                                 onFileChange={(file) => {
@@ -1216,10 +1279,10 @@ export default function ViewCustomerForm({
                                                                                 existingFile={
                                                                                     tempFiles[doc.id]
                                                                                         ? {
-                                                                                              nama_file:
-                                                                                                  doc.master_document?.nama_dokumen || doc.nama_file,
-                                                                                              path: tempFiles[doc.id],
-                                                                                          }
+                                                                                            nama_file:
+                                                                                                doc.master_document?.nama_dokumen || doc.nama_file,
+                                                                                            path: tempFiles[doc.id],
+                                                                                        }
                                                                                         : undefined
                                                                                 }
                                                                                 uploadConfig={{
