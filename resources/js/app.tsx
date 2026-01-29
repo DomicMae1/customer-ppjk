@@ -7,6 +7,9 @@ import Pusher from 'pusher-js';
 import { createRoot } from 'react-dom/client';
 import { route as routeFn } from 'ziggy-js';
 import { initializeTheme } from './hooks/use-appearance';
+import Echo from 'laravel-echo';
+import Pusher from 'pusher-js';
+import { Toaster } from '@/components/ui/sonner';
 
 // Initialize Echo for WebSocket
 window.Pusher = Pusher;
@@ -36,7 +39,12 @@ createInertiaApp({
     setup({ el, App, props }) {
         const root = createRoot(el);
 
-        root.render(<App {...props} />);
+        root.render(
+            <>
+                <Toaster />
+                <App {...props} />
+            </>
+        );
     },
     progress: {
         color: '#4B5563',
