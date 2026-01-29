@@ -178,9 +178,7 @@ export default function ViewCustomerForm({
     useEffect(() => {
         if (shipmentDataProp?.spkNumber) {
             if ((window as any).Echo && shipmentDataProp.id_spk) {
-                console.log(`Listening to channel: shipping.${shipmentDataProp.id_spk}`);
                 (window as any).Echo.private(`shipping.${shipmentDataProp.id_spk}`).listen('ShippingDataUpdated', (e: any) => {
-                    console.log('Realtime update received:', e);
                     // Reload only the necessary data props
                     router.reload({ only: ['sectionsTransProp', 'shipmentDataProp'] });
                 });
@@ -254,8 +252,6 @@ export default function ViewCustomerForm({
         hsCodes: [],
         is_created_by_internal: false,
     };
-
-    console.log(shipmentData.is_created_by_internal);
 
     const additionalDocsList = [
         { id: 'phyto', label: 'Phytosanitary' },
@@ -416,8 +412,6 @@ export default function ViewCustomerForm({
         // 1. Set loading
         setProcessingSectionId(sectionId);
 
-        console.log('Current Temp Files State:', tempFiles); // Debugging Step 1
-
         // 2. Ambil data section saat ini
         const currentSection = sectionsTransProp.find((s: SectionTrans) => s.id === sectionId);
 
@@ -467,24 +461,20 @@ export default function ViewCustomerForm({
             return hasFile;
         });
 
-        console.log('Files to process:', filesToProcess); // Debugging Step 2
-
         try {
             // 4. Process documents (Batch Optimized)
             if (filesToProcess.length > 0) {
-                const attachmentsPayload = filesToProcess.map(doc => ({
+                const attachmentsPayload = filesToProcess.map((doc) => ({
                     path: tempFiles[doc.id],
                     document_id: doc.id,
-                    type: doc.nama_file // Filename/Type
+                    type: doc.nama_file, // Filename/Type
                 }));
 
                 const response = await axios.post('/shipping/batch-process-attachments', {
                     spk_id: shipmentData.id_spk,
                     section_name: currentSection.section_name,
-                    attachments: attachmentsPayload
+                    attachments: attachmentsPayload,
                 });
-
-                console.log('Batch Process Success:', response.data);
 
                 // Bersihkan state tempFiles
                 const newTempFiles = { ...tempFiles };
@@ -680,16 +670,14 @@ export default function ViewCustomerForm({
                 const attachmentsPayload = allDocsToProcess.map(({ doc }) => ({
                     path: tempFiles[doc.id],
                     document_id: doc.id,
-                    type: doc.nama_file
+                    type: doc.nama_file,
                 }));
 
                 const response = await axios.post('/shipping/batch-process-attachments', {
                     spk_id: shipmentData.id_spk,
                     section_name: sectionName,
-                    attachments: attachmentsPayload
+                    attachments: attachmentsPayload,
                 });
-
-                console.log('Batch Process Success:', response.data);
 
                 // Clear temp files
                 setTempFiles({});
@@ -709,7 +697,6 @@ export default function ViewCustomerForm({
 
             // 3. BATCH REJECTION (NEW - GLOBAL)
             if (pendingRejections.length > 0) {
-                console.log('Processing Global Rejections:', pendingRejections.length);
                 const rejectionPromises = pendingRejections.map(async (rejection) => {
                     const formData = new FormData();
                     formData.append('correction_description', rejection.note);
@@ -897,9 +884,9 @@ export default function ViewCustomerForm({
                                                                 existingFile={
                                                                     !item.file && item.link
                                                                         ? {
-                                                                            nama_file: item.link,
-                                                                            path: `/file/view/${item.link}`,
-                                                                        }
+                                                                              nama_file: item.link,
+                                                                              path: `/file/view/${item.link}`,
+                                                                          }
                                                                         : undefined
                                                                 }
                                                                 onFileChange={(file) => {
@@ -1292,10 +1279,10 @@ export default function ViewCustomerForm({
                                                                                 existingFile={
                                                                                     tempFiles[doc.id]
                                                                                         ? {
-                                                                                            nama_file:
-                                                                                                doc.master_document?.nama_dokumen || doc.nama_file,
-                                                                                            path: tempFiles[doc.id],
-                                                                                        }
+                                                                                              nama_file:
+                                                                                                  doc.master_document?.nama_dokumen || doc.nama_file,
+                                                                                              path: tempFiles[doc.id],
+                                                                                          }
                                                                                         : undefined
                                                                                 }
                                                                                 uploadConfig={{
