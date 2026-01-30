@@ -66,6 +66,7 @@ interface PageProps {
     sectionsTransProp: SectionTrans[];
     masterDocProp: MasterDocument[];
     docsTransProp: DocumentTrans[];
+    internalStaff?: any[]; // Added
     auth: {
         user: {
             role?: string;
@@ -76,7 +77,7 @@ interface PageProps {
 
 export default function PaymentsEdit() {
     const { props } = usePage();
-    const { customer, shipmentDataProp, masterSecProp, sectionsTransProp, masterDocProp, docsTransProp, auth } = props as unknown as PageProps;
+    const { customer, shipmentDataProp, masterSecProp, sectionsTransProp, masterDocProp, docsTransProp, auth, internalStaff } = props as unknown as PageProps;
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -90,6 +91,7 @@ export default function PaymentsEdit() {
                     masterDocProp={masterDocProp}
                     docsTransProp={docsTransProp}
                     userRole={auth?.user?.role}
+                    internalStaff={internalStaff} // Pass to Child Component
                 />
             </div>
         </AppLayout>
