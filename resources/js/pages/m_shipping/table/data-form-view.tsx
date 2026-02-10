@@ -246,6 +246,25 @@ export default function ViewCustomerForm({
         };
     }, [shipmentDataProp.id_spk]); // Only depend on the ID to prevent re-subscribing on data change
 
+    // Polling fallback: refresh shipment data every 15s when WebSocket is unavailable
+    useEffect(() => {
+        if (!shipmentDataProp?.id_spk) return;
+
+        const interval = setInterval(() => {
+            if (isSavingRef.current || isReloadingRef.current) return;
+
+            isReloadingRef.current = true;
+            router.reload({
+                only: ['sectionsTransProp', 'shipmentDataProp'],
+                onFinish: () => {
+                    isReloadingRef.current = false;
+                },
+            });
+        }, 15000); // 15 seconds
+
+        return () => clearInterval(interval);
+    }, [shipmentDataProp.id_spk]);
+
     // Initialize deadline states from database data
     useEffect(() => {
         if (sectionsTransProp && sectionsTransProp.length > 0) {

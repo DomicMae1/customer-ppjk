@@ -51,8 +51,8 @@ RUN echo '<VirtualHost *:80>\n\
     ProxyPreserveHost On\n\
     \n\
     # Proxy /app/ ke Reverb WebSocket server\n\
-    ProxyPass "/app/" "ws://reverb:8080/app/"\n\
-    ProxyPassReverse "/app/" "ws://reverb:8080/app/"\n\
+    ProxyPass "/app/" "http://reverb:8080/app/" upgrade=websocket\n\
+    ProxyPassReverse "/app/" "http://reverb:8080/app/"\n\
     # --------------------------------\n\
     \n\
     ErrorLog ${APACHE_LOG_DIR}/error.log\n\
