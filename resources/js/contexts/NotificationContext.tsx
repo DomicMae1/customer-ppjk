@@ -153,17 +153,9 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
         }
     }, [userId, userRole]);
 
-    // Fetch initial data + polling fallback for when WebSocket is unavailable
+    // Fetch initial data
     useEffect(() => {
         fetchUnreadCount();
-        fetchNotifications();
-
-        // Poll every 10 seconds as fallback (works even if WebSocket is blocked)
-        const interval = setInterval(() => {
-            fetchUnreadCount();
-        }, 10000);
-
-        return () => clearInterval(interval);
     }, []);
 
     const value: NotificationContextType = {
