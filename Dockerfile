@@ -81,7 +81,7 @@ COPY . .
 RUN composer install --optimize-autoloader --no-dev
 
 # Install dependency JS & Build
-RUN chmod -R +x node_modules/.bin && npm install && npm run build
+RUN npm install && chmod -R +x node_modules/.bin && npm run build
 
 # Buat Script Startup (Entrypoint)
 # UPDATED: Changed /mnt/Customer_Registration to /mnt/Ppjk
