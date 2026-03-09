@@ -19,16 +19,21 @@ class RoleAndPermissionSeeder extends Seeder
 
         // 2. Definisi Permissions
         $customPermissions = [
-            // Email Permissions
-            'create-email-manager-master-shipping',
-            'create-email-direktur-master-shipping',
-            'create-email-lawyer-master-shipping',
 
-            // Role Specific View/Create
-            'view-manager-master-shipping',
-            'create-manager-master-shipping',
-            'view-direktur-master-shipping',
-            'create-direktur-master-shipping',
+            // Create Page Permissions
+            'create-user',
+            'create-customer',
+            'create-document',
+
+            // View Page Permissions
+            'view-user',
+            'view-customer',
+            'view-document',
+
+            // Update Page Permissions
+            'update-user',
+            'update-customer',
+            'update-document',
         ];
 
         foreach ($customPermissions as $perm) {
@@ -77,19 +82,33 @@ class RoleAndPermissionSeeder extends Seeder
         // Manager
         $rolesObj['manager']->syncPermissions([
             'create-master-shipping',
+            'update-master-shipping',
             'view-master-shipping',
-            'view-manager-master-shipping',
-            'create-manager-master-shipping',
-            'create-email-manager-master-shipping',
+            'create-user',
+            'create-customer',
+            'create-document',
+            'view-user',
+            'view-customer',
+            'view-document',
+            'update-user',
+            'update-customer',
+            'update-document',
         ]);
 
         // Direktur
         $rolesObj['supervisor']->syncPermissions([
             'create-master-shipping',
+            'update-master-shipping',
             'view-master-shipping',
-            'view-direktur-master-shipping',
-            'create-direktur-master-shipping',
-            'create-email-direktur-master-shipping',
+            'create-user',
+            'create-customer',
+            'create-document',
+            'view-user',
+            'view-customer',
+            'view-document',
+            'update-user',
+            'update-customer',
+            'update-document',
         ]);
 
         // Customer

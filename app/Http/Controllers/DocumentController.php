@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\MasterDocument;
 use App\Models\MasterSection; // Asumsi ada model ini
 use App\Models\MasterDocumentTrans;
+use Spatie\Permission\Exceptions\UnauthorizedException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
@@ -18,6 +19,11 @@ class DocumentController extends Controller
     public function index(Request $request)
     {
         $user = Auth::user();
+
+        if (!$user->hasPermissionTo('view-document')) {
+            throw UnauthorizedException::forPermissions(['view-document']);
+        }
+        
         $documents = [];
 
         // --- 1. LOGIC MANAGER/SUPERVISOR (TENANT) ---
