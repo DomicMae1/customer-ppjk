@@ -21,8 +21,8 @@ class CustomerController extends Controller
     {
         $user = auth('web')->user();
 
-        if (!$user->hasPermissionTo('view-customer')) {
-            throw UnauthorizedException::forPermissions(['view-customer']);
+        if (!$user->hasPermissionTo('view-shipping')) {
+            return redirect('/shipping')->with('error', 'Anda tidak memiliki akses ke halaman tersebut.');
         }
 
         // 1. Mulai Query dasar dengan relasi

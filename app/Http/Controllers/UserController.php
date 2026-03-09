@@ -27,7 +27,7 @@ class UserController extends Controller
         $user = Auth::user();
 
         if (!$user->hasPermissionTo('view-user')) {
-            throw UnauthorizedException::forPermissions(['view-user']);
+            return redirect('/shipping')->with('error', 'Anda tidak memiliki akses ke halaman tersebut.');
         }
 
         $usersQuery = User::with(['role_internal', 'roles']);
