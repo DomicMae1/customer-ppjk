@@ -95,6 +95,12 @@ php artisan tenant:migrate-transaction
 php artisan tenant:migrate-transaction alpha
 ```
 
+### Check tenants/company DB
+```bash
+#before we cutoff tenants_trans_db you should check all db with this action
+php artisan tenants:list
+```
+
 ### Cut-off tahunan
 
 ```bash
