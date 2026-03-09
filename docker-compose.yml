@@ -48,6 +48,9 @@ services:
       # Mounting storage public for consistency
       - ./storage/app/public:/var/www/html/storage/app/public
       - /mnt/Ppjk:/mnt/Ppjk
+      - /home/it-staff/sites-available:/etc/apache2/sites-available
+      - /home/it-staff/sites-enabled:/etc/apache2/sites-enabled
+      - /home/it-staff/letsencrypt:/etc/letsencrypt
       - /etc/hosts:/tmp/hosts_external:ro
 
     depends_on:
