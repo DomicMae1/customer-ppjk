@@ -21,9 +21,9 @@ class DocumentController extends Controller
         $user = Auth::user();
 
         if (!$user->hasPermissionTo('view-document')) {
-            throw UnauthorizedException::forPermissions(['view-document']);
+            return redirect('/shipping')->with('error', 'Anda tidak memiliki akses ke halaman tersebut.');
         }
-        
+
         $documents = [];
 
         // --- 1. LOGIC MANAGER/SUPERVISOR (TENANT) ---
