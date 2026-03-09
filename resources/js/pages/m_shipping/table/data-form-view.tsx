@@ -1223,19 +1223,7 @@ export default function ViewCustomerForm({
                                 id="unified_deadline"
                                 className="h-4 w-4 rounded border-2 border-gray-400 data-[state=checked]:bg-black data-[state=checked]:text-white"
                                 checked={useUnifiedDeadline}
-                                onCheckedChange={(checked) => {
-                                    if (checked === true) {
-                                        // Check if any section already has an individual deadline set
-                                        const hasIndividualDeadline = sectionsTransProp?.some(
-                                            (s: SectionTrans) => s.deadline_date && String(s.deadline_date).trim() !== ''
-                                        );
-                                        if (hasIndividualDeadline) {
-                                            toast.warning('Tidak bisa mengaktifkan deadline global karena ada section yang sudah memiliki deadline individual.');
-                                            return;
-                                        }
-                                    }
-                                    setUseUnifiedDeadline(checked === true);
-                                }}
+                                onCheckedChange={(checked) => setUseUnifiedDeadline(checked === true)}
                             />
                             <label htmlFor="unified_deadline" className="cursor-pointer text-sm text-gray-600">
                                 {trans.apply_deadline_all}
