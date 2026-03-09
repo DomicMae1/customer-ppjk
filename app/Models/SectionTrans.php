@@ -12,6 +12,7 @@ class SectionTrans extends Model
     use HasFactory;
 
     // protected $connection = 'tako-user';
+    protected $connection = 'tenant-transaction';
     protected $table = 'section_trans';
 
     // PENTING: Definisi Primary Key baru
