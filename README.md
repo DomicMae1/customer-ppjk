@@ -31,13 +31,13 @@ php artisan key:generate
 
 ## 5. Artisan migrate database
 
-### make new database (user)
+### Migrate Central DB (users, master data, tenants)
 
 ```bash
 php artisan migrate --database=tako-user --path=database/migrations/user
 ```
 
-### refresh database
+### Refresh Central DB
 
 ```bash
 php artisan migrate:fresh --database=tako-user --path=database/migrations/user
@@ -45,8 +45,18 @@ php artisan migrate:fresh --database=tako-user --path=database/migrations/user
 
 ## 6. Make a Seeder
 
+This will:
+- Seed roles, permissions, users, master data into Central DB
+- Create tenants (auto-creates Tenant DB + Transactional DB per company)
+
 ```bash
 php artisan db:seed
+```
+
+### Seed document templates per tenant (if needed separately)
+
+```bash
+php artisan tenants:seed
 ```
 
 ## 7. Running Laravel (backend)
@@ -67,7 +77,42 @@ npm run dev
 php artisan reverb:start --debug
 ```
 
-## 10. If u want to update all database
+## 10. Database Architecture (3-Layer)
+
+```
+Central DB (mastertako_ppjk)     → users, customers, master data, tenants
+Tenant DB (tenant{id})           → master_documents_trans (document templates)
+Transactional DB (tenant{id}_trans_live) → spk, documents, statuses, notifications
+```
+
+### Migrate transactional DB manually (if needed)
+
+```bash
+# Migrate all tenants
+php artisan tenant:migrate-transaction
+
+# Migrate specific tenant
+php artisan tenant:migrate-transaction alpha
+```
+
+### Check tenants/company DB
+```bash
+#before we cutoff tenants_trans_db you should check all db with this action
+php artisan tenants:list
+```
+
+### Cut-off tahunan
+
+```bash
+# Cut-off a tenant (archive current year, create fresh DB) 
+# make sure you already backup the database before running this command
+php artisan tenant:cutoff alpha 2026
+
+# Force (skip confirmation)
+php artisan tenant:cutoff alpha 2026 --force
+```
+
+## 11. If u want to update all database
 
 ### remove all database
 

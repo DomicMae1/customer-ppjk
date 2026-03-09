@@ -10,6 +10,7 @@ class DocumentStatus extends Model
 {
     use HasFactory;
 
+    protected $connection = 'tenant-transaction';
     protected $table = 'document_statuses';
 
     protected $fillable = [

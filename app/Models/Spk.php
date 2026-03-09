@@ -12,6 +12,7 @@ class Spk extends Model
     use HasFactory;
 
     // protected $connection = 'tako-user';
+    protected $connection = 'tenant-transaction';
     protected $table = 'spk';
 
     protected $fillable = [

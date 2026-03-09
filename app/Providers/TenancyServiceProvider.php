@@ -12,6 +12,8 @@ use Stancl\Tenancy\Events;
 use Stancl\Tenancy\Jobs;
 use Stancl\Tenancy\Listeners;
 use Stancl\Tenancy\Middleware;
+use App\Tenancy\Jobs\CreateTransactionDatabase;
+use App\Tenancy\Jobs\MigrateTransactionDatabase;
 
 class TenancyServiceProvider extends ServiceProvider
 {
@@ -27,10 +29,11 @@ class TenancyServiceProvider extends ServiceProvider
                 JobPipeline::make([
                     Jobs\CreateDatabase::class,
                     Jobs\MigrateDatabase::class,
-                    // Jobs\SeedDatabase::class,
+                    Jobs\SeedDatabase::class, // Seeds master_documents_trans via TenantDocumentSeeder
 
-                    // Your own jobs to prepare the tenant.
-                    // Provision API keys, create S3 buckets, anything you want!
+                    // Transaction database (NEW: 3-layer architecture)
+                    CreateTransactionDatabase::class,
+                    MigrateTransactionDatabase::class,
 
                 ])->send(function (Events\TenantCreated $event) {
                     return $event->tenant;

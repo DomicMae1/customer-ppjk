@@ -11,6 +11,7 @@ class DocumentTrans extends Model
     use HasFactory;
 
     // Nama Tabel
+    protected $connection = 'tenant-transaction';
     protected $table = 'document_trans';
 
     protected $primaryKey = 'id';

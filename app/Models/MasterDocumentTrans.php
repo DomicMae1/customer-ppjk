@@ -11,6 +11,7 @@ class MasterDocumentTrans extends Model
     use HasFactory;
 
     // 2. Nama Tabel
+    protected $connection = 'tenant';
     protected $table = 'master_documents_trans';
 
     // 3. Primary Key
@@ -20,8 +21,8 @@ class MasterDocumentTrans extends Model
     protected $fillable = [
         'id_section',
         'nama_file',
-        'is_internal', // Added
-        'is_verification', // New
+        'is_internal',
+        'is_verification',
         'attribute',
         'link_path_example_file',
         'link_path_template_file',

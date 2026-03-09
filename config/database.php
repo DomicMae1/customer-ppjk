@@ -153,6 +153,20 @@ return [
             'search_path' => 'public',
             'sslmode' => 'prefer',
         ],
+
+        'tenant-transaction' => [
+            'driver' => 'pgsql',
+            'host' => env('DB_SECOND_HOST', '127.0.0.1'),
+            'port' => env('DB_SECOND_PORT', '5432'),
+            'database' => null, // Resolved at runtime by TransactionDatabaseBootstrapper
+            'username' => env('DB_SECOND_USERNAME'),
+            'password' => env('DB_SECOND_PASSWORD'),
+            'charset' => 'utf8',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'search_path' => 'public',
+            'sslmode' => 'prefer',
+        ],
     ],
 
     /*

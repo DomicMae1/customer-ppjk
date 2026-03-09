@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Hash;
+use Spatie\Permission\Exceptions\UnauthorizedException;
 use Illuminate\Validation\Rules;
 use Inertia\Response;
 use Illuminate\Support\Facades\Auth;
@@ -24,6 +25,10 @@ class UserController extends Controller
     public function index()
     {
         $user = Auth::user();
+
+        if (!$user->hasPermissionTo('view-user')) {
+            throw UnauthorizedException::forPermissions(['view-user']);
+        }
 
         $usersQuery = User::with(['role_internal', 'roles']);
     

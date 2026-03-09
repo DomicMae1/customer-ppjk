@@ -11,6 +11,7 @@ class Notification extends Model
     use HasFactory;
     
     // Connection managed by stancl/tenancy - no hardcoded connection needed
+    protected $connection = 'tenant-transaction';
     protected $table = 'notification'; // FIX: Database uses 'notification' (singular)
     protected $primaryKey = 'id_notification'; // FIX: Table uses id_notification, not id
 

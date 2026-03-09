@@ -12,6 +12,7 @@ class HsCode extends Model
     use HasFactory;
 
     // protected $connection = 'tako-user';
+    protected $connection = 'tenant-transaction';
     protected $table = 'hs_codes';
 
     // PENTING: Definisi Primary Key baru

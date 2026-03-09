@@ -21,6 +21,10 @@ class CustomerController extends Controller
     {
         $user = auth('web')->user();
 
+        if (!$user->hasPermissionTo('view-customer')) {
+            throw UnauthorizedException::forPermissions(['view-customer']);
+        }
+
         // 1. Mulai Query dasar dengan relasi
         $query = Customer::with([
             'perusahaan',
