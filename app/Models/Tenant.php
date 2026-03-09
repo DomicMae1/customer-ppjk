@@ -16,6 +16,15 @@ class Tenant extends BaseTenant implements TenantWithDatabase
         return ['id', 'perusahaan_id'];
     }
 
+    /**
+     * Get the transactional database name for this tenant.
+     * Format: tenant{id}_trans_live
+     */
+    public function getTransactionDatabaseName(): string
+    {
+        return 'tenant' . $this->id . '_trans_live';
+    }
+
     public function perusahaan()
     {
         return $this->belongsTo(Perusahaan::class, 'perusahaan_id', 'id_perusahaan');

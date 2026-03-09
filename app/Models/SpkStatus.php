@@ -10,6 +10,7 @@ class SpkStatus extends Model
 {
     use HasFactory;
 
+    protected $connection = 'tenant-transaction';
     protected $table = 'spk_statuses';
 
     protected $fillable = [

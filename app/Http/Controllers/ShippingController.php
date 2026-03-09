@@ -1550,12 +1550,12 @@ class ShippingController extends Controller
             return response()->json(['success' => false, 'message' => 'Tenant not found'], 404);
         }
         tenancy()->initialize($tenant);
-        $tenantConnection = 'tenant';
 
         $spk = Spk::findOrFail($spkId);
         $metrics = ['uploads' => 0, 'verifications' => 0, 'rejections' => 0, 'deadline' => false];
 
         DB::beginTransaction();
+        DB::connection('tenant-transaction')->beginTransaction();
         try {
             // --- A. PROCESS ATTACHMENTS ---
             if ($request->has('attachments') && is_array($request->attachments)) {
@@ -1569,7 +1569,7 @@ class ShippingController extends Controller
                         if (!Storage::disk('customers_external')->exists($tempPath)) continue;
                     }
 
-                    $targetDoc = DocumentTrans::on($tenantConnection)->with('sectionTrans')->find($att['document_id']);
+                    $targetDoc = DocumentTrans::with('sectionTrans')->find($att['document_id']);
                     if (!$targetDoc) continue;
 
                     if ($targetDoc->sectionTrans) {
@@ -1621,7 +1621,7 @@ class ShippingController extends Controller
                         $logId = $targetDoc->id;
                     }
 
-                    DocumentStatus::on($tenantConnection)->create(['id_dokumen_trans' => $logId, 'status' => 'Uploaded', 'by' => $user->name]);
+                    DocumentStatus::create(['id_dokumen_trans' => $logId, 'status' => 'Uploaded', 'by' => $user->name]);
                     $metrics['uploads']++;
                 }
 
@@ -1639,9 +1639,9 @@ class ShippingController extends Controller
             // --- B. VERIFICATIONS ---
             if ($request->has('verified_ids') && is_array($request->verified_ids)) {
                 $ids = $request->verified_ids;
-                DocumentTrans::on($tenantConnection)->whereIn('id', $ids)->update(['verify' => true, 'correction_attachment' => false, 'updated_at' => now()]);
+                DocumentTrans::whereIn('id', $ids)->update(['verify' => true, 'correction_attachment' => false, 'updated_at' => now()]);
                 foreach ($ids as $id) {
-                    DocumentStatus::on($tenantConnection)->create(['id_dokumen_trans' => $id, 'status' => 'Verified', 'by' => $user->name]);
+                    DocumentStatus::create(['id_dokumen_trans' => $id, 'status' => 'Verified', 'by' => $user->name]);
                 }
                 SpkStatus::create(['id_spk' => $spk->id, 'id_status' => 2, 'status' => "{$sectionName} Verified"]);
                 $this->sendBatchVerificationNotification($spk, $sectionName, $user, count($ids));
@@ -1652,15 +1652,15 @@ class ShippingController extends Controller
             if ($request->has('rejections') && is_array($request->rejections)) {
                 $rejSecs = [];
                 foreach ($request->rejections as $index => $rej) {
-                    $doc = DocumentTrans::on($tenantConnection)->with('sectionTrans')->findOrFail($rej['doc_id']);
+                    $doc = DocumentTrans::with('sectionTrans')->findOrFail($rej['doc_id']);
                     if ($doc->sectionTrans) $rejSecs[$doc->sectionTrans->id] = $doc->sectionTrans->section_name;
                     
-                    $rejPath = $doc->correction_attachment_file;
+                    $rejPath = null; // Reset — don't carry over file from previous rejection
                     $file = $request->file("rejections.$index.file");
                     if ($file) $rejPath = $file->store('corrections', 'customers_external');
 
                     $doc->update(['verify' => false, 'correction_attachment' => true, 'correction_description' => $rej['note'], 'correction_attachment_file' => $rejPath]);
-                    DocumentStatus::on($tenantConnection)->create(['id_dokumen_trans' => $doc->id, 'status' => 'Rejected', 'by' => $user->name]);
+                    DocumentStatus::create(['id_dokumen_trans' => $doc->id, 'status' => 'Rejected', 'by' => $user->name]);
                     $metrics['rejections']++;
                 }
                 if ($metrics['rejections'] > 0) {
@@ -1672,13 +1672,17 @@ class ShippingController extends Controller
 
             // --- D. DEADLINE ---
             if ($request->deadline) {
-                $st = SectionTrans::on($tenantConnection)->where(['id_spk' => $spk->id, 'id_section' => $sectionId])->first();
+                $st = SectionTrans::where(['id_spk' => $spk->id, 'id_section' => $sectionId])->first();
                 if ($st) {
-                    $st->update(['deadline' => $request->deadline]);
+                    $st->update([
+                        'deadline' => true,
+                        'deadline_date' => $request->deadline,
+                    ]);
                     $metrics['deadline'] = true;
                 }
             }
 
+            DB::connection('tenant-transaction')->commit();
             DB::commit();
             
             try {
@@ -1694,6 +1698,7 @@ class ShippingController extends Controller
             return response()->json(['success' => true, 'metrics' => $metrics]);
 
         } catch (\Throwable $e) {
+            DB::connection('tenant-transaction')->rollBack();
             DB::rollBack();
             Log::error("Unified Save Fail: " . $e->getMessage());
 
