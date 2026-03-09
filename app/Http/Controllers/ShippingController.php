@@ -1711,6 +1711,74 @@ class ShippingController extends Controller
     }
 
     /**
+     * Update deadline (Global or Per-Section)
+     */
+    public function updateDeadline(Request $request)
+    {
+        $user = auth('web')->user();
+
+        // 1. Initialize Tenancy
+        $tenant = null;
+        if ($user->id_perusahaan) {
+            $tenant = Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
+        } elseif ($user->id_customer) {
+            $customer = Customer::find($user->id_customer);
+            if ($customer && $customer->ownership) {
+                $tenant = Tenant::where('perusahaan_id', $customer->ownership)->first();
+            }
+        }
+
+        if (!$tenant) {
+            return response()->json(['success' => false, 'message' => 'Tenant not found'], 404);
+        }
+
+        tenancy()->initialize($tenant);
+
+        $request->validate([
+            'spk_id' => 'required',
+            'unified' => 'required|boolean',
+            'global_deadline' => 'nullable|string',
+            'section_deadlines' => 'nullable|array',
+        ]);
+
+        try {
+            DB::connection('tenant-transaction')->beginTransaction();
+
+            if ($request->unified) {
+                // Update all sections for this SPK
+                SectionTrans::where('id_spk', $request->spk_id)->update([
+                    'deadline' => true,
+                    'deadline_date' => $request->global_deadline
+                ]);
+            } else {
+                // Update specific sections
+                if ($request->has('section_deadlines')) {
+                    foreach ($request->section_deadlines as $sectionId => $date) {
+                        SectionTrans::where(['id_spk' => $request->spk_id, 'id' => $sectionId])->update([
+                            'deadline' => true,
+                            'deadline_date' => $date
+                        ]);
+                    }
+                }
+            }
+
+            DB::connection('tenant-transaction')->commit();
+
+            try {
+                broadcast(new ShippingDataUpdated($request->spk_id, 'deadline_update'))->toOthers();
+            } catch (\Exception $e) {
+                Log::error('Realtime update failed: ' . $e->getMessage());
+            }
+
+            return response()->json(['success' => true, 'message' => 'Deadline updated successfully']);
+        } catch (\Exception $e) {
+            DB::connection('tenant-transaction')->rollBack();
+            Log::error('Failed to update deadline: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Failed to update deadline: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
      * Update penjaluran (jalur merah/biru) for SPK
      */
     public function updatePenjaluran(Request $request)
