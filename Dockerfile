@@ -31,6 +31,8 @@ max_execution_time = 600\n\
 
 # Aktifkan mod_rewrite
 RUN a2enmod rewrite ssl proxy proxy_http proxy_wstunnel
+RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf
+RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf
 
 # Ubah DocumentRoot Apache
 ENV APACHE_DOCUMENT_ROOT /var/www/html/public
@@ -79,7 +81,7 @@ COPY . .
 RUN composer install --optimize-autoloader --no-dev
 
 # Install dependency JS & Build
-RUN npm install && npm run build
+RUN chmod -R +x node_modules/.bin && npm install && npm run build
 
 # Buat Script Startup (Entrypoint)
 # UPDATED: Changed /mnt/Customer_Registration to /mnt/Ppjk
