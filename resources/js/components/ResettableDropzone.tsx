@@ -41,7 +41,7 @@ export function ResettableDropzone({
     existingFile,
     validation = {
         accept: { 'application/pdf': ['.pdf'] },
-        maxSize: 5 * 1024 * 1024, // 5MB
+        maxSize: 20 * 1024 * 1024, // 20MB
     },
     uploadConfig,
     disabled = false,
