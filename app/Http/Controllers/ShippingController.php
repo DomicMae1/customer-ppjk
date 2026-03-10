@@ -1779,6 +1779,67 @@ class ShippingController extends Controller
     }
 
     /**
+     * Update internal_can_upload toggle for SPK (Supervisor only)
+     */
+    public function updateInternalCanUpload(Request $request)
+    {
+        $user = auth('web')->user();
+
+        // Supervisor-only guard
+        if ($user->role !== 'internal' || $user->role_internal !== 'supervisor') {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+        }
+
+        // Initialize tenant context FIRST
+        $tenant = null;
+        if ($user->id_perusahaan) {
+            $tenant = Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
+        } elseif ($user->id_customer) {
+            $customer = Customer::find($user->id_customer);
+            if ($customer && $customer->ownership) {
+                $tenant = Tenant::where('perusahaan_id', $customer->ownership)->first();
+            }
+        }
+
+        if (!$tenant) {
+            return response()->json(['success' => false, 'message' => 'Tenant not found'], 404);
+        }
+
+        tenancy()->initialize($tenant);
+
+        $validated = $request->validate([
+            'id_spk'              => 'required|integer|exists:spk,id',
+            'internal_can_upload' => 'required|boolean',
+        ]);
+
+        try {
+            $spk = Spk::findOrFail($validated['id_spk']);
+            $spk->update(['internal_can_upload' => $validated['internal_can_upload']]);
+
+            Log::info('internal_can_upload updated', [
+                'spk_id'              => $spk->id,
+                'internal_can_upload' => $validated['internal_can_upload'],
+                'by'                  => $user->id_user,
+            ]);
+
+            try {
+                ShippingDataUpdated::dispatch($spk->id, 'internal_can_upload_update');
+            } catch (\Exception $e) {
+                Log::error('Realtime update failed: ' . $e->getMessage());
+            }
+
+            return response()->json([
+                'success'             => true,
+                'message'             => 'Upload mode updated',
+                'internal_can_upload' => $validated['internal_can_upload'],
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Failed to update internal_can_upload: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Failed to update upload mode'], 500);
+        }
+    }
+
+    /**
      * Update penjaluran (jalur merah/biru) for SPK
      */
     public function updatePenjaluran(Request $request)

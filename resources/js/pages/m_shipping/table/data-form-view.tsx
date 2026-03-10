@@ -176,6 +176,10 @@ export default function ViewCustomerForm({
     // New State for Staff Assignment
     const [selectedStaff, setSelectedStaff] = useState<string>(shipmentDataProp?.validated_by ? String(shipmentDataProp.validated_by) : '');
 
+    // Toggle internal_can_upload
+    const [internalCanUpload, setInternalCanUpload] = useState<boolean>(shipmentDataProp?.internal_can_upload ?? false);
+    const [isUpdatingUploadMode, setIsUpdatingUploadMode] = useState(false);
+
     // Verification states
     const [verifyingDocId, setVerifyingDocId] = useState<number | null>(null);
     const [rejectionModalOpen, setRejectionModalOpen] = useState(false);
@@ -962,6 +966,26 @@ export default function ViewCustomerForm({
         });
     };
 
+    const handleToggleInternalCanUpload = async (value: boolean) => {
+        setIsUpdatingUploadMode(true);
+        try {
+            const response = await axios.post('/shipping/update-internal-can-upload', {
+                id_spk: shipmentData.id_spk,
+                internal_can_upload: value,
+            });
+            if (response.data.success) {
+                setInternalCanUpload(value);
+                toast.success(value ? 'Mode: Staff Upload aktif' : 'Mode: Dual Upload aktif');
+            } else {
+                toast.error(response.data.message || 'Gagal mengubah upload mode');
+            }
+        } catch (error: any) {
+            toast.error(error.response?.data?.message || 'Gagal mengubah upload mode');
+        } finally {
+            setIsUpdatingUploadMode(false);
+        }
+    };
+
     // Calculate overall progress across all sections
     const calculateProgress = () => {
         let totalDocs = 0;
@@ -1016,32 +1040,70 @@ export default function ViewCustomerForm({
 
                 {/* SUPERVISOR: Assign Staff */}
                 {isSupervisor && (
-                    <div className="mt-5 border-t border-slate-100 pt-4">
-                        <Label className="mb-2 block text-[11px] font-bold uppercase tracking-wider text-slate-500">{trans.assign_staff || 'Assign Staff'}</Label>
-                        <div className="flex items-center gap-2">
-                            <Select value={selectedStaff} onValueChange={setSelectedStaff}>
-                                <SelectTrigger className="h-9 flex-1 text-xs border-slate-200 rounded-lg focus:ring-blue-500/20">
-                                    <SelectValue placeholder={trans.select_staff_placeholder || 'Select Staff'} />
-                                </SelectTrigger>
-                                <SelectContent className="rounded-xl shadow-xl border-slate-200">
-                                    {internalStaff.length > 0 ? (
-                                        internalStaff.map((staff: any) => (
-                                            <SelectItem key={staff.id_user} value={String(staff.id_user)} className="text-xs focus:bg-blue-50">
-                                                {staff.name}
-                                            </SelectItem>
-                                        ))
-                                    ) : (
-                                        <div className="p-2 text-center text-xs text-slate-500">{trans.data_not_found || 'No staff found'}</div>
-                                    )}
-                                </SelectContent>
-                            </Select>
-                            <Button
-                                onClick={handleAssignStaff}
-                                className="h-9 rounded-lg bg-slate-900 px-3 text-xs font-bold text-white hover:bg-slate-800 transition-colors shadow-sm"
-                                title={trans.assign || 'Assign'}
-                            >
-                                <Save className="h-3.5 w-3.5" />
-                            </Button>
+                    <div className="mt-5 border-t border-slate-100 pt-4 space-y-4">
+                        {/* Assign Staff */}
+                        <div>
+                            <Label className="mb-2 block text-[11px] font-bold uppercase tracking-wider text-slate-500">{trans.assign_staff || 'Assign Staff'}</Label>
+                            <div className="flex items-center gap-2">
+                                <Select value={selectedStaff} onValueChange={setSelectedStaff}>
+                                    <SelectTrigger className="h-9 flex-1 text-xs border-slate-200 rounded-lg focus:ring-blue-500/20">
+                                        <SelectValue placeholder={trans.select_staff_placeholder || 'Select Staff'} />
+                                    </SelectTrigger>
+                                    <SelectContent className="rounded-xl shadow-xl border-slate-200">
+                                        {internalStaff.length > 0 ? (
+                                            internalStaff.map((staff: any) => (
+                                                <SelectItem key={staff.id_user} value={String(staff.id_user)} className="text-xs focus:bg-blue-50">
+                                                    {staff.name}
+                                                </SelectItem>
+                                            ))
+                                        ) : (
+                                            <div className="p-2 text-center text-xs text-slate-500">{trans.data_not_found || 'No staff found'}</div>
+                                        )}
+                                    </SelectContent>
+                                </Select>
+                                <Button
+                                    onClick={handleAssignStaff}
+                                    className="h-9 rounded-lg bg-slate-900 px-3 text-xs font-bold text-white hover:bg-slate-800 transition-colors shadow-sm"
+                                    title={trans.assign || 'Assign'}
+                                >
+                                    <Save className="h-3.5 w-3.5" />
+                                </Button>
+                            </div>
+                        </div>
+
+                        {/* Upload Mode Toggle */}
+                        <div>
+                            <Label className="mb-2 block text-[11px] font-bold uppercase tracking-wider text-slate-500">Upload Mode</Label>
+                            <div className="flex items-center gap-2 rounded-lg border border-slate-200 p-1 bg-slate-50">
+                                <button
+                                    onClick={() => !isUpdatingUploadMode && handleToggleInternalCanUpload(true)}
+                                    disabled={isUpdatingUploadMode}
+                                    className={`flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition-all duration-200 ${
+                                        internalCanUpload
+                                            ? 'bg-blue-600 text-white shadow-sm'
+                                            : 'text-slate-500 hover:text-slate-700'
+                                    } disabled:opacity-50`}
+                                >
+                                    Staff Upload
+                                </button>
+                                <button
+                                    onClick={() => !isUpdatingUploadMode && handleToggleInternalCanUpload(false)}
+                                    disabled={isUpdatingUploadMode}
+                                    className={`flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition-all duration-200 ${
+                                        !internalCanUpload
+                                            ? 'bg-slate-700 text-white shadow-sm'
+                                            : 'text-slate-500 hover:text-slate-700'
+                                    } disabled:opacity-50`}
+                                >
+                                    Dual Upload
+                                </button>
+                            </div>
+                            <p className="mt-1.5 text-[10px] text-slate-400">
+                                {internalCanUpload
+                                    ? 'Staff internal yang mengupload semua dokumen'
+                                    : 'Dokumen diupload bersama antara internal & eksternal'
+                                }
+                            </p>
                         </div>
                     </div>
                 )}
