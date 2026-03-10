@@ -1808,7 +1808,7 @@ class ShippingController extends Controller
         tenancy()->initialize($tenant);
 
         $validated = $request->validate([
-            'id_spk'              => 'required|integer|exists:spk,id',
+            'id_spk'              => 'required|integer',
             'internal_can_upload' => 'required|boolean',
         ]);
 
