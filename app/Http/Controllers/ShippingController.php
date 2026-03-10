@@ -961,8 +961,36 @@ class ShippingController extends Controller
             $assignedUser = User::on('tako-user')->find($validated['assigned_pic']);
             
             if ($assignedUser) {
-                NotificationService::handleSpkAssignment($spk, $assignedUser, $user);
+                // 1. Update SPK assignment
+                $spk->update(['validated_by' => $validated['assigned_pic']]);
+
+                // 2. Send notification to newly assigned staff
+                try {
+                    NotificationService::send([
+                        'send_to'    => $assignedUser->id_user,
+                        'created_by' => $user->id_user,
+                        'role'       => 'internal',
+                        'id_spk'     => $spk->id,
+                        'data'       => [
+                            'type'     => 'spk_assigned',
+                            'title'    => 'Penunjukan PIC SPK',
+                            'message'  => "Anda ditunjuk sebagai PIC untuk SPK {$spk->spk_code} oleh {$user->name}",
+                            'url'      => "/shipping/{$spk->id}",
+                            'spk_code' => $spk->spk_code,
+                        ]
+                    ]);
+                } catch (\Exception $e) {
+                    Log::error("Failed to send assignment notification: " . $e->getMessage());
+                }
+
+                // 3. Broadcast realtime update
+                try {
+                    ShippingDataUpdated::dispatch($spk->id, 'staff_assigned');
+                } catch (\Exception $e) {
+                    Log::error('Realtime update failed: ' . $e->getMessage());
+                }
             }
+
             
         } catch (\Exception $e) {
              Log::error("Failed to assign staff: " . $e->getMessage());
