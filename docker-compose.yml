@@ -36,8 +36,10 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
 
-      # Override REVERB_HOST agar PHP broadcast ke container reverb via Docker network
+      # Override REVERB ke internal Docker network (bukan publik)
       - REVERB_HOST=reverb
+      - REVERB_PORT=8080
+      - REVERB_SCHEME=http
 
       # Setup URL
       - APP_URL=${APP_URL}
@@ -102,8 +104,10 @@ services:
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      # Override REVERB_HOST agar PHP broadcast ke container reverb via Docker network
+      # Override REVERB ke internal Docker network (bukan publik)
       - REVERB_HOST=reverb
+      - REVERB_PORT=8080
+      - REVERB_SCHEME=http
       - DB_CONNECTION=pgsql
       - DB_HOST=${DB_SECOND_HOST}
       - DB_PORT=${DB_SECOND_PORT}
