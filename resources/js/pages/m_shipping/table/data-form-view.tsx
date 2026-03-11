@@ -563,12 +563,6 @@ export default function ViewCustomerForm({
                     }
                 });
             }
-
-            // D. Deadline
-            // When saving a section, always use the value shown in that section's input.
-            // If unified mode is on, the input shows globalDeadlineDate (mirrored into sectionDeadlines on change).
-            // If unified mode is off, the input shows sectionDeadlines[sectionId].
-            // Either way, the effective value for this section is sectionDeadlines[sectionId] or globalDeadlineDate.
             const deadlineValue = useUnifiedDeadline
                 ? globalDeadlineDate // unified: same date for all sections
                 : (sectionDeadlines[sectionId] || null); // per-section: specific date for this section

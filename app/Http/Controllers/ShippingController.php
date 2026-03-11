@@ -1887,7 +1887,7 @@ class ShippingController extends Controller
         tenancy()->initialize($tenant);
         
         $validated = $request->validate([
-            'id_spk' => 'required|integer|exists:spk,id',
+            'id_spk' => 'required|integer',
             'penjaluran' => 'required|string|in:merah,biru',
         ]);
 
