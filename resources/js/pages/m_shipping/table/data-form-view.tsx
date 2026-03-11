@@ -163,6 +163,8 @@ export default function ViewCustomerForm({
     const [useUnifiedDeadline, setUseUnifiedDeadline] = useState(true); // Checkbox: apply same deadline to all
     const [globalDeadlineDate, setGlobalDeadlineDate] = useState(''); // Global deadline (garis kuning)
     const [sectionDeadlines, setSectionDeadlines] = useState<Record<number, string>>({}); // Per-section deadlines (garis orange)
+    // Ref: tracks whether deadline states have been initialized from DB (so we don't override user edits on prop reload)
+    const isDeadlineInitialized = useRef(false);
 
     const [helpModalOpen, setHelpModalOpen] = useState(false);
     const [selectedHelpData, setSelectedHelpData] = useState<MasterDocument | null>(null);
@@ -250,38 +252,42 @@ export default function ViewCustomerForm({
         };
     }, [shipmentDataProp.id_spk]); // Only depend on the ID to prevent re-subscribing on data change
 
-    // Initialize deadline states from database data
+    // Initialize deadline states from database data (only once, on first load)
     useEffect(() => {
         if (sectionsTransProp && sectionsTransProp.length > 0) {
-            // 1. Deadline Logic
-            const deadlinesFromDb: Record<number, string> = {};
-            let hasAnyDeadline = false;
-            let firstDeadline = '';
-            let allSameDeadline = true;
+            // 1. Deadline Logic — only run once to avoid overriding user edits on prop reload
+            if (!isDeadlineInitialized.current) {
+                const deadlinesFromDb: Record<number, string> = {};
+                let hasAnyDeadline = false;
+                let firstDeadline = '';
+                let allSameDeadline = true;
 
-            sectionsTransProp.forEach((section: SectionTrans) => {
-                if (section.deadline_date) {
-                    const dateStr = String(section.deadline_date);
-                    const match = dateStr.match(/(\d{4})-(\d{2})-(\d{2})/);
-                    const dateValue = match ? `${match[1]}-${match[2]}-${match[3]}` : '';
-                    if (dateValue) {
-                        deadlinesFromDb[section.id] = dateValue;
-                        if (!hasAnyDeadline) {
-                            firstDeadline = dateValue;
-                            hasAnyDeadline = true;
-                        } else if (dateValue !== firstDeadline) {
-                            allSameDeadline = false;
+                sectionsTransProp.forEach((section: SectionTrans) => {
+                    if (section.deadline_date) {
+                        const dateStr = String(section.deadline_date);
+                        const match = dateStr.match(/(\d{4})-(\d{2})-(\d{2})/);
+                        const dateValue = match ? `${match[1]}-${match[2]}-${match[3]}` : '';
+                        if (dateValue) {
+                            deadlinesFromDb[section.id] = dateValue;
+                            if (!hasAnyDeadline) {
+                                firstDeadline = dateValue;
+                                hasAnyDeadline = true;
+                            } else if (dateValue !== firstDeadline) {
+                                allSameDeadline = false;
+                            }
                         }
                     }
-                }
-            });
+                });
 
-            if (Object.keys(deadlinesFromDb).length > 0) setSectionDeadlines(deadlinesFromDb);
-            if (hasAnyDeadline && allSameDeadline) {
-                setGlobalDeadlineDate(firstDeadline);
-                setUseUnifiedDeadline(true);
-            } else if (hasAnyDeadline) {
-                setUseUnifiedDeadline(false);
+                if (Object.keys(deadlinesFromDb).length > 0) setSectionDeadlines(deadlinesFromDb);
+                if (hasAnyDeadline && allSameDeadline) {
+                    setGlobalDeadlineDate(firstDeadline);
+                    setUseUnifiedDeadline(true);
+                } else if (hasAnyDeadline) {
+                    setUseUnifiedDeadline(false);
+                }
+
+                isDeadlineInitialized.current = true;
             }
 
             // 2. Auto-show Additional Document if files exist or explicitly requested (by logic/status)
@@ -559,7 +565,13 @@ export default function ViewCustomerForm({
             }
 
             // D. Deadline
-            const deadlineValue = useUnifiedDeadline ? globalDeadlineDate : sectionDeadlines[sectionId] || null;
+            // When saving a section, always use the value shown in that section's input.
+            // If unified mode is on, the input shows globalDeadlineDate (mirrored into sectionDeadlines on change).
+            // If unified mode is off, the input shows sectionDeadlines[sectionId].
+            // Either way, the effective value for this section is sectionDeadlines[sectionId] or globalDeadlineDate.
+            const deadlineValue = useUnifiedDeadline
+                ? globalDeadlineDate // unified: same date for all sections
+                : (sectionDeadlines[sectionId] || null); // per-section: specific date for this section
             if (deadlineValue) {
                 formData.append('deadline', deadlineValue);
             }
@@ -1078,22 +1090,20 @@ export default function ViewCustomerForm({
                                 <button
                                     onClick={() => !isUpdatingUploadMode && handleToggleInternalCanUpload(true)}
                                     disabled={isUpdatingUploadMode}
-                                    className={`flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition-all duration-200 ${
-                                        internalCanUpload
-                                            ? 'bg-blue-600 text-white shadow-sm'
-                                            : 'text-slate-500 hover:text-slate-700'
-                                    } disabled:opacity-50`}
+                                    className={`flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition-all duration-200 ${internalCanUpload
+                                        ? 'bg-blue-600 text-white shadow-sm'
+                                        : 'text-slate-500 hover:text-slate-700'
+                                        } disabled:opacity-50`}
                                 >
                                     Staff Upload
                                 </button>
                                 <button
                                     onClick={() => !isUpdatingUploadMode && handleToggleInternalCanUpload(false)}
                                     disabled={isUpdatingUploadMode}
-                                    className={`flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition-all duration-200 ${
-                                        !internalCanUpload
-                                            ? 'bg-slate-700 text-white shadow-sm'
-                                            : 'text-slate-500 hover:text-slate-700'
-                                    } disabled:opacity-50`}
+                                    className={`flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition-all duration-200 ${!internalCanUpload
+                                        ? 'bg-slate-700 text-white shadow-sm'
+                                        : 'text-slate-500 hover:text-slate-700'
+                                        } disabled:opacity-50`}
                                 >
                                     Dual Upload
                                 </button>
@@ -1285,7 +1295,19 @@ export default function ViewCustomerForm({
                                 id="unified_deadline"
                                 className="h-4 w-4 rounded border-2 border-gray-400 data-[state=checked]:bg-black data-[state=checked]:text-white"
                                 checked={useUnifiedDeadline}
-                                onCheckedChange={(checked) => setUseUnifiedDeadline(checked === true)}
+                                onCheckedChange={(checked) => {
+                                    const isUnified = checked === true;
+                                    setUseUnifiedDeadline(isUnified);
+                                    // When switching to per-section mode, pre-populate all sections with the global date
+                                    // so inputs are not blank and user can individually adjust from there
+                                    if (!isUnified && globalDeadlineDate) {
+                                        const prefilled: Record<number, string> = {};
+                                        sectionsTransProp.forEach((s: SectionTrans) => {
+                                            prefilled[s.id] = sectionDeadlines[s.id] || globalDeadlineDate;
+                                        });
+                                        setSectionDeadlines(prefilled);
+                                    }
+                                }}
                             />
                             <label htmlFor="unified_deadline" className="cursor-pointer text-sm text-gray-600">
                                 {trans.apply_deadline_all}
