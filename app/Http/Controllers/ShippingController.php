@@ -1700,8 +1700,10 @@ class ShippingController extends Controller
 
             // --- D. DEADLINE ---
             if ($request->deadline) {
-                $st = SectionTrans::where(['id_spk' => $spk->id, 'id_section' => $sectionId])->first();
-                if ($st) {
+                // $sectionId is the primary key (id) of SectionTrans, NOT id_section.
+                // id_section = master section reference, id = unique transactional row PK.
+                $st = SectionTrans::find($sectionId);
+                if ($st && $st->id_spk == $spk->id) {
                     $st->update([
                         'deadline' => true,
                         'deadline_date' => $request->deadline,
@@ -1719,22 +1721,15 @@ class ShippingController extends Controller
                 Log::error('Realtime update failed: ' . $e->getMessage());
             }
 
-            if ($request->header('X-Inertia')) {
-                return back();
-            }
+            return redirect()->route('shipping.show', $spk->id);
 
-            return response()->json(['success' => true, 'metrics' => $metrics]);
 
         } catch (\Throwable $e) {
             DB::connection('tenant-transaction')->rollBack();
             DB::rollBack();
             Log::error("Unified Save Fail: " . $e->getMessage());
 
-            if ($request->header('X-Inertia')) {
-                return back()->withErrors(['message' => $e->getMessage()]);
-            }
-
-            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+            return redirect()->back()->withErrors(['message' => $e->getMessage()]);
         }
     }
 
