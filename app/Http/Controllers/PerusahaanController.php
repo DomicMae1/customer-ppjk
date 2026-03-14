@@ -27,6 +27,23 @@ class PerusahaanController extends Controller
         }
 
         $perusahaans = Perusahaan::with(['user', 'users','tenant','tenant.domains'])->get();
+        $perusahaans->transform(function ($company) {
+            // Ambil domain pertama dari tenant
+            $domainRecord = $company->tenant->domains->first() ?? null;
+            
+            $logoPath = $domainRecord ? $domainRecord->path_company_logo : null;
+
+            if ($logoPath) {
+                // Kita gunakan helper asset() atau Storage::url() agar URL-nya benar
+                // Hasilnya: http://domain-anda.com/storage/company_logo/xxx.jpg
+                $company->path_company_logo = asset('storage/' . $logoPath);
+            } else {
+                $company->path_company_logo = null;
+            }
+
+            return $company;
+        });
+
         $users = User::select('id_user', 'name', 'id_perusahaan')->get();
 
         return Inertia::render('company/page', [
@@ -64,32 +81,48 @@ class PerusahaanController extends Controller
             return back()->withErrors(['error' => "ID Perusahaan '$tenantId' sudah ada."]);
         }
 
-        $perusahaan = DB::connection('tako-user')->transaction(function () use ($request, $validated) {
-            $logoPath = $request->hasFile('company_logo') 
+        $logoPath = $request->hasFile('company_logo') 
                 ? $request->file('company_logo')->store('company_logo', 'public') 
                 : null;
 
-            return Perusahaan::create([
-                'nama_perusahaan'   => $validated['nama_perusahaan'],
+        try {
+            // 2. Buat Data Perusahaan (Gunakan DB::transaction HANYA untuk tabel reguler)
+            // Jika Tenant::create memicu pembuatan database, jangan masukkan ke dalam DB::transaction
+            $perusahaan = Perusahaan::create([
+                'nama_perusahaan' => $validated['nama_perusahaan'],
+            ]);
+
+            // 3. Buat Tenant (Ini yang biasanya memicu CREATE DATABASE secara otomatis)
+            $tenant = Tenant::create([
+                'id'            => $tenantId, 
+                'perusahaan_id' => $perusahaan->id_perusahaan,
+            ]);
+
+            // 4. Buat Domain & Masukkan Logo
+            $appDomain = preg_replace('#^https?://#', '', env('APP_DOMAIN', 'localhost'));
+            $fullDomain = $validated['domain'] . '.' . $appDomain;
+
+            $domainRecord = $tenant->domains()->create([
+                'domain'            => $fullDomain,
                 'path_company_logo' => $logoPath,
             ]);
-        });
 
-        $tenant = Tenant::create([
-            'id'            => $tenantId, 
-            'perusahaan_id' => $perusahaan->id_perusahaan,
-        ]);
+            // 5. Update relasi id_domain di tabel perusahaan
+            $perusahaan->update(['id_domain' => $domainRecord->id]);
 
-        $appDomain = preg_replace('#^https?://#', '', env('APP_DOMAIN', 'localhost'));
-        $fullDomain = $validated['domain'] . '.' . $appDomain;
+            return back()->with('success', "Perusahaan {$validated['nama_perusahaan']} berhasil dibuat.");
 
-        $domainRecord = $tenant->domains()->create([
-            'domain' => $fullDomain,
-        ]);
+        } catch (\Exception $e) {
+            // Jika gagal, hapus file yang sudah terlanjur diupload
+            if ($logoPath && Storage::disk('public')->exists($logoPath)) {
+                Storage::disk('public')->delete($logoPath);
+            }
+            
+            // Log error untuk debug
+            \Log::error("Gagal membuat perusahaan: " . $e->getMessage());
 
-        $perusahaan->update(['id_domain' => $domainRecord->id]);
-
-        return back()->with('success', "Tenant {$tenantId} dan Database berhasil dibuat.");
+            return back()->withErrors(['error' => "Terjadi kesalahan: " . $e->getMessage()]);
+        }
     }
 
     /**
@@ -119,7 +152,8 @@ class PerusahaanController extends Controller
     {
         // 1. VALIDASI
         $tenant = Tenant::where('perusahaan_id', $perusahaan->id_perusahaan)->first();
-        $domainId = $tenant ? $tenant->domains()->first()?->id : null;
+        $currentDomain = $tenant ? $tenant->domains()->first() : null;
+        $domainId = $currentDomain ? $currentDomain->id : null;
 
         $validated = $request->validate([
             'nama_perusahaan' => 'required|string|max:255',
@@ -127,18 +161,21 @@ class PerusahaanController extends Controller
             'company_logo'    => 'nullable|image|mimes:jpg,jpeg,png,webp,svg|max:2048',
         ]);
 
+        $path = $currentDomain ? $currentDomain->path_company_logo : null;
+
         // 2. UPDATE LOGO
         if ($request->hasFile('company_logo')) {
-            if ($perusahaan->path_company_logo && Storage::disk('public')->exists($perusahaan->path_company_logo)) {
-                Storage::disk('public')->delete($perusahaan->path_company_logo);
+            // Hapus file fisik lama jika ada di storage
+            if ($path && Storage::disk('public')->exists($path)) {
+                Storage::disk('public')->delete($path);
             }
-            $perusahaan->path_company_logo = $request->file('company_logo')->store('company_logo', 'public');
+            // Simpan file baru ke storage dan update variabel path
+            $path = $request->file('company_logo')->store('company_logo', 'public');
         }
 
-        // 3. UPDATE DATA PERUSAHAAN
+        // 4. UPDATE DATA PERUSAHAAN (Hanya nama, karena kolom logo tidak ada di sini)
         $perusahaan->update([
-            'nama_perusahaan'   => $validated['nama_perusahaan'],
-            'path_company_logo' => $perusahaan->path_company_logo,
+            'nama_perusahaan' => $validated['nama_perusahaan'],
         ]);
 
         // 4. UPDATE TENANT & DOMAIN
@@ -151,9 +188,13 @@ class PerusahaanController extends Controller
 
         // Update Domain: Hapus yang lama, buat yang baru
         $tenant->domains()->delete();
-        $tenant->domains()->create([
-            'domain' => $validated['domain'],
+        $newDomain = $tenant->domains()->create([
+            'domain'            => $validated['domain'],
+            'path_company_logo' => $path, // Simpan ke kolom di tabel domains
         ]);
+
+        // Opsional: Update id_domain di tabel perusahaan jika Anda ingin menjaga relasi langsung
+        $perusahaan->update(['id_domain' => $newDomain->id]);
 
         return back()->with('success', 'Perusahaan berhasil diperbarui.');
     }

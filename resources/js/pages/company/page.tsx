@@ -12,26 +12,29 @@ import { toast } from 'sonner';
 import { columns } from './table/columns';
 import { DataTable } from './table/data-table';
 
-const breadcrumbs: BreadcrumbItem[] = [
-    {
-        title: 'Manage Company',
-        href: '/perusahaan',
-    },
-];
-
 interface FormState {
     nama_perusahaan: string;
     domain: string;
     path_company_logo: string;
 }
 
+interface PageProps {
+    companies: any[];
+    flash: { success?: string; error?: string };
+    // Tambahkan prop translasi di sini
+    trans_company: Record<string, string>;
+    [key: string]: any;
+}
+
 export default function ManageCompany() {
-    const { props } = usePage();
-    const { companies, flash } = props as {
-        companies: any[];
-        flash: { success?: string; error?: string };
-        users: any[];
-    };
+    const { companies, flash, trans_company } = usePage<PageProps>().props;
+
+    const breadcrumbs: BreadcrumbItem[] = [
+        {
+            title: trans_company.breadcrumb_title || 'Manage Company',
+            href: '/perusahaan',
+        },
+    ];
 
     const [companyLogoFile, setCompanyLogoFile] = useState<File | null>(null);
 
@@ -148,57 +151,61 @@ export default function ManageCompany() {
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Manage Companies" />
+            <Head title={trans_company.page_title || 'Manage Companies'} />
             <div className="p-4">
-                <DataTable columns={columns(onEditClick, onDeleteClick)} data={companies} />
+                <DataTable columns={columns(onEditClick, onDeleteClick, trans_company)} data={companies} />
             </div>
 
+            {/* Modal Hapus */}
             <Dialog open={openDelete} onOpenChange={setOpenDelete}>
-                <DialogContent>
+                <DialogContent className="max-w-[90vw] rounded-xl sm:max-w-md">
                     <DialogHeader>
-                        <DialogTitle>Hapus Perusahaan</DialogTitle>
-                        <div className="mt-2">Apakah Anda yakin ingin menghapus perusahaan ini?</div>
+                        <DialogTitle>{trans_company.title_delete || 'Delete Company'}</DialogTitle>
+                        <div className="mt-2 text-sm">{trans_company.confirm_delete || 'Are you sure you want to delete this company?'}</div>
                     </DialogHeader>
-                    <DialogFooter className="sm:justify-start">
-                        <Button variant="destructive" className="text-white" onClick={onConfirmDelete}>
-                            Hapus
+                    <DialogFooter className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-start">
+                        <Button variant="destructive" className="w-full text-white sm:w-auto" onClick={onConfirmDelete}>
+                            {trans_company.btn_delete || 'Delete'}
                         </Button>
                         <DialogClose asChild>
-                            <Button variant="secondary">Batal</Button>
+                            <Button variant="secondary" className="w-full sm:w-auto">
+                                {trans_company.btn_cancel || 'Cancel'}
+                            </Button>
                         </DialogClose>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
 
+            {/* Modal Form Tambah/Edit */}
             <Dialog open={openForm} onOpenChange={(isOpen) => !isOpen && resetFormAndClose()}>
-                {/* - max-w-[95%] untuk mobile, max-w-lg untuk desktop
-                - max-h-[90vh] agar tidak melebihi layar hp
-                - overflow-y-auto agar bisa di-scroll tanpa ScrollArea 
-            */}
-                <DialogContent className="max-h-[90vh] max-w-[95%] overflow-y-auto rounded-xl p-4 sm:max-w-2xl sm:p-6">
+                <DialogContent className="max-h-[90vh] max-w-[95%] overflow-y-auto rounded-xl p-4 text-black sm:max-w-2xl sm:p-6">
                     <form onSubmit={onSubmit}>
                         <DialogHeader>
-                            <DialogTitle className="text-lg sm:text-xl">{selectedCompany ? 'Edit Perusahaan' : 'Tambah Perusahaan'}</DialogTitle>
+                            <DialogTitle className="text-lg font-bold text-black sm:text-xl">
+                                {selectedCompany ? trans_company.title_edit : trans_company.title_create}
+                            </DialogTitle>
                         </DialogHeader>
 
                         <div className="space-y-4 py-4">
-                            {/* Input Nama */}
                             <div className="grid gap-2">
-                                <Label htmlFor="nama_perusahaan">Nama Perusahaan</Label>
+                                <Label htmlFor="nama_perusahaan" className="font-semibold text-gray-700">
+                                    {trans_company.label_name}
+                                </Label>
                                 <Input
                                     id="nama_perusahaan"
                                     name="nama_perusahaan"
                                     value={form.nama_perusahaan}
                                     onChange={handleInputChange}
-                                    placeholder="Contoh: PT. Maju Sejahtera"
+                                    placeholder={trans_company.placeholder_name}
                                     required
-                                    className="h-10"
+                                    className="h-11 sm:h-10"
                                 />
                             </div>
 
-                            {/* Input Domain */}
                             <div className="grid gap-2">
-                                <Label htmlFor="domain">Nama Domain</Label>
+                                <Label htmlFor="domain" className="font-semibold text-gray-700">
+                                    {trans_company.label_domain}
+                                </Label>
                                 <Input
                                     id="domain"
                                     name="domain"
@@ -206,18 +213,17 @@ export default function ManageCompany() {
                                     onChange={handleInputChange}
                                     placeholder="AminTrans"
                                     required
-                                    className="h-10"
+                                    className="h-11 sm:h-10"
                                 />
-                                <p className="text-muted-foreground text-[10px] sm:text-xs">Silahkan masukkan nama domain perusahaan</p>
+                                <p className="text-muted-foreground text-[10px] italic sm:text-xs">{trans_company.helper_domain}</p>
                             </div>
 
-                            {/* Logo Upload */}
                             <div className="grid gap-2">
-                                <Label>Logo Perusahaan</Label>
+                                <Label className="font-semibold text-gray-700">{trans_company.label_logo}</Label>
                                 <div className="mt-1">
                                     <ResettableDropzoneImage
                                         key={form.path_company_logo}
-                                        label="Upload Logo"
+                                        label={trans_company.btn_upload}
                                         isRequired={false}
                                         onFileChange={setCompanyLogoFile}
                                         existingFile={
@@ -233,15 +239,14 @@ export default function ManageCompany() {
                             </div>
                         </div>
 
-                        {/* Footer: Tombol tumpuk di mobile, sejajar di desktop */}
-                        <DialogFooter className="mt-4 flex flex-col-reverse gap-2 sm:mt-0 sm:flex-row">
+                        <DialogFooter className="mt-6 flex flex-col-reverse gap-3 sm:mt-0 sm:flex-row sm:justify-end">
                             <DialogClose asChild>
-                                <Button variant="secondary" type="button" className="w-full sm:w-auto">
-                                    Batal
+                                <Button variant="secondary" type="button" className="h-11 w-full sm:h-10 sm:w-auto">
+                                    {trans_company.btn_cancel}
                                 </Button>
                             </DialogClose>
-                            <Button type="submit" className="w-full sm:w-auto">
-                                {selectedCompany ? 'Update' : 'Create'}
+                            <Button type="submit" className="h-11 w-full font-bold shadow-md sm:h-10 sm:w-auto">
+                                {selectedCompany ? trans_company.btn_update : trans_company.btn_create}
                             </Button>
                         </DialogFooter>
                     </form>

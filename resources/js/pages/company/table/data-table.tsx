@@ -17,7 +17,7 @@ import {
     useReactTable,
     VisibilityState,
 } from '@tanstack/react-table';
-import { Globe, Mail, Plus, RotateCcw, Search, User2 } from 'lucide-react';
+import { Building2, Globe, Plus, RotateCcw, Search } from 'lucide-react';
 import * as React from 'react';
 import { ChangeEvent, useState } from 'react';
 import { DataTableViewOptions } from './data-table-view-options';
@@ -40,14 +40,14 @@ interface DataTableProps<TData, TValue> {
 }
 
 export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_perusahaan' }: DataTableProps<TData, TValue>) {
+    const { props } = usePage();
+    const trans = (props.trans_company as Record<string, string>) || {};
+
     const [sorting, setSorting] = React.useState<SortingState>([]);
     const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
     const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
     const [rowSelection, setRowSelection] = React.useState({});
     const [openCreate, setOpenCreate] = React.useState(false);
-
-    const { props } = usePage<{ users: User[] }>();
-    const users = props.users ?? [];
 
     const [companyLogoFile, setCompanyLogoFile] = useState<File | null>(null);
 
@@ -109,22 +109,30 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_peru
 
     return (
         <div className="w-full space-y-4">
-            <div className="hidden items-center gap-2 md:flex">
-                <Input
-                    placeholder="Filter nama perusahaan..."
-                    value={(table.getColumn(filterKey)?.getFilterValue() as string) ?? ''}
-                    onChange={(event) => table.getColumn(filterKey)?.setFilterValue(event.target.value)}
-                    className="max-w-sm"
-                />
-                <DataTableViewOptions table={table} />
-                <Button onClick={() => setOpenCreate(true)}>Tambah Perusahaan</Button>
+            {/* --- DESKTOP VIEW: HEADER --- */}
+            <div className="hidden items-center justify-between gap-2 px-1 md:flex">
+                <div className="flex flex-1 items-center gap-2">
+                    <div className="relative w-full max-w-sm">
+                        <Search className="absolute top-2.5 left-2.5 h-4 w-4 text-gray-500" />
+                        <Input
+                            placeholder={trans.placeholder_filter_company || 'Cari nama perusahaan...'}
+                            value={(table.getColumn(filterKey)?.getFilterValue() as string) ?? ''}
+                            onChange={(event) => table.getColumn(filterKey)?.setFilterValue(event.target.value)}
+                            className="pl-9"
+                        />
+                    </div>
+                    <DataTableViewOptions table={table} />
+                </div>
+                <Button onClick={() => setOpenCreate(true)} className="font-semibold shadow-sm">
+                    <Plus className="mr-2 h-4 w-4" /> {trans.btn_create_nav || 'Tambah Perusahaan'}
+                </Button>
             </div>
 
-            {/* --- MOBILE VIEW: HEADER & FILTER --- */}
+            {/* --- MOBILE VIEW: HEADER --- */}
             <div className="flex flex-col gap-3 px-1 md:hidden">
                 <div className="flex items-center justify-between gap-2">
-                    <h2 className="text-lg font-bold text-gray-800">Daftar Perusahaan</h2>
-                    <Button size="icon" onClick={() => setOpenCreate(true)} className="shrink-0 rounded-full">
+                    <h2 className="text-xl font-bold text-gray-900">{trans.page_title || 'Manajemen Perusahaan'}</h2>
+                    <Button size="icon" onClick={() => setOpenCreate(true)} className="shrink-0 rounded-full shadow-md">
                         <Plus className="h-5 w-5" />
                     </Button>
                 </div>
@@ -133,25 +141,31 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_peru
                     <div className="relative flex-1">
                         <Search className="absolute top-2.5 left-2.5 h-4 w-4 text-gray-500" />
                         <Input
-                            placeholder="Cari perusahaan..."
+                            placeholder={trans.placeholder_filter_company || 'Cari...'}
                             value={(table.getColumn(filterKey)?.getFilterValue() as string) ?? ''}
                             onChange={(event) => table.getColumn(filterKey)?.setFilterValue(event.target.value)}
-                            className="pl-9"
+                            className="h-10 bg-white pl-9"
                         />
                     </div>
-                    <Button variant="outline" size="icon" onClick={() => table.getColumn(filterKey)?.setFilterValue('')} className="shrink-0">
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => table.getColumn(filterKey)?.setFilterValue('')}
+                        className="h-10 w-10 shrink-0"
+                    >
                         <RotateCcw className="h-4 w-4" />
                     </Button>
                 </div>
             </div>
 
-            <div className="hidden rounded-md border bg-white md:block">
+            {/* --- DESKTOP TABLE --- */}
+            <div className="hidden overflow-hidden rounded-md border bg-white shadow-sm md:block">
                 <Table>
-                    <TableHeader>
+                    <TableHeader className="bg-gray-50">
                         {table.getHeaderGroups().map((headerGroup) => (
                             <TableRow key={headerGroup.id}>
                                 {headerGroup.headers.map((header) => (
-                                    <TableHead key={header.id}>
+                                    <TableHead key={header.id} className="px-4 font-bold text-gray-700">
                                         {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
                                     </TableHead>
                                 ))}
@@ -161,16 +175,18 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_peru
                     <TableBody>
                         {table.getRowModel().rows?.length ? (
                             table.getRowModel().rows.map((row) => (
-                                <TableRow key={row.id} data-state={row.getIsSelected() && 'selected'}>
+                                <TableRow key={row.id}>
                                     {row.getVisibleCells().map((cell) => (
-                                        <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
+                                        <TableCell key={cell.id} className="px-4 py-3">
+                                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                        </TableCell>
                                     ))}
                                 </TableRow>
                             ))
                         ) : (
                             <TableRow>
-                                <TableCell colSpan={columns.length} className="h-24 text-center">
-                                    Tidak ada data.
+                                <TableCell colSpan={columns.length} className="h-24 text-center text-gray-500">
+                                    {trans.no_data || 'Tidak ada data.'}
                                 </TableCell>
                             </TableRow>
                         )}
@@ -178,65 +194,61 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_peru
                 </Table>
             </div>
 
+            {/* --- MOBILE CARD VIEW --- */}
             <div className="flex flex-col gap-4 md:hidden">
                 {table.getRowModel().rows.length > 0 ? (
                     table.getRowModel().rows.map((row) => {
                         const original = row.original as any;
+                        const actionsCell = row.getVisibleCells().find((cell) => cell.column.id === 'actions');
 
                         return (
                             <div
                                 key={row.id}
-                                className="group relative overflow-hidden rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition-all active:scale-[0.98] active:bg-gray-50"
+                                className="group relative overflow-hidden rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition-all active:bg-gray-50"
                             >
-                                {/* Garis dekoratif samping */}
                                 <div className="bg-primary absolute top-0 left-0 h-full w-1" />
-
                                 <div className="flex flex-col gap-3">
-                                    {/* Header: Nama Perusahaan & Status/Icon */}
                                     <div className="flex items-start justify-between border-b pb-2">
                                         <div className="flex flex-col">
-                                            <span className="text-xs font-semibold tracking-wider text-gray-500 uppercase">Perusahaan</span>
-                                            <span className="line-clamp-1 text-base font-bold text-gray-900">{original.nama_perusahaan || '-'}</span>
+                                            <span className="text-[10px] font-bold tracking-wider text-gray-400 uppercase">
+                                                {trans.label_company || 'Perusahaan'}
+                                            </span>
+                                            <span className="line-clamp-1 text-base font-bold text-gray-900">{original.nama_perusahaan}</span>
                                         </div>
                                         <div className="bg-primary/10 text-primary rounded-full p-2">
-                                            <Globe className="h-4 w-4" />
+                                            <Building2 className="h-4 w-4" />
                                         </div>
                                     </div>
 
-                                    {/* Body: Info Utama */}
-                                    <div className="grid grid-cols-1 gap-3">
-                                        <div className="flex items-center gap-2 text-sm text-gray-600">
-                                            <Globe className="h-4 w-4 text-gray-400" />
-                                            <span className="truncate font-medium">{original.tenant?.domains?.[0]?.domain || '-'}</span>
+                                    <div className="flex flex-col gap-1.5 text-black">
+                                        <span className="text-[10px] font-bold tracking-tight text-gray-400 uppercase">
+                                            {trans.label_domain || 'Domain'}
+                                        </span>
+                                        <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                                            <Globe className="h-3.5 w-3.5 text-blue-500" />
+                                            <span>{original.tenant?.domains?.[0]?.domain || '-'}</span>
                                         </div>
                                     </div>
 
-                                    {/* Footer Card: Actions (Diambil dari cell terakhir columns) */}
-                                    <div className="mt-2 flex items-center justify-end gap-2 border-t pt-3">
-                                        {/* Ini akan me-render tombol Edit/Hapus yang ada di columnDef Anda */}
-                                        {flexRender(
-                                            row.getVisibleCells().find((cell) => cell.column.id === 'actions')?.column.columnDef.cell,
-                                            row
-                                                .getVisibleCells()
-                                                .find((cell) => cell.column.id === 'actions')
-                                                ?.getContext(),
-                                        )}
+                                    <div className="mt-1 flex items-center justify-end border-t pt-2">
+                                        {actionsCell && flexRender(actionsCell.column.columnDef.cell, actionsCell.getContext())}
                                     </div>
                                 </div>
                             </div>
                         );
                     })
                 ) : (
-                    <div className="rounded-lg border-2 border-dashed bg-gray-50/50 py-12 text-center text-gray-500">Tidak ada hasil ditemukan.</div>
+                    <div className="rounded-lg border-2 border-dashed bg-gray-50/50 py-12 text-center text-gray-500">
+                        {trans.no_data || 'Tidak ada data ditemukan.'}
+                    </div>
                 )}
             </div>
 
             <DataTablePagination table={table} />
 
             {/* Dialog Tambah */}
-            {/* Dialog Tambah */}
             <Dialog open={openCreate} onOpenChange={setOpenCreate}>
-                <DialogContent className="max-h-[90vh] max-w-[95%] overflow-y-auto rounded-xl p-4 sm:max-w-lg sm:p-6">
+                <DialogContent className="max-h-[90vh] w-[95vw] overflow-y-auto rounded-xl p-4 text-black sm:max-w-lg sm:p-6">
                     <form
                         onSubmit={(e) => {
                             e.preventDefault();
@@ -244,66 +256,56 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_peru
                         }}
                     >
                         <DialogHeader className="mb-4">
-                            <DialogTitle className="text-xl font-bold">Tambah Perusahaan</DialogTitle>
+                            <DialogTitle className="text-xl font-bold">{trans.title_create || 'Tambah Perusahaan'}</DialogTitle>
                         </DialogHeader>
 
                         <div className="space-y-5">
-                            {/* Nama Perusahaan */}
                             <div className="grid gap-2">
-                                <Label htmlFor="nama_perusahaan" className="text-sm font-semibold">
-                                    Nama Perusahaan
+                                <Label htmlFor="nama_perusahaan" className="font-semibold text-gray-700">
+                                    {trans.label_name}
                                 </Label>
                                 <Input
                                     id="nama_perusahaan"
                                     value={form.nama_perusahaan}
                                     onChange={(e) => setForm({ ...form, nama_perusahaan: e.target.value })}
-                                    placeholder="Contoh: PT. AminTrans"
-                                    className="h-11 sm:h-10" // Lebih tinggi di mobile untuk kemudahan tap
+                                    placeholder={trans.placeholder_name}
+                                    className="h-11 text-black sm:h-10"
                                     required
                                 />
                             </div>
 
-                            {/* Domain */}
                             <div className="grid gap-2">
-                                <Label htmlFor="domain" className="text-sm font-semibold">
-                                    Nama Domain
+                                <Label htmlFor="domain" className="font-semibold text-gray-700">
+                                    {trans.label_domain}
                                 </Label>
                                 <Input
                                     id="domain"
                                     name="domain"
                                     value={form.domain}
                                     onChange={handleInputChange}
-                                    placeholder="Contoh: AminTrans"
-                                    className="h-11 sm:h-10"
+                                    placeholder="Forward.com"
+                                    className="h-11 font-mono text-black sm:h-10"
                                     required
                                 />
-                                <p className="text-muted-foreground text-[10px] leading-relaxed italic sm:text-xs">
-                                    Silahkan masukkan nama domain perusahaan
-                                </p>
+                                <p className="text-muted-foreground text-[10px] italic sm:text-xs">{trans.helper_domain}</p>
                             </div>
 
-                            {/* Logo Upload */}
                             <div className="grid gap-2">
-                                <Label className="text-sm font-semibold">Logo Perusahaan</Label>
+                                <Label className="font-semibold text-gray-700">{trans.label_logo}</Label>
                                 <div className="mt-1">
-                                    <ResettableDropzoneImage label="Upload Logo" isRequired={false} onFileChange={setCompanyLogoFile} />
+                                    <ResettableDropzoneImage label={trans.btn_upload} isRequired={false} onFileChange={setCompanyLogoFile} />
                                 </div>
                             </div>
                         </div>
 
-                        {/* Footer: Vertikal di Mobile, Horizontal di Desktop */}
-                        <DialogFooter className="mt-8 flex flex-col-reverse gap-2 sm:flex-row">
+                        <DialogFooter className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
                             <DialogClose asChild>
-                                <Button type="button" variant="secondary" className="h-11 w-full font-medium text-black sm:h-10 sm:w-auto">
-                                    Batal
+                                <Button type="button" variant="secondary" className="h-11 w-full sm:h-10 sm:w-auto">
+                                    {trans.btn_cancel}
                                 </Button>
                             </DialogClose>
-                            <Button
-                                type="submit"
-                                className="bg-primary text-primary-foreground hover:bg-primary/90 h-11 w-full font-bold sm:h-10 sm:w-auto"
-                                onClick={handleSubmit}
-                            >
-                                Simpan Perusahaan
+                            <Button type="submit" className="h-11 w-full font-bold shadow-md sm:h-10 sm:w-auto">
+                                {trans.btn_create}
                             </Button>
                         </DialogFooter>
                     </form>

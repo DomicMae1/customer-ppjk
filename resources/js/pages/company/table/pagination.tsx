@@ -58,7 +58,7 @@ export function DataTablePagination<TData>({ table }: DataTablePaginationProps<T
                     </div>
 
                     {/* Page indicator */}
-                    <div className="flex w-[100px] items-center justify-center text-sm font-medium">
+                    <div className="flex w-[120px] items-center justify-center text-sm font-medium">
                         {trans.page} {table.getState().pagination.pageIndex + 1} {trans.of} {table.getPageCount()}
                     </div>
 
