@@ -8,9 +8,33 @@ import { MoreHorizontal } from 'lucide-react';
 
 export const columns = (onEditClick: (perusahaan: Perusahaan) => void, onDeleteClick: (id: number) => void): ColumnDef<Perusahaan>[] => [
     {
+        accessorKey: 'path_company_logo',
+        header: 'Logo',
+        cell: ({ row }) => {
+            const logo = row.original.path_company_logo;
+            return logo ? (
+                <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-md border bg-gray-50">
+                    <img src={`/storage/${logo}`} alt="Logo" className="h-full w-full object-contain" />
+                </div>
+            ) : (
+                <div className="flex h-10 w-10 items-center justify-center rounded-md border bg-gray-50 text-[10px] text-gray-400">
+                    No Logo
+                </div>
+            );
+        },
+    },
+    {
         accessorKey: 'nama_perusahaan',
         header: 'Nama Perusahaan',
-        cell: ({ row }) => <div className="min-w-[150px] px-4 py-2">{row.original.nama_perusahaan}</div>,
+        cell: ({ row }) => <div className="min-w-[150px] px-4 py-2 font-semibold">{row.original.nama_perusahaan}</div>,
+    },
+    {
+        id: 'domain',
+        header: 'Domain',
+        cell: ({ row }) => {
+            const domain = (row.original as any).tenant?.domains?.[0]?.domain || '-';
+            return <div className="text-sm text-gray-600">{domain}</div>;
+        },
     },
 
     {

@@ -154,7 +154,7 @@ export default function ManageRoles() {
                         <div className="mt-2">Role ini akan dihapus. Apakah Anda yakin?</div>
                     </DialogHeader>
                     <DialogFooter className="sm:justify-start">
-                        <Button type="button" variant="destructive" onClick={onConfirmDelete}>
+                        <Button type="button" variant="destructive" className="text-white" onClick={onConfirmDelete}>
                             Hapus
                         </Button>
                         <DialogClose asChild>

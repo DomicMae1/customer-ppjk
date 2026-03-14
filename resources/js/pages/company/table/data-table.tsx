@@ -207,7 +207,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_peru
                                     <div className="grid grid-cols-1 gap-3">
                                         <div className="flex items-center gap-2 text-sm text-gray-600">
                                             <Globe className="h-4 w-4 text-gray-400" />
-                                            <span className="truncate font-medium">{original.domain || '-'}</span>
+                                            <span className="truncate font-medium">{original.tenant?.domains?.[0]?.domain || '-'}</span>
                                         </div>
                                     </div>
 
