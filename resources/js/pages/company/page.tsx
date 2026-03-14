@@ -58,9 +58,9 @@ export default function ManageCompany() {
     const [companyIdToDelete, setCompanyIdToDelete] = useState<number | null>(null);
 
     const userRoles = [
-        { key: 'id_User_1', label: 'Manager' },
-        { key: 'id_User_2', label: 'Direktur' },
-        { key: 'id_User_3', label: 'Lawyer' },
+        { key: 'id_User_1', label: 'Staff' },
+        { key: 'id_User_2', label: 'Manager' },
+        { key: 'id_User_3', label: 'Supervisor' },
     ];
 
     const handleUserChange = (field: keyof FormState, value: string) => {
@@ -94,16 +94,16 @@ export default function ManageCompany() {
         setSelectedCompany(company);
         setCompanyLogoFile(null);
 
-        const manager = company.users.find((u: any) => u.pivot.role === 'manager');
-        const direktur = company.users.find((u: any) => u.pivot.role === 'direktur');
-        const lawyer = company.users.find((u: any) => u.pivot.role === 'lawyer');
+        const staff = company.users?.find((u: any) => u.pivot.role === 'staff');
+        const manager = company.users?.find((u: any) => u.pivot.role === 'manager');
+        const supervisor = company.users?.find((u: any) => u.pivot.role === 'supervisor');
 
         setForm({
             nama_perusahaan: company.nama_perusahaan || '',
             domain: company.tenant?.domains?.[0]?.domain || '',
-            id_User_1: manager ? String(manager.id) : '',
-            id_User_2: direktur ? String(direktur.id) : '',
-            id_User_3: lawyer ? String(lawyer.id) : '',
+            id_User_1: staff ? String(staff.id_user) : '',
+            id_User_2: manager ? String(manager.id_user) : '',
+            id_User_3: supervisor ? String(supervisor.id_user) : '',
             notify_1: company.notify_1 || '',
             notify_2: company.notify_2 || '',
             path_company_logo: company.path_company_logo || '',
@@ -148,7 +148,7 @@ export default function ManageCompany() {
 
         if (selectedCompany) {
             formData.append('_method', 'PUT');
-            router.post(`/perusahaan/${selectedCompany.id}`, formData, {
+            router.post(`/perusahaan/${selectedCompany.id_perusahaan}`, formData, {
                 forceFormData: true,
                 preserveScroll: true,
                 onSuccess: () => {
@@ -203,13 +203,19 @@ export default function ManageCompany() {
             </Dialog>
 
             <Dialog open={openForm} onOpenChange={(isOpen) => !isOpen && resetFormAndClose()}>
-                <DialogContent>
+                {/* - max-w-[95%] untuk mobile, max-w-lg untuk desktop
+                - max-h-[90vh] agar tidak melebihi layar hp
+                - overflow-y-auto agar bisa di-scroll tanpa ScrollArea 
+            */}
+                <DialogContent className="max-h-[90vh] max-w-[95%] overflow-y-auto rounded-xl p-4 sm:max-w-2xl sm:p-6">
                     <form onSubmit={onSubmit}>
                         <DialogHeader>
-                            <DialogTitle>{selectedCompany ? 'Edit Perusahaan' : 'Tambah Perusahaan'}</DialogTitle>
+                            <DialogTitle className="text-lg sm:text-xl">{selectedCompany ? 'Edit Perusahaan' : 'Tambah Perusahaan'}</DialogTitle>
                         </DialogHeader>
+
                         <div className="space-y-4 py-4">
-                            <div>
+                            {/* Input Nama */}
+                            <div className="grid gap-2">
                                 <Label htmlFor="nama_perusahaan">Nama Perusahaan</Label>
                                 <Input
                                     id="nama_perusahaan"
@@ -218,89 +224,91 @@ export default function ManageCompany() {
                                     onChange={handleInputChange}
                                     placeholder="Contoh: PT. Maju Sejahtera"
                                     required
+                                    className="h-10"
                                 />
                             </div>
 
-                            <div>
+                            {/* Input Domain */}
+                            <div className="grid gap-2">
                                 <Label htmlFor="domain">Domain Lengkap</Label>
                                 <Input
                                     id="domain"
                                     name="domain"
                                     value={form.domain}
                                     onChange={handleInputChange}
-                                    placeholder="Contoh: alpha.registration.tako.co.id"
+                                    placeholder="alpha.registration.tako.co.id"
                                     required
+                                    className="h-10"
                                 />
-                                <p className="text-muted-foreground mt-1 text-xs">Masukkan alamat domain lengkap (Full URL) untuk perusahaan ini.</p>
+                                <p className="text-muted-foreground text-[10px] sm:text-xs">Masukkan alamat domain lengkap (Full URL).</p>
                             </div>
 
-                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                            {/* Grid User Roles: 1 kolom di mobile, 2 di desktop */}
+                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                 {userRoles.map(({ key, label }) => (
-                                    <div key={key}>
+                                    <div key={key} className="grid gap-2">
                                         <Label htmlFor={key}>{label}</Label>
                                         <select
                                             id={key}
-                                            className="w-full rounded border px-2 py-1"
+                                            className="border-input bg-background focus:ring-ring h-10 w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
                                             value={form[key as keyof FormState]}
                                             onChange={(e) => handleUserChange(key as keyof FormState, e.target.value)}
                                         >
-                                            <div className="text-black">
-                                                <option value="">Pilih {label}</option>
-                                                {props.users?.map((user: any) => (
-                                                    <option key={user.id} value={user.id}>
-                                                        {user.name}
-                                                    </option>
-                                                ))}
-                                            </div>
+                                            <option value="">Pilih {label}</option>
+                                            {props.users?.map((user: any) => (
+                                                <option key={user.id_user} value={user.id_user}>
+                                                    {user.name}
+                                                </option>
+                                            ))}
                                         </select>
                                     </div>
                                 ))}
                             </div>
 
-                            <div>
-                                <Label htmlFor="notify_1">Notifikasi Email 1</Label>
-                                <Input
-                                    id="notify_1"
-                                    name="notify_1"
-                                    value={form.notify_1}
-                                    onChange={handleInputChange}
-                                    placeholder="email1@contoh.com, email2@contoh.com"
-                                />
+                            {/* Email Notifications */}
+                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                <div className="grid gap-2">
+                                    <Label htmlFor="notify_1">Notifikasi Email 1</Label>
+                                    <Input id="notify_1" name="notify_1" value={form.notify_1} onChange={handleInputChange} className="h-10" />
+                                </div>
+                                <div className="grid gap-2">
+                                    <Label htmlFor="notify_2">Notifikasi Email 2</Label>
+                                    <Input id="notify_2" name="notify_2" value={form.notify_2} onChange={handleInputChange} className="h-10" />
+                                </div>
                             </div>
-                            <div>
-                                <Label htmlFor="notify_2">Notifikasi Email 2</Label>
-                                <Input
-                                    id="notify_2"
-                                    name="notify_2"
-                                    value={form.notify_2}
-                                    onChange={handleInputChange}
-                                    placeholder="email3@contoh.com, email4@contoh.com"
-                                />
-                            </div>
-                            <div>
-                                <ResettableDropzoneImage
-                                    key={form.path_company_logo}
-                                    label="Upload Logo Perusahaan"
-                                    isRequired={false}
-                                    onFileChange={setCompanyLogoFile}
-                                    existingFile={
-                                        form.path_company_logo
-                                            ? {
-                                                  nama_file: form.path_company_logo.split('/').pop() ?? 'logo.png',
-                                                  path: form.path_company_logo,
-                                              }
-                                            : null
-                                    }
-                                />
+
+                            {/* Logo Upload */}
+                            <div className="grid gap-2">
+                                <Label>Logo Perusahaan</Label>
+                                <div className="mt-1">
+                                    <ResettableDropzoneImage
+                                        key={form.path_company_logo}
+                                        label="Upload Logo"
+                                        isRequired={false}
+                                        onFileChange={setCompanyLogoFile}
+                                        existingFile={
+                                            form.path_company_logo
+                                                ? {
+                                                      nama_file: form.path_company_logo.split('/').pop() ?? 'logo.png',
+                                                      path: form.path_company_logo,
+                                                  }
+                                                : null
+                                        }
+                                    />
+                                </div>
                             </div>
                         </div>
-                        <DialogFooter className="sm:justify-start">
-                            <Button type="submit">{selectedCompany ? 'Update' : 'Create'}</Button>
+
+                        {/* Footer: Tombol tumpuk di mobile, sejajar di desktop */}
+                        <DialogFooter className="mt-4 flex flex-col-reverse gap-2 sm:mt-0 sm:flex-row">
                             <DialogClose asChild>
-                                <Button variant="secondary" type="button">
+                                <Button variant="secondary" type="button" className="w-full sm:w-auto">
                                     Batal
                                 </Button>
                             </DialogClose>
+                            <Button type="submit" className="w-full sm:w-auto">
+                                {selectedCompany ? 'Update' : 'Create'}
+                            </Button>
                         </DialogFooter>
                     </form>
                 </DialogContent>

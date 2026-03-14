@@ -17,6 +17,7 @@ import {
     useReactTable,
     VisibilityState,
 } from '@tanstack/react-table';
+import { Globe, Mail, Plus, RotateCcw, Search, User2 } from 'lucide-react';
 import * as React from 'react';
 import { ChangeEvent, useState } from 'react';
 import { DataTableViewOptions } from './data-table-view-options';
@@ -134,7 +135,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_peru
 
     return (
         <div className="w-full space-y-4">
-            <div className="flex items-center gap-2">
+            <div className="hidden items-center gap-2 md:flex">
                 <Input
                     placeholder="Filter nama perusahaan..."
                     value={(table.getColumn(filterKey)?.getFilterValue() as string) ?? ''}
@@ -145,7 +146,32 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_peru
                 <Button onClick={() => setOpenCreate(true)}>Tambah Perusahaan</Button>
             </div>
 
-            <div className="rounded-md border">
+            {/* --- MOBILE VIEW: HEADER & FILTER --- */}
+            <div className="flex flex-col gap-3 px-1 md:hidden">
+                <div className="flex items-center justify-between gap-2">
+                    <h2 className="text-lg font-bold text-gray-800">Daftar Perusahaan</h2>
+                    <Button size="icon" onClick={() => setOpenCreate(true)} className="shrink-0 rounded-full">
+                        <Plus className="h-5 w-5" />
+                    </Button>
+                </div>
+
+                <div className="flex gap-2">
+                    <div className="relative flex-1">
+                        <Search className="absolute top-2.5 left-2.5 h-4 w-4 text-gray-500" />
+                        <Input
+                            placeholder="Cari perusahaan..."
+                            value={(table.getColumn(filterKey)?.getFilterValue() as string) ?? ''}
+                            onChange={(event) => table.getColumn(filterKey)?.setFilterValue(event.target.value)}
+                            className="pl-9"
+                        />
+                    </div>
+                    <Button variant="outline" size="icon" onClick={() => table.getColumn(filterKey)?.setFilterValue('')} className="shrink-0">
+                        <RotateCcw className="h-4 w-4" />
+                    </Button>
+                </div>
+            </div>
+
+            <div className="hidden rounded-md border bg-white md:block">
                 <Table>
                     <TableHeader>
                         {table.getHeaderGroups().map((headerGroup) => (
@@ -178,99 +204,206 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_peru
                 </Table>
             </div>
 
+            <div className="flex flex-col gap-4 md:hidden">
+                {table.getRowModel().rows.length > 0 ? (
+                    table.getRowModel().rows.map((row) => {
+                        const original = row.original as any;
+
+                        return (
+                            <div
+                                key={row.id}
+                                className="group relative overflow-hidden rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition-all active:scale-[0.98] active:bg-gray-50"
+                            >
+                                {/* Garis dekoratif samping */}
+                                <div className="bg-primary absolute top-0 left-0 h-full w-1" />
+
+                                <div className="flex flex-col gap-3">
+                                    {/* Header: Nama Perusahaan & Status/Icon */}
+                                    <div className="flex items-start justify-between border-b pb-2">
+                                        <div className="flex flex-col">
+                                            <span className="text-xs font-semibold tracking-wider text-gray-500 uppercase">Perusahaan</span>
+                                            <span className="line-clamp-1 text-base font-bold text-gray-900">{original.nama_perusahaan || '-'}</span>
+                                        </div>
+                                        <div className="bg-primary/10 text-primary rounded-full p-2">
+                                            <Globe className="h-4 w-4" />
+                                        </div>
+                                    </div>
+
+                                    {/* Body: Info Utama */}
+                                    <div className="grid grid-cols-1 gap-3">
+                                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                                            <Globe className="h-4 w-4 text-gray-400" />
+                                            <span className="truncate font-medium">{original.domain || '-'}</span>
+                                        </div>
+
+                                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                                            <User2 className="h-4 w-4 text-gray-400" />
+                                            <span className="truncate">
+                                                Manager:{' '}
+                                                <span className="font-semibold text-gray-800">
+                                                    {original.users?.find((u: any) => u.pivot.role === 'manager')?.name || 'Belum diatur'}
+                                                </span>
+                                            </span>
+                                        </div>
+
+                                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                                            <Mail className="h-4 w-4 text-gray-400" />
+                                            <span className="truncate">{original.notify_1 || '-'}</span>
+                                        </div>
+                                    </div>
+
+                                    {/* Footer Card: Actions (Diambil dari cell terakhir columns) */}
+                                    <div className="mt-2 flex items-center justify-end gap-2 border-t pt-3">
+                                        {/* Ini akan me-render tombol Edit/Hapus yang ada di columnDef Anda */}
+                                        {flexRender(
+                                            row.getVisibleCells().find((cell) => cell.column.id === 'actions')?.column.columnDef.cell,
+                                            row
+                                                .getVisibleCells()
+                                                .find((cell) => cell.column.id === 'actions')
+                                                ?.getContext(),
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })
+                ) : (
+                    <div className="rounded-lg border-2 border-dashed bg-gray-50/50 py-12 text-center text-gray-500">Tidak ada hasil ditemukan.</div>
+                )}
+            </div>
+
             <DataTablePagination table={table} />
 
             {/* Dialog Tambah */}
+            {/* Dialog Tambah */}
             <Dialog open={openCreate} onOpenChange={setOpenCreate}>
-                <DialogContent className="sm:max-w-lg">
-                    <DialogHeader>
-                        <DialogTitle>Tambah Perusahaan</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                        <div>
-                            <Label htmlFor="nama_perusahaan">Nama Perusahaan</Label>
-                            <Input
-                                id="nama_perusahaan"
-                                value={form.nama_perusahaan}
-                                onChange={(e) => setForm({ ...form, nama_perusahaan: e.target.value })}
-                                placeholder="Contoh: PT. Maju Mundur"
-                            />
-                        </div>
+                <DialogContent className="max-h-[90vh] max-w-[95%] overflow-y-auto rounded-xl p-4 sm:max-w-lg sm:p-6">
+                    <form
+                        onSubmit={(e) => {
+                            e.preventDefault();
+                            handleSubmit();
+                        }}
+                    >
+                        <DialogHeader className="mb-4">
+                            <DialogTitle className="text-xl font-bold">Tambah Perusahaan</DialogTitle>
+                        </DialogHeader>
 
-                        <div>
-                            <Label htmlFor="domain">Domain Lengkap</Label>
-                            <Input
-                                id="domain"
-                                name="domain"
-                                value={form.domain}
-                                onChange={handleInputChange}
-                                placeholder="Contoh: alpha.registration.tako.co.id"
-                                required
-                            />
-                            <p className="text-muted-foreground mt-1 text-xs">Masukkan domain lengkap secara manual (Full URL).</p>
-                        </div>
+                        <div className="space-y-5">
+                            {/* Nama Perusahaan */}
+                            <div className="grid gap-2">
+                                <Label htmlFor="nama_perusahaan" className="text-sm font-semibold">
+                                    Nama Perusahaan
+                                </Label>
+                                <Input
+                                    id="nama_perusahaan"
+                                    value={form.nama_perusahaan}
+                                    onChange={(e) => setForm({ ...form, nama_perusahaan: e.target.value })}
+                                    placeholder="Contoh: PT. Maju Mundur"
+                                    className="h-11 sm:h-10" // Lebih tinggi di mobile untuk kemudahan tap
+                                    required
+                                />
+                            </div>
 
-                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                            {userRoles.map(({ key, label }) => (
-                                <div key={key}>
-                                    <Label htmlFor={key}>{label}</Label>
-                                    <select
-                                        id={key}
-                                        className="w-full rounded border px-2 py-1"
-                                        value={form[key as keyof FormState]}
-                                        onChange={(e) => handleUserChange(key as keyof FormState, e.target.value)}
-                                    >
-                                        <div className="text-black">
-                                            <option value="">Pilih User</option>
+                            {/* Domain */}
+                            <div className="grid gap-2">
+                                <Label htmlFor="domain" className="text-sm font-semibold">
+                                    Domain Lengkap
+                                </Label>
+                                <Input
+                                    id="domain"
+                                    name="domain"
+                                    value={form.domain}
+                                    onChange={handleInputChange}
+                                    placeholder="Contoh: alpha.registration.tako.co.id"
+                                    className="h-11 sm:h-10"
+                                    required
+                                />
+                                <p className="text-muted-foreground text-[10px] leading-relaxed italic sm:text-xs">
+                                    Masukkan domain lengkap secara manual (Full URL).
+                                </p>
+                            </div>
 
+                            {/* User Roles - Responsive Grid */}
+                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                {userRoles.map(({ key, label }) => (
+                                    <div key={key} className="grid gap-2">
+                                        <Label htmlFor={key} className="text-sm font-semibold">
+                                            {label}
+                                        </Label>
+                                        <select
+                                            id={key}
+                                            className="border-input bg-background ring-offset-background focus:ring-ring flex h-11 w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none sm:h-10"
+                                            value={form[key as keyof FormState]}
+                                            onChange={(e) => handleUserChange(key as keyof FormState, e.target.value)}
+                                        >
+                                            <option value="" className="text-gray-400">
+                                                Pilih {label}
+                                            </option>
                                             {users.map((user) => (
                                                 <option key={user.id} value={user.id}>
                                                     {user.name}
                                                 </option>
                                             ))}
-                                        </div>
-                                    </select>
+                                        </select>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Logo Upload */}
+                            <div className="grid gap-2">
+                                <Label className="text-sm font-semibold">Logo Perusahaan</Label>
+                                <div className="mt-1">
+                                    <ResettableDropzoneImage label="Upload Logo" isRequired={false} onFileChange={setCompanyLogoFile} />
                                 </div>
-                            ))}
-                        </div>
+                            </div>
 
-                        <div>
-                            <ResettableDropzoneImage label="Upload Logo Perusahaan" isRequired={false} onFileChange={setCompanyLogoFile} />
-                        </div>
-
-                        <div>
-                            <Label htmlFor="notify_1">Notify 1 (email, pisahkan dengan koma)</Label>
-                            <textarea
-                                id="notify_1"
-                                className="w-full rounded border px-2 py-1"
-                                rows={3}
-                                value={form.notify_1}
-                                onChange={(e) => setForm({ ...form, notify_1: e.target.value })}
-                                placeholder="email1@contoh.com, email2@contoh.com"
-                            />
-                            <div>
-                                <Label htmlFor="notify_2">Notifikasi Email 2</Label>
-                                <Input
-                                    id="notify_2"
-                                    name="notify_2"
-                                    value={form.notify_2}
-                                    onChange={handleInputChange}
-                                    placeholder="email2@contoh.com"
-                                />
+                            {/* Notifikasi Email */}
+                            <div className="grid gap-4 sm:grid-cols-2">
+                                <div className="grid gap-2">
+                                    <Label htmlFor="notify_1" className="text-sm font-semibold">
+                                        Notify 1 (Email, pisahkan koma)
+                                    </Label>
+                                    <textarea
+                                        id="notify_1"
+                                        className="border-input bg-background focus:ring-ring flex min-h-[80px] w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
+                                        rows={3}
+                                        value={form.notify_1}
+                                        onChange={(e) => setForm({ ...form, notify_1: e.target.value })}
+                                        placeholder="email1@contoh.com, email2@contoh.com"
+                                    />
+                                </div>
+                                <div className="grid gap-2 text-black">
+                                    <Label htmlFor="notify_2" className="text-sm font-semibold">
+                                        Notifikasi Email 2
+                                    </Label>
+                                    <Input
+                                        id="notify_2"
+                                        name="notify_2"
+                                        value={form.notify_2}
+                                        onChange={handleInputChange}
+                                        placeholder="email2@contoh.com"
+                                        className="h-11 sm:h-10"
+                                    />
+                                </div>
                             </div>
                         </div>
-                    </div>
 
-                    <DialogFooter className="sm:justify-start">
-                        <Button type="button" onClick={handleSubmit}>
-                            Simpan
-                        </Button>
-                        <DialogClose asChild>
-                            <Button type="button" variant="secondary">
-                                Batal
+                        {/* Footer: Vertikal di Mobile, Horizontal di Desktop */}
+                        <DialogFooter className="mt-8 flex flex-col-reverse gap-2 sm:flex-row">
+                            <DialogClose asChild>
+                                <Button type="button" variant="secondary" className="h-11 w-full font-medium text-black sm:h-10 sm:w-auto">
+                                    Batal
+                                </Button>
+                            </DialogClose>
+                            <Button
+                                type="submit"
+                                className="bg-primary text-primary-foreground hover:bg-primary/90 h-11 w-full font-bold sm:h-10 sm:w-auto"
+                                onClick={handleSubmit}
+                            >
+                                Simpan Perusahaan
                             </Button>
-                        </DialogClose>
-                    </DialogFooter>
+                        </DialogFooter>
+                    </form>
                 </DialogContent>
             </Dialog>
         </div>
