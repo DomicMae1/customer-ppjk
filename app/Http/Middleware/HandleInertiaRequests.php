@@ -68,6 +68,7 @@ class HandleInertiaRequests extends Middleware
             'trans_customer' => __('customer'),
             'trans_doc' => __('document'),
             'trans_role' => __('role'),
+            'trans_company' => __('company'),
             'company' => [
                 'id' => session('company_id'),
                 'name' => session('company_name'),

@@ -19,17 +19,17 @@ export function AppSidebarHeader({ breadcrumbs = [] }: { breadcrumbs?: Breadcrum
                     <div className="flex items-center gap-2 text-sm font-medium">
                         <a
                             href="/lang/id"
-                            className={`transition-colors hover:text-black ${
-                                currentLocale === 'id' ? 'font-bold text-black underline' : 'text-gray-400'
+                            className={`transition-colors hover:text-black dark:hover:text-white ${
+                                currentLocale === 'id' ? 'font-bold text-black underline dark:text-white' : 'text-gray-400 dark:text-gray-500'
                             }`}
                         >
                             ID
                         </a>
-                        <span className="text-gray-300">|</span>
+                        <span className="text-gray-300 dark:text-gray-700">|</span>
                         <a
                             href="/lang/en"
-                            className={`transition-colors hover:text-black ${
-                                currentLocale === 'en' ? 'font-bold text-black underline' : 'text-gray-400'
+                            className={`transition-colors hover:text-black dark:hover:text-white ${
+                                currentLocale === 'en' ? 'font-bold text-black underline dark:text-white' : 'text-gray-400 dark:text-gray-500'
                             }`}
                         >
                             EN
