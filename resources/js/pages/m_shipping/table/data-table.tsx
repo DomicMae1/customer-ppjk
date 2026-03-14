@@ -242,16 +242,6 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                         {trans.reset}
                     </Button>
 
-                    {/* <Select value={currentLocale} onValueChange={(val) => (window.location.href = `/lang/${val}`)}>
-                        <SelectTrigger className="w-[150px]">
-                            <SelectValue placeholder={trans.language} />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="id">🇮🇩 {trans.indonesian}</SelectItem>
-                            <SelectItem value="en">🇬🇧 {trans.english}</SelectItem>
-                        </SelectContent>
-                    </Select> */}
-
                     {userRole === 'supervisor' && (
                         <div>
                             <Select value={statusFilter} onValueChange={(val) => setStatusFilter(val as 'sudah' | 'belum' | '')}>
