@@ -27,7 +27,7 @@ export interface Customer {
     no_npwp?: string;
     no_npwp_16?: string;
     perusahaan?: {
-        id: number;
+        id_perusahaan: number;
         nama_perusahaan: string;
     };
     created_at: string;
@@ -36,6 +36,7 @@ export interface Customer {
 // Interface untuk Props yang dikirim dari Controller
 interface CustomerPageProps extends PageProps {
     customers: Customer[]; // Pastikan di controller index() Anda me-return data ini
+    perusahaan_list?: { id_perusahaan: number; nama_perusahaan: string }[];
     flash: {
         success?: string;
         error?: string;
@@ -44,7 +45,9 @@ interface CustomerPageProps extends PageProps {
 
 export default function ManageCustomers() {
     // Ambil data dari Inertia Props
-    const { customers } = usePage<CustomerPageProps>().props;
+    const { customers, perusahaan_list, auth } = usePage<CustomerPageProps>().props;
+    const isAdmin = auth.user.roles.some((role: any) => role.name === 'admin');
+
 
     const breadcrumbs: BreadcrumbItem[] = [
         {
@@ -73,6 +76,7 @@ export default function ManageCustomers() {
         nama: '',
         no_npwp: '',
         no_npwp_16: '',
+        id_perusahaan: '',
     };
 
     const [formData, setFormData] = useState({
@@ -118,6 +122,7 @@ export default function ManageCustomers() {
             nama: customer.nama || '',
             no_npwp: customer.no_npwp || '',
             no_npwp_16: customer.no_npwp_16 || '',
+            id_perusahaan: customer.perusahaan?.id_perusahaan?.toString() || '',
         });
         setOpenEdit(true);
     };
@@ -201,6 +206,27 @@ export default function ManageCustomers() {
                                 placeholder="PT. Contoh Sukses"
                             />
                         </div>
+
+                        {/* Perusahaan Dropdown (Owner) - Khusus Admin */}
+                        {isAdmin && (
+                            <div className="space-y-1">
+                                <Label htmlFor="create_id_perusahaan">
+                                    Milik Perusahaan <span className="text-red-500">*</span>
+                                </Label>
+                                <Select value={formData.id_perusahaan} onValueChange={(val) => handleInputChange('id_perusahaan', val)}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Pilih Perusahaan Owner" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {perusahaan_list?.map((p) => (
+                                            <SelectItem key={p.id_perusahaan} value={p.id_perusahaan.toString()}>
+                                                {p.nama_perusahaan}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        )}
 
                         {/* Tipe & Email */}
                         <div className="grid grid-cols-2 gap-4">
@@ -302,6 +328,25 @@ export default function ManageCustomers() {
                                 required
                             />
                         </div>
+
+                        {/* Perusahaan Dropdown (Owner) - Khusus Admin */}
+                        {isAdmin && (
+                            <div className="space-y-1">
+                                <Label htmlFor="edit_id_perusahaan">Milik Perusahaan Owner</Label>
+                                <Select value={formData.id_perusahaan} onValueChange={(val) => handleInputChange('id_perusahaan', val)}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Pilih Perusahaan Owner" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {perusahaan_list?.map((p) => (
+                                            <SelectItem key={p.id_perusahaan} value={p.id_perusahaan.toString()}>
+                                                {p.nama_perusahaan}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        )}
 
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-1">
