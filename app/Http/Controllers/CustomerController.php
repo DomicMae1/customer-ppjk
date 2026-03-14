@@ -51,6 +51,7 @@ class CustomerController extends Controller
                 'name' => session('company_name'),
                 'logo' => session('company_logo'),
             ],
+            'trans_customer' => trans('customer'),
             'flash' => [
                 'success' => session('success'),
                 'error' => session('error'),

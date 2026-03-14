@@ -41,21 +41,21 @@ interface CustomerPageProps extends PageProps {
         success?: string;
         error?: string;
     };
+    trans_customer: Record<string, string>;
 }
 
 export default function ManageCustomers() {
     // Ambil data dari Inertia Props
-    const { customers, perusahaan_list, auth } = usePage<CustomerPageProps>().props;
+    const { customers, perusahaan_list, auth, trans_customer } = usePage<CustomerPageProps>().props;
     const isAdmin = auth.user.roles.some((role: any) => role.name === 'admin');
-
 
     const breadcrumbs: BreadcrumbItem[] = [
         {
-            title: 'Master Data',
+            title: trans_customer.breadcrumb_master || 'Master Data',
             href: '#',
         },
         {
-            title: 'Customer',
+            title: trans_customer.breadcrumb_customer || 'Customer',
             href: '/customer',
         },
     ];
@@ -102,7 +102,7 @@ export default function ManageCustomers() {
                 setOpenCreate(false);
                 setIsSubmitting(false);
                 setFormData({ id_customer: 0, ...initialFormState });
-                toast.success('Customer berhasil ditambahkan!');
+                toast.success(trans_customer.toast_create_success || 'Customer created successfully!');
             },
             onError: (errors) => {
                 setIsSubmitting(false);
@@ -135,7 +135,7 @@ export default function ManageCustomers() {
             onSuccess: () => {
                 setOpenEdit(false);
                 setIsSubmitting(false);
-                toast.success('Data Customer berhasil diperbarui!');
+                toast.success(trans_customer.toast_update_success || 'Customer updated successfully!');
             },
             onError: (errors) => {
                 setIsSubmitting(false);
@@ -158,7 +158,7 @@ export default function ManageCustomers() {
                 onSuccess: () => {
                     setOpenDelete(false);
                     setCustomerToDelete(null);
-                    toast.success('Data Customer berhasil dihapus!');
+                    toast.success(trans_customer.toast_delete_success || 'Customer deleted successfully!');
                 },
                 onError: () => toast.error('Gagal menghapus data.'),
             });
@@ -167,20 +167,26 @@ export default function ManageCustomers() {
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Manage Customers" />
+            <Head title={trans_customer.page_title || 'Manage Customers'} />
 
             <div className="space-y-6 p-6">
                 {/* Header */}
                 <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
                     <div>
-                        <h1 className="text-2xl font-bold tracking-tight">Data Customer</h1>
-                        <p className="text-muted-foreground text-sm">Kelola data pelanggan dan perusahaan rekanan.</p>
+                        <h1 className="text-2xl font-bold tracking-tight">{trans_customer.header_title || 'Customer Data'}</h1>
+                        <p className="text-muted-foreground text-sm">
+                            {trans_customer.header_desc || 'Manage your customers and partner companies.'}
+                        </p>
                     </div>
                 </div>
 
                 {/* Table */}
                 <div className="">
-                    <DataTable columns={columns(onEditClick, onDeleteClick)} data={customers || []} onCreateClick={handleCreateClick} />
+                    <DataTable
+                        columns={columns(onEditClick, onDeleteClick, trans_customer)}
+                        data={customers || []}
+                        onCreateClick={handleCreateClick}
+                    />
                 </div>
             </div>
 
@@ -188,34 +194,35 @@ export default function ManageCustomers() {
             <Dialog open={openCreate} onOpenChange={setOpenCreate}>
                 <DialogContent className="sm:max-w-lg">
                     <DialogHeader>
-                        <DialogTitle>Tambah Customer Baru</DialogTitle>
-                        <DialogDescription>Masukkan informasi detail customer baru.</DialogDescription>
+                        <DialogTitle>{trans_customer.title_create || 'Add New Customer'}</DialogTitle>
+                        <DialogDescription>{trans_customer.desc_create || 'Enter the detail information of the new customer.'}</DialogDescription>
                     </DialogHeader>
 
                     <form onSubmit={handleCreateSubmit} className="space-y-4 py-2">
                         {/* Nama Perusahaan */}
-                        <div className="space-y-1">
+                        <div className="grid gap-2">
                             <Label htmlFor="create_nama_perusahaan">
-                                Nama Perusahaan <span className="text-red-500">*</span>
+                                {trans_customer.label_company_name} <span className="text-red-500">*</span>
                             </Label>
                             <Input
                                 id="create_nama_perusahaan"
                                 value={formData.nama_perusahaan}
                                 onChange={(e) => handleInputChange('nama_perusahaan', e.target.value)}
                                 required
-                                placeholder="PT. Contoh Sukses"
+                                placeholder={trans_customer.placeholder_company_name}
+                                className="h-11 sm:h-10"
                             />
                         </div>
 
                         {/* Perusahaan Dropdown (Owner) - Khusus Admin */}
                         {isAdmin && (
-                            <div className="space-y-1">
+                            <div className="grid gap-2 text-black">
                                 <Label htmlFor="create_id_perusahaan">
-                                    Milik Perusahaan <span className="text-red-500">*</span>
+                                    {trans_customer.label_owner_company || 'Owner Company'} <span className="text-red-500">*</span>
                                 </Label>
                                 <Select value={formData.id_perusahaan} onValueChange={(val) => handleInputChange('id_perusahaan', val)}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Pilih Perusahaan Owner" />
+                                    <SelectTrigger className="h-11 sm:h-10">
+                                        <SelectValue placeholder={trans_customer.placeholder_owner_company || 'Select Owner Company'} />
                                     </SelectTrigger>
                                     <SelectContent>
                                         {perusahaan_list?.map((p) => (
@@ -229,24 +236,24 @@ export default function ManageCustomers() {
                         )}
 
                         {/* Tipe & Email */}
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-1">
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            <div className="grid gap-2">
                                 <Label htmlFor="create_type">
-                                    Tipe Customer <span className="text-red-500">*</span>
+                                    {trans_customer.label_type} <span className="text-red-500">*</span>
                                 </Label>
                                 <Select value={formData.type} onValueChange={(val) => handleInputChange('type', val)}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Pilih tipe" />
+                                    <SelectTrigger className="h-11 sm:h-10">
+                                        <SelectValue placeholder={trans_customer.placeholder_type} />
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="external">External</SelectItem>
+                                        <SelectItem value="internal">Internal</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
-
-                            <div className="space-y-1">
+                            <div className="grid gap-2">
                                 <Label htmlFor="create_email">
-                                    Email <span className="text-red-500">*</span>
+                                    {trans_customer.label_email} <span className="text-red-500">*</span>
                                 </Label>
                                 <Input
                                     id="create_email"
@@ -254,55 +261,58 @@ export default function ManageCustomers() {
                                     value={formData.email}
                                     onChange={(e) => handleInputChange('email', e.target.value)}
                                     required
-                                    placeholder="email@perusahaan.com"
+                                    placeholder="email@example.com"
+                                    className="h-11 sm:h-10"
                                 />
                             </div>
                         </div>
 
                         {/* PIC Name */}
-                        <div className="space-y-1">
+                        <div className="grid gap-2">
                             <Label htmlFor="create_nama">
-                                Nama PIC / Personal <span className="text-red-500">*</span>
+                                {trans_customer.label_pic_name} <span className="text-red-500">*</span>
                             </Label>
                             <Input
                                 id="create_nama"
                                 value={formData.nama}
                                 onChange={(e) => handleInputChange('nama', e.target.value)}
                                 required
-                                placeholder="Nama Lengkap Penanggung Jawab"
+                                placeholder={trans_customer.placeholder_pic_name}
+                                className="h-11 sm:h-10"
                             />
                         </div>
 
-                        {/* NPWP Fields */}
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-1">
-                                <Label htmlFor="create_no_npwp">No. NPWP (15 Digit)</Label>
+                        <div className="grid grid-cols-1 gap-4 text-black sm:grid-cols-2">
+                            <div className="grid gap-2">
+                                <Label htmlFor="create_no_npwp">{trans_customer.label_npwp_15}</Label>
                                 <Input
                                     id="create_no_npwp"
                                     value={formData.no_npwp}
                                     onChange={(e) => handleInputChange('no_npwp', e.target.value)}
-                                    placeholder="Opsional"
+                                    placeholder="15 Digits"
+                                    className="h-11 sm:h-10"
                                 />
                             </div>
-                            <div className="space-y-1">
-                                <Label htmlFor="create_no_npwp_16">No. NPWP (16 Digit)</Label>
+                            <div className="grid gap-2">
+                                <Label htmlFor="create_no_npwp_16">{trans_customer.label_npwp_16}</Label>
                                 <Input
                                     id="create_no_npwp_16"
                                     value={formData.no_npwp_16}
                                     onChange={(e) => handleInputChange('no_npwp_16', e.target.value)}
-                                    placeholder="Opsional"
+                                    placeholder="16 Digits"
+                                    className="h-11 sm:h-10"
                                 />
                             </div>
                         </div>
 
-                        <DialogFooter className="pt-4">
+                        <DialogFooter className="flex-col-reverse gap-2 pt-4 sm:flex-row">
                             <DialogClose asChild>
-                                <Button type="button" variant="secondary" disabled={isSubmitting}>
-                                    Batal
+                                <Button type="button" variant="secondary" className="h-11 w-full text-black sm:h-10 sm:w-auto">
+                                    {trans_customer.btn_cancel || 'Cancel'}
                                 </Button>
                             </DialogClose>
-                            <Button type="submit" disabled={isSubmitting}>
-                                {isSubmitting ? 'Menyimpan...' : 'Simpan'}
+                            <Button type="submit" disabled={isSubmitting} className="h-11 w-full sm:h-10 sm:w-auto">
+                                {isSubmitting ? trans_customer.btn_saving || 'Saving...' : trans_customer.btn_save || 'Save'}
                             </Button>
                         </DialogFooter>
                     </form>
@@ -313,29 +323,30 @@ export default function ManageCustomers() {
             <Dialog open={openEdit} onOpenChange={setOpenEdit}>
                 <DialogContent className="sm:max-w-lg">
                     <DialogHeader>
-                        <DialogTitle>Edit Customer</DialogTitle>
-                        <DialogDescription>Ubah informasi detail customer di bawah ini.</DialogDescription>
+                        <DialogTitle>{trans_customer.title_edit || 'Edit Customer'}</DialogTitle>
+                        <DialogDescription>{trans_customer.desc_edit || 'Update customer detail information below.'}</DialogDescription>
                     </DialogHeader>
 
                     <form onSubmit={handleUpdateSubmit} className="space-y-4 py-2">
-                        {/* Form field sama dengan create, tapi valuenya dari state yang sama (formData) */}
-                        <div className="space-y-1">
-                            <Label htmlFor="edit_nama_perusahaan">Nama Perusahaan</Label>
+                        {/* Fields sama dengan Create, gunakan trans_customer */}
+                        <div className="grid gap-2">
+                            <Label htmlFor="edit_nama_perusahaan">{trans_customer.label_company_name}</Label>
                             <Input
                                 id="edit_nama_perusahaan"
                                 value={formData.nama_perusahaan}
                                 onChange={(e) => handleInputChange('nama_perusahaan', e.target.value)}
                                 required
+                                className="h-11 sm:h-10"
                             />
                         </div>
 
                         {/* Perusahaan Dropdown (Owner) - Khusus Admin */}
                         {isAdmin && (
-                            <div className="space-y-1">
-                                <Label htmlFor="edit_id_perusahaan">Milik Perusahaan Owner</Label>
+                            <div className="grid gap-2">
+                                <Label htmlFor="edit_id_perusahaan">{trans_customer.label_owner_company || 'Owner Company'}</Label>
                                 <Select value={formData.id_perusahaan} onValueChange={(val) => handleInputChange('id_perusahaan', val)}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Pilih Perusahaan Owner" />
+                                    <SelectTrigger className="h-11 sm:h-10">
+                                        <SelectValue placeholder={trans_customer.placeholder_owner_company || 'Select Owner Company'} />
                                     </SelectTrigger>
                                     <SelectContent>
                                         {perusahaan_list?.map((p) => (
@@ -350,10 +361,10 @@ export default function ManageCustomers() {
 
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-1">
-                                <Label htmlFor="edit_type">Tipe Customer</Label>
+                                <Label htmlFor="edit_type">{trans_customer.label_type}</Label>
                                 <Select value={formData.type} onValueChange={(val) => handleInputChange('type', val)}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Pilih tipe" />
+                                    <SelectTrigger className="h-11 sm:h-10">
+                                        <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="internal">Internal</SelectItem>
@@ -361,47 +372,59 @@ export default function ManageCustomers() {
                                     </SelectContent>
                                 </Select>
                             </div>
-
-                            <div className="space-y-1">
-                                <Label htmlFor="edit_email">Email</Label>
+                            <div className="grid gap-2">
+                                <Label htmlFor="edit_email">{trans_customer.label_email}</Label>
                                 <Input
                                     id="edit_email"
                                     type="email"
                                     value={formData.email}
                                     onChange={(e) => handleInputChange('email', e.target.value)}
                                     required
+                                    className="h-11 sm:h-10"
                                 />
                             </div>
                         </div>
 
-                        <div className="space-y-1">
-                            <Label htmlFor="edit_nama">Nama PIC / Personal</Label>
-                            <Input id="edit_nama" value={formData.nama} onChange={(e) => handleInputChange('nama', e.target.value)} required />
+                        <div className="grid gap-2">
+                            <Label htmlFor="edit_nama">{trans_customer.label_pic_name}</Label>
+                            <Input
+                                id="edit_nama"
+                                value={formData.nama}
+                                onChange={(e) => handleInputChange('nama', e.target.value)}
+                                required
+                                className="h-11 sm:h-10"
+                            />
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-1">
-                                <Label htmlFor="edit_no_npwp">No. NPWP (15 Digit)</Label>
-                                <Input id="edit_no_npwp" value={formData.no_npwp} onChange={(e) => handleInputChange('no_npwp', e.target.value)} />
+                        <div className="grid grid-cols-1 gap-4 text-black sm:grid-cols-2">
+                            <div className="grid gap-2">
+                                <Label htmlFor="edit_no_npwp">{trans_customer.label_npwp_15}</Label>
+                                <Input
+                                    id="edit_no_npwp"
+                                    value={formData.no_npwp}
+                                    onChange={(e) => handleInputChange('no_npwp', e.target.value)}
+                                    className="h-11 sm:h-10"
+                                />
                             </div>
-                            <div className="space-y-1">
-                                <Label htmlFor="edit_no_npwp_16">No. NPWP (16 Digit)</Label>
+                            <div className="grid gap-2">
+                                <Label htmlFor="edit_no_npwp_16">{trans_customer.label_npwp_16}</Label>
                                 <Input
                                     id="edit_no_npwp_16"
                                     value={formData.no_npwp_16}
                                     onChange={(e) => handleInputChange('no_npwp_16', e.target.value)}
+                                    className="h-11 sm:h-10"
                                 />
                             </div>
                         </div>
 
-                        <DialogFooter className="pt-4">
+                        <DialogFooter className="flex-col-reverse gap-2 pt-4 sm:flex-row">
                             <DialogClose asChild>
-                                <Button type="button" variant="secondary" disabled={isSubmitting}>
-                                    Batal
+                                <Button type="button" variant="secondary" className="h-11 w-full text-black sm:h-10 sm:w-auto">
+                                    {trans_customer.btn_cancel || 'Cancel'}
                                 </Button>
                             </DialogClose>
-                            <Button type="submit" disabled={isSubmitting}>
-                                {isSubmitting ? 'Menyimpan...' : 'Simpan Perubahan'}
+                            <Button type="submit" disabled={isSubmitting} className="h-11 w-full sm:h-10 sm:w-auto">
+                                {isSubmitting ? trans_customer.btn_saving || 'Saving...' : trans_customer.btn_save_changes || 'Save Changes'}
                             </Button>
                         </DialogFooter>
                     </form>
@@ -410,23 +433,25 @@ export default function ManageCustomers() {
 
             {/* --- MODAL DELETE --- */}
             <Dialog open={openDelete} onOpenChange={setOpenDelete}>
-                <DialogContent className="sm:max-w-md">
+                <DialogContent className="max-w-[95vw] rounded-xl sm:max-w-md">
                     <DialogHeader>
-                        <DialogTitle>Hapus Data Customer</DialogTitle>
+                        <DialogTitle>{trans_customer.title_delete || 'Delete Customer Data'}</DialogTitle>
                         <DialogDescription className="pt-2">
-                            Apakah Anda yakin ingin menghapus data perusahaan
-                            <span className="font-bold text-red-600"> {customerToDelete?.nama_perusahaan}</span>?
+                            {(trans_customer.text_delete_confirm || 'Are you sure you want to delete :name?').replace(
+                                ':name',
+                                customerToDelete?.nama_perusahaan ?? '',
+                            )}
                             <br />
-                            Tindakan ini tidak dapat dibatalkan.
+                            <span className="font-semibold text-red-600">{trans_customer.text_permanent || 'This action cannot be undone.'}</span>
                         </DialogDescription>
                     </DialogHeader>
-                    <DialogFooter className="gap-2 sm:justify-start">
-                        <Button type="button" variant="destructive" className="text-white" onClick={onConfirmDelete}>
-                            Ya, Hapus
+                    <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-start">
+                        <Button type="button" variant="destructive" className="w-full text-white sm:w-auto" onClick={onConfirmDelete}>
+                            {trans_customer.btn_confirm_delete || 'Yes, Delete'}
                         </Button>
                         <DialogClose asChild>
-                            <Button type="button" variant="outline">
-                                Batal
+                            <Button type="button" variant="outline" className="w-full sm:w-auto">
+                                {trans_customer.btn_cancel || 'Cancel'}
                             </Button>
                         </DialogClose>
                     </DialogFooter>
