@@ -109,7 +109,7 @@ export const columns = (
                             {trans.btn_edit || 'Edit'}
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => onDeleteClick(doc.id_dokumen)} className="text-red-600 focus:text-red-700">
-                            <Trash2 className="mr-2 h-4 w-4" />
+                            <Trash2 className="mr-2 h-4 w-4 text-red-600" />
                             {trans.btn_delete || 'Delete'}
                         </DropdownMenuItem>
                     </DropdownMenuContent>

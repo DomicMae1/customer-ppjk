@@ -42,7 +42,7 @@ export default function Login({ status, canResetPassword, company, trans_auth, l
         });
     };
 
-    const companyName = company?.nama_perusahaan || 'Testing';
+    const companyName = company?.nama_perusahaan || 'PT. Tako Anugerah Koporasi';
     const companyLogo = company?.path_company_logo || null;
 
     return (
