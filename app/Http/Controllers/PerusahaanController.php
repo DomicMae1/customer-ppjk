@@ -52,33 +52,9 @@ class PerusahaanController extends Controller
      */
     public function store(Request $request)
     {
-        $userFields = ['id_User', 'id_User_1', 'id_User_2', 'id_User_3'];
-
-        foreach ($userFields as $field) {
-            $value = $request->input($field);
-
-            if ($value && !is_numeric($value)) {
-                $user = User::where('name', $value)->first();
-                
-                if ($user) {
-                    $request->merge([$field => $user->id]);
-                } else {
-                    $request->merge([$field => null]);
-                }
-            }
-        }
-
         $validated = $request->validate([
             'nama_perusahaan' => 'required|string|max:255',
             'domain'          => 'required|string|max:255|unique:domains,domain',
-            'id_User_1' => 'nullable|integer|exists:users,id', // manager
-            'id_User_2' => 'nullable|integer|exists:users,id', // direktur
-            'id_User_3' => 'nullable|integer|exists:users,id', // lawyer
-            'id_User'   => 'nullable|integer|exists:users,id', // user
-
-            'notify_1' => 'nullable|string',
-            'notify_2' => 'nullable|string',
-
             'company_logo' => 'nullable|image|mimes:jpg,jpeg,png,webp,svg|max:2048',
         ]);
 
@@ -88,54 +64,30 @@ class PerusahaanController extends Controller
             return back()->withErrors(['error' => "ID Perusahaan '$tenantId' sudah ada."]);
         }
 
-            $perusahaan = DB::connection('tako-user')->transaction(function () use ($request, $validated) {
-                $logoPath = $request->hasFile('company_logo') 
-                    ? $request->file('company_logo')->store('company_logo', 'public') 
-                    : null;
+        $perusahaan = DB::connection('tako-user')->transaction(function () use ($request, $validated) {
+            $logoPath = $request->hasFile('company_logo') 
+                ? $request->file('company_logo')->store('company_logo', 'public') 
+                : null;
 
-                return Perusahaan::create([
-                    'nama_perusahaan'   => $validated['nama_perusahaan'],
-                    'notify_1'          => $validated['notify_1'] ?? null,
-                    'notify_2'          => $validated['notify_2'] ?? null,
-                    'path_company_logo' => $logoPath,
-                ]);
-            });
-
-            $tenant = Tenant::create([
-                'id'            => $tenantId, 
-                'perusahaan_id' => $perusahaan->id_perusahaan,
+            return Perusahaan::create([
+                'nama_perusahaan'   => $validated['nama_perusahaan'],
+                'path_company_logo' => $logoPath,
             ]);
+        });
 
-            $appDomain = preg_replace('#^https?://#', '', env('APP_DOMAIN', 'localhost'));
-            $fullDomain = $validated['domain'] . '.' . $appDomain;
+        $tenant = Tenant::create([
+            'id'            => $tenantId, 
+            'perusahaan_id' => $perusahaan->id_perusahaan,
+        ]);
 
-            $domainRecord = $tenant->domains()->create([
-                'domain' => $fullDomain,
-            ]);
+        $appDomain = preg_replace('#^https?://#', '', env('APP_DOMAIN', 'localhost'));
+        $fullDomain = $validated['domain'] . '.' . $appDomain;
 
-            $perusahaan->update(['id_domain' => $domainRecord->id]);
+        $domainRecord = $tenant->domains()->create([
+            'domain' => $fullDomain,
+        ]);
 
-            $rolesMap = [
-                $validated['id_User_1'] ?? null => 'staff',
-                $validated['id_User_2'] ?? null => 'manager',
-                $validated['id_User_3'] ?? null => 'supervisor',
-                $validated['id_User']   ?? null => 'user',
-            ];
-
-            foreach ($rolesMap as $fieldName => $roleName) {
-            // Ambil ID dari request yang sudah kita bersihkan di atas
-            $userId = $request->input($fieldName); 
-
-            if ($userId) {
-                // Hubungkan di tabel pivot
-                $perusahaan->users()->attach($userId, ['role' => $roleName]);
-
-                // Update id_perusahaan di tabel users
-                User::where('id', $userId)->update([
-                    'id_perusahaan' => $perusahaan->id_perusahaan
-                ]);
-            }
-        }
+        $perusahaan->update(['id_domain' => $domainRecord->id]);
 
         return back()->with('success', "Tenant {$tenantId} dan Database berhasil dibuat.");
     }
@@ -165,49 +117,17 @@ class PerusahaanController extends Controller
      */
     public function update(Request $request, Perusahaan $perusahaan)
     {
-        // 1. PRE-PROCESSING: Ubah Nama (Don 5) menjadi ID (Angka) sebelum validasi
-        $userFields = ['id_User', 'id_User_1', 'id_User_2', 'id_User_3'];
-        foreach ($userFields as $field) {
-            $value = $request->input($field);
-            
-            if ($value === 'undefined' || $value === '' || $value === null) {
-                $request->merge([$field => null]);
-                continue;
-            }
-
-            // Jika value bukan angka murni (seperti "Don 5"), cari di DB
-           if (!is_numeric($value)) {
-                $user = User::where('name', $value)->first();
-                if ($user) {
-                    // Ambil id_user sesuai primary key di model, bukan 'id'
-                    $request->merge([$field => (int) $user->id_user]); 
-                } else {
-                    $request->merge([$field => null]);
-                }
-            }
-        }
-
-        // 2. VALIDASI
+        // 1. VALIDASI
         $tenant = Tenant::where('perusahaan_id', $perusahaan->id_perusahaan)->first();
         $domainId = $tenant ? $tenant->domains()->first()?->id : null;
 
         $validated = $request->validate([
             'nama_perusahaan' => 'required|string|max:255',
-            // Tambahkan unique ignore untuk domain agar bisa simpan tanpa ganti domain
             'domain'          => 'required|string|max:255|unique:domains,domain,' . ($domainId ?? 'NULL'),
-
-            // Gunakan numeric agar string angka dari FormData lolos
-            'id_User'   => 'nullable|numeric|exists:tako-user.users,id_user',
-            'id_User_1' => 'nullable|numeric|exists:tako-user.users,id_user',
-            'id_User_2' => 'nullable|numeric|exists:tako-user.users,id_user',
-            'id_User_3' => 'nullable|numeric|exists:tako-user.users,id_user',
-
-            'notify_1' => 'nullable|string',
-            'notify_2' => 'nullable|string',
-            'company_logo' => 'nullable|image|mimes:jpg,jpeg,png,webp,svg|max:2048',
+            'company_logo'    => 'nullable|image|mimes:jpg,jpeg,png,webp,svg|max:2048',
         ]);
 
-        // 3. UPDATE LOGO
+        // 2. UPDATE LOGO
         if ($request->hasFile('company_logo')) {
             if ($perusahaan->path_company_logo && Storage::disk('public')->exists($perusahaan->path_company_logo)) {
                 Storage::disk('public')->delete($perusahaan->path_company_logo);
@@ -215,15 +135,13 @@ class PerusahaanController extends Controller
             $perusahaan->path_company_logo = $request->file('company_logo')->store('company_logo', 'public');
         }
 
-        // 4. UPDATE DATA PERUSAHAAN
+        // 3. UPDATE DATA PERUSAHAAN
         $perusahaan->update([
             'nama_perusahaan'   => $validated['nama_perusahaan'],
-            'notify_1'          => $validated['notify_1'] ?? null,
-            'notify_2'          => $validated['notify_2'] ?? null,
             'path_company_logo' => $perusahaan->path_company_logo,
         ]);
 
-        // 5. UPDATE TENANT & DOMAIN
+        // 4. UPDATE TENANT & DOMAIN
         if (!$tenant) {
             $tenant = Tenant::create([
                 'id'            => Str::slug($validated['nama_perusahaan']),
@@ -236,29 +154,6 @@ class PerusahaanController extends Controller
         $tenant->domains()->create([
             'domain' => $validated['domain'],
         ]);
-
-        // 6. SYNC USER ROLES & UPDATE TABLE USERS
-        $syncData = [];
-        $rolesMap = [
-            'id_User'   => 'user',
-            'id_User_1' => 'staff',
-            'id_User_2' => 'manager',
-            'id_User_3' => 'supervisor',
-        ];
-
-        // Bersihkan dulu id_perusahaan lama milik user yang sebelumnya terhubung dengan perusahaan ini
-        User::where('id_perusahaan', $perusahaan->id_perusahaan)->update(['id_perusahaan' => null]);
-
-        foreach ($rolesMap as $field => $roleName) {
-            $userId = $request->input($field); 
-            if ($userId) {
-                $syncData[$userId] = ['role' => $roleName];
-                User::where('id_user', $userId)->update(['id_perusahaan' => $perusahaan->id_perusahaan]);
-            }
-        }
-
-        // Sinkronisasi ke tabel pivot (perusahaan_user_roles)
-        $perusahaan->users()->sync($syncData);
 
         return back()->with('success', 'Perusahaan berhasil diperbarui.');
     }

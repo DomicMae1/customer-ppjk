@@ -31,11 +31,6 @@ interface User {
 interface FormState {
     nama_perusahaan: string;
     domain: string;
-    id_User_1: string;
-    id_User_2: string;
-    id_User_3: string;
-    notify_1: string;
-    notify_2?: string;
 }
 
 interface DataTableProps<TData, TValue> {
@@ -64,11 +59,6 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_peru
     const [form, setForm] = useState<FormState>({
         nama_perusahaan: '',
         domain: '',
-        id_User_1: '',
-        id_User_2: '',
-        id_User_3: '',
-        notify_1: '',
-        notify_2: '',
     });
 
     const handleSubmit = () => {
@@ -77,11 +67,6 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_peru
         // field biasa
         fd.append('nama_perusahaan', form.nama_perusahaan);
         fd.append('domain', form.domain);
-        fd.append('id_User_1', form.id_User_1);
-        fd.append('id_User_2', form.id_User_2);
-        fd.append('id_User_3', form.id_User_3);
-        fd.append('notify_1', form.notify_1 ?? '');
-        fd.append('notify_2', form.notify_2 ?? '');
 
         // file logo jika ada
         if (companyLogoFile) {
@@ -95,11 +80,6 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_peru
                 setForm({
                     nama_perusahaan: '',
                     domain: '',
-                    id_User_1: '',
-                    id_User_2: '',
-                    id_User_3: '',
-                    notify_1: '',
-                    notify_2: '',
                 });
                 setCompanyLogoFile(null);
             },
@@ -126,12 +106,6 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_peru
         onRowSelectionChange: setRowSelection,
         state: { sorting, columnFilters, columnVisibility, rowSelection },
     });
-
-    const userRoles = [
-        { key: 'id_User_1', label: 'Manager' },
-        { key: 'id_User_2', label: 'Direktur' },
-        { key: 'id_User_3', label: 'Lawyer' },
-    ];
 
     return (
         <div className="w-full space-y-4">
@@ -235,21 +209,6 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_peru
                                             <Globe className="h-4 w-4 text-gray-400" />
                                             <span className="truncate font-medium">{original.domain || '-'}</span>
                                         </div>
-
-                                        <div className="flex items-center gap-2 text-sm text-gray-600">
-                                            <User2 className="h-4 w-4 text-gray-400" />
-                                            <span className="truncate">
-                                                Manager:{' '}
-                                                <span className="font-semibold text-gray-800">
-                                                    {original.users?.find((u: any) => u.pivot.role === 'manager')?.name || 'Belum diatur'}
-                                                </span>
-                                            </span>
-                                        </div>
-
-                                        <div className="flex items-center gap-2 text-sm text-gray-600">
-                                            <Mail className="h-4 w-4 text-gray-400" />
-                                            <span className="truncate">{original.notify_1 || '-'}</span>
-                                        </div>
                                     </div>
 
                                     {/* Footer Card: Actions (Diambil dari cell terakhir columns) */}
@@ -298,7 +257,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_peru
                                     id="nama_perusahaan"
                                     value={form.nama_perusahaan}
                                     onChange={(e) => setForm({ ...form, nama_perusahaan: e.target.value })}
-                                    placeholder="Contoh: PT. Maju Mundur"
+                                    placeholder="Contoh: PT. AminTrans"
                                     className="h-11 sm:h-10" // Lebih tinggi di mobile untuk kemudahan tap
                                     required
                                 />
@@ -307,46 +266,20 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_peru
                             {/* Domain */}
                             <div className="grid gap-2">
                                 <Label htmlFor="domain" className="text-sm font-semibold">
-                                    Domain Lengkap
+                                    Nama Domain
                                 </Label>
                                 <Input
                                     id="domain"
                                     name="domain"
                                     value={form.domain}
                                     onChange={handleInputChange}
-                                    placeholder="Contoh: alpha.registration.tako.co.id"
+                                    placeholder="Contoh: AminTrans"
                                     className="h-11 sm:h-10"
                                     required
                                 />
                                 <p className="text-muted-foreground text-[10px] leading-relaxed italic sm:text-xs">
-                                    Masukkan domain lengkap secara manual (Full URL).
+                                    Silahkan masukkan nama domain perusahaan
                                 </p>
-                            </div>
-
-                            {/* User Roles - Responsive Grid */}
-                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                                {userRoles.map(({ key, label }) => (
-                                    <div key={key} className="grid gap-2">
-                                        <Label htmlFor={key} className="text-sm font-semibold">
-                                            {label}
-                                        </Label>
-                                        <select
-                                            id={key}
-                                            className="border-input bg-background ring-offset-background focus:ring-ring flex h-11 w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none sm:h-10"
-                                            value={form[key as keyof FormState]}
-                                            onChange={(e) => handleUserChange(key as keyof FormState, e.target.value)}
-                                        >
-                                            <option value="" className="text-gray-400">
-                                                Pilih {label}
-                                            </option>
-                                            {users.map((user) => (
-                                                <option key={user.id} value={user.id}>
-                                                    {user.name}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                ))}
                             </div>
 
                             {/* Logo Upload */}
@@ -354,36 +287,6 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_peru
                                 <Label className="text-sm font-semibold">Logo Perusahaan</Label>
                                 <div className="mt-1">
                                     <ResettableDropzoneImage label="Upload Logo" isRequired={false} onFileChange={setCompanyLogoFile} />
-                                </div>
-                            </div>
-
-                            {/* Notifikasi Email */}
-                            <div className="grid gap-4 sm:grid-cols-2">
-                                <div className="grid gap-2">
-                                    <Label htmlFor="notify_1" className="text-sm font-semibold">
-                                        Notify 1 (Email, pisahkan koma)
-                                    </Label>
-                                    <textarea
-                                        id="notify_1"
-                                        className="border-input bg-background focus:ring-ring flex min-h-[80px] w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
-                                        rows={3}
-                                        value={form.notify_1}
-                                        onChange={(e) => setForm({ ...form, notify_1: e.target.value })}
-                                        placeholder="email1@contoh.com, email2@contoh.com"
-                                    />
-                                </div>
-                                <div className="grid gap-2 text-black">
-                                    <Label htmlFor="notify_2" className="text-sm font-semibold">
-                                        Notifikasi Email 2
-                                    </Label>
-                                    <Input
-                                        id="notify_2"
-                                        name="notify_2"
-                                        value={form.notify_2}
-                                        onChange={handleInputChange}
-                                        placeholder="email2@contoh.com"
-                                        className="h-11 sm:h-10"
-                                    />
                                 </div>
                             </div>
                         </div>

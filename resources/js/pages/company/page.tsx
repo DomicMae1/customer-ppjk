@@ -22,11 +22,6 @@ const breadcrumbs: BreadcrumbItem[] = [
 interface FormState {
     nama_perusahaan: string;
     domain: string;
-    id_User_1: string;
-    id_User_2: string;
-    id_User_3: string;
-    notify_1: string;
-    notify_2: string;
     path_company_logo: string;
 }
 
@@ -43,11 +38,6 @@ export default function ManageCompany() {
     const initialFormState: FormState = {
         nama_perusahaan: '',
         domain: '',
-        id_User_1: '',
-        id_User_2: '',
-        id_User_3: '',
-        notify_1: '',
-        notify_2: '',
         path_company_logo: '',
     };
 
@@ -56,19 +46,6 @@ export default function ManageCompany() {
     const [openDelete, setOpenDelete] = useState(false);
     const [selectedCompany, setSelectedCompany] = useState<any | null>(null);
     const [companyIdToDelete, setCompanyIdToDelete] = useState<number | null>(null);
-
-    const userRoles = [
-        { key: 'id_User_1', label: 'Staff' },
-        { key: 'id_User_2', label: 'Manager' },
-        { key: 'id_User_3', label: 'Supervisor' },
-    ];
-
-    const handleUserChange = (field: keyof FormState, value: string) => {
-        setForm((prev) => ({
-            ...prev,
-            [field]: value,
-        }));
-    };
 
     useEffect(() => {
         if (flash.success) toast.success(flash.success);
@@ -94,18 +71,9 @@ export default function ManageCompany() {
         setSelectedCompany(company);
         setCompanyLogoFile(null);
 
-        const staff = company.users?.find((u: any) => u.pivot.role === 'staff');
-        const manager = company.users?.find((u: any) => u.pivot.role === 'manager');
-        const supervisor = company.users?.find((u: any) => u.pivot.role === 'supervisor');
-
         setForm({
             nama_perusahaan: company.nama_perusahaan || '',
             domain: company.tenant?.domains?.[0]?.domain || '',
-            id_User_1: staff ? String(staff.id_user) : '',
-            id_User_2: manager ? String(manager.id_user) : '',
-            id_User_3: supervisor ? String(supervisor.id_user) : '',
-            notify_1: company.notify_1 || '',
-            notify_2: company.notify_2 || '',
             path_company_logo: company.path_company_logo || '',
         });
 
@@ -230,51 +198,17 @@ export default function ManageCompany() {
 
                             {/* Input Domain */}
                             <div className="grid gap-2">
-                                <Label htmlFor="domain">Domain Lengkap</Label>
+                                <Label htmlFor="domain">Nama Domain</Label>
                                 <Input
                                     id="domain"
                                     name="domain"
                                     value={form.domain}
                                     onChange={handleInputChange}
-                                    placeholder="alpha.registration.tako.co.id"
+                                    placeholder="AminTrans"
                                     required
                                     className="h-10"
                                 />
-                                <p className="text-muted-foreground text-[10px] sm:text-xs">Masukkan alamat domain lengkap (Full URL).</p>
-                            </div>
-
-                            {/* Grid User Roles: 1 kolom di mobile, 2 di desktop */}
-                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                                {userRoles.map(({ key, label }) => (
-                                    <div key={key} className="grid gap-2">
-                                        <Label htmlFor={key}>{label}</Label>
-                                        <select
-                                            id={key}
-                                            className="border-input bg-background focus:ring-ring h-10 w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
-                                            value={form[key as keyof FormState]}
-                                            onChange={(e) => handleUserChange(key as keyof FormState, e.target.value)}
-                                        >
-                                            <option value="">Pilih {label}</option>
-                                            {props.users?.map((user: any) => (
-                                                <option key={user.id_user} value={user.id_user}>
-                                                    {user.name}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                ))}
-                            </div>
-
-                            {/* Email Notifications */}
-                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                                <div className="grid gap-2">
-                                    <Label htmlFor="notify_1">Notifikasi Email 1</Label>
-                                    <Input id="notify_1" name="notify_1" value={form.notify_1} onChange={handleInputChange} className="h-10" />
-                                </div>
-                                <div className="grid gap-2">
-                                    <Label htmlFor="notify_2">Notifikasi Email 2</Label>
-                                    <Input id="notify_2" name="notify_2" value={form.notify_2} onChange={handleInputChange} className="h-10" />
-                                </div>
+                                <p className="text-muted-foreground text-[10px] sm:text-xs">Silahkan masukkan nama domain perusahaan</p>
                             </div>
 
                             {/* Logo Upload */}

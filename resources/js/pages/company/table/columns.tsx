@@ -12,16 +12,7 @@ export const columns = (onEditClick: (perusahaan: Perusahaan) => void, onDeleteC
         header: 'Nama Perusahaan',
         cell: ({ row }) => <div className="min-w-[150px] px-4 py-2">{row.original.nama_perusahaan}</div>,
     },
-    {
-        accessorKey: 'Notify_1',
-        header: 'Notify 1',
-        cell: ({ row }) => <Badge variant={row.original.notify_1 ? 'default' : 'secondary'}>{row.original.notify_1 || 'tidak ada'}</Badge>,
-    },
-    {
-        accessorKey: 'Notify_2',
-        header: 'Notify 2',
-        cell: ({ row }) => <Badge variant={row.original.Notify_2 ? 'default' : 'secondary'}>{row.original.notify_2 || 'tidak ada'}</Badge>,
-    },
+
     {
         id: 'actions',
         cell: ({ row }) => {

@@ -42,6 +42,13 @@ export default function ManageRoles() {
         }
     }, [flash]);
 
+    const handleCreateClick = () => {
+        setSelectedRole(null);
+        setRoleName('');
+        setSelectedPermissions([]);
+        setOpenForm(true);
+    };
+
     const onDeleteClick = (id: number) => {
         setRoleIdToDelete(id);
         setOpenDelete(true);
@@ -133,12 +140,15 @@ export default function ManageRoles() {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Manage Roles" />
-            <div className="p-4">
-                <DataTable columns={columns(onEditClick, onDeleteClick)} data={roles} />
+            <div className="space-y-6 p-4 sm:p-6">
+                {/* Table */}
+                <div className="">
+                    <DataTable columns={columns(onEditClick, onDeleteClick)} data={roles} onCreateClick={handleCreateClick} />
+                </div>
             </div>
 
             <Dialog open={openDelete} onOpenChange={setOpenDelete}>
-                <DialogContent className="max-w-[90vw] sm:max-w-md">
+                <DialogContent className="max-w-[90vw] rounded-xl sm:max-w-md">
                     <DialogHeader>
                         <DialogTitle>Hapus Role</DialogTitle>
                         <div className="mt-2">Role ini akan dihapus. Apakah Anda yakin?</div>
@@ -157,24 +167,30 @@ export default function ManageRoles() {
             </Dialog>
 
             <Dialog open={openForm} onOpenChange={setOpenForm}>
-                <DialogContent className="max-w-[90vw] sm:max-w-md md:max-w-lg">
+                <DialogContent className="max-h-[90vh] max-w-[95%] overflow-y-auto rounded-xl p-4 sm:max-w-2xl sm:p-6">
                     <DialogHeader>
-                        <DialogTitle>{selectedRole ? 'Edit Role' : 'Add Role'}</DialogTitle>
+                        <DialogTitle className="text-xl font-bold">{selectedRole ? 'Edit Role' : 'Add Role'}</DialogTitle>
                     </DialogHeader>
-                    <div className="space-y-4">
-                        <div>
-                            <Label htmlFor="roleName">Role Name</Label>
-                            <Input id="roleName" value={roleName} onChange={(e) => setRoleName(e.target.value)} placeholder="Enter role name" />
+                    <div className="space-y-6 py-4">
+                        <div className="grid gap-2">
+                            <Label htmlFor="roleName" className="text-sm font-semibold">Role Name</Label>
+                            <Input 
+                                id="roleName" 
+                                value={roleName} 
+                                onChange={(e) => setRoleName(e.target.value)} 
+                                placeholder="Enter role name" 
+                                className="h-10"
+                            />
                         </div>
-                        <div>
-                            <Label>Permissions</Label>
-                            <ScrollArea className="w-full rounded-md border">
-                                <div className="max-h-80 p-4">
+                        <div className="grid gap-3">
+                            <Label className="text-sm font-semibold">Permissions</Label>
+                            <div className="rounded-xl border bg-gray-50/30 p-1 sm:p-2">
+                                <div className="max-h-[40vh] space-y-6 overflow-y-auto p-3 sm:p-4">
                                     {Object.entries(permissions).map(([model, modelPermissions]) => {
                                         return (
-                                            <div key={model} className="mb-6">
-                                                <div className="mb-4 flex items-center justify-between">
-                                                    <h3 className="font-semibold capitalize">{model.replace(/-/g, ' ')}</h3>
+                                            <div key={model} className="bg-white rounded-lg border p-3 shadow-sm sm:p-4">
+                                                <div className="mb-4 flex items-center justify-between border-b pb-2">
+                                                    <h3 className="text-sm font-bold capitalize text-gray-800">{model.replace(/-/g, ' ')}</h3>
                                                     <div className="flex items-center gap-2">
                                                         <Checkbox
                                                             id={`select-all-${model}`}
@@ -182,24 +198,23 @@ export default function ManageRoles() {
                                                             indeterminate={isSomeSelected(model)}
                                                             onCheckedChange={(checked) => handleSelectAllChange(model, !!checked)}
                                                         />
-                                                        <Label htmlFor={`select-all-${model}`} className="cursor-pointer">
+                                                        <Label htmlFor={`select-all-${model}`} className="cursor-pointer text-xs font-medium">
                                                             Select All
                                                         </Label>
                                                     </div>
                                                 </div>
 
-                                                <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3">
+                                                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                                                     {modelPermissions.map((permission) => {
                                                         const action = permission.split('-')[0];
                                                         return (
-                                                            <div key={permission} className="flex items-center">
+                                                            <div key={permission} className="flex items-center gap-2">
                                                                 <Checkbox
                                                                     id={permission}
                                                                     checked={selectedPermissions.includes(permission)}
                                                                     onCheckedChange={() => handlePermissionChange(permission)}
-                                                                    className="mr-2"
                                                                 />
-                                                                <Label htmlFor={permission} className="max-w-[150px] cursor-pointer truncate">
+                                                                <Label htmlFor={permission} className="cursor-pointer text-xs capitalize text-gray-600">
                                                                     {action}
                                                                 </Label>
                                                             </div>
@@ -210,18 +225,18 @@ export default function ManageRoles() {
                                         );
                                     })}
                                 </div>
-                            </ScrollArea>
+                            </div>
                         </div>
                     </div>
-                    <DialogFooter className="sm:justify-start">
-                        <Button type="button" onClick={onSubmit}>
-                            {selectedRole ? 'Update' : 'Create'}
-                        </Button>
+                    <DialogFooter className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                         <DialogClose asChild>
-                            <Button type="button" variant="secondary">
+                            <Button type="button" variant="secondary" className="h-10">
                                 Cancel
                             </Button>
                         </DialogClose>
+                        <Button type="button" onClick={onSubmit} className="h-10 font-bold">
+                            {selectedRole ? 'Update Role' : 'Create Role'}
+                        </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
