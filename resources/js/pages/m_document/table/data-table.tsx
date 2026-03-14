@@ -273,37 +273,47 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
             </div>
 
             {/* Dialog Tambah Dokumen */}
+            {/* Dialog Tambah Dokumen */}
             <Dialog open={openCreate} onOpenChange={setOpenCreate}>
-                <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+                {/* UBAH: 
+        - w-[95vw] untuk mobile agar tidak mepet layar
+        - max-h-[90vh] dan overflow-y-auto agar bisa scroll di layar pendek
+    */}
+                <DialogContent className="max-h-[90vh] w-[95vw] overflow-y-auto rounded-xl p-4 sm:max-w-lg sm:p-6">
                     <DialogHeader>
-                        <DialogTitle>{isManager ? 'Tambah Dokumen Internal Perusahaan' : 'Tambah Master Dokumen (Global)'}</DialogTitle>
-                        <DialogDescription>
+                        <DialogTitle className="text-xl font-bold">{isManager ? 'Tambah Dokumen Internal' : 'Tambah Master Dokumen'}</DialogTitle>
+                        <DialogDescription className="text-sm">
                             {isManager
                                 ? 'Dokumen ini hanya akan tersedia untuk perusahaan Anda.'
-                                : 'Dokumen ini akan tersedia untuk semua perusahaan sebagai standar.'}
+                                : 'Dokumen ini akan menjadi standar global untuk semua perusahaan.'}
                         </DialogDescription>
                     </DialogHeader>
 
-                    <div className="space-y-4 py-2">
+                    <div className="space-y-5 py-3">
                         {/* Nama File */}
-                        <div>
-                            <Label htmlFor="nama_file">Nama Dokumen</Label>
+                        <div className="grid gap-2">
+                            <Label htmlFor="nama_file" className="font-semibold text-gray-700">
+                                Nama Dokumen
+                            </Label>
                             <Input
                                 id="nama_file"
                                 name="nama_file"
                                 value={form.nama_file}
                                 onChange={handleInputChange}
                                 placeholder="Contoh: SOP Gudang"
+                                className="h-11 sm:h-10" // Lebih tinggi di mobile agar mudah di-tap
                             />
                         </div>
 
                         {/* Pilihan Section */}
-                        <div>
-                            <Label htmlFor="id_section">Section</Label>
+                        <div className="grid gap-2 text-black">
+                            <Label htmlFor="id_section" className="font-semibold text-gray-700">
+                                Section
+                            </Label>
                             <select
                                 id="id_section"
                                 name="id_section"
-                                className="w-full rounded border px-2 py-1"
+                                className="border-input bg-background ring-offset-background focus:ring-ring flex h-11 w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none sm:h-10"
                                 value={form.id_section}
                                 onChange={handleInputChange}
                             >
@@ -316,16 +326,16 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
                             </select>
                         </div>
 
-                        <div className="flex">
-                            {/* === INPUT BARU: Is Internal? === */}
+                        {/* Toggle Buttons: Stack di Mobile, Side-by-side di Desktop */}
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <div>
-                                <Label className="mb-2 block">Dokumen ini akan diupload oleh siapa</Label>
+                                <Label className="mb-2 block text-xs font-bold tracking-wider text-gray-500 uppercase">Akses Upload</Label>
                                 <div className="flex gap-2">
                                     <Button
                                         type="button"
                                         variant={form.is_internal ? 'default' : 'outline'}
                                         onClick={() => handleBooleanChange('is_internal', true)}
-                                        className="w-20"
+                                        className="h-11 flex-1 sm:h-9"
                                     >
                                         Internal
                                     </Button>
@@ -333,27 +343,21 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
                                         type="button"
                                         variant={!form.is_internal ? 'default' : 'outline'}
                                         onClick={() => handleBooleanChange('is_internal', false)}
-                                        className="w-20"
+                                        className="h-11 flex-1 sm:h-9"
                                     >
                                         External
                                     </Button>
                                 </div>
-                                <p className="mt-1 text-xs text-gray-500">
-                                    {form.is_internal
-                                        ? 'Dokumen ini hanya untuk penggunaan internal.'
-                                        : 'Dokumen ini bisa diakses publik/eksternal jika diperlukan.'}
-                                </p>
                             </div>
 
-                            {/* === INPUT BARU: Attribute? === */}
                             <div>
-                                <Label className="mb-2 block">Mandatory atau tidak?</Label>
+                                <Label className="mb-2 block text-xs font-bold tracking-wider text-gray-500 uppercase">Mandatory?</Label>
                                 <div className="flex gap-2">
                                     <Button
                                         type="button"
                                         variant={form.attribute ? 'default' : 'outline'}
                                         onClick={() => handleBooleanChange('attribute', true)}
-                                        className="w-20"
+                                        className="h-11 flex-1 sm:h-9"
                                     >
                                         Ya
                                     </Button>
@@ -361,7 +365,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
                                         type="button"
                                         variant={!form.attribute ? 'default' : 'outline'}
                                         onClick={() => handleBooleanChange('attribute', false)}
-                                        className="w-20"
+                                        className="h-11 flex-1 sm:h-9"
                                     >
                                         Tidak
                                     </Button>
@@ -369,38 +373,38 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
                             </div>
                         </div>
 
-                        <div>
-                            <Label htmlFor="link_url_video_file">Link Video Tutorial (Youtube)</Label>
+                        {/* Link Video */}
+                        <div className="grid gap-2 text-black">
+                            <Label htmlFor="link_url_video_file" className="font-semibold text-gray-700">
+                                Link Video Tutorial (YouTube)
+                            </Label>
                             <Input
                                 id="link_url_video_file"
                                 name="link_url_video_file"
                                 value={form.link_url_video_file}
                                 onChange={handleInputChange}
                                 placeholder="https://youtube.com/..."
+                                className="h-11 sm:h-10"
                             />
                         </div>
 
-                        <div className="max-w-[250px] sm:max-w-[300px]">
-                            <Label className="mb-2" htmlFor="file_example">
-                                Contoh File
-                            </Label>
-                            <div className="w-full">
+                        {/* File Uploads: Vertikal di Mobile, Horizontal di Desktop */}
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            <div className="space-y-2">
+                                <Label className="font-semibold text-gray-700">Contoh File</Label>
                                 <ResettableDropzone
                                     label="Upload Contoh"
                                     isRequired={false}
                                     uploadConfig={{
-                                        url: '/document/upload-temp', // Pastikan route ini ada di backend Anda
-                                        payload: { type: 'example', doc_name: form.nama_file }, // Sesuaikan payload jika perlu
+                                        url: '/document/upload-temp',
+                                        payload: { type: 'example', doc_name: form.nama_file },
                                     }}
                                     onFileChange={(file, response) => handleDropzoneChange('link_path_example_file', response)}
-                                    // Jika ingin menampilkan file yang sudah ada (saat edit), gunakan existingFile prop
                                 />
                             </div>
-                        </div>
 
-                        <div className="max-w-[250px] sm:max-w-[300px]">
-                            <Label htmlFor="file_template">Template File</Label>
-                            <div className="w-full">
+                            <div className="space-y-2">
+                                <Label className="font-semibold text-gray-700">Template File</Label>
                                 <ResettableDropzone
                                     label="Upload Template"
                                     isRequired={false}
@@ -414,29 +418,36 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
                         </div>
 
                         {/* Deskripsi */}
-                        <div>
-                            <Label htmlFor="description_file">Deskripsi</Label>
+                        <div className="grid gap-2">
+                            <Label htmlFor="description_file" className="font-semibold text-gray-700">
+                                Deskripsi
+                            </Label>
                             <textarea
                                 id="description_file"
                                 name="description_file"
-                                className="w-full rounded border px-2 py-1"
+                                className="border-input bg-background focus-visible:ring-ring flex min-h-[100px] w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
                                 rows={3}
                                 value={form.description_file}
                                 onChange={handleInputChange}
-                                placeholder="Deskripsi dokumen..."
+                                placeholder="Tulis keterangan dokumen di sini..."
                             />
                         </div>
                     </div>
 
-                    <DialogFooter className="sm:justify-start">
-                        <Button type="button" onClick={handleSubmit}>
-                            Simpan
-                        </Button>
+                    {/* Footer: Tombol tumpuk terbalik di mobile (Simpan di atas) */}
+                    <DialogFooter className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end sm:gap-2">
                         <DialogClose asChild>
-                            <Button type="button" variant="secondary">
+                            <Button type="button" variant="secondary" className="h-11 w-full sm:h-10 sm:w-auto">
                                 Batal
                             </Button>
                         </DialogClose>
+                        <Button
+                            type="button"
+                            onClick={handleSubmit}
+                            className="bg-primary text-primary-foreground h-11 w-full font-bold shadow-md sm:h-10 sm:w-auto"
+                        >
+                            Simpan Dokumen
+                        </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

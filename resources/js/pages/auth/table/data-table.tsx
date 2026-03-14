@@ -291,6 +291,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
             </div>
             <DataTablePagination table={table} />
 
+            {/* Dialog Tambah User */}
             <Dialog
                 open={openCreate}
                 onOpenChange={(open) => {
@@ -302,143 +303,180 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                         setPasswordConfirmation('');
                         setSelectedRole('');
                         setSelectedCompany('');
+                        setSelectedRoleInternal('');
+                        setSelectedCustomer('');
                     }
                 }}
             >
-                <DialogContent className="sm:max-w-md">
+                {/* Optimasi Mobile: 
+        1. max-w-[95%] agar tidak menempel ke pinggir layar hp.
+        2. max-h-[90vh] dan overflow-y-auto agar form bisa di-scroll jika layar pendek atau keyboard muncul.
+    */}
+                <DialogContent className="max-h-[90vh] max-w-[95%] overflow-y-auto rounded-xl p-4 sm:max-w-md sm:p-6">
                     <DialogHeader>
-                        <DialogTitle>{trans_auth.title_create}</DialogTitle> {/* Translate */}
-                        <DialogDescription>{trans_auth.desc_create}</DialogDescription> {/* Translate */}
+                        <DialogTitle className="text-xl font-bold">{trans_auth.title_create}</DialogTitle>
+                        <DialogDescription className="text-sm">{trans_auth.desc_create}</DialogDescription>
                     </DialogHeader>
-                    <form onSubmit={onSubmitCreate} className="space-y-4">
-                        {/* Company Select */}
-                        <div className="animate-in fade-in slide-in-from-top-1 duration-300">
-                            <Label htmlFor="company">{trans_auth.label_company}</Label>
-                            <Select onValueChange={setSelectedCompany} value={selectedCompany}>
-                                <SelectTrigger className="w-full">
-                                    <SelectValue placeholder={trans_auth.placeholder_company} />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {companies.length > 0 ? (
-                                        companies.map((company) => (
-                                            <SelectItem key={company.id} value={String(company.id)}>
-                                                {company.nama_perusahaan}
-                                            </SelectItem>
-                                        ))
-                                    ) : (
-                                        <div className="text-muted-foreground p-2 text-sm">{trans_auth.no_data_company}</div>
-                                    )}
-                                </SelectContent>
-                            </Select>
-                        </div>
 
-                        {/* User Type Select */}
-                        <div>
-                            <Label htmlFor="role">{trans_auth.label_user_type}</Label>
-                            <Select onValueChange={setSelectedRole} value={selectedRole}>
-                                <SelectTrigger className="w-full">
-                                    <SelectValue placeholder={trans_auth.placeholder_user_type} />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="internal">{trans_auth.type_internal}</SelectItem>
-                                    <SelectItem value="external">{trans_auth.type_external}</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        {/* Role Internal Select */}
-                        {selectedRole === 'internal' && (
-                            <div className="animate-in fade-in slide-in-from-top-1 duration-300">
-                                <Label htmlFor="role">{trans_auth.label_role_internal}</Label>
-                                <Select onValueChange={setSelectedRoleInternal} value={selectedRoleInternal}>
-                                    <SelectTrigger className="w-full">
-                                        <SelectValue placeholder={trans_auth.placeholder_role_internal} />
+                    <form onSubmit={onSubmitCreate} className="mt-4 space-y-5">
+                        {/* --- Bagian Relasi --- */}
+                        <div className="space-y-4 rounded-lg bg-slate-50 p-3 sm:bg-transparent sm:p-0">
+                            {/* Company Select */}
+                            <div className="grid gap-2">
+                                <Label htmlFor="company" className="font-semibold">
+                                    {trans_auth.label_company}
+                                </Label>
+                                <Select onValueChange={setSelectedCompany} value={selectedCompany}>
+                                    <SelectTrigger className="h-11 w-full bg-white sm:h-10">
+                                        <SelectValue placeholder={trans_auth.placeholder_company} />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {roles
-                                            .filter((role) => ['staff', 'manager', 'supervisor'].includes(role.name))
-                                            .map((role) => (
-                                                <SelectItem key={role.id} value={String(role.id)}>
-                                                    {role.name.charAt(0).toUpperCase() + role.name.slice(1)}
-                                                </SelectItem>
-                                            ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        )}
-
-                        {/* Customer Select */}
-                        {selectedRole === 'external' && (
-                            <div className="animate-in fade-in slide-in-from-top-1 mb-4 duration-300">
-                                <Label htmlFor="customer">{trans_auth.label_customer}</Label>
-                                <Select onValueChange={setSelectedCustomer} value={selectedCustomer}>
-                                    <SelectTrigger className="w-full">
-                                        <SelectValue placeholder={trans_auth.placeholder_customer} />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {customers.length > 0 ? (
-                                            customers.map((cust) => (
-                                                <SelectItem key={cust.id} value={String(cust.id)}>
-                                                    {cust.nama_perusahaan}
+                                        {companies.length > 0 ? (
+                                            companies.map((company) => (
+                                                <SelectItem key={company.id} value={String(company.id)}>
+                                                    {company.nama_perusahaan}
                                                 </SelectItem>
                                             ))
                                         ) : (
-                                            <div className="text-muted-foreground p-2 text-sm">{trans_auth.no_data_customer}</div>
+                                            <div className="text-muted-foreground p-2 text-sm">{trans_auth.no_data_company}</div>
                                         )}
                                     </SelectContent>
                                 </Select>
                             </div>
-                        )}
 
-                        {/* Name Input */}
-                        <div>
-                            <Label htmlFor="name">{trans_auth.label_name}</Label>
-                            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder={trans_auth.placeholder_name} />
+                            {/* User Type Select */}
+                            <div className="grid gap-2">
+                                <Label htmlFor="role" className="font-semibold">
+                                    {trans_auth.label_user_type}
+                                </Label>
+                                <Select onValueChange={setSelectedRole} value={selectedRole}>
+                                    <SelectTrigger className="h-11 w-full bg-white sm:h-10">
+                                        <SelectValue placeholder={trans_auth.placeholder_user_type} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="internal">{trans_auth.type_internal}</SelectItem>
+                                        <SelectItem value="external">{trans_auth.type_external}</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            {/* Role Internal Select */}
+                            {selectedRole === 'internal' && (
+                                <div className="animate-in fade-in slide-in-from-top-1 grid gap-2 duration-300">
+                                    <Label htmlFor="role_internal" className="font-semibold">
+                                        {trans_auth.label_role_internal}
+                                    </Label>
+                                    <Select onValueChange={setSelectedRoleInternal} value={selectedRoleInternal}>
+                                        <SelectTrigger className="h-11 w-full bg-white sm:h-10">
+                                            <SelectValue placeholder={trans_auth.placeholder_role_internal} />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {roles
+                                                .filter((role) => ['staff', 'manager', 'supervisor'].includes(role.name))
+                                                .map((role) => (
+                                                    <SelectItem key={role.id} value={String(role.id)}>
+                                                        {role.name.charAt(0).toUpperCase() + role.name.slice(1)}
+                                                    </SelectItem>
+                                                ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            )}
+
+                            {/* Customer Select */}
+                            {selectedRole === 'external' && (
+                                <div className="animate-in fade-in slide-in-from-top-1 grid gap-2 duration-300">
+                                    <Label htmlFor="customer" className="font-semibold">
+                                        {trans_auth.label_customer}
+                                    </Label>
+                                    <Select onValueChange={setSelectedCustomer} value={selectedCustomer}>
+                                        <SelectTrigger className="h-11 w-full bg-white sm:h-10">
+                                            <SelectValue placeholder={trans_auth.placeholder_customer} />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {customers.length > 0 ? (
+                                                customers.map((cust) => (
+                                                    <SelectItem key={cust.id} value={String(cust.id)}>
+                                                        {cust.nama_perusahaan}
+                                                    </SelectItem>
+                                                ))
+                                            ) : (
+                                                <div className="text-muted-foreground p-2 text-sm">{trans_auth.no_data_customer}</div>
+                                            )}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            )}
                         </div>
 
-                        {/* Email Input */}
-                        <div>
-                            <Label htmlFor="email">{trans_auth.label_email}</Label>
-                            <Input
-                                id="email"
-                                type="email"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                placeholder={trans_auth.placeholder_email}
-                            />
+                        {/* --- Bagian Identitas --- */}
+                        <div className="space-y-4">
+                            <div className="grid gap-2">
+                                <Label htmlFor="name" className="font-semibold">
+                                    {trans_auth.label_name}
+                                </Label>
+                                <Input
+                                    id="name"
+                                    value={name}
+                                    onChange={(e) => setName(e.target.value)}
+                                    placeholder={trans_auth.placeholder_name}
+                                    className="h-11 sm:h-10"
+                                />
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label htmlFor="email" className="font-semibold">
+                                    {trans_auth.label_email}
+                                </Label>
+                                <Input
+                                    id="email"
+                                    type="email"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    placeholder={trans_auth.placeholder_email}
+                                    className="h-11 sm:h-10"
+                                />
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label htmlFor="password" className="font-semibold">
+                                    {trans_auth.label_password}
+                                </Label>
+                                <Input
+                                    id="password"
+                                    type="password"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    placeholder={trans_auth.placeholder_password}
+                                    className="h-11 sm:h-10"
+                                />
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label htmlFor="password_confirmation" className="font-semibold">
+                                    {trans_auth.label_password_confirm}
+                                </Label>
+                                <Input
+                                    id="password_confirmation"
+                                    type="password"
+                                    value={passwordConfirmation}
+                                    onChange={(e) => setPasswordConfirmation(e.target.value)}
+                                    placeholder={trans_auth.placeholder_password_confirm}
+                                    className="h-11 sm:h-10"
+                                />
+                            </div>
                         </div>
 
-                        {/* Password Input */}
-                        <div>
-                            <Label htmlFor="password">{trans_auth.label_password}</Label>
-                            <Input
-                                id="password"
-                                type="password"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                placeholder={trans_auth.placeholder_password}
-                            />
-                        </div>
-
-                        {/* Password Confirmation */}
-                        <div>
-                            <Label htmlFor="password_confirmation">{trans_auth.label_password_confirm}</Label>
-                            <Input
-                                id="password_confirmation"
-                                type="password"
-                                value={passwordConfirmation}
-                                onChange={(e) => setPasswordConfirmation(e.target.value)}
-                                placeholder={trans_auth.placeholder_password_confirm}
-                            />
-                        </div>
-
-                        <DialogFooter className="mt-8 sm:justify-start">
-                            <Button type="submit">{trans_auth.btn_create}</Button> {/* Translate */}
+                        {/* Footer: Tombol tumpuk di mobile untuk memudahkan tap */}
+                        <DialogFooter className="flex flex-col-reverse gap-2 pt-4 sm:flex-row">
                             <DialogClose asChild>
-                                <Button type="button" variant="secondary">
-                                    {trans_auth.btn_cancel} {/* Translate */}
+                                <Button type="button" variant="secondary" className="h-11 w-full sm:h-10 sm:w-auto">
+                                    {trans_auth.btn_cancel}
                                 </Button>
                             </DialogClose>
+                            <Button type="submit" className="h-11 w-full font-bold sm:h-10 sm:w-auto">
+                                {trans_auth.btn_create}
+                            </Button>
                         </DialogFooter>
                     </form>
                 </DialogContent>

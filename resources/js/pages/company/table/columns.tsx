@@ -36,7 +36,7 @@ export const columns = (onEditClick: (perusahaan: Perusahaan) => void, onDeleteC
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => onEditClick(perusahaan)}>Edit</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => onDeleteClick(perusahaan.id)}>Delete</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onDeleteClick(perusahaan.id_perusahaan)}>Delete</DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
             );

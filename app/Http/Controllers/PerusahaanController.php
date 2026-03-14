@@ -10,6 +10,7 @@ use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\DB;
 use Stancl\Tenancy\Database\Models\Domain;
 
 class PerusahaanController extends Controller
@@ -26,7 +27,7 @@ class PerusahaanController extends Controller
         }
 
         $perusahaans = Perusahaan::with(['user', 'users','tenant','tenant.domains'])->get();
-        $users = User::select('id_user', 'name')->get();
+        $users = User::select('id_user', 'name', 'id_perusahaan')->get();
 
         return Inertia::render('company/page', [
             'companies' => $perusahaans,
@@ -51,11 +52,25 @@ class PerusahaanController extends Controller
      */
     public function store(Request $request)
     {
+        $userFields = ['id_User', 'id_User_1', 'id_User_2', 'id_User_3'];
+
+        foreach ($userFields as $field) {
+            $value = $request->input($field);
+
+            if ($value && !is_numeric($value)) {
+                $user = User::where('name', $value)->first();
+                
+                if ($user) {
+                    $request->merge([$field => $user->id]);
+                } else {
+                    $request->merge([$field => null]);
+                }
+            }
+        }
+
         $validated = $request->validate([
             'nama_perusahaan' => 'required|string|max:255',
-
             'domain'          => 'required|string|max:255|unique:domains,domain',
-
             'id_User_1' => 'nullable|integer|exists:users,id', // manager
             'id_User_2' => 'nullable|integer|exists:users,id', // direktur
             'id_User_3' => 'nullable|integer|exists:users,id', // lawyer
@@ -67,71 +82,62 @@ class PerusahaanController extends Controller
             'company_logo' => 'nullable|image|mimes:jpg,jpeg,png,webp,svg|max:2048',
         ]);
 
-        $logoPath = null;
-        if ($request->hasFile('company_logo')) {
-            $logoPath = $request->file('company_logo')->store('company_logo', 'public');
+        $tenantId = Str::slug($validated['nama_perusahaan']);
+
+        if (Tenant::where('id', $tenantId)->exists()) {
+            return back()->withErrors(['error' => "ID Perusahaan '$tenantId' sudah ada."]);
         }
 
-        $perusahaan = Perusahaan::create([
-            'nama_perusahaan'   => $validated['nama_perusahaan'],
-            'notify_1'          => $validated['notify_1'] ?? null,
-            'notify_2'          => $validated['notify_2'] ?? null,
-            'path_company_logo' => $logoPath,
-        ]);
+            $perusahaan = DB::connection('tako-user')->transaction(function () use ($request, $validated) {
+                $logoPath = $request->hasFile('company_logo') 
+                    ? $request->file('company_logo')->store('company_logo', 'public') 
+                    : null;
 
-        $rawDomain = $validated['domain'];
+                return Perusahaan::create([
+                    'nama_perusahaan'   => $validated['nama_perusahaan'],
+                    'notify_1'          => $validated['notify_1'] ?? null,
+                    'notify_2'          => $validated['notify_2'] ?? null,
+                    'path_company_logo' => $logoPath,
+                ]);
+            });
 
-        $tenantId = $validated['nama_perusahaan'];
+            $tenant = Tenant::create([
+                'id'            => $tenantId, 
+                'perusahaan_id' => $perusahaan->id_perusahaan,
+            ]);
 
-        $rawTenant= Str::slug($tenantId);
+            $appDomain = preg_replace('#^https?://#', '', env('APP_DOMAIN', 'localhost'));
+            $fullDomain = $validated['domain'] . '.' . $appDomain;
 
-        // $appDomain = env('APP_DOMAIN', 'registration.tako.co.id'); // Ambil dari .env (misal: registration.tako.co.id)
-        // $baseSlug = Str::slug($validated['nama_perusahaan']);
-        
-        // // Pastikan subdomain unik di tabel DOMAINS
-        // $subdomain = $baseSlug;
-        // $counter = 1;
-        // while (Domain::where('domain', "registration.{$subdomain}.{$appDomain}")->exists()) {
-        //     $subdomain = "{$baseSlug}-{$counter}";
-        //     $counter++;
-        // }
+            $domainRecord = $tenant->domains()->create([
+                'domain' => $fullDomain,
+            ]);
 
-        // $fullDomain = "{$subdomain}.{$appDomain}";
+            $perusahaan->update(['id_domain' => $domainRecord->id]);
 
-        // Buat Tenant Baru
-        // ID Tenant kita samakan dengan subdomain agar mudah dibaca (opsional, bisa juga UUID)
-        $tenant = Tenant::create([
-            'id' => $rawTenant, 
-            'perusahaan_id' => $perusahaan->id, // Sambungkan Relasi ke Perusahaan
-        ]);
+            $rolesMap = [
+                $validated['id_User_1'] ?? null => 'staff',
+                $validated['id_User_2'] ?? null => 'manager',
+                $validated['id_User_3'] ?? null => 'supervisor',
+                $validated['id_User']   ?? null => 'user',
+            ];
 
-        // Buat Domain untuk Tenant tersebut
-        $tenant->domains()->create([
-            'domain' => $rawDomain,
-        ]);
+            foreach ($rolesMap as $fieldName => $roleName) {
+            // Ambil ID dari request yang sudah kita bersihkan di atas
+            $userId = $request->input($fieldName); 
 
-        // ========================================
-        // 4. Simpan user roles
-        // ========================================
-        $roles = [
-            $validated['id_User_1'] ?? null => 'manager',
-            $validated['id_User_2'] ?? null => 'direktur',
-            $validated['id_User_3'] ?? null => 'lawyer',
-            $validated['id_User']   ?? null => 'user',
-        ];
-
-        foreach ($roles as $userId => $role) {
             if ($userId) {
-                $perusahaan->users()->attach($userId, ['role' => $role]);
+                // Hubungkan di tabel pivot
+                $perusahaan->users()->attach($userId, ['role' => $roleName]);
 
-                // Opsional: Update id_perusahaan di tabel users jika perlu fallback
+                // Update id_perusahaan di tabel users
                 User::where('id', $userId)->update([
-                    'id_perusahaan' => $perusahaan->id
+                    'id_perusahaan' => $perusahaan->id_perusahaan
                 ]);
             }
         }
 
-        return back()->with('success', 'Perusahaan berhasil ditambahkan. Domain: ' . $rawDomain);
+        return back()->with('success', "Tenant {$tenantId} dan Database berhasil dibuat.");
     }
 
     /**
@@ -157,44 +163,59 @@ class PerusahaanController extends Controller
     /**
      * Update the specified resource in storage.
      */
-
     public function update(Request $request, Perusahaan $perusahaan)
     {
+        // 1. PRE-PROCESSING: Ubah Nama (Don 5) menjadi ID (Angka) sebelum validasi
+        $userFields = ['id_User', 'id_User_1', 'id_User_2', 'id_User_3'];
+        foreach ($userFields as $field) {
+            $value = $request->input($field);
+            
+            if ($value === 'undefined' || $value === '' || $value === null) {
+                $request->merge([$field => null]);
+                continue;
+            }
+
+            // Jika value bukan angka murni (seperti "Don 5"), cari di DB
+           if (!is_numeric($value)) {
+                $user = User::where('name', $value)->first();
+                if ($user) {
+                    // Ambil id_user sesuai primary key di model, bukan 'id'
+                    $request->merge([$field => (int) $user->id_user]); 
+                } else {
+                    $request->merge([$field => null]);
+                }
+            }
+        }
+
+        // 2. VALIDASI
+        $tenant = Tenant::where('perusahaan_id', $perusahaan->id_perusahaan)->first();
+        $domainId = $tenant ? $tenant->domains()->first()?->id : null;
+
         $validated = $request->validate([
             'nama_perusahaan' => 'required|string|max:255',
+            // Tambahkan unique ignore untuk domain agar bisa simpan tanpa ganti domain
+            'domain'          => 'required|string|max:255|unique:domains,domain,' . ($domainId ?? 'NULL'),
 
-            'domain'          => 'required|string|max:255|unique:domains,domain',
+            // Gunakan numeric agar string angka dari FormData lolos
+            'id_User'   => 'nullable|numeric|exists:tako-user.users,id_user',
+            'id_User_1' => 'nullable|numeric|exists:tako-user.users,id_user',
+            'id_User_2' => 'nullable|numeric|exists:tako-user.users,id_user',
+            'id_User_3' => 'nullable|numeric|exists:tako-user.users,id_user',
 
-            // user roles
-            'id_User'   => 'nullable|integer|exists:users,id',
-            'id_User_1' => 'nullable|integer|exists:users,id',
-            'id_User_2' => 'nullable|integer|exists:users,id',
-            'id_User_3' => 'nullable|integer|exists:users,id',
-
-            // notify
             'notify_1' => 'nullable|string',
             'notify_2' => 'nullable|string',
-
-            // logo
             'company_logo' => 'nullable|image|mimes:jpg,jpeg,png,webp,svg|max:2048',
         ]);
 
-        // ========================================
-        // 1. Update logo
-        // ========================================
+        // 3. UPDATE LOGO
         if ($request->hasFile('company_logo')) {
-            // Hapus logo lama
             if ($perusahaan->path_company_logo && Storage::disk('public')->exists($perusahaan->path_company_logo)) {
                 Storage::disk('public')->delete($perusahaan->path_company_logo);
             }
-
-            // Upload baru
             $perusahaan->path_company_logo = $request->file('company_logo')->store('company_logo', 'public');
         }
 
-        // ========================================
-        // 2. Update perusahaan
-        // ========================================
+        // 4. UPDATE DATA PERUSAHAAN
         $perusahaan->update([
             'nama_perusahaan'   => $validated['nama_perusahaan'],
             'notify_1'          => $validated['notify_1'] ?? null,
@@ -202,52 +223,44 @@ class PerusahaanController extends Controller
             'path_company_logo' => $perusahaan->path_company_logo,
         ]);
 
-        $rawDomain = $validated['domain'];
-
-        $tenantId = $validated['nama_perusahaan'];
-
-        $rawTenant= Str::slug($tenantId);
-
-        // Cari tenant berdasarkan perusahaan_id
-        $tenant = Tenant::where('perusahaan_id', $perusahaan->id)->first();
-
+        // 5. UPDATE TENANT & DOMAIN
         if (!$tenant) {
-            // Jika tenant belum ada (kasus langka)
             $tenant = Tenant::create([
-                'id' => Str::slug($rawTenant),
-                'perusahaan_id' => $perusahaan->id,
+                'id'            => Str::slug($validated['nama_perusahaan']),
+                'perusahaan_id' => $perusahaan->id_perusahaan,
             ]);
         }
 
-        // Hapus semua domain lama
+        // Update Domain: Hapus yang lama, buat yang baru
         $tenant->domains()->delete();
-
-        // Buat domain baru
         $tenant->domains()->create([
-            'domain' => $rawDomain,
+            'domain' => $validated['domain'],
         ]);
 
-        // ========================================
-        // 3. Sync user roles
-        // ========================================
-        $sync = [];
+        // 6. SYNC USER ROLES & UPDATE TABLE USERS
+        $syncData = [];
+        $rolesMap = [
+            'id_User'   => 'user',
+            'id_User_1' => 'staff',
+            'id_User_2' => 'manager',
+            'id_User_3' => 'supervisor',
+        ];
 
-        if (!empty($validated['id_User'])) {
-            $sync[$validated['id_User']] = ['role' => 'user'];
-        }
-        if (!empty($validated['id_User_1'])) {
-            $sync[$validated['id_User_1']] = ['role' => 'manager'];
-        }
-        if (!empty($validated['id_User_2'])) {
-            $sync[$validated['id_User_2']] = ['role' => 'direktur'];
-        }
-        if (!empty($validated['id_User_3'])) {
-            $sync[$validated['id_User_3']] = ['role' => 'lawyer'];
+        // Bersihkan dulu id_perusahaan lama milik user yang sebelumnya terhubung dengan perusahaan ini
+        User::where('id_perusahaan', $perusahaan->id_perusahaan)->update(['id_perusahaan' => null]);
+
+        foreach ($rolesMap as $field => $roleName) {
+            $userId = $request->input($field); 
+            if ($userId) {
+                $syncData[$userId] = ['role' => $roleName];
+                User::where('id_user', $userId)->update(['id_perusahaan' => $perusahaan->id_perusahaan]);
+            }
         }
 
-        $perusahaan->users()->sync($sync);
+        // Sinkronisasi ke tabel pivot (perusahaan_user_roles)
+        $perusahaan->users()->sync($syncData);
 
-        return back()->with('success', 'Perusahaan berhasil diedit.');
+        return back()->with('success', 'Perusahaan berhasil diperbarui.');
     }
 
     /**
@@ -255,13 +268,34 @@ class PerusahaanController extends Controller
      */
     public function destroy(Perusahaan $perusahaan)
     {
-        $perusahaan->users()->detach();
+        try {
+            $tenant = \App\Models\Tenant::where('perusahaan_id', $perusahaan->id_perusahaan)->first();
 
-        $perusahaan->delete();
+            if ($tenant) {
+                // 1. Ambil nama database transaksi menggunakan method yang ada di bootstrapper
+                $transactionDbName = $tenant->getTransactionDatabaseName();
 
-        return redirect()
-            ->back()
-            ->with('success', 'Perusahaan berhasil dihapus');
+                // 2. Hapus database transaksi secara manual
+                // Gunakan koneksi central agar bisa melakukan DROP
+                DB::connection('tako-user')->statement("DROP DATABASE IF EXISTS \"{$transactionDbName}\"");
+
+                // 3. Hapus Tenant (Ini akan menghapus DB utama tenant secara otomatis)
+                $tenant->delete();
+            }
+
+            // 4. Hapus data perusahaan & logo
+            $perusahaan->users()->detach();
+            if ($perusahaan->path_company_logo) {
+                Storage::disk('public')->delete($perusahaan->path_company_logo);
+            }
+            $perusahaan->delete();
+
+            return redirect()->back()->with('success', 'Perusahaan dan semua database terkait berhasil dihapus.');
+
+        } catch (\Exception $e) {
+            \Log::error("Gagal hapus database transaksi: " . $e->getMessage());
+            return redirect()->back()->with('error', 'Gagal menghapus database transaksi.');
+        }
     }
 
     public function checkManagerExistence($idPerusahaan)
