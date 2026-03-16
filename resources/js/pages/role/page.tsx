@@ -148,18 +148,19 @@ export default function ManageRoles() {
             </div>
 
             <Dialog open={openDelete} onOpenChange={setOpenDelete}>
-                <DialogContent className="max-w-[90vw] rounded-xl text-black sm:max-w-md">
+                <DialogContent className="border-border bg-background text-foreground max-w-[90vw] rounded-xl p-6 sm:max-w-md">
                     <DialogHeader>
-                        <DialogTitle>{trans_role.title_delete || 'Delete Role'}</DialogTitle>
+                        <DialogTitle className="text-foreground text-xl font-bold">{trans_role.title_delete || 'Delete Role'}</DialogTitle>
                         <div className="text-muted-foreground mt-2 text-sm">
                             {trans_role.text_delete_confirm_role || 'Are you sure you want to delete this role?'}
                         </div>
                     </DialogHeader>
-                    <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-start">
-                        <Button type="button" variant="secondary" onClick={() => setOpenDelete(false)}>
+
+                    <DialogFooter className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                        <Button type="button" variant="secondary" onClick={() => setOpenDelete(false)} className="w-full sm:w-auto">
                             {trans_role.btn_cancel || 'Cancel'}
                         </Button>
-                        <Button type="button" variant="destructive" className="text-white" onClick={onConfirmDelete}>
+                        <Button type="button" variant="destructive" className="w-full font-bold text-white sm:w-auto" onClick={onConfirmDelete}>
                             {trans_role.btn_delete || 'Delete'}
                         </Button>
                     </DialogFooter>
@@ -167,16 +168,16 @@ export default function ManageRoles() {
             </Dialog>
 
             <Dialog open={openForm} onOpenChange={setOpenForm}>
-                <DialogContent className="max-h-[90vh] max-w-[95%] overflow-y-auto rounded-xl p-4 sm:max-w-2xl sm:p-6">
+                <DialogContent className="border-border bg-background text-foreground max-h-[90vh] max-w-[95%] overflow-y-auto rounded-xl p-4 sm:max-w-2xl sm:p-6">
                     <DialogHeader>
-                        <DialogTitle className="text-xl font-bold">
+                        <DialogTitle className="text-foreground text-xl font-bold">
                             {selectedRole ? trans_role.title_edit_role || 'Edit Role' : trans_role.title_create_role || 'Add Role'}
                         </DialogTitle>
                     </DialogHeader>
 
                     <div className="space-y-6 py-4">
                         <div className="grid gap-2">
-                            <Label htmlFor="roleName" className="text-sm font-semibold">
+                            <Label htmlFor="roleName" className="text-foreground text-sm font-semibold">
                                 {trans_role.label_role_name || 'Role Name'}
                             </Label>
                             <Input
@@ -184,25 +185,31 @@ export default function ManageRoles() {
                                 value={roleName}
                                 onChange={(e) => setRoleName(e.target.value)}
                                 placeholder={trans_role.placeholder_role_name || 'Enter role name'}
-                                className="h-10"
+                                className="bg-background border-input text-foreground h-10"
                             />
                         </div>
 
                         <div className="grid gap-3">
-                            <Label className="text-sm font-semibold">{trans_role.label_permissions || 'Permissions'}</Label>
-                            <div className="rounded-xl border bg-gray-50/30 p-1 sm:p-2">
+                            <Label className="text-foreground text-sm font-semibold">{trans_role.label_permissions || 'Permissions'}</Label>
+                            {/* Container List Permissions */}
+                            <div className="border-border bg-muted/30 rounded-xl border p-1 sm:p-2">
                                 <div className="max-h-[40vh] space-y-6 overflow-y-auto p-3 sm:p-4">
                                     {Object.entries(permissions).map(([model, modelPermissions]: [string, any]) => (
-                                        <div key={model} className="rounded-lg border bg-white p-3 text-black shadow-sm sm:p-4">
-                                            <div className="mb-4 flex items-center justify-between border-b pb-2">
-                                                <h3 className="text-sm font-bold text-gray-800 capitalize">{model.replace(/-/g, ' ')}</h3>
+                                        /* Card per Model */
+                                        <div key={model} className="border-border bg-card text-foreground rounded-lg border p-3 shadow-sm sm:p-4">
+                                            <div className="border-border mb-4 flex items-center justify-between border-b pb-2">
+                                                <h3 className="text-foreground text-sm font-bold capitalize">{model.replace(/-/g, ' ')}</h3>
                                                 <div className="flex items-center gap-2">
                                                     <Checkbox
                                                         id={`select-all-${model}`}
                                                         checked={isAllSelected(model) ? true : isSomeSelected(model) ? 'indeterminate' : false}
                                                         onCheckedChange={(checked) => handleSelectAllChange(model, !!checked)}
+                                                        className="border-input"
                                                     />
-                                                    <Label htmlFor={`select-all-${model}`} className="cursor-pointer text-xs font-medium">
+                                                    <Label
+                                                        htmlFor={`select-all-${model}`}
+                                                        className="text-muted-foreground hover:text-foreground cursor-pointer text-xs font-medium"
+                                                    >
                                                         {trans_role.label_select_all || 'Select All'}
                                                     </Label>
                                                 </div>
@@ -215,8 +222,12 @@ export default function ManageRoles() {
                                                             id={permission}
                                                             checked={selectedPermissions.includes(permission)}
                                                             onCheckedChange={() => handlePermissionChange(permission)}
+                                                            className="border-input"
                                                         />
-                                                        <Label htmlFor={permission} className="cursor-pointer text-xs text-gray-600 capitalize">
+                                                        <Label
+                                                            htmlFor={permission}
+                                                            className="text-muted-foreground hover:text-foreground cursor-pointer text-xs capitalize"
+                                                        >
                                                             {permission.split('-')[0]}
                                                         </Label>
                                                     </div>
@@ -228,13 +239,22 @@ export default function ManageRoles() {
                             </div>
                         </div>
                     </div>
-                    <DialogFooter className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+
+                    <DialogFooter className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
                         <DialogClose asChild>
-                            <Button type="button" variant="secondary" className="h-10 w-full sm:w-auto">
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                className="bg-secondary text-secondary-foreground hover:bg-secondary/80 h-10 w-full sm:w-auto"
+                            >
                                 {trans_role.btn_cancel || 'Cancel'}
                             </Button>
                         </DialogClose>
-                        <Button type="button" onClick={onSubmit} className="h-10 w-full font-bold sm:w-auto">
+                        <Button
+                            type="button"
+                            onClick={onSubmit}
+                            className="bg-primary text-primary-foreground hover:bg-primary/90 h-10 w-full font-bold sm:w-auto"
+                        >
                             {selectedRole ? trans_role.btn_save_changes : trans_role.btn_create}
                         </Button>
                     </DialogFooter>
