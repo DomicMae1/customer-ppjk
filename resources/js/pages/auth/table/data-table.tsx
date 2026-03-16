@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // Users/table/data-table.tsx
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -213,37 +214,39 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
             </div>
 
             {/* --- MOBILE CARD VIEW --- */}
+            {/* --- MOBILE VIEW: CARD LAYOUT --- */}
             <div className="flex flex-col gap-4 md:hidden">
                 {table.getRowModel().rows.length > 0 ? (
                     table.getRowModel().rows.map((row) => {
-                        const original = row.original as any; // Cast untuk akses properti
-
-                        // Render Cell Actions secara manual jika ada kolom 'actions'
+                        const original = row.original as any;
                         const actionsCell = row.getVisibleCells().find((cell) => cell.column.id === 'actions');
 
                         return (
-                            <div key={row.id} className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+                            <div key={row.id} className="border-border bg-card rounded-lg border p-4 shadow-sm">
                                 {/* Header Card: Name & Role/Type */}
-                                <div className="mb-3 flex items-start justify-between border-b pb-2">
+                                <div className="border-border mb-3 flex items-start justify-between border-b pb-2">
                                     <div className="flex flex-col">
-                                        <span className="text-base font-bold text-gray-900">{original.name}</span>
-                                        <span className="text-xs font-medium text-gray-500">{original.role}</span>
+                                        <span className="text-foreground text-base font-bold">{original.name}</span>
+                                        <span className="text-muted-foreground text-xs font-medium">{original.role}</span>
                                     </div>
-                                    {/* Jika ada kolom Actions di definisi kolom, render di sini */}
-                                    {actionsCell && <div>{flexRender(actionsCell.column.columnDef.cell, actionsCell.getContext())}</div>}
+                                    {actionsCell && (
+                                        <div className="text-foreground">
+                                            {flexRender(actionsCell.column.columnDef.cell, actionsCell.getContext())}
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Body Card: Details */}
-                                <div className="space-y-2 text-sm text-gray-700">
+                                <div className="text-muted-foreground space-y-2 text-sm">
                                     <div className="flex flex-col">
-                                        <span className="text-xs text-gray-500">{trans_auth.label_email}</span>
-                                        <span className="font-medium">{original.email}</span>
+                                        <span className="text-muted-foreground/70 text-xs">{trans_auth.label_email}</span>
+                                        <span className="text-foreground font-medium">{original.email}</span>
                                     </div>
 
                                     {original.nama_perusahaan && (
                                         <div className="flex flex-col">
-                                            <span className="text-xs text-gray-500">{trans_auth.label_company}</span>
-                                            <span>{original.nama_perusahaan}</span>
+                                            <span className="text-muted-foreground/70 text-xs">{trans_auth.label_company}</span>
+                                            <span className="text-foreground">{original.nama_perusahaan}</span>
                                         </div>
                                     )}
                                 </div>
@@ -251,38 +254,45 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                         );
                     })
                 ) : (
-                    <div className="py-8 text-center text-gray-500">{trans_auth.no_results}</div>
+                    <div className="text-muted-foreground border-border rounded-lg border-2 border-dashed py-8 text-center">
+                        {trans_auth.no_results}
+                    </div>
                 )}
             </div>
 
-            <div className="hidden rounded-md border md:block">
+            {/* --- DESKTOP VIEW: TABLE --- */}
+            <div className="border-border bg-card hidden overflow-hidden rounded-md border md:block">
                 <Table>
-                    <TableHeader>
+                    <TableHeader className="bg-muted/50">
                         {table.getHeaderGroups().map((headerGroup) => (
-                            <TableRow key={headerGroup.id}>
-                                {headerGroup.headers.map((header) => {
-                                    return (
-                                        <TableHead key={header.id}>
-                                            {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
-                                        </TableHead>
-                                    );
-                                })}
+                            <TableRow key={headerGroup.id} className="border-border hover:bg-transparent">
+                                {headerGroup.headers.map((header) => (
+                                    <TableHead key={header.id} className="text-muted-foreground font-bold">
+                                        {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
+                                    </TableHead>
+                                ))}
                             </TableRow>
                         ))}
                     </TableHeader>
                     <TableBody>
                         {table.getRowModel().rows?.length ? (
                             table.getRowModel().rows.map((row) => (
-                                <TableRow key={row.id} data-state={row.getIsSelected() && 'selected'}>
+                                <TableRow
+                                    key={row.id}
+                                    data-state={row.getIsSelected() && 'selected'}
+                                    className="border-border hover:bg-muted/50 transition-colors"
+                                >
                                     {row.getVisibleCells().map((cell) => (
-                                        <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
+                                        <TableCell key={cell.id} className="text-foreground">
+                                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                        </TableCell>
                                     ))}
                                 </TableRow>
                             ))
                         ) : (
                             <TableRow>
-                                <TableCell colSpan={columns.length} className="h-24 text-center">
-                                    {trans_auth.no_results} {/* Translate */}
+                                <TableCell colSpan={columns.length} className="text-muted-foreground h-24 text-center">
+                                    {trans_auth.no_results}
                                 </TableCell>
                             </TableRow>
                         )}
@@ -312,25 +322,26 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
         1. max-w-[95%] agar tidak menempel ke pinggir layar hp.
         2. max-h-[90vh] dan overflow-y-auto agar form bisa di-scroll jika layar pendek atau keyboard muncul.
     */}
-                <DialogContent className="max-h-[90vh] max-w-[95%] overflow-y-auto rounded-xl p-4 sm:max-w-md sm:p-6">
+                <DialogContent className="border-border bg-background text-foreground max-h-[90vh] max-w-[95%] overflow-y-auto rounded-xl p-4 sm:max-w-md sm:p-6">
                     <DialogHeader>
-                        <DialogTitle className="text-xl font-bold">{trans_auth.title_create}</DialogTitle>
-                        <DialogDescription className="text-sm">{trans_auth.desc_create}</DialogDescription>
+                        <DialogTitle className="text-foreground text-xl font-bold">{trans_auth.title_create}</DialogTitle>
+                        <DialogDescription className="text-muted-foreground text-sm">{trans_auth.desc_create}</DialogDescription>
                     </DialogHeader>
 
                     <form onSubmit={onSubmitCreate} className="mt-4 space-y-5">
                         {/* --- Bagian Relasi --- */}
-                        <div className="space-y-4 rounded-lg bg-slate-50 p-3 sm:bg-transparent sm:p-0">
+                        {/* bg-muted/50 memberikan kontras tipis yang elegan di mode terang maupun gelap */}
+                        <div className="bg-muted/50 space-y-4 rounded-lg p-3 sm:bg-transparent sm:p-0">
                             {/* Company Select */}
                             <div className="grid gap-2">
-                                <Label htmlFor="company" className="font-semibold">
+                                <Label htmlFor="company" className="text-foreground font-semibold">
                                     {trans_auth.label_company}
                                 </Label>
                                 <Select onValueChange={setSelectedCompany} value={selectedCompany}>
-                                    <SelectTrigger className="h-11 w-full bg-white sm:h-10">
+                                    <SelectTrigger className="border-input bg-background text-foreground h-11 w-full sm:h-10">
                                         <SelectValue placeholder={trans_auth.placeholder_company} />
                                     </SelectTrigger>
-                                    <SelectContent>
+                                    <SelectContent className="bg-popover text-popover-foreground">
                                         {companies.length > 0 ? (
                                             companies.map((company) => (
                                                 <SelectItem key={company.id} value={String(company.id)}>
@@ -346,14 +357,14 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
 
                             {/* User Type Select */}
                             <div className="grid gap-2">
-                                <Label htmlFor="role" className="font-semibold">
+                                <Label htmlFor="role" className="text-foreground font-semibold">
                                     {trans_auth.label_user_type}
                                 </Label>
                                 <Select onValueChange={setSelectedRole} value={selectedRole}>
-                                    <SelectTrigger className="h-11 w-full bg-white sm:h-10">
+                                    <SelectTrigger className="border-input bg-background text-foreground h-11 w-full sm:h-10">
                                         <SelectValue placeholder={trans_auth.placeholder_user_type} />
                                     </SelectTrigger>
-                                    <SelectContent>
+                                    <SelectContent className="bg-popover text-popover-foreground">
                                         <SelectItem value="internal">{trans_auth.type_internal}</SelectItem>
                                         <SelectItem value="external">{trans_auth.type_external}</SelectItem>
                                     </SelectContent>
@@ -363,14 +374,14 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                             {/* Role Internal Select */}
                             {selectedRole === 'internal' && (
                                 <div className="animate-in fade-in slide-in-from-top-1 grid gap-2 duration-300">
-                                    <Label htmlFor="role_internal" className="font-semibold">
+                                    <Label htmlFor="role_internal" className="text-foreground font-semibold">
                                         {trans_auth.label_role_internal}
                                     </Label>
                                     <Select onValueChange={setSelectedRoleInternal} value={selectedRoleInternal}>
-                                        <SelectTrigger className="h-11 w-full bg-white sm:h-10">
+                                        <SelectTrigger className="border-input bg-background text-foreground h-11 w-full sm:h-10">
                                             <SelectValue placeholder={trans_auth.placeholder_role_internal} />
                                         </SelectTrigger>
-                                        <SelectContent>
+                                        <SelectContent className="bg-popover text-popover-foreground">
                                             {roles
                                                 .filter((role) => ['staff', 'manager', 'supervisor'].includes(role.name))
                                                 .map((role) => (
@@ -386,14 +397,14 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                             {/* Customer Select */}
                             {selectedRole === 'external' && (
                                 <div className="animate-in fade-in slide-in-from-top-1 grid gap-2 duration-300">
-                                    <Label htmlFor="customer" className="font-semibold">
+                                    <Label htmlFor="customer" className="text-foreground font-semibold">
                                         {trans_auth.label_customer}
                                     </Label>
                                     <Select onValueChange={setSelectedCustomer} value={selectedCustomer}>
-                                        <SelectTrigger className="h-11 w-full bg-white sm:h-10">
+                                        <SelectTrigger className="border-input bg-background text-foreground h-11 w-full sm:h-10">
                                             <SelectValue placeholder={trans_auth.placeholder_customer} />
                                         </SelectTrigger>
-                                        <SelectContent>
+                                        <SelectContent className="bg-popover text-popover-foreground">
                                             {customers.length > 0 ? (
                                                 customers.map((cust) => (
                                                     <SelectItem key={cust.id} value={String(cust.id)}>
@@ -412,7 +423,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                         {/* --- Bagian Identitas --- */}
                         <div className="space-y-4">
                             <div className="grid gap-2">
-                                <Label htmlFor="name" className="font-semibold">
+                                <Label htmlFor="name" className="text-foreground font-semibold">
                                     {trans_auth.label_name}
                                 </Label>
                                 <Input
@@ -420,12 +431,12 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                     value={name}
                                     onChange={(e) => setName(e.target.value)}
                                     placeholder={trans_auth.placeholder_name}
-                                    className="h-11 sm:h-10"
+                                    className="border-input bg-background text-foreground h-11 sm:h-10"
                                 />
                             </div>
 
                             <div className="grid gap-2">
-                                <Label htmlFor="email" className="font-semibold">
+                                <Label htmlFor="email" className="text-foreground font-semibold">
                                     {trans_auth.label_email}
                                 </Label>
                                 <Input
@@ -434,12 +445,12 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
                                     placeholder={trans_auth.placeholder_email}
-                                    className="h-11 sm:h-10"
+                                    className="border-input bg-background text-foreground h-11 sm:h-10"
                                 />
                             </div>
 
                             <div className="grid gap-2">
-                                <Label htmlFor="password" className="font-semibold">
+                                <Label htmlFor="password" className="text-foreground font-semibold">
                                     {trans_auth.label_password}
                                 </Label>
                                 <Input
@@ -448,12 +459,12 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                     placeholder={trans_auth.placeholder_password}
-                                    className="h-11 sm:h-10"
+                                    className="border-input bg-background text-foreground h-11 sm:h-10"
                                 />
                             </div>
 
                             <div className="grid gap-2">
-                                <Label htmlFor="password_confirmation" className="font-semibold">
+                                <Label htmlFor="password_confirmation" className="text-foreground font-semibold">
                                     {trans_auth.label_password_confirm}
                                 </Label>
                                 <Input
@@ -462,19 +473,22 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                     value={passwordConfirmation}
                                     onChange={(e) => setPasswordConfirmation(e.target.value)}
                                     placeholder={trans_auth.placeholder_password_confirm}
-                                    className="h-11 sm:h-10"
+                                    className="border-input bg-background text-foreground h-11 sm:h-10"
                                 />
                             </div>
                         </div>
 
-                        {/* Footer: Tombol tumpuk di mobile untuk memudahkan tap */}
+                        {/* Footer: Tombol adaptif warna tema */}
                         <DialogFooter className="flex flex-col-reverse gap-2 pt-4 sm:flex-row">
                             <DialogClose asChild>
                                 <Button type="button" variant="secondary" className="h-11 w-full sm:h-10 sm:w-auto">
                                     {trans_auth.btn_cancel}
                                 </Button>
                             </DialogClose>
-                            <Button type="submit" className="h-11 w-full font-bold sm:h-10 sm:w-auto">
+                            <Button
+                                type="submit"
+                                className="bg-primary text-primary-foreground hover:bg-primary/90 h-11 w-full font-bold sm:h-10 sm:w-auto"
+                            >
                                 {trans_auth.btn_create}
                             </Button>
                         </DialogFooter>

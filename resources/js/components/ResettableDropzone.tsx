@@ -203,9 +203,11 @@ export function ResettableDropzone({
 
     return (
         <div className="w-full">
-            <Label className="mb-1 block">
-                {label} {isRequired && <span className="text-red-500">*</span>}
+            {/* Label adaptif: text-foreground */}
+            <Label className="text-foreground mb-1 block">
+                {label} {isRequired && <span className="text-destructive">*</span>}
             </Label>
+
             <div className="flex w-full flex-col items-end">
                 <div
                     key={componentKey}
@@ -213,10 +215,14 @@ export function ResettableDropzone({
                     className={cn(
                         // Base Style
                         'relative flex cursor-pointer items-center justify-center rounded-lg border transition-all',
-                        // Size & Spacing
-                        fileStatus ? 'h-auto w-auto border-blue-200 bg-blue-50 p-2' : 'h-9 w-28 border-gray-300 bg-white hover:bg-gray-50',
-                        // Dark Mode
-                        'dark:border-neutral-700 dark:bg-neutral-900',
+
+                        // Light Mode Styles
+                        !fileStatus ? 'h-9 w-28 border-gray-300 bg-white hover:bg-gray-50' : 'h-auto w-auto border-blue-200 bg-blue-50 p-2',
+
+                        // Dark Mode Styles (Ditingkatkan)
+                        'dark:border-neutral-700 dark:bg-neutral-900 dark:hover:bg-neutral-800',
+                        fileStatus && 'dark:border-blue-900/50 dark:bg-blue-950/30',
+
                         borderColor,
                     )}
                 >
@@ -224,7 +230,7 @@ export function ResettableDropzone({
 
                     {fileStatus ? (
                         <div className="flex w-full items-center justify-between gap-2">
-                            {/* File Info & View Link */}
+                            {/* File Info */}
                             <div
                                 className="flex flex-1 items-center gap-2 overflow-hidden"
                                 onClick={(e) => {
@@ -234,25 +240,32 @@ export function ResettableDropzone({
                                     }
                                 }}
                             >
-                                <FileIcon className="h-4 w-4 shrink-0 text-blue-600" />
+                                <FileIcon className="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
                                 <div className="flex flex-col truncate text-left">
-                                    <span className="truncate text-xs font-semibold text-gray-800">{fileStatus.fileName}</span>
-                                    {fixedPreviewUrl && <span className="text-[10px] text-blue-600 underline">Lihat File</span>}
+                                    {/* Teks nama file: text-gray-800 -> dark:text-neutral-200 */}
+                                    <span className="truncate text-xs font-semibold text-gray-800 dark:text-neutral-200">{fileStatus.fileName}</span>
+
+                                    {fixedPreviewUrl && (
+                                        <span className="text-[10px] text-blue-600 underline decoration-blue-600/30 dark:text-blue-400">
+                                            Lihat File
+                                        </span>
+                                    )}
+
                                     {!fixedPreviewUrl && (fileStatus.status === 'uploading' || fileStatus.status === 'processing') && (
-                                        <span className="text-[10px] text-gray-500">
+                                        <span className="text-muted-foreground text-[10px]">
                                             {fileStatus.status === 'processing' ? 'Processing...' : `Uploading ${fileStatus.progress}%`}
                                         </span>
                                     )}
                                 </div>
                             </div>
 
-                            {/* Actions */}
+                            {/* Actions Button */}
                             {fileStatus.status !== 'uploading' && fileStatus.status !== 'processing' && (
                                 <Button
                                     type="button"
                                     variant="ghost"
                                     size="icon"
-                                    className="h-6 w-6 shrink-0 rounded-full text-gray-400 hover:bg-white hover:text-red-500"
+                                    className="text-muted-foreground hover:text-destructive h-6 w-6 shrink-0 rounded-full hover:bg-white dark:hover:bg-neutral-800"
                                     onClick={handleDelete}
                                 >
                                     <Trash2Icon className="h-4 w-4" />
@@ -260,15 +273,16 @@ export function ResettableDropzone({
                             )}
                         </div>
                     ) : (
-                        <span className="text-xs font-medium text-gray-500">Upload here</span>
+                        <span className="text-muted-foreground text-xs font-medium">Upload here</span>
                     )}
                 </div>
 
-                {!fileStatus && <p className="mt-1 text-[10px] text-gray-400 italic">* Maksimal ukuran attachment 20 MB</p>}
+                {/* Helper Text */}
+                {!fileStatus && <p className="text-muted-foreground mt-1 text-[10px] italic">* Maksimal ukuran attachment 20 MB</p>}
 
-                {/* Pesan Error Validation/Backend */}
+                {/* Error Message */}
                 {fileStatus?.status === 'error' && (
-                    <div className="mt-1 flex items-center gap-1.5 text-[11px] font-medium text-red-600">
+                    <div className="text-destructive mt-1 flex items-center gap-1.5 text-[11px] font-medium">
                         <AlertCircle className="h-3.5 w-3.5" />
                         <span>{fileStatus.errorMessage}</span>
                     </div>
