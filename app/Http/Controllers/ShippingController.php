@@ -1456,7 +1456,6 @@ class ShippingController extends Controller
     public function addDocumentsToSection(Request $request)
     {
         $user = auth('web')->user();
-
         // 1. Initialize Tenant Context
         $tenant = null;
         if ($user->id_perusahaan) {
@@ -1482,7 +1481,7 @@ class ShippingController extends Controller
             DB::beginTransaction();
 
             $spkId = $request->id_spk;
-            $sectionId = $request->id_section;
+            $masterSectionId = $request->id_section;
             $documentIds = $request->document_ids;
 
             $addedCount = 0;
@@ -1500,7 +1499,7 @@ class ShippingController extends Controller
                     if (!$exists) {
                         DocumentTrans::create([
                             'id_spk' => $spkId,
-                            'id_section' => $sectionId,
+                            'id_section' => $masterSectionId, // Use Master ID for correct grouping
                             'id_dokumen' => $masterDocTrans->id_dokumen,
                             'nama_file' => $masterDocTrans->nama_file,
                             'url_path_file' => null,

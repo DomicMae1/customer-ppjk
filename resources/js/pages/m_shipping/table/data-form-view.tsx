@@ -1461,7 +1461,7 @@ export default function ViewCustomerForm({
                                             <div className={`mt-4 sm:mt-8 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-0 ${isInternalUser ? 'sm:justify-between' : 'sm:justify-end'}`}>
                                                 {isInternalUser && (
                                                     <button
-                                                        onClick={() => handleOpenModal(section.id)}
+                                                        onClick={() => handleOpenModal(section.id_section)}
                                                         className="flex items-center gap-2 text-sm font-semibold text-slate-700 hover:text-slate-900 transition-colors duration-200"
                                                     >
                                                         <div className="rounded border-2 border-slate-400 p-0.5 hover:border-slate-600 transition-colors duration-200">
