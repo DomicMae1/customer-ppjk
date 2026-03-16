@@ -43,9 +43,9 @@ export const columns = (
             cell: ({ row }) => <span className="font-medium">{row.original.nama}</span>,
         },
         {
-            accessorKey: 'no_telp',
-            header: trans.label_phone || 'No. Telp',
-            cell: ({ row }) => row.original.no_telp || '-',
+            accessorKey: 'no_npwp', // GANTI dari no_telp ke no_npwp
+            header: trans.label_npwp || 'NPWP',
+            cell: ({ row }) => <code className="text-muted-foreground text-xs">{row.original.no_npwp || '-'}</code>,
         },
         {
             id: 'actions',
@@ -59,7 +59,7 @@ export const columns = (
                         <Button
                             variant="outline"
                             size="icon"
-                            className="h-8 w-8 border-orange-200 text-orange-600 hover:bg-orange-50 hover:text-orange-700"
+                            className="h-8 w-8 text-white hover:bg-orange-50 hover:text-orange-700"
                             onClick={() => onEditClick(customer)}
                             title={trans.title_edit || 'Edit'}
                         >
@@ -70,7 +70,7 @@ export const columns = (
                         <Button
                             variant="outline"
                             size="icon"
-                            className="h-8 w-8 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                            className="h-8 w-8 text-red-600 hover:bg-red-50 hover:text-red-700"
                             onClick={() => onDeleteClick(customer)}
                             title={trans.title_delete || 'Hapus'}
                         >

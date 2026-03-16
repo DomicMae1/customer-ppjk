@@ -192,17 +192,19 @@ export default function ManageCustomers() {
 
             {/* --- MODAL CREATE CUSTOMER --- */}
             <Dialog open={openCreate} onOpenChange={setOpenCreate}>
-                <DialogContent className="sm:max-w-lg">
+                <DialogContent className="border-border bg-background text-foreground max-h-[95vh] max-w-[95%] overflow-y-auto rounded-xl p-4 sm:max-w-md sm:p-6">
                     <DialogHeader>
-                        <DialogTitle>{trans_customer.title_create || 'Add New Customer'}</DialogTitle>
-                        <DialogDescription>{trans_customer.desc_create || 'Enter the detail information of the new customer.'}</DialogDescription>
+                        <DialogTitle className="text-foreground text-xl font-bold">{trans_customer.title_create || 'Add New Customer'}</DialogTitle>
+                        <DialogDescription className="text-muted-foreground text-sm">
+                            {trans_customer.desc_create || 'Enter the detail information of the new customer.'}
+                        </DialogDescription>
                     </DialogHeader>
 
-                    <form onSubmit={handleCreateSubmit} className="space-y-4 py-2">
+                    <form onSubmit={handleCreateSubmit} className="mt-2 space-y-4 py-2">
                         {/* Nama Perusahaan */}
                         <div className="grid gap-2">
-                            <Label htmlFor="create_nama_perusahaan">
-                                {trans_customer.label_company_name} <span className="text-red-500">*</span>
+                            <Label htmlFor="create_nama_perusahaan" className="text-foreground font-semibold">
+                                {trans_customer.label_company_name} <span className="text-destructive">*</span>
                             </Label>
                             <Input
                                 id="create_nama_perusahaan"
@@ -210,21 +212,21 @@ export default function ManageCustomers() {
                                 onChange={(e) => handleInputChange('nama_perusahaan', e.target.value)}
                                 required
                                 placeholder={trans_customer.placeholder_company_name}
-                                className="h-11 sm:h-10"
+                                className="border-input bg-background text-foreground focus-visible:ring-primary h-11 sm:h-10"
                             />
                         </div>
 
                         {/* Perusahaan Dropdown (Owner) - Khusus Admin */}
                         {isAdmin && (
-                            <div className="grid gap-2 text-black">
-                                <Label htmlFor="create_id_perusahaan">
-                                    {trans_customer.label_owner_company || 'Owner Company'} <span className="text-red-500">*</span>
+                            <div className="grid gap-2">
+                                <Label htmlFor="create_id_perusahaan" className="text-foreground font-semibold">
+                                    {trans_customer.label_owner_company || 'Owner Company'} <span className="text-destructive">*</span>
                                 </Label>
                                 <Select value={formData.id_perusahaan} onValueChange={(val) => handleInputChange('id_perusahaan', val)}>
-                                    <SelectTrigger className="h-11 sm:h-10">
+                                    <SelectTrigger className="border-input bg-background text-foreground h-11 sm:h-10">
                                         <SelectValue placeholder={trans_customer.placeholder_owner_company || 'Select Owner Company'} />
                                     </SelectTrigger>
-                                    <SelectContent>
+                                    <SelectContent className="bg-popover text-popover-foreground border-border">
                                         {perusahaan_list?.map((p) => (
                                             <SelectItem key={p.id_perusahaan} value={p.id_perusahaan.toString()}>
                                                 {p.nama_perusahaan}
@@ -238,22 +240,22 @@ export default function ManageCustomers() {
                         {/* Tipe & Email */}
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <div className="grid gap-2">
-                                <Label htmlFor="create_type">
-                                    {trans_customer.label_type} <span className="text-red-500">*</span>
+                                <Label htmlFor="create_type" className="text-foreground font-semibold">
+                                    {trans_customer.label_type} <span className="text-destructive">*</span>
                                 </Label>
                                 <Select value={formData.type} onValueChange={(val) => handleInputChange('type', val)}>
-                                    <SelectTrigger className="h-11 sm:h-10">
+                                    <SelectTrigger className="border-input bg-background text-foreground h-11 sm:h-10">
                                         <SelectValue placeholder={trans_customer.placeholder_type} />
                                     </SelectTrigger>
-                                    <SelectContent>
+                                    <SelectContent className="bg-popover text-popover-foreground border-border">
                                         <SelectItem value="external">External</SelectItem>
                                         <SelectItem value="internal">Internal</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
                             <div className="grid gap-2">
-                                <Label htmlFor="create_email">
-                                    {trans_customer.label_email} <span className="text-red-500">*</span>
+                                <Label htmlFor="create_email" className="text-foreground font-semibold">
+                                    {trans_customer.label_email} <span className="text-destructive">*</span>
                                 </Label>
                                 <Input
                                     id="create_email"
@@ -262,15 +264,15 @@ export default function ManageCustomers() {
                                     onChange={(e) => handleInputChange('email', e.target.value)}
                                     required
                                     placeholder="email@example.com"
-                                    className="h-11 sm:h-10"
+                                    className="border-input bg-background text-foreground h-11 sm:h-10"
                                 />
                             </div>
                         </div>
 
                         {/* PIC Name */}
                         <div className="grid gap-2">
-                            <Label htmlFor="create_nama">
-                                {trans_customer.label_pic_name} <span className="text-red-500">*</span>
+                            <Label htmlFor="create_nama" className="text-foreground font-semibold">
+                                {trans_customer.label_pic_name} <span className="text-destructive">*</span>
                             </Label>
                             <Input
                                 id="create_nama"
@@ -278,40 +280,54 @@ export default function ManageCustomers() {
                                 onChange={(e) => handleInputChange('nama', e.target.value)}
                                 required
                                 placeholder={trans_customer.placeholder_pic_name}
-                                className="h-11 sm:h-10"
+                                className="border-input bg-background text-foreground h-11 sm:h-10"
                             />
                         </div>
 
-                        <div className="grid grid-cols-1 gap-4 text-black sm:grid-cols-2">
+                        {/* NPWP Section */}
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <div className="grid gap-2">
-                                <Label htmlFor="create_no_npwp">{trans_customer.label_npwp_15}</Label>
+                                <Label htmlFor="create_no_npwp" className="text-foreground font-semibold">
+                                    {trans_customer.label_npwp_15}
+                                </Label>
                                 <Input
                                     id="create_no_npwp"
                                     value={formData.no_npwp}
                                     onChange={(e) => handleInputChange('no_npwp', e.target.value)}
                                     placeholder="15 Digits"
-                                    className="h-11 sm:h-10"
+                                    className="border-input bg-background text-foreground h-11 sm:h-10"
                                 />
                             </div>
                             <div className="grid gap-2">
-                                <Label htmlFor="create_no_npwp_16">{trans_customer.label_npwp_16}</Label>
+                                <Label htmlFor="create_no_npwp_16" className="text-foreground font-semibold">
+                                    {trans_customer.label_npwp_16}
+                                </Label>
                                 <Input
                                     id="create_no_npwp_16"
                                     value={formData.no_npwp_16}
                                     onChange={(e) => handleInputChange('no_npwp_16', e.target.value)}
                                     placeholder="16 Digits"
-                                    className="h-11 sm:h-10"
+                                    className="border-input bg-background text-foreground h-11 sm:h-10"
                                 />
                             </div>
                         </div>
 
-                        <DialogFooter className="flex-col-reverse gap-2 pt-4 sm:flex-row">
+                        {/* Footer: Responsif Mobile (Stacked) & Dark Mode Compatible Buttons */}
+                        <DialogFooter className="flex-col-reverse gap-3 pt-6 sm:flex-row sm:justify-end">
                             <DialogClose asChild>
-                                <Button type="button" variant="secondary" className="h-11 w-full text-black sm:h-10 sm:w-auto">
+                                <Button
+                                    type="button"
+                                    variant="secondary"
+                                    className="bg-secondary text-secondary-foreground hover:bg-secondary/80 h-11 w-full sm:h-10 sm:w-auto"
+                                >
                                     {trans_customer.btn_cancel || 'Cancel'}
                                 </Button>
                             </DialogClose>
-                            <Button type="submit" disabled={isSubmitting} className="h-11 w-full sm:h-10 sm:w-auto">
+                            <Button
+                                type="submit"
+                                disabled={isSubmitting}
+                                className="bg-primary text-primary-foreground h-11 w-full font-bold shadow-md transition-all active:scale-[0.98] sm:h-10 sm:w-auto"
+                            >
                                 {isSubmitting ? trans_customer.btn_saving || 'Saving...' : trans_customer.btn_save || 'Save'}
                             </Button>
                         </DialogFooter>
@@ -321,34 +337,40 @@ export default function ManageCustomers() {
 
             {/* --- MODAL EDIT CUSTOMER --- */}
             <Dialog open={openEdit} onOpenChange={setOpenEdit}>
-                <DialogContent className="sm:max-w-lg">
+                <DialogContent className="border-border bg-background text-foreground max-h-[95vh] max-w-[95%] overflow-y-auto rounded-xl p-4 sm:max-w-lg sm:p-6">
                     <DialogHeader>
-                        <DialogTitle>{trans_customer.title_edit || 'Edit Customer'}</DialogTitle>
-                        <DialogDescription>{trans_customer.desc_edit || 'Update customer detail information below.'}</DialogDescription>
+                        <DialogTitle className="text-foreground text-xl font-bold">{trans_customer.title_edit || 'Edit Customer'}</DialogTitle>
+                        <DialogDescription className="text-muted-foreground text-sm">
+                            {trans_customer.desc_edit || 'Update customer detail information below.'}
+                        </DialogDescription>
                     </DialogHeader>
 
-                    <form onSubmit={handleUpdateSubmit} className="space-y-4 py-2">
-                        {/* Fields sama dengan Create, gunakan trans_customer */}
+                    <form onSubmit={handleUpdateSubmit} className="mt-2 space-y-4 py-2">
+                        {/* Nama Perusahaan */}
                         <div className="grid gap-2">
-                            <Label htmlFor="edit_nama_perusahaan">{trans_customer.label_company_name}</Label>
+                            <Label htmlFor="edit_nama_perusahaan" className="text-foreground font-semibold">
+                                {trans_customer.label_company_name}
+                            </Label>
                             <Input
                                 id="edit_nama_perusahaan"
                                 value={formData.nama_perusahaan}
                                 onChange={(e) => handleInputChange('nama_perusahaan', e.target.value)}
                                 required
-                                className="h-11 sm:h-10"
+                                className="border-input bg-background text-foreground focus-visible:ring-primary h-11 sm:h-10"
                             />
                         </div>
 
                         {/* Perusahaan Dropdown (Owner) - Khusus Admin */}
                         {isAdmin && (
                             <div className="grid gap-2">
-                                <Label htmlFor="edit_id_perusahaan">{trans_customer.label_owner_company || 'Owner Company'}</Label>
+                                <Label htmlFor="edit_id_perusahaan" className="text-foreground font-semibold">
+                                    {trans_customer.label_owner_company || 'Owner Company'}
+                                </Label>
                                 <Select value={formData.id_perusahaan} onValueChange={(val) => handleInputChange('id_perusahaan', val)}>
-                                    <SelectTrigger className="h-11 sm:h-10">
+                                    <SelectTrigger className="border-input bg-background text-foreground h-11 sm:h-10">
                                         <SelectValue placeholder={trans_customer.placeholder_owner_company || 'Select Owner Company'} />
                                     </SelectTrigger>
-                                    <SelectContent>
+                                    <SelectContent className="bg-popover text-popover-foreground border-border">
                                         {perusahaan_list?.map((p) => (
                                             <SelectItem key={p.id_perusahaan} value={p.id_perusahaan.toString()}>
                                                 {p.nama_perusahaan}
@@ -359,71 +381,93 @@ export default function ManageCustomers() {
                             </div>
                         )}
 
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-1">
-                                <Label htmlFor="edit_type">{trans_customer.label_type}</Label>
+                        {/* Tipe & Email */}
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            <div className="grid gap-2">
+                                <Label htmlFor="edit_type" className="text-foreground font-semibold">
+                                    {trans_customer.label_type}
+                                </Label>
                                 <Select value={formData.type} onValueChange={(val) => handleInputChange('type', val)}>
-                                    <SelectTrigger className="h-11 sm:h-10">
+                                    <SelectTrigger className="border-input bg-background text-foreground h-11 sm:h-10">
                                         <SelectValue />
                                     </SelectTrigger>
-                                    <SelectContent>
+                                    <SelectContent className="bg-popover text-popover-foreground border-border">
                                         <SelectItem value="internal">Internal</SelectItem>
                                         <SelectItem value="external">External</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
                             <div className="grid gap-2">
-                                <Label htmlFor="edit_email">{trans_customer.label_email}</Label>
+                                <Label htmlFor="edit_email" className="text-foreground font-semibold">
+                                    {trans_customer.label_email}
+                                </Label>
                                 <Input
                                     id="edit_email"
                                     type="email"
                                     value={formData.email}
                                     onChange={(e) => handleInputChange('email', e.target.value)}
                                     required
-                                    className="h-11 sm:h-10"
+                                    className="border-input bg-background text-foreground h-11 sm:h-10"
                                 />
                             </div>
                         </div>
 
+                        {/* PIC Name */}
                         <div className="grid gap-2">
-                            <Label htmlFor="edit_nama">{trans_customer.label_pic_name}</Label>
+                            <Label htmlFor="edit_nama" className="text-foreground font-semibold">
+                                {trans_customer.label_pic_name}
+                            </Label>
                             <Input
                                 id="edit_nama"
                                 value={formData.nama}
                                 onChange={(e) => handleInputChange('nama', e.target.value)}
                                 required
-                                className="h-11 sm:h-10"
+                                className="border-input bg-background text-foreground h-11 sm:h-10"
                             />
                         </div>
 
-                        <div className="grid grid-cols-1 gap-4 text-black sm:grid-cols-2">
+                        {/* NPWP Section */}
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <div className="grid gap-2">
-                                <Label htmlFor="edit_no_npwp">{trans_customer.label_npwp_15}</Label>
+                                <Label htmlFor="edit_no_npwp" className="text-foreground font-semibold">
+                                    {trans_customer.label_npwp_15}
+                                </Label>
                                 <Input
                                     id="edit_no_npwp"
                                     value={formData.no_npwp}
                                     onChange={(e) => handleInputChange('no_npwp', e.target.value)}
-                                    className="h-11 sm:h-10"
+                                    className="border-input bg-background text-foreground h-11 sm:h-10"
                                 />
                             </div>
                             <div className="grid gap-2">
-                                <Label htmlFor="edit_no_npwp_16">{trans_customer.label_npwp_16}</Label>
+                                <Label htmlFor="edit_no_npwp_16" className="text-foreground font-semibold">
+                                    {trans_customer.label_npwp_16}
+                                </Label>
                                 <Input
                                     id="edit_no_npwp_16"
                                     value={formData.no_npwp_16}
                                     onChange={(e) => handleInputChange('no_npwp_16', e.target.value)}
-                                    className="h-11 sm:h-10"
+                                    className="border-input bg-background text-foreground h-11 sm:h-10"
                                 />
                             </div>
                         </div>
 
-                        <DialogFooter className="flex-col-reverse gap-2 pt-4 sm:flex-row">
+                        {/* Footer Actions */}
+                        <DialogFooter className="flex-col-reverse gap-3 pt-6 sm:flex-row sm:justify-end">
                             <DialogClose asChild>
-                                <Button type="button" variant="secondary" className="h-11 w-full text-black sm:h-10 sm:w-auto">
+                                <Button
+                                    type="button"
+                                    variant="secondary"
+                                    className="bg-secondary text-secondary-foreground hover:bg-secondary/80 h-11 w-full sm:h-10 sm:w-auto"
+                                >
                                     {trans_customer.btn_cancel || 'Cancel'}
                                 </Button>
                             </DialogClose>
-                            <Button type="submit" disabled={isSubmitting} className="h-11 w-full sm:h-10 sm:w-auto">
+                            <Button
+                                type="submit"
+                                disabled={isSubmitting}
+                                className="bg-primary text-primary-foreground h-11 w-full font-bold shadow-md transition-all active:scale-[0.98] sm:h-10 sm:w-auto"
+                            >
                                 {isSubmitting ? trans_customer.btn_saving || 'Saving...' : trans_customer.btn_save_changes || 'Save Changes'}
                             </Button>
                         </DialogFooter>
