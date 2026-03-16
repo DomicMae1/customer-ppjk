@@ -178,17 +178,17 @@ export default function ManageCompany() {
 
             {/* Modal Form Tambah/Edit */}
             <Dialog open={openForm} onOpenChange={(isOpen) => !isOpen && resetFormAndClose()}>
-                <DialogContent className="max-h-[90vh] max-w-[95%] overflow-y-auto rounded-xl p-4 text-black sm:max-w-2xl sm:p-6">
+                <DialogContent className="border-border bg-background text-foreground max-h-[90vh] max-w-[95%] overflow-y-auto rounded-xl p-4 sm:max-w-2xl sm:p-6">
                     <form onSubmit={onSubmit}>
                         <DialogHeader>
-                            <DialogTitle className="text-lg font-bold text-black sm:text-xl">
+                            <DialogTitle className="text-foreground text-lg font-bold sm:text-xl">
                                 {selectedCompany ? trans_company.title_edit : trans_company.title_create}
                             </DialogTitle>
                         </DialogHeader>
 
                         <div className="space-y-4 py-4">
                             <div className="grid gap-2">
-                                <Label htmlFor="nama_perusahaan" className="font-semibold text-gray-700">
+                                <Label htmlFor="nama_perusahaan" className="text-foreground/90 font-semibold">
                                     {trans_company.label_name}
                                 </Label>
                                 <Input
@@ -198,12 +198,12 @@ export default function ManageCompany() {
                                     onChange={handleInputChange}
                                     placeholder={trans_company.placeholder_name}
                                     required
-                                    className="h-11 sm:h-10"
+                                    className="bg-background border-input text-foreground h-11 sm:h-10"
                                 />
                             </div>
 
                             <div className="grid gap-2">
-                                <Label htmlFor="domain" className="font-semibold text-gray-700">
+                                <Label htmlFor="domain" className="text-foreground/90 font-semibold">
                                     {trans_company.label_domain}
                                 </Label>
                                 <Input
@@ -213,13 +213,13 @@ export default function ManageCompany() {
                                     onChange={handleInputChange}
                                     placeholder="AminTrans"
                                     required
-                                    className="h-11 sm:h-10"
+                                    className="bg-background border-input text-foreground h-11 font-mono sm:h-10"
                                 />
                                 <p className="text-muted-foreground text-[10px] italic sm:text-xs">{trans_company.helper_domain}</p>
                             </div>
 
                             <div className="grid gap-2">
-                                <Label className="font-semibold text-gray-700">{trans_company.label_logo}</Label>
+                                <Label className="text-foreground/90 font-semibold">{trans_company.label_logo}</Label>
                                 <div className="mt-1">
                                     <ResettableDropzoneImage
                                         key={form.path_company_logo}
@@ -241,11 +241,15 @@ export default function ManageCompany() {
 
                         <DialogFooter className="mt-6 flex flex-col-reverse gap-3 sm:mt-0 sm:flex-row sm:justify-end">
                             <DialogClose asChild>
-                                <Button variant="secondary" type="button" className="h-11 w-full sm:h-10 sm:w-auto">
+                                <Button
+                                    variant="secondary"
+                                    type="button"
+                                    className="bg-secondary text-secondary-foreground h-11 w-full sm:h-10 sm:w-auto"
+                                >
                                     {trans_company.btn_cancel}
                                 </Button>
                             </DialogClose>
-                            <Button type="submit" className="h-11 w-full font-bold shadow-md sm:h-10 sm:w-auto">
+                            <Button type="submit" className="bg-primary text-primary-foreground h-11 w-full font-bold shadow-md sm:h-10 sm:w-auto">
                                 {selectedCompany ? trans_company.btn_update : trans_company.btn_create}
                             </Button>
                         </DialogFooter>

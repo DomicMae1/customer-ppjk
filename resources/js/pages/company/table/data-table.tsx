@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { ResettableDropzoneImage } from '@/components/ResettableDropzoneImage';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -22,11 +23,6 @@ import * as React from 'react';
 import { ChangeEvent, useState } from 'react';
 import { DataTableViewOptions } from './data-table-view-options';
 import { DataTablePagination } from './pagination';
-
-interface User {
-    id: number;
-    name: string;
-}
 
 interface FormState {
     nama_perusahaan: string;
@@ -89,10 +85,6 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_peru
         });
     };
 
-    const handleUserChange = (key: keyof FormState, value: string) => {
-        setForm((prev) => ({ ...prev, [key]: value }));
-    };
-
     const table = useReactTable({
         data,
         columns,
@@ -113,12 +105,12 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_peru
             <div className="hidden items-center justify-between gap-2 px-1 md:flex">
                 <div className="flex flex-1 items-center gap-2">
                     <div className="relative w-full max-w-sm">
-                        <Search className="absolute top-2.5 left-2.5 h-4 w-4 text-gray-500" />
+                        <Search className="text-muted-foreground absolute top-2.5 left-2.5 h-4 w-4" />
                         <Input
                             placeholder={trans.placeholder_filter_company || 'Cari nama perusahaan...'}
                             value={(table.getColumn(filterKey)?.getFilterValue() as string) ?? ''}
                             onChange={(event) => table.getColumn(filterKey)?.setFilterValue(event.target.value)}
-                            className="pl-9"
+                            className="bg-background border-input text-foreground focus-visible:ring-primary pl-9"
                         />
                     </div>
                     <DataTableViewOptions table={table} />
@@ -131,7 +123,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_peru
             {/* --- MOBILE VIEW: HEADER --- */}
             <div className="flex flex-col gap-3 px-1 md:hidden">
                 <div className="flex items-center justify-between gap-2">
-                    <h2 className="text-xl font-bold text-gray-900">{trans.page_title || 'Manajemen Perusahaan'}</h2>
+                    <h2 className="text-foreground text-xl font-bold">{trans.page_title || 'Manajemen Perusahaan'}</h2>
                     <Button size="icon" onClick={() => setOpenCreate(true)} className="shrink-0 rounded-full shadow-md">
                         <Plus className="h-5 w-5" />
                     </Button>
@@ -139,19 +131,19 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_peru
 
                 <div className="flex gap-2">
                     <div className="relative flex-1">
-                        <Search className="absolute top-2.5 left-2.5 h-4 w-4 text-gray-500" />
+                        <Search className="text-muted-foreground absolute top-2.5 left-2.5 h-4 w-4" />
                         <Input
                             placeholder={trans.placeholder_filter_company || 'Cari...'}
                             value={(table.getColumn(filterKey)?.getFilterValue() as string) ?? ''}
                             onChange={(event) => table.getColumn(filterKey)?.setFilterValue(event.target.value)}
-                            className="h-10 bg-white pl-9"
+                            className="bg-background border-input text-foreground focus-visible:ring-primary h-10 pl-9"
                         />
                     </div>
                     <Button
                         variant="outline"
                         size="icon"
                         onClick={() => table.getColumn(filterKey)?.setFilterValue('')}
-                        className="h-10 w-10 shrink-0"
+                        className="border-input bg-background hover:bg-accent text-foreground h-10 w-10 shrink-0"
                     >
                         <RotateCcw className="h-4 w-4" />
                     </Button>
@@ -159,13 +151,15 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_peru
             </div>
 
             {/* --- DESKTOP TABLE --- */}
-            <div className="hidden overflow-hidden rounded-md border bg-white shadow-sm md:block">
+            <div className="border-border bg-card hidden overflow-hidden rounded-md border shadow-sm md:block">
                 <Table>
-                    <TableHeader className="bg-gray-50">
+                    <TableHeader className="bg-muted/50">
+                        {' '}
+                        {/* Menggunakan bg-muted agar adaptif di dark mode */}
                         {table.getHeaderGroups().map((headerGroup) => (
-                            <TableRow key={headerGroup.id}>
+                            <TableRow key={headerGroup.id} className="border-border hover:bg-transparent">
                                 {headerGroup.headers.map((header) => (
-                                    <TableHead key={header.id} className="px-4 font-bold text-gray-700">
+                                    <TableHead key={header.id} className="text-muted-foreground px-4 font-bold">
                                         {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
                                     </TableHead>
                                 ))}
@@ -175,9 +169,9 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_peru
                     <TableBody>
                         {table.getRowModel().rows?.length ? (
                             table.getRowModel().rows.map((row) => (
-                                <TableRow key={row.id}>
+                                <TableRow key={row.id} className="border-border hover:bg-muted/30 transition-colors">
                                     {row.getVisibleCells().map((cell) => (
-                                        <TableCell key={cell.id} className="px-4 py-3">
+                                        <TableCell key={cell.id} className="text-foreground px-4 py-3">
                                             {flexRender(cell.column.columnDef.cell, cell.getContext())}
                                         </TableCell>
                                     ))}
@@ -185,7 +179,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_peru
                             ))
                         ) : (
                             <TableRow>
-                                <TableCell colSpan={columns.length} className="h-24 text-center text-gray-500">
+                                <TableCell colSpan={columns.length} className="text-muted-foreground h-24 text-center">
                                     {trans.no_data || 'Tidak ada data.'}
                                 </TableCell>
                             </TableRow>
@@ -204,33 +198,33 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_peru
                         return (
                             <div
                                 key={row.id}
-                                className="group relative overflow-hidden rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition-all active:bg-gray-50"
+                                className="group border-border bg-card dark:active:bg-muted/20 relative overflow-hidden rounded-xl border p-4 shadow-sm transition-all active:scale-[0.99]"
                             >
                                 <div className="bg-primary absolute top-0 left-0 h-full w-1" />
                                 <div className="flex flex-col gap-3">
-                                    <div className="flex items-start justify-between border-b pb-2">
+                                    <div className="border-border flex items-start justify-between border-b pb-2">
                                         <div className="flex flex-col">
-                                            <span className="text-[10px] font-bold tracking-wider text-gray-400 uppercase">
+                                            <span className="text-muted-foreground text-[10px] font-bold tracking-wider uppercase">
                                                 {trans.label_company || 'Perusahaan'}
                                             </span>
-                                            <span className="line-clamp-1 text-base font-bold text-gray-900">{original.nama_perusahaan}</span>
+                                            <span className="text-foreground line-clamp-1 text-base font-bold">{original.nama_perusahaan}</span>
                                         </div>
-                                        <div className="bg-primary/10 text-primary rounded-full p-2">
+                                        <div className="bg-primary/10 text-primary dark:bg-primary/20 rounded-full p-2">
                                             <Building2 className="h-4 w-4" />
                                         </div>
                                     </div>
 
-                                    <div className="flex flex-col gap-1.5 text-black">
-                                        <span className="text-[10px] font-bold tracking-tight text-gray-400 uppercase">
+                                    <div className="flex flex-col gap-1.5">
+                                        <span className="text-muted-foreground text-[10px] font-bold tracking-tight uppercase">
                                             {trans.label_domain || 'Domain'}
                                         </span>
-                                        <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                                            <Globe className="h-3.5 w-3.5 text-blue-500" />
-                                            <span>{original.tenant?.domains?.[0]?.domain || '-'}</span>
+                                        <div className="text-foreground/80 flex items-center gap-2 text-sm font-medium">
+                                            <Globe className="h-3.5 w-3.5 text-blue-500 dark:text-blue-400" />
+                                            <span className="break-all">{original.tenant?.domains?.[0]?.domain || '-'}</span>
                                         </div>
                                     </div>
 
-                                    <div className="mt-1 flex items-center justify-end border-t pt-2">
+                                    <div className="border-border text-foreground mt-1 flex items-center justify-end border-t pt-2">
                                         {actionsCell && flexRender(actionsCell.column.columnDef.cell, actionsCell.getContext())}
                                     </div>
                                 </div>
@@ -238,7 +232,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_peru
                         );
                     })
                 ) : (
-                    <div className="rounded-lg border-2 border-dashed bg-gray-50/50 py-12 text-center text-gray-500">
+                    <div className="border-border bg-muted/20 text-muted-foreground rounded-lg border-2 border-dashed py-12 text-center">
                         {trans.no_data || 'Tidak ada data ditemukan.'}
                     </div>
                 )}
@@ -248,7 +242,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_peru
 
             {/* Dialog Tambah */}
             <Dialog open={openCreate} onOpenChange={setOpenCreate}>
-                <DialogContent className="max-h-[90vh] w-[95vw] overflow-y-auto rounded-xl p-4 text-black sm:max-w-lg sm:p-6">
+                <DialogContent className="border-border bg-background text-foreground max-h-[90vh] w-[95vw] overflow-y-auto rounded-xl p-4 sm:max-w-lg sm:p-6">
                     <form
                         onSubmit={(e) => {
                             e.preventDefault();
@@ -256,12 +250,13 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_peru
                         }}
                     >
                         <DialogHeader className="mb-4">
+                            {/* Judul otomatis adaptif dengan text-foreground dari parent */}
                             <DialogTitle className="text-xl font-bold">{trans.title_create || 'Tambah Perusahaan'}</DialogTitle>
                         </DialogHeader>
 
                         <div className="space-y-5">
                             <div className="grid gap-2">
-                                <Label htmlFor="nama_perusahaan" className="font-semibold text-gray-700">
+                                <Label htmlFor="nama_perusahaan" className="text-foreground font-semibold">
                                     {trans.label_name}
                                 </Label>
                                 <Input
@@ -269,13 +264,13 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_peru
                                     value={form.nama_perusahaan}
                                     onChange={(e) => setForm({ ...form, nama_perusahaan: e.target.value })}
                                     placeholder={trans.placeholder_name}
-                                    className="h-11 text-black sm:h-10"
+                                    className="bg-background text-foreground h-11 sm:h-10"
                                     required
                                 />
                             </div>
 
                             <div className="grid gap-2">
-                                <Label htmlFor="domain" className="font-semibold text-gray-700">
+                                <Label htmlFor="domain" className="text-foreground font-semibold">
                                     {trans.label_domain}
                                 </Label>
                                 <Input
@@ -284,14 +279,14 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_peru
                                     value={form.domain}
                                     onChange={handleInputChange}
                                     placeholder="Forward.com"
-                                    className="h-11 font-mono text-black sm:h-10"
+                                    className="bg-background text-foreground h-11 font-mono sm:h-10"
                                     required
                                 />
                                 <p className="text-muted-foreground text-[10px] italic sm:text-xs">{trans.helper_domain}</p>
                             </div>
 
                             <div className="grid gap-2">
-                                <Label className="font-semibold text-gray-700">{trans.label_logo}</Label>
+                                <Label className="text-foreground font-semibold">{trans.label_logo}</Label>
                                 <div className="mt-1">
                                     <ResettableDropzoneImage label={trans.btn_upload} isRequired={false} onFileChange={setCompanyLogoFile} />
                                 </div>

@@ -17,21 +17,22 @@ export const columns = (
         cell: ({ row }) => {
             const logo = row.original.path_company_logo;
             return logo ? (
-                <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-md border bg-white shadow-sm">
-                    {/* PERBAIKAN: Langsung masukkan variabel logo karena sudah berisi URL lengkap dari Controller */}
+                /* bg-white dipertahankan untuk kontainer logo agar logo berwarna gelap tetap terlihat, 
+                   namun border disesuaikan agar tidak terlalu terang di dark mode */
+                <div className="border-border flex h-10 w-10 items-center justify-center overflow-hidden rounded-md border bg-white shadow-sm dark:bg-zinc-200">
                     <img
                         src={logo}
                         alt="Logo"
-                        className="h-full w-full object-contain"
+                        className="h-full w-full object-contain p-1"
                         onError={(e) => {
-                            // Fallback jika gambar gagal dimuat
                             e.currentTarget.src = '';
-                            e.currentTarget.parentElement!.innerHTML = '<span class="text-[8px] text-gray-400">Error</span>';
+                            e.currentTarget.parentElement!.innerHTML = `<span class="text-[8px] text-muted-foreground">${trans.error || 'Error'}</span>`;
                         }}
                     />
                 </div>
             ) : (
-                <div className="flex h-10 w-10 items-center justify-center rounded-md border border-dashed bg-gray-50 text-[10px] font-medium text-gray-400">
+                /* Menggunakan bg-muted dan text-muted-foreground untuk fallback logo */
+                <div className="border-border bg-muted text-muted-foreground flex h-10 w-10 items-center justify-center rounded-md border border-dashed text-[10px] font-medium">
                     {trans.no_logo || 'No Logo'}
                 </div>
             );
@@ -40,7 +41,7 @@ export const columns = (
     {
         accessorKey: 'nama_perusahaan',
         header: trans.label_name || 'Nama Perusahaan',
-        cell: ({ row }) => <div className="min-w-[150px] px-4 py-2 font-bold text-gray-900">{row.original.nama_perusahaan}</div>,
+        cell: ({ row }) => <div className="text-foreground min-w-[150px] px-4 py-2 font-bold">{row.original.nama_perusahaan}</div>,
     },
     {
         id: 'domain',
@@ -48,9 +49,9 @@ export const columns = (
         cell: ({ row }) => {
             const domain = (row.original as any).tenant?.domains?.[0]?.domain || '-';
             return (
-                <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <Globe className="h-3 w-3 text-gray-400" />
-                    <span>{domain}</span>
+                <div className="text-muted-foreground flex items-center gap-2 text-sm">
+                    <Globe className="text-muted-foreground/70 h-3 w-3" />
+                    <span className="text-foreground/80">{domain}</span>
                 </div>
             );
         },
@@ -63,24 +64,22 @@ export const columns = (
             return (
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0 hover:bg-gray-100">
+                        <Button variant="ghost" className="h-8 w-8 p-0">
                             <span className="sr-only">Open menu</span>
                             <MoreHorizontal className="h-4 w-4" />
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-[160px]">
-                        {/* Action Edit */}
                         <DropdownMenuItem onClick={() => onEditClick(perusahaan)} className="cursor-pointer">
                             <Pencil className="mr-2 h-4 w-4" />
                             {trans.btn_edit || 'Edit'}
                         </DropdownMenuItem>
 
-                        {/* Action Delete */}
                         <DropdownMenuItem
                             onClick={() => onDeleteClick(perusahaan.id_perusahaan)}
-                            className="cursor-pointer text-red-600 focus:text-red-700"
+                            className="text-destructive focus:text-destructive cursor-pointer dark:text-red-400 dark:focus:text-red-300"
                         >
-                            <Trash2 className="mr-2 h-4 w-4 text-red-600" />
+                            <Trash2 className="mr-2 h-4 w-4" />
                             {trans.btn_delete || 'Delete'}
                         </DropdownMenuItem>
                     </DropdownMenuContent>
