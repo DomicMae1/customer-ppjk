@@ -1389,7 +1389,6 @@ class ShippingController extends Controller
     public function getAvailableDocuments(Request $request)
     {
         $user = auth('web')->user();
-
         // Initialize tenant context FIRST
         $tenant = null;
         if ($user->id_perusahaan) {
@@ -1412,13 +1411,13 @@ class ShippingController extends Controller
         
         // Validate AFTER tenant is initialized
         $request->validate([
-            'id_spk' => 'required|integer|exists:spk,id',
+            'id_spk' => 'integer|exists:tenant-transaction.spk,id',
         ]);
 
         try {
             // Get documents where id_section is null or 0 (unassigned documents)
             $availableDocuments = MasterDocumentTrans::whereNull('id_section')
-                ->orWhere('id_section', 0)
+                ->orWhere('id_section', 6)
                 ->select([
                     'id_dokumen',
                     'nama_file',
@@ -1473,10 +1472,10 @@ class ShippingController extends Controller
         tenancy()->initialize($tenant);
 
         $request->validate([
-            'id_spk' => 'required|integer',
+            'id_spk' => 'required|integer|exists:tenant-transaction.spk,id',
             'id_section' => 'required|integer',
             'document_ids' => 'required|array',
-            'document_ids.*' => 'integer|exists:master_documents_trans,id'
+            'document_ids.*' => 'integer|exists:master_documents_trans,id_dokumen'
         ]);
 
         try {
@@ -1487,13 +1486,13 @@ class ShippingController extends Controller
             $documentIds = $request->document_ids;
 
             $addedCount = 0;
+            $skippedCount = 0;
             foreach ($documentIds as $masterDocTransId) {
                 // Get master doc trans info
                 $masterDocTrans = MasterDocumentTrans::find($masterDocTransId);
                 
                 if ($masterDocTrans) {
                     // Check if already exists in this SPK to prevent duplicates
-                    // BUG FIX: Compare id_dokumen (The Master Document Type) instead of ID record.
                     $exists = DocumentTrans::where('id_spk', $spkId)
                         ->where('id_dokumen', $masterDocTrans->id_dokumen)
                         ->exists();
@@ -1503,7 +1502,7 @@ class ShippingController extends Controller
                             'id_spk' => $spkId,
                             'id_section' => $sectionId,
                             'id_dokumen' => $masterDocTrans->id_dokumen,
-                            'nama_file' => null,
+                            'nama_file' => $masterDocTrans->nama_file,
                             'url_path_file' => null,
                             'verify' => null,
                             'correction_attachment' => false,
@@ -1513,6 +1512,8 @@ class ShippingController extends Controller
                             'mapping_insw' => $masterDocTrans->mapping_insw,
                         ]);
                         $addedCount++;
+                    } else {
+                        $skippedCount++;
                     }
                 }
             }
@@ -1525,9 +1526,20 @@ class ShippingController extends Controller
                 } catch (\Exception $e) {}
             }
 
+            // Build informative message
+            if ($addedCount > 0 && $skippedCount > 0) {
+                $message = "Berhasil menambah {$addedCount} dokumen. {$skippedCount} dokumen lainnya sudah ada (duplikat) sehingga dilewati.";
+            } elseif ($addedCount > 0) {
+                $message = "Berhasil menambah {$addedCount} dokumen.";
+            } else {
+                $message = "Tidak ada dokumen yang ditambahkan. Semua dokumen yang dipilih sudah ada di SPK ini.";
+            }
+
             return response()->json([
-                'success' => true,
-                'message' => "Successfully added {$addedCount} documents to section."
+                'success' => $addedCount > 0,
+                'message' => $message,
+                'added_count' => $addedCount,
+                'skipped_count' => $skippedCount
             ]);
 
         } catch (\Exception $e) {
