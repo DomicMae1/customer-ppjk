@@ -331,6 +331,28 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                         {isUserExternal && <p className="text-muted-foreground text-[10px] italic">{trans.auto_selected_msg}</p>}
                                     </div>
 
+                                    {auth.user?.role === 'internal' && auth.user?.role_internal === 'supervisor' && (
+                                        <div className="space-y-2">
+                                            <Label className="font-semibold">{trans.assign_staff || 'Assign Staff'}</Label>
+                                            <Select value={selectedStaff} onValueChange={setSelectedStaff}>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder={trans.select_staff_placeholder || 'Select Staff'} />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {internalStaff.length > 0 ? (
+                                                        internalStaff.map((staff: any) => (
+                                                            <SelectItem key={staff.id_user} value={String(staff.id_user)}>
+                                                                {staff.name}
+                                                            </SelectItem>
+                                                        ))
+                                                    ) : (
+                                                        <div className="p-2 text-center text-sm text-gray-500">{trans.data_not_found}</div>
+                                                    )}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    )}
+
                                     {/* HS Code Section */}
                                     <div className="space-y-4">
                                         <div className="border-border flex items-center justify-between border-b pb-2">
@@ -369,9 +391,9 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                                                     <button
                                                                         type="button"
                                                                         onClick={() => updateHsCode(item.id, 'file', null)}
-                                                                        className="bg-destructive text-destructive-foreground absolute -top-2 -right-2 rounded-full p-1 shadow-md"
+                                                                        className="bg-destructive text-white absolute -top-2 -right-2 rounded-full p-1 shadow-md"
                                                                     >
-                                                                        <X className="h-4 w-4" />
+                                                                        <X className="h-4 w-4 stroke-[2.5]" />
                                                                     </button>
                                                                     <div className="flex flex-col items-center gap-2">
                                                                         {item.file.type.startsWith('image/') ? (
@@ -408,8 +430,31 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                                                         type="button"
                                                                         variant="outline"
                                                                         className="border-border bg-background text-foreground hover:bg-accent flex h-10 w-full items-center justify-center gap-2"
-                                                                        onClick={(e) => {
-                                                                            /* logic clipboard */
+                                                                        onClick={async (e) => {
+                                                                            e.preventDefault();
+                                                                            try {
+                                                                                const clipboardItems = await navigator.clipboard.read();
+                                                                                let imageFound = false;
+                                                                                for (const clipItem of clipboardItems) {
+                                                                                    const imageType = clipItem.types.find((type) =>
+                                                                                        type.startsWith('image/'),
+                                                                                    );
+                                                                                    if (imageType) {
+                                                                                        const blob = await clipItem.getType(imageType);
+                                                                                        let extension = imageType.split('/')[1];
+                                                                                        if (extension === 'jpeg') extension = 'jpg';
+                                                                                        const fileName = `clipboard-${Date.now()}.${extension}`;
+                                                                                        const file = new File([blob], fileName, { type: imageType });
+                                                                                        updateHsCode(item.id, 'file', file);
+                                                                                        imageFound = true;
+                                                                                        break;
+                                                                                    }
+                                                                                }
+                                                                                if (!imageFound) alert(trans.alert_no_clipboard);
+                                                                            } catch (err) {
+                                                                                console.error(err);
+                                                                                alert(trans.alert_clipboard_error);
+                                                                            }
                                                                         }}
                                                                     >
                                                                         <Clipboard className="h-4 w-4" />
@@ -493,17 +538,17 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                             const dateObj = original.tanggal_status ? new Date(original.tanggal_status) : null;
                             const dateStr = dateObj
                                 ? dateObj.toLocaleDateString(currentLocale === 'id' ? 'id-ID' : 'en-GB', {
-                                      day: '2-digit',
-                                      month: '2-digit',
-                                      year: '2-digit',
-                                  })
+                                    day: '2-digit',
+                                    month: '2-digit',
+                                    year: '2-digit',
+                                })
                                 : '-';
                             const timeStr = dateObj
                                 ? dateObj.toLocaleTimeString(currentLocale === 'id' ? 'id-ID' : 'en-GB', {
-                                      hour: '2-digit',
-                                      minute: '2-digit',
-                                      hour12: false,
-                                  })
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    hour12: false,
+                                })
                                 : '';
 
                             // Logic Warna Jalur
@@ -523,13 +568,12 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                     <div className="border-border mb-2 flex items-center justify-between border-b pb-2">
                                         <span className="text-foreground font-mono text-base font-medium">{original.spk_code || '-'}</span>
                                         <span
-                                            className={`text-sm font-bold ${
-                                                original.jalur?.toLowerCase() === 'hijau'
+                                            className={`text-sm font-bold ${original.jalur?.toLowerCase() === 'hijau'
                                                     ? 'text-emerald-500'
                                                     : original.jalur?.toLowerCase() === 'merah'
-                                                      ? 'text-rose-500'
-                                                      : 'text-amber-500'
-                                            }`}
+                                                        ? 'text-rose-500'
+                                                        : 'text-amber-500'
+                                                }`}
                                         >
                                             {original.jalur || '-'}
                                         </span>
@@ -573,15 +617,14 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                             </div>
                                             <div className="bg-muted h-1.5 w-full overflow-hidden rounded-full shadow-inner">
                                                 <div
-                                                    className={`h-full transition-all duration-1000 ease-out ${
-                                                        original.progress === 100
+                                                    className={`h-full transition-all duration-1000 ease-out ${original.progress === 100
                                                             ? 'bg-emerald-500'
                                                             : (original.progress || 0) >= 80
-                                                              ? 'bg-indigo-500'
-                                                              : (original.progress || 0) >= 40
-                                                                ? 'bg-blue-500'
-                                                                : 'bg-sky-400'
-                                                    }`}
+                                                                ? 'bg-indigo-500'
+                                                                : (original.progress || 0) >= 40
+                                                                    ? 'bg-blue-500'
+                                                                    : 'bg-sky-400'
+                                                        }`}
                                                     style={{ width: `${original.progress || 0}%` }}
                                                 />
                                             </div>
@@ -620,8 +663,8 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                                     (header.column.getIsSorted() === 'asc'
                                                         ? '⬆️'
                                                         : header.column.getIsSorted() === 'desc'
-                                                          ? '⬇️'
-                                                          : '')}
+                                                            ? '⬇️'
+                                                            : '')}
                                             </button>
                                         ) : (
                                             flexRender(header.column.columnDef.header, header.getContext())
