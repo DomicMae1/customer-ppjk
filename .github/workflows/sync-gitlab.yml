@@ -20,5 +20,5 @@ jobs:
 
           git remote add gitlab https://oauth2:${{ secrets.GITLAB_TOKEN }}@gitlab.tako.co.id/tengku.bintang/customer-ppjk.git
           
-          git push gitlab --all
-          git push gitlab --tags
+          git push gitlab --all --force
+          git push gitlab --tags --force
