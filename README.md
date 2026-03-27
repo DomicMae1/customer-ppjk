@@ -1,5 +1,5 @@
 # How to running laravel project
-# project developed by Tako LTD
+# project developed by Tako 
 
 ## 1. Clone repository
 
