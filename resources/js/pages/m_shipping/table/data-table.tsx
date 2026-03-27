@@ -391,7 +391,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                                                     <button
                                                                         type="button"
                                                                         onClick={() => updateHsCode(item.id, 'file', null)}
-                                                                        className="bg-destructive text-white absolute -top-2 -right-2 rounded-full p-1 shadow-md"
+                                                                        className="bg-destructive absolute -top-2 -right-2 rounded-full p-1 text-white shadow-md"
                                                                     >
                                                                         <X className="h-4 w-4 stroke-[2.5]" />
                                                                     </button>
