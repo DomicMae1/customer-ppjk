@@ -1,5 +1,5 @@
 # How to running laravel project
-# project developed by PT. Tako Anugerah Koporasi
+# project developed by PT. Tako Anugerah Corp
 
 ## 1. Clone repository
 
