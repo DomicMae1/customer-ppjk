@@ -1,49 +1,105 @@
-# This file is a template, and might need editing before it works on your project.
-# This is a sample GitLab CI/CD configuration file that should run without any modifications.
-# It demonstrates a basic 3 stage CI/CD pipeline. Instead of real tests or scripts,
-# it uses echo commands to simulate the pipeline execution.
-#
-# A pipeline is composed of independent jobs that run scripts, grouped into stages.
-# Stages run in sequential order, but jobs within stages run in parallel.
-#
-# For more information, see: https://docs.gitlab.com/ee/ci/yaml/#stages
-#
-# You can copy and paste this template into a new `.gitlab-ci.yml` file.
-# You should not add this template to an existing `.gitlab-ci.yml` file by using the `include:` keyword.
-#
-# To contribute improvements to CI/CD templates, please follow the Development guide at:
-# https://docs.gitlab.com/development/cicd/templates/
-# This specific template is located at:
-# https://gitlab.com/gitlab-org/gitlab/-/blob/master/lib/gitlab/ci/templates/Getting-Started.gitlab-ci.yml
-
-stages: # List of stages for jobs, and their order of execution
+stages:
+  - prepare
   - build
   - test
-  - deploy
+  - publish
 
-build-job: # This job runs in the build stage, which runs first.
+variables:
+  COMPOSER_CACHE_DIR: "$CI_PROJECT_DIR/.composer-cache"
+  npm_config_cache: "$CI_PROJECT_DIR/.npm"
+
+cache:
+  key:
+    files:
+      - composer.lock
+      - package-lock.json
+  paths:
+    - .composer-cache/
+    - .npm/
+
+composer_install:
+  stage: prepare
+  image: composer:2
+  script:
+    - composer install --prefer-dist --no-interaction --no-progress --no-scripts
+  artifacts:
+    paths:
+      - vendor/
+    expire_in: 1 day
+
+frontend_build:
   stage: build
+  image: node:22
   script:
-    - echo "Compiling the code..."
-    - echo "Compile complete."
+    - npm ci --prefer-offline
+    - npm run build
+  artifacts:
+    paths:
+      - public/build/
+    expire_in: 1 day
 
-unit-test-job: # This job runs in the test stage.
-  stage: test # It only starts when the job in the build stage completes successfully.
+php_tests:
+  stage: test
+  image: php:8.2-cli
+  services:
+    - name: postgres:15
+      alias: postgres
+  needs:
+    - job: composer_install
+      artifacts: true
+  variables:
+    APP_ENV: testing
+    APP_DEBUG: "true"
+    APP_KEY: base64:eyWVJkq1yQixVycYudj6eBCbSmwUs1n+0uHFn3p6u4I=
+    CACHE_STORE: array
+    MAIL_MAILER: array
+    QUEUE_CONNECTION: sync
+    SESSION_DRIVER: array
+    DB_CONNECTION: pgsql
+    DB_HOST: postgres
+    DB_PORT: 5432
+    DB_DATABASE: customer_ppjk_ci
+    DB_USERNAME: postgres
+    DB_PASSWORD: postgres
+    DB_SECOND_HOST: postgres
+    DB_SECOND_PORT: 5432
+    DB_SECOND_DATABASE: customer_ppjk_ci
+    DB_SECOND_USERNAME: postgres
+    DB_SECOND_PASSWORD: postgres
+    DB_TAKO_HOST: postgres
+    DB_TAKO_PORT: 5432
+    DB_TAKO_DATABASE: customer_ppjk_ci
+    DB_TAKO_USERNAME: postgres
+    DB_TAKO_PASSWORD: postgres
+    POSTGRES_DB: customer_ppjk_ci
+    POSTGRES_USER: postgres
+    POSTGRES_PASSWORD: postgres
+  before_script:
+    - apt-get update && apt-get install -y git unzip libpq-dev
+    - docker-php-ext-install pdo_pgsql
+    - cp .env.example .env
+    - php artisan package:discover --ansi
+    # Project migrations live in a custom subfolder, so we run them explicitly.
+    - php artisan migrate --database=pgsql --path=database/migrations/user --force
   script:
-    - echo "Running unit tests... This will take about 60 seconds."
-    - sleep 60
-    - echo "Code coverage is 90%"
+    - php artisan test
 
-lint-test-job: # This job also runs in the test stage.
-  stage: test # It can run at the same time as unit-test-job (in parallel).
+publish_harbor_image:
+  stage: publish
+  image: docker:27
+  services:
+    - name: docker:27-dind
+      alias: docker
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "harbor-prep" && $HARBOR_URL && $HARBOR_PROJECT && $HARBOR_USERNAME && $HARBOR_PASSWORD && $IMAGE_NAME'
+      when: manual
+    - when: never
   script:
-    - echo "Linting code... This will take about 10 seconds."
-    - sleep 10
-    - echo "No lint issues found."
-
-deploy-job: # This job runs in the deploy stage.
-  stage: deploy # It only runs when *both* jobs in the test stage complete successfully.
-  environment: production
-  script:
-    - echo "Deploying application..."
-    - echo "Application successfully deployed."
+    - export IMAGE_REF="$HARBOR_URL/$HARBOR_PROJECT/$IMAGE_NAME"
+    - echo "$HARBOR_PASSWORD" | docker login "$HARBOR_URL" -u "$HARBOR_USERNAME" --password-stdin
+    - docker build -f Dockerfile.harbor -t "$IMAGE_REF:$CI_COMMIT_SHORT_SHA" -t "$IMAGE_REF:latest" .
+    - docker push "$IMAGE_REF:$CI_COMMIT_SHORT_SHA"
+    - docker push "$IMAGE_REF:latest"
