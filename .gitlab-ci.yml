@@ -19,7 +19,12 @@ cache:
 
 composer_install:
   stage: prepare
-  image: composer:2
+  image: php:8.4-cli
+  before_script:
+    - apt-get update && apt-get install -y git unzip curl libpng-dev libjpeg-dev libfreetype6-dev libzip-dev
+    - docker-php-ext-configure gd --with-freetype --with-jpeg
+    - docker-php-ext-install gd zip
+    - curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
   script:
     - composer install --prefer-dist --no-interaction --no-progress --no-scripts
   artifacts:
@@ -40,7 +45,7 @@ frontend_build:
 
 php_tests:
   stage: test
-  image: php:8.2-cli
+  image: php:8.4-cli
   services:
     - name: postgres:15
       alias: postgres
@@ -75,8 +80,9 @@ php_tests:
     POSTGRES_USER: postgres
     POSTGRES_PASSWORD: postgres
   before_script:
-    - apt-get update && apt-get install -y git unzip libpq-dev
-    - docker-php-ext-install pdo_pgsql
+    - apt-get update && apt-get install -y git unzip libpq-dev libpng-dev libjpeg-dev libfreetype6-dev libzip-dev
+    - docker-php-ext-configure gd --with-freetype --with-jpeg
+    - docker-php-ext-install gd zip pdo_pgsql
     - cp .env.example .env
     - php artisan package:discover --ansi
     # Project migrations live in a custom subfolder, so we run them explicitly.
