@@ -60,7 +60,7 @@ php_tests:
     MAIL_MAILER: array
     QUEUE_CONNECTION: sync
     SESSION_DRIVER: array
-    DB_CONNECTION: pgsql
+    DB_CONNECTION: tako-user
     DB_HOST: postgres
     DB_PORT: 5432
     DB_DATABASE: customer_ppjk_ci
@@ -85,8 +85,6 @@ php_tests:
     - docker-php-ext-install gd zip pdo_pgsql
     - cp .env.example .env
     - php artisan package:discover --ansi
-    # Project migrations live in a custom subfolder, so we run them explicitly.
-    - php artisan migrate --database=pgsql --path=database/migrations/user --force
   script:
     - php artisan test
 
