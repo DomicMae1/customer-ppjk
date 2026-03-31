@@ -19,10 +19,6 @@ File existing berikut sengaja tidak diubah agar setup production tetap aman:
 - `HARBOR_USERNAME`
 - `HARBOR_PASSWORD`
 
-Variable optional:
-
-- `HARBOR_PROJECT`
-
 Selama variable inti belum dibuat oleh tim DevOps, job push Harbor di pipeline akan otomatis di-skip.
 
 ## Nama image sederhana
@@ -31,14 +27,11 @@ Gunakan nama image:
 
 - `customer-ppjk`
 
-Contoh referensi image:
+Contoh referensi image yang dipakai saat ini:
 
-- `$HARBOR_REGISTRY/$APP_NAME:$CI_COMMIT_SHORT_SHA`
-- `$HARBOR_REGISTRY/$APP_NAME:$CI_COMMIT_REF_SLUG`
-
-Jika Harbor kamu memang butuh nama project terpisah, gunakan:
-
-- `$HARBOR_REGISTRY/$HARBOR_PROJECT/$APP_NAME:$CI_COMMIT_SHORT_SHA`
+- `$HARBOR_REGISTRY/tako-apps-dev/$APP_NAME:dev-$CI_COMMIT_SHORT_SHA`
+- `$HARBOR_REGISTRY/tako-apps-dev/$APP_NAME:dev-$CI_PIPELINE_IID`
+- `$HARBOR_REGISTRY/tako-apps-dev/$APP_NAME:dev-latest`
 
 ## Contoh build lokal
 

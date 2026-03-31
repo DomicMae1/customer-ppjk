@@ -46,25 +46,23 @@ push_harbor_image:
   stage: push
   image: docker:27
   services:
-    - name: docker:27-dind
-      alias: docker
+    - docker:27-dind
   variables:
-    DOCKER_HOST: tcp://docker:2375
     DOCKER_TLS_CERTDIR: ""
     DOCKER_BUILDKIT: "1"
+    IMAGE_NAME: $HARBOR_REGISTRY/tako-apps-dev/$APP_NAME
+    IMAGE_TAG_SHA: dev-$CI_COMMIT_SHORT_SHA
+    IMAGE_TAG_PIPELINE: dev-$CI_PIPELINE_IID
+    IMAGE_TAG_LATEST: dev-latest
   rules:
     - if: '$CI_COMMIT_BRANCH == "harbor-prep" && $HARBOR_REGISTRY && $HARBOR_USERNAME && $HARBOR_PASSWORD && $APP_NAME'
       when: on_success
     - when: never
-  script:
-    - |
-      if [ -n "$HARBOR_PROJECT" ]; then
-        export IMAGE_REPO="$HARBOR_PROJECT/$APP_NAME"
-      else
-        export IMAGE_REPO="$APP_NAME"
-      fi
-      export IMAGE_REF="$HARBOR_REGISTRY/$IMAGE_REPO"
+  before_script:
     - echo "$HARBOR_PASSWORD" | docker login "$HARBOR_REGISTRY" -u "$HARBOR_USERNAME" --password-stdin
-    - docker build -f Dockerfile.harbor -t "$IMAGE_REF:$CI_COMMIT_SHORT_SHA" -t "$IMAGE_REF:$CI_COMMIT_REF_SLUG" .
-    - docker push "$IMAGE_REF:$CI_COMMIT_SHORT_SHA"
-    - docker push "$IMAGE_REF:$CI_COMMIT_REF_SLUG"
+  script:
+    - docker info
+    - docker build -f Dockerfile.harbor -t $IMAGE_NAME:$IMAGE_TAG_SHA -t $IMAGE_NAME:$IMAGE_TAG_PIPELINE -t $IMAGE_NAME:$IMAGE_TAG_LATEST .
+    - docker push $IMAGE_NAME:$IMAGE_TAG_SHA
+    - docker push $IMAGE_NAME:$IMAGE_TAG_PIPELINE
+    - docker push $IMAGE_NAME:$IMAGE_TAG_LATEST
