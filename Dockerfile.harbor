@@ -1,8 +1,22 @@
-FROM composer:2 AS composer_deps
+FROM php:8.4-cli AS composer_deps
 
 WORKDIR /app
 
 COPY composer.json composer.lock ./
+
+RUN apt-get update && apt-get install -y \
+    git \
+    unzip \
+    curl \
+    libpng-dev \
+    libjpeg-dev \
+    libfreetype6-dev \
+    libzip-dev \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install gd zip \
+    && curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 RUN composer install \
     --no-dev \
@@ -62,7 +76,7 @@ RUN printf '%s\n' \
     'max_execution_time = 600' \
     > /usr/local/etc/php/conf.d/uploads.ini
 
-COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+COPY --from=composer_deps /usr/local/bin/composer /usr/bin/composer
 
 WORKDIR /var/www/html
 

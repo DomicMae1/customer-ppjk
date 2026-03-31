@@ -14,14 +14,16 @@ File existing berikut sengaja tidak diubah agar setup production tetap aman:
 
 ## Variable GitLab yang disiapkan
 
-- `HARBOR_URL`
-- `HARBOR_PROJECT`
+- `APP_NAME`
+- `HARBOR_REGISTRY`
 - `HARBOR_USERNAME`
 - `HARBOR_PASSWORD`
-- `IMAGE_NAME`
 
-Selama variable itu belum dibuat oleh tim DevOps, job publish Harbor di pipeline akan otomatis di-skip.
-Pipeline build dan test tetap bisa jalan normal.
+Variable optional:
+
+- `HARBOR_PROJECT`
+
+Selama variable inti belum dibuat oleh tim DevOps, job push Harbor di pipeline akan otomatis di-skip.
 
 ## Nama image sederhana
 
@@ -31,8 +33,12 @@ Gunakan nama image:
 
 Contoh referensi image:
 
-- `$HARBOR_URL/$HARBOR_PROJECT/$IMAGE_NAME:$CI_COMMIT_SHORT_SHA`
-- `$HARBOR_URL/$HARBOR_PROJECT/$IMAGE_NAME:latest`
+- `$HARBOR_REGISTRY/$APP_NAME:$CI_COMMIT_SHORT_SHA`
+- `$HARBOR_REGISTRY/$APP_NAME:$CI_COMMIT_REF_SLUG`
+
+Jika Harbor kamu memang butuh nama project terpisah, gunakan:
+
+- `$HARBOR_REGISTRY/$HARBOR_PROJECT/$APP_NAME:$CI_COMMIT_SHORT_SHA`
 
 ## Contoh build lokal
 
@@ -66,7 +72,7 @@ FORWARD_DB_PORT=5433
 
 File `.gitlab-ci.yml` sudah disiapkan agar:
 
-- job build dan test tetap jalan
-- job publish Harbor hanya muncul di branch `harbor-prep`
-- job publish Harbor bersifat manual
-- job publish Harbor baru aktif jika semua variable Harbor sudah tersedia
+- job `composer_install` tetap jalan
+- job `frontend_build` tetap jalan
+- job `push_harbor_image` hanya jalan di branch `harbor-prep`
+- job push Harbor baru aktif jika variable Harbor yang diperlukan sudah tersedia
