@@ -127,6 +127,21 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
         setHsCodes(hsCodes.map((item) => (item.id === id ? { ...item, [field]: value } : item)));
     };
 
+    const handleFileInPaste = (e: React.ClipboardEvent, itemId: string) => {
+        const items = e.clipboardData.items;
+        for (let i = 0; i < items.length; i++) {
+            if (items[i].type.indexOf('image') !== -1) {
+                const blob = items[i].getAsFile();
+                if (blob) {
+                    const extension = blob.type.split('/')[1] || 'png';
+                    const file = new File([blob], `pasted-image-${Date.now()}.${extension}`, { type: blob.type });
+                    updateHsCode(itemId, 'file', file);
+                    return;
+                }
+            }
+        }
+    };
+
     const handleSaveShipment = () => {
         // A. Validasi Sederhana
         if (!blNumber || !selectedCustomer) {
@@ -361,7 +376,11 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
 
                                         <div className="flex flex-col gap-4">
                                             {hsCodes.map((item, index) => (
-                                                <div key={item.id} className="border-border bg-card relative rounded-lg border p-4 shadow-sm">
+                                                <div
+                                                    key={item.id}
+                                                    className="border-border bg-card group relative rounded-lg border p-4 shadow-sm transition-all focus-within:ring-2 focus-within:ring-primary/20"
+                                                    onPaste={(e) => handleFileInPaste(e, item.id)}
+                                                >
                                                     {index > 0 && (
                                                         <button
                                                             type="button"
@@ -421,10 +440,31 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                                                     />
                                                                     <label
                                                                         htmlFor={`file-${item.id}`}
-                                                                        className="bg-primary text-primary-foreground flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-md text-sm font-bold shadow-sm transition-opacity hover:opacity-90"
+                                                                        className="bg-primary/5 text-primary border-2 border-dashed border-primary/20 hover:border-primary hover:bg-primary/10 flex h-20 w-full cursor-pointer flex-col items-center justify-center gap-1 rounded-md text-sm font-bold transition-all"
+                                                                        onDragOver={(e) => {
+                                                                            e.preventDefault();
+                                                                            e.currentTarget.classList.add('bg-primary/20', 'border-primary');
+                                                                        }}
+                                                                        onDragLeave={(e) => {
+                                                                            e.preventDefault();
+                                                                            e.currentTarget.classList.remove('bg-primary/20', 'border-primary');
+                                                                        }}
+                                                                        onDrop={(e) => {
+                                                                            e.preventDefault();
+                                                                            e.currentTarget.classList.remove('bg-primary/20', 'border-primary');
+                                                                            const file = e.dataTransfer.files[0];
+                                                                            if (file && file.type.startsWith('image/')) {
+                                                                                updateHsCode(item.id, 'file', file);
+                                                                            }
+                                                                        }}
                                                                     >
-                                                                        <ImageIcon className="h-4 w-4" />
-                                                                        {trans.choose_image}
+                                                                        <ImageIcon className="h-6 w-6" />
+                                                                        <span className="text-xs">
+                                                                            {trans.choose_image}{' '}
+                                                                            <span className="hidden opacity-60 md:inline">
+                                                                                / Drag & Drop / Ctrl+V
+                                                                            </span>
+                                                                        </span>
                                                                     </label>
                                                                     <Button
                                                                         type="button"
@@ -432,28 +472,48 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                                                         className="border-border bg-background text-foreground hover:bg-accent flex h-10 w-full items-center justify-center gap-2"
                                                                         onClick={async (e) => {
                                                                             e.preventDefault();
+
+                                                                            if (!window.isSecureContext) {
+                                                                                alert('Fitur paste hanya berfungsi di link HTTPS (koneksi aman).');
+                                                                                return;
+                                                                            }
+
+                                                                            if (!navigator.clipboard || !navigator.clipboard.read) {
+                                                                                alert('Browser ini tidak mendukung fitur paste otomatis.');
+                                                                                return;
+                                                                            }
+
                                                                             try {
                                                                                 const clipboardItems = await navigator.clipboard.read();
                                                                                 let imageFound = false;
                                                                                 for (const clipItem of clipboardItems) {
                                                                                     const imageType = clipItem.types.find((type) =>
-                                                                                        type.startsWith('image/'),
+                                                                                        type.toLowerCase().includes('image'),
                                                                                     );
                                                                                     if (imageType) {
                                                                                         const blob = await clipItem.getType(imageType);
-                                                                                        let extension = imageType.split('/')[1];
-                                                                                        if (extension === 'jpeg') extension = 'jpg';
+                                                                                        let extension = imageType.split('/')[1] || 'png';
+                                                                                        if (extension.includes('jpeg')) extension = 'jpg';
+                                                                                        if (extension.includes('+'))
+                                                                                            extension = extension.split('+')[0];
+
                                                                                         const fileName = `clipboard-${Date.now()}.${extension}`;
-                                                                                        const file = new File([blob], fileName, { type: imageType });
+                                                                                        const file = new File([blob], fileName, {
+                                                                                            type: imageType,
+                                                                                        });
                                                                                         updateHsCode(item.id, 'file', file);
                                                                                         imageFound = true;
                                                                                         break;
                                                                                     }
                                                                                 }
                                                                                 if (!imageFound) alert(trans.alert_no_clipboard);
-                                                                            } catch (err) {
+                                                                            } catch (err: any) {
                                                                                 console.error(err);
-                                                                                alert(trans.alert_clipboard_error);
+                                                                                if (err.name === 'NotAllowedError') {
+                                                                                    alert('Izin baca clipboard ditolak. Silakan izinkan di browser.');
+                                                                                } else {
+                                                                                    alert(trans.alert_clipboard_error);
+                                                                                }
                                                                             }
                                                                         }}
                                                                     >
