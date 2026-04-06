@@ -47,6 +47,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
 
     const trans = props.trans_general as Record<string, string>;
     const currentLocale = props.locale as string;
+    const dateLocale = currentLocale === 'id' ? 'id-ID' : 'en-GB';
 
     const [sorting, setSorting] = React.useState<SortingState>([{ id: 'keterangan_status', desc: true }]);
     const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
@@ -629,10 +630,10 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                         <span className="text-foreground font-mono text-base font-medium">{original.spk_code || '-'}</span>
                                         <span
                                             className={`text-sm font-bold ${original.jalur?.toLowerCase() === 'hijau'
-                                                    ? 'text-emerald-500'
-                                                    : original.jalur?.toLowerCase() === 'merah'
-                                                        ? 'text-rose-500'
-                                                        : 'text-amber-500'
+                                                ? 'text-emerald-500'
+                                                : original.jalur?.toLowerCase() === 'merah'
+                                                    ? 'text-rose-500'
+                                                    : 'text-amber-500'
                                                 }`}
                                         >
                                             {original.jalur || '-'}
@@ -678,12 +679,12 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                             <div className="bg-muted h-1.5 w-full overflow-hidden rounded-full shadow-inner">
                                                 <div
                                                     className={`h-full transition-all duration-1000 ease-out ${original.progress === 100
-                                                            ? 'bg-emerald-500'
-                                                            : (original.progress || 0) >= 80
-                                                                ? 'bg-indigo-500'
-                                                                : (original.progress || 0) >= 40
-                                                                    ? 'bg-blue-500'
-                                                                    : 'bg-sky-400'
+                                                        ? 'bg-emerald-500'
+                                                        : (original.progress || 0) >= 80
+                                                            ? 'bg-indigo-500'
+                                                            : (original.progress || 0) >= 40
+                                                                ? 'bg-blue-500'
+                                                                : 'bg-sky-400'
                                                         }`}
                                                     style={{ width: `${original.progress || 0}%` }}
                                                 />
@@ -691,7 +692,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                         </div>
 
                                         {/* Deadline Alert */}
-                                        {isUserExternal && original.deadline_date && (
+                                        {original.deadline_date && (
                                             <div className="mt-1 flex items-center gap-1 rounded border border-rose-500/20 bg-rose-500/10 p-1.5">
                                                 <span className="text-sm font-bold text-rose-500">ⓘ</span>
                                                 <span className="text-[10px] font-bold tracking-tight text-rose-500 uppercase">

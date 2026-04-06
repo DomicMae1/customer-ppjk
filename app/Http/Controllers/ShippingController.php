@@ -113,7 +113,7 @@ class ShippingController extends Controller
 
             // Mapping data agar sesuai dengan kolom Frontend
             $spkData = $query->latest()->get()->map(function ($item) {
-                $maxDeadline = $item->sections->pluck('deadline_date')->filter()->max();
+                $minDeadline = $item->sections->pluck('deadline_date')->filter()->min();
                 
                 // --- PROGRESS CALCULATION ---
                 $totalDocs = 0;
@@ -147,7 +147,7 @@ class ShippingController extends Controller
                     'status_label'    => $item->latestStatus->status ?? 'Draft/Pending',
                     'nama_user'       => $item->creator->name ?? 'System',
                     'jalur'           => $item->penjaluran, // Ambil dari field penjaluran
-                    'deadline_date'   => $maxDeadline,
+                    'deadline_date'   => $minDeadline,
                     'progress'        => $progress, // Add progress
                 ];
             });
@@ -267,7 +267,7 @@ class ShippingController extends Controller
             $spk = Spk::create([
                 'spk_code'          => $validated['bl_number'],
                 'shipment_type'     => $validated['shipment_type'],
-                'id_perusahaan_int' => $user->id_perusahaan,
+                'id_perusahaan_int' => $tenant->perusahaan_id ?? $user->id_perusahaan,
                 'id_customer'       => $validated['id_customer'],
                 'created_by'        => $userId,
                 'penjaluran'        => null,
@@ -403,29 +403,28 @@ class ShippingController extends Controller
             // Move here to prevent Race Condition (Queue Worker checking DB before Commit)
             try {
                 if ($user->role === 'eksternal') {
-                    // Find all Internal Users with role_internal == 'staff'
-                    // WARNING: Need to query Central USERS table (tako-user)
-                    $staffUsers = \App\Models\User::on('tako-user')
+                    // Find all Internal Users (Staff & Supervisor)
+                    $internalUsers = \App\Models\User::on('tako-user')
                         ->where('role', 'internal')
-                        ->where('role_internal', 'staff') // Assuming single value column as per instruction
+                        ->whereIn('role_internal', ['staff', 'supervisor'])
                         ->distinct()
                         ->get();
-                        
-                    // Ensure unique by ID (collection level)
-                    $staffUsers = $staffUsers->unique('id_user')->values();
                     
-                    foreach ($staffUsers as $staff) {
+                    // Ensure unique by ID (collection level)
+                    $internalUsers = $internalUsers->unique('id_user')->values();
+                    
+                    foreach ($internalUsers as $internalUser) {
                          // 1. Send Email
                         try {
-                            SectionReminderService::sendSpkCreated($staff, $spk, $user);
+                            SectionReminderService::sendSpkCreated($internalUser, $spk, $user);
                         } catch (\Exception $e) {
-                             Log::error("Failed to send SPK Created Email to {$staff->email}: " . $e->getMessage());
+                             Log::error("Failed to send SPK Created Email to {$internalUser->email}: " . $e->getMessage());
                         }
 
                         // 2. Send In-App Notification
                         try {
                             NotificationService::send([
-                                'send_to' => $staff->id_user,
+                                'send_to' => $internalUser->id_user,
                                 'created_by' => $userId,
                                 'role' => 'internal', // Context
                                 'id_spk' => $spk->id,
@@ -438,7 +437,7 @@ class ShippingController extends Controller
                                 ]
                             ]);
                         } catch (\Exception $e) {
-                             Log::error("Failed to send SPK Created Notification to {$staff->id_user}: " . $e->getMessage());
+                             Log::error("Failed to send SPK Created Notification to {$internalUser->id_user}: " . $e->getMessage());
                         }
                     }
                 } elseif ($user->role === 'internal') {
@@ -453,14 +452,12 @@ class ShippingController extends Controller
                     if ($user->role_internal === 'supervisor' && !empty($validated['assigned_pic'])) {
                         $assignedStaff = \App\Models\User::on('tako-user')->find($validated['assigned_pic']);
                         if ($assignedStaff) {
-                             // Email
+                            // 1. Email for Assigned Staff
                             try {
                                 SectionReminderService::sendSpkCreated($assignedStaff, $spk, $user);
-                            } catch (\Exception $e) {
-                                Log::error("Failed to send Assignment Email to Staff {$assignedStaff->email}: " . $e->getMessage());
-                            }
+                            } catch (\Exception $e) {}
 
-                            // Notification
+                            // 2. In-App Notification for Assigned Staff
                             try {
                                 NotificationService::send([
                                     'send_to' => $assignedStaff->id_user,
@@ -469,16 +466,40 @@ class ShippingController extends Controller
                                     'id_spk' => $spk->id,
                                     'data' => [
                                         'type' => 'spk_created',
-                                        'title' => 'Penunjukan PIC SPK', // Assignment Title
-                                        // "kamu menjadi pic untuk customer berikut"
-                                        'message' => "Anda telah ditunjuk sebagai PIC untuk customer {$customerName} (SPK: {$spk->spk_code}) oleh {$user->name}",
+                                        'title' => 'SPK Baru Ditugaskan',
+                                        'message' => "Anda telah ditugaskan sebagai PIC untuk SPK {$spk->spk_code} oleh Supervisor {$user->name}",
                                         'url' => "/shipping/{$spk->id}",
                                         'spk_code' => $spk->spk_code
                                     ]
                                 ]);
-                            } catch (\Exception $e) {
-                                Log::error("Failed to send Assignment Notification to {$assignedStaff->id_user}: " . $e->getMessage());
-                            }
+                            } catch (\Exception $e) {}
+                        }
+                    }
+
+                    // NOTIFY ALL SUPERVISORS (Global Monitoring)
+                    if (true) { // Ensuring all supervisors get monitoring notif
+                        $supervisors = \App\Models\User::on('tako-user')
+                            ->where('role', 'internal')
+                            ->where('role_internal', 'supervisor')
+                            ->get();
+                        
+                        foreach ($supervisors as $supervisor) {
+                            if ($supervisor->id_user == $userId) continue;
+                            try {
+                                NotificationService::send([
+                                    'send_to' => $supervisor->id_user,
+                                    'created_by' => $userId,
+                                    'role' => 'internal',
+                                    'id_spk' => $spk->id,
+                                    'data' => [
+                                        'type' => 'spk_created',
+                                        'title' => 'SPK Baru Dibuat (Monitoring)',
+                                        'message' => "SPK {$spk->spk_code} baru saja dibuat oleh {$user->name}",
+                                        'url' => "/shipping/{$spk->id}",
+                                        'spk_code' => $spk->spk_code
+                                    ]
+                                ]);
+                            } catch (\Exception $e) {}
                         }
                     }
 
@@ -792,15 +813,22 @@ class ShippingController extends Controller
                         ->where('send_to', $user->id_user)
                         ->update(['read_at' => now()]);
 
-                    // B. Identify Notifications for OTHER staff (to be deleted)
+                    // B. Identify Notifications ONLY for OTHER staff (to be deleted)
+                    // We exclude Supervisors from this deletion so they keep their history.
+                    $staffIdsToCleanup = \App\Models\User::on('tako-user')
+                        ->where('role', 'internal')
+                        ->where('role_internal', 'staff')
+                        ->where('id_user', '!=', $user->id_user)
+                        ->pluck('id_user');
+
                     $othersNotifications = \App\Models\Notification::where('id_spk', $spk->id)
-                        ->where('send_to', '!=', $user->id_user)
+                        ->whereIn('send_to', $staffIdsToCleanup)
                         ->get();
                     
                     // Capture for broadcasting after commit
                     $notificationsToRemove = $othersNotifications;
 
-                    // C. Delete Notifications for OTHER staff
+                    // C. Delete Notifications only for staff
                     if ($othersNotifications->isNotEmpty()) {
                         \App\Models\Notification::whereIn('id_notification', $othersNotifications->pluck('id_notification'))
                             ->delete();
@@ -955,7 +983,7 @@ class ShippingController extends Controller
              $spk = Spk::findOrFail($id); 
 
              if ($spk->validated_by == $validated['assigned_pic']) {
-                return response()->json(['message' => 'User is already assigned.']);
+                return response()->json(['message' => 'User is already assigned.']);     
             }
             
             $assignedUser = User::on('tako-user')->find($validated['assigned_pic']);
@@ -1029,28 +1057,54 @@ class ShippingController extends Controller
                     ]);
                  } catch (\Exception $e) {}
             }
-        } else {
-             if ($spk->validated_by) {
-                $staff = \App\Models\User::on('tako-user')->find($spk->validated_by);
-                if ($staff) {
-                    // Email
-                    SectionReminderService::sendBatchDocumentRejected($spk, $sectionName, $rejector, $staff, $reason, $count);
-                    
-                    // Notification
-                    try {
-                        NotificationService::sendBatchRejectionNotification([
-                            'id_spk' => $spk->id,
-                            'send_to' => $staff->id_user,
-                            'created_by' => $rejector->id,
-                            'role'   => 'internal', 
-                            'section_name' => $sectionName,
-                            'reason' => $reason,
-                            'count' => $count,
-                            'spk_code' => $spk->spk_code
-                        ]);
-                     } catch (\Exception $e) {}
-                }
+        } 
+        
+        // 2. Notify Staff PIC (ONLY if rejected by CUSTOMER)
+        if ($rejector->role === 'eksternal' && $spk->validated_by) {
+            $staff = \App\Models\User::on('tako-user')->find($spk->validated_by);
+            if ($staff && $staff->id_user != $rejector->id) {
+                SectionReminderService::sendBatchDocumentRejected($spk, $sectionName, $rejector, $staff, $reason, $count);
+                try {
+                    NotificationService::sendBatchRejectionNotification([
+                        'id_spk' => $spk->id,
+                        'send_to' => $staff->id_user,
+                        'created_by' => $rejector->id,
+                        'role'   => 'internal', 
+                        'section_name' => $sectionName,
+                        'reason' => $reason,
+                        'count' => $count,
+                        'spk_code' => $spk->spk_code
+                    ]);
+                 } catch (\Exception $e) {}
             }
+        }
+
+        // 3. Notify Supervisors (Monitoring ALL actions)
+        $supervisors = \App\Models\User::on('tako-user')
+            ->where('role', 'internal')
+            ->where('role_internal', 'supervisor')
+            ->get();
+        
+        foreach ($supervisors as $supervisor) {
+            if ($supervisor->id_user == $rejector->id) continue;
+            // 1. Email for Supervisor
+            try {
+                SectionReminderService::sendBatchDocumentRejected($spk, $sectionName, $rejector, $supervisor, $reason, $count);
+            } catch (\Exception $e) {}
+
+            // 2. Notification for Supervisor
+            try {
+                NotificationService::sendBatchRejectionNotification([
+                    'id_spk' => $spk->id,
+                    'send_to' => $supervisor->id_user,
+                    'created_by' => $rejector->id,
+                    'role'   => 'internal', 
+                    'section_name' => $sectionName,
+                    'reason' => $reason,
+                    'count' => $count,
+                    'spk_code' => $spk->spk_code
+                ]);
+             } catch (\Exception $e) {}
         }
     }
 
@@ -1090,34 +1144,59 @@ class ShippingController extends Controller
                  } catch (\Exception $e) {}
             }
         } 
-        // 2. Verifier is External -> Notify Staff
-        else {
-            if ($spk->validated_by) {
-                $staff = \App\Models\User::on('tako-user')->find($spk->validated_by);
-                if ($staff) {
-                    // Email
-                    try {
-                        SectionReminderService::sendDocumentVerified($spk, $sectionName, $verifier, $staff);
-                    } catch (\Exception $e) {}
-                    
-                    // Notification
-                    try {
-                        NotificationService::send([
-                            'id_spk' => $spk->id,
-                            'send_to' => $staff->id_user,
-                            'created_by' => $verifier->id,
-                            'role'   => 'internal', 
-                            'data'   => [
-                                'type'    => 'document_verified',
-                                'title'   => 'Dokumen Diverifikasi',
-                                'message' => "{$count} dokumen pada section {$sectionName} telah diverifikasi oleh Customer {$verifier->name}.",
-                                'url'     => "/shipping/{$spk->id}",
-                                'spk_code'=> $spk->spk_code,
-                            ]
-                        ]);
-                     } catch (\Exception $e) {}
-                }
+        
+        // 2. Notify Staff PIC (ONLY if verified by CUSTOMER)
+        if ($verifier->role === 'eksternal' && $spk->validated_by) {
+            $staff = \App\Models\User::on('tako-user')->find($spk->validated_by);
+            if ($staff && $staff->id_user != $verifier->id) {
+                try { SectionReminderService::sendDocumentVerified($spk, $sectionName, $verifier, $staff); } catch (\Exception $e) {}
+                try {
+                    NotificationService::send([
+                        'id_spk' => $spk->id,
+                        'send_to' => $staff->id_user,
+                        'created_by' => $verifier->id,
+                        'role'   => 'internal', 
+                        'data'   => [
+                            'type'    => 'document_verified',
+                            'title'   => 'Dokumen Diverifikasi',
+                            'message' => "{$count} dokumen pada section {$sectionName} telah diverifikasi oleh Customer {$verifier->name}",
+                            'url'     => "/shipping/{$spk->id}",
+                            'spk_code'=> $spk->spk_code,
+                        ]
+                    ]);
+                 } catch (\Exception $e) {}
             }
+        }
+
+        // 3. Notify Supervisors (Monitoring ALL actions)
+        $supervisors = \App\Models\User::on('tako-user')
+            ->where('role', 'internal')
+            ->where('role_internal', 'supervisor')
+            ->get();
+
+        foreach ($supervisors as $supervisor) {
+            if ($supervisor->id_user == $verifier->id) continue;
+            // 1. Email for Supervisor
+            try {
+                SectionReminderService::sendDocumentVerified($spk, $sectionName, $verifier, $supervisor);
+            } catch (\Exception $e) {}
+
+            // 2. Notification for Supervisor
+            try {
+                NotificationService::send([
+                    'id_spk' => $spk->id,
+                    'send_to' => $supervisor->id_user,
+                    'created_by' => $verifier->id,
+                    'role'   => 'internal', 
+                    'data'   => [
+                        'type'    => 'document_verified',
+                        'title'   => 'Dokumen Diverifikasi (Monitoring)',
+                        'message' => "{$count} dokumen pada section {$sectionName} telah diverifikasi oleh " . ($verifier->role == 'internal' ? "Staff {$verifier->name}" : "Customer {$verifier->name}"),
+                        'url'     => "/shipping/{$spk->id}",
+                        'spk_code'=> $spk->spk_code,
+                    ]
+                ]);
+             } catch (\Exception $e) {}
         }
     }
 
@@ -1155,32 +1234,59 @@ class ShippingController extends Controller
                 } catch (\Exception $e) {}
             }
         } 
-        // B. Customer Uploader -> Notify Staff
-        else {
-            if ($spk->validated_by) {
-                $staff = \App\Models\User::on('tako-user')->find($spk->validated_by);
-                if ($staff) {
-                    // Email using Service
-                    SectionReminderService::sendDocumentUploaded($spk, $sectionName, $uploader, $staff);
-
-                    try {
-                        NotificationService::send([
-                            'send_to' => $staff->id_user,
-                            'created_by' => $uploader->id,
-                            'role' => 'internal',
-                            'id_spk' => $spk->id,
-                            'data' => [
-                                'type' => 'document_uploaded',
-                                'title' => 'Dokumen Baru Diupload',
-                                'message' => "Customer {$uploader->name} mengupload {$count} dokumen pada section {$sectionName}.",
-                                'url' => "/shipping/{$spk->id}",
-                                'spk_code' => $spk->spk_code
-                            ]
-                        ]);
-                    } catch (\Exception $e) {}
-                }
+        
+        // 2. Notify Staff PIC (ONLY if uploaded by CUSTOMER)
+        if ($uploader->role === 'eksternal' && $spk->validated_by) {
+            $staff = \App\Models\User::on('tako-user')->find($spk->validated_by);
+            if ($staff && $staff->id_user != $uploader->id) {
+                SectionReminderService::sendDocumentUploaded($spk, $sectionName, $uploader, $staff);
+                try {
+                    NotificationService::send([
+                        'send_to' => $staff->id_user,
+                        'created_by' => $uploader->id,
+                        'role' => 'internal',
+                        'id_spk' => $spk->id,
+                        'data' => [
+                            'type' => 'document_uploaded',
+                            'title' => 'Dokumen Baru Diupload',
+                            'message' => "Customer {$uploader->name} mengupload {$count} dokumen pada section {$sectionName}.",
+                            'url' => "/shipping/{$spk->id}",
+                            'spk_code' => $spk->spk_code
+                        ]
+                    ]);
+                } catch (\Exception $e) {}
             }
-            
+        }
+
+        // 3. Notify Supervisors (Monitoring ALL actions)
+        $supervisors = \App\Models\User::on('tako-user')
+            ->where('role', 'internal')
+            ->where('role_internal', 'supervisor')
+            ->get();
+
+        foreach ($supervisors as $supervisor) {
+            if ($supervisor->id_user == $uploader->id) continue;
+            // 1. Email for Supervisor
+            try {
+                SectionReminderService::sendDocumentUploaded($spk, $sectionName, $uploader, $supervisor);
+            } catch (\Exception $e) {}
+
+            // 2. Notification for Supervisor
+            try {
+                NotificationService::send([
+                    'send_to' => $supervisor->id_user,
+                    'created_by' => $uploader->id,
+                    'role' => 'internal',
+                    'id_spk' => $spk->id,
+                    'data' => [
+                        'type' => 'document_uploaded',
+                        'title' => 'Dokumen Baru Diupload (Monitoring)',
+                        'message' => ($uploader->role == 'internal' ? "Staff {$uploader->name}" : "Customer {$uploader->name}") . " mengupload {$count} dokumen pada section {$sectionName}.",
+                        'url' => "/shipping/{$spk->id}",
+                        'spk_code' => $spk->spk_code
+                    ]
+                ]);
+            } catch (\Exception $e) {}
         }
     }
     
