@@ -12,42 +12,35 @@ import { toast } from 'sonner';
 import { columns } from './table/columns';
 import { DataTable } from './table/data-table';
 
-const breadcrumbs: BreadcrumbItem[] = [
-    {
-        title: 'Manage Company',
-        href: '/perusahaan',
-    },
-];
-
 interface FormState {
     nama_perusahaan: string;
     domain: string;
-    id_User_1: string;
-    id_User_2: string;
-    id_User_3: string;
-    notify_1: string;
-    notify_2: string;
     path_company_logo: string;
 }
 
+interface PageProps {
+    companies: any[];
+    flash: { success?: string; error?: string };
+    // Tambahkan prop translasi di sini
+    trans_company: Record<string, string>;
+    [key: string]: any;
+}
+
 export default function ManageCompany() {
-    const { props } = usePage();
-    const { companies, flash } = props as {
-        companies: any[];
-        flash: { success?: string; error?: string };
-        users: any[];
-    };
+    const { companies, flash, trans_company } = usePage<PageProps>().props;
+
+    const breadcrumbs: BreadcrumbItem[] = [
+        {
+            title: trans_company.breadcrumb_title || 'Manage Company',
+            href: '/perusahaan',
+        },
+    ];
 
     const [companyLogoFile, setCompanyLogoFile] = useState<File | null>(null);
 
     const initialFormState: FormState = {
         nama_perusahaan: '',
         domain: '',
-        id_User_1: '',
-        id_User_2: '',
-        id_User_3: '',
-        notify_1: '',
-        notify_2: '',
         path_company_logo: '',
     };
 
@@ -56,19 +49,6 @@ export default function ManageCompany() {
     const [openDelete, setOpenDelete] = useState(false);
     const [selectedCompany, setSelectedCompany] = useState<any | null>(null);
     const [companyIdToDelete, setCompanyIdToDelete] = useState<number | null>(null);
-
-    const userRoles = [
-        { key: 'id_User_1', label: 'Manager' },
-        { key: 'id_User_2', label: 'Direktur' },
-        { key: 'id_User_3', label: 'Lawyer' },
-    ];
-
-    const handleUserChange = (field: keyof FormState, value: string) => {
-        setForm((prev) => ({
-            ...prev,
-            [field]: value,
-        }));
-    };
 
     useEffect(() => {
         if (flash.success) toast.success(flash.success);
@@ -94,18 +74,9 @@ export default function ManageCompany() {
         setSelectedCompany(company);
         setCompanyLogoFile(null);
 
-        const manager = company.users.find((u: any) => u.pivot.role === 'manager');
-        const direktur = company.users.find((u: any) => u.pivot.role === 'direktur');
-        const lawyer = company.users.find((u: any) => u.pivot.role === 'lawyer');
-
         setForm({
             nama_perusahaan: company.nama_perusahaan || '',
             domain: company.tenant?.domains?.[0]?.domain || '',
-            id_User_1: manager ? String(manager.id) : '',
-            id_User_2: direktur ? String(direktur.id) : '',
-            id_User_3: lawyer ? String(lawyer.id) : '',
-            notify_1: company.notify_1 || '',
-            notify_2: company.notify_2 || '',
             path_company_logo: company.path_company_logo || '',
         });
 
@@ -148,7 +119,7 @@ export default function ManageCompany() {
 
         if (selectedCompany) {
             formData.append('_method', 'PUT');
-            router.post(`/perusahaan/${selectedCompany.id}`, formData, {
+            router.post(`/perusahaan/${selectedCompany.id_perusahaan}`, formData, {
                 forceFormData: true,
                 preserveScroll: true,
                 onSuccess: () => {
@@ -180,127 +151,107 @@ export default function ManageCompany() {
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Manage Companies" />
+            <Head title={trans_company.page_title || 'Manage Companies'} />
             <div className="p-4">
-                <DataTable columns={columns(onEditClick, onDeleteClick)} data={companies} />
+                <DataTable columns={columns(onEditClick, onDeleteClick, trans_company)} data={companies} />
             </div>
 
+            {/* Modal Hapus */}
             <Dialog open={openDelete} onOpenChange={setOpenDelete}>
-                <DialogContent>
+                <DialogContent className="max-w-[90vw] rounded-xl sm:max-w-md">
                     <DialogHeader>
-                        <DialogTitle>Hapus Perusahaan</DialogTitle>
-                        <div className="mt-2">Apakah Anda yakin ingin menghapus perusahaan ini?</div>
+                        <DialogTitle>{trans_company.title_delete || 'Delete Company'}</DialogTitle>
+                        <div className="mt-2 text-sm">{trans_company.confirm_delete || 'Are you sure you want to delete this company?'}</div>
                     </DialogHeader>
-                    <DialogFooter className="sm:justify-start">
-                        <Button variant="destructive" className="text-white" onClick={onConfirmDelete}>
-                            Hapus
+                    <DialogFooter className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-start">
+                        <Button variant="destructive" className="w-full text-white sm:w-auto" onClick={onConfirmDelete}>
+                            {trans_company.btn_delete || 'Delete'}
                         </Button>
                         <DialogClose asChild>
-                            <Button variant="secondary">Batal</Button>
+                            <Button variant="secondary" className="w-full sm:w-auto">
+                                {trans_company.btn_cancel || 'Cancel'}
+                            </Button>
                         </DialogClose>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
 
+            {/* Modal Form Tambah/Edit */}
             <Dialog open={openForm} onOpenChange={(isOpen) => !isOpen && resetFormAndClose()}>
-                <DialogContent>
+                <DialogContent className="border-border bg-background text-foreground max-h-[90vh] max-w-[95%] overflow-y-auto rounded-xl p-4 sm:max-w-2xl sm:p-6">
                     <form onSubmit={onSubmit}>
                         <DialogHeader>
-                            <DialogTitle>{selectedCompany ? 'Edit Perusahaan' : 'Tambah Perusahaan'}</DialogTitle>
+                            <DialogTitle className="text-foreground text-lg font-bold sm:text-xl">
+                                {selectedCompany ? trans_company.title_edit : trans_company.title_create}
+                            </DialogTitle>
                         </DialogHeader>
+
                         <div className="space-y-4 py-4">
-                            <div>
-                                <Label htmlFor="nama_perusahaan">Nama Perusahaan</Label>
+                            <div className="grid gap-2">
+                                <Label htmlFor="nama_perusahaan" className="text-foreground/90 font-semibold">
+                                    {trans_company.label_name}
+                                </Label>
                                 <Input
                                     id="nama_perusahaan"
                                     name="nama_perusahaan"
                                     value={form.nama_perusahaan}
                                     onChange={handleInputChange}
-                                    placeholder="Contoh: PT. Maju Sejahtera"
+                                    placeholder={trans_company.placeholder_name}
                                     required
+                                    className="bg-background border-input text-foreground h-11 sm:h-10"
                                 />
                             </div>
 
-                            <div>
-                                <Label htmlFor="domain">Domain Lengkap</Label>
+                            <div className="grid gap-2">
+                                <Label htmlFor="domain" className="text-foreground/90 font-semibold">
+                                    {trans_company.label_domain}
+                                </Label>
                                 <Input
                                     id="domain"
                                     name="domain"
                                     value={form.domain}
                                     onChange={handleInputChange}
-                                    placeholder="Contoh: alpha.registration.tako.co.id"
+                                    placeholder="AminTrans"
                                     required
+                                    className="bg-background border-input text-foreground h-11 font-mono sm:h-10"
                                 />
-                                <p className="text-muted-foreground mt-1 text-xs">Masukkan alamat domain lengkap (Full URL) untuk perusahaan ini.</p>
+                                <p className="text-muted-foreground text-[10px] italic sm:text-xs">{trans_company.helper_domain}</p>
                             </div>
 
-                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                                {userRoles.map(({ key, label }) => (
-                                    <div key={key}>
-                                        <Label htmlFor={key}>{label}</Label>
-                                        <select
-                                            id={key}
-                                            className="w-full rounded border px-2 py-1"
-                                            value={form[key as keyof FormState]}
-                                            onChange={(e) => handleUserChange(key as keyof FormState, e.target.value)}
-                                        >
-                                            <div className="text-black">
-                                                <option value="">Pilih {label}</option>
-                                                {props.users?.map((user: any) => (
-                                                    <option key={user.id} value={user.id}>
-                                                        {user.name}
-                                                    </option>
-                                                ))}
-                                            </div>
-                                        </select>
-                                    </div>
-                                ))}
-                            </div>
-
-                            <div>
-                                <Label htmlFor="notify_1">Notifikasi Email 1</Label>
-                                <Input
-                                    id="notify_1"
-                                    name="notify_1"
-                                    value={form.notify_1}
-                                    onChange={handleInputChange}
-                                    placeholder="email1@contoh.com, email2@contoh.com"
-                                />
-                            </div>
-                            <div>
-                                <Label htmlFor="notify_2">Notifikasi Email 2</Label>
-                                <Input
-                                    id="notify_2"
-                                    name="notify_2"
-                                    value={form.notify_2}
-                                    onChange={handleInputChange}
-                                    placeholder="email3@contoh.com, email4@contoh.com"
-                                />
-                            </div>
-                            <div>
-                                <ResettableDropzoneImage
-                                    key={form.path_company_logo}
-                                    label="Upload Logo Perusahaan"
-                                    isRequired={false}
-                                    onFileChange={setCompanyLogoFile}
-                                    existingFile={
-                                        form.path_company_logo
-                                            ? {
-                                                  nama_file: form.path_company_logo.split('/').pop() ?? 'logo.png',
-                                                  path: form.path_company_logo,
-                                              }
-                                            : null
-                                    }
-                                />
+                            <div className="grid gap-2">
+                                <Label className="text-foreground/90 font-semibold">{trans_company.label_logo}</Label>
+                                <div className="mt-1">
+                                    <ResettableDropzoneImage
+                                        key={form.path_company_logo}
+                                        label={trans_company.btn_upload}
+                                        isRequired={false}
+                                        onFileChange={setCompanyLogoFile}
+                                        existingFile={
+                                            form.path_company_logo
+                                                ? {
+                                                      nama_file: form.path_company_logo.split('/').pop() ?? 'logo.png',
+                                                      path: form.path_company_logo,
+                                                  }
+                                                : null
+                                        }
+                                    />
+                                </div>
                             </div>
                         </div>
-                        <DialogFooter className="sm:justify-start">
-                            <Button type="submit">{selectedCompany ? 'Update' : 'Create'}</Button>
+
+                        <DialogFooter className="mt-6 flex flex-col-reverse gap-3 sm:mt-0 sm:flex-row sm:justify-end">
                             <DialogClose asChild>
-                                <Button variant="secondary" type="button">
-                                    Batal
+                                <Button
+                                    variant="secondary"
+                                    type="button"
+                                    className="bg-secondary text-secondary-foreground h-11 w-full sm:h-10 sm:w-auto"
+                                >
+                                    {trans_company.btn_cancel}
                                 </Button>
                             </DialogClose>
+                            <Button type="submit" className="bg-primary text-primary-foreground h-11 w-full font-bold shadow-md sm:h-10 sm:w-auto">
+                                {selectedCompany ? trans_company.btn_update : trans_company.btn_create}
+                            </Button>
                         </DialogFooter>
                     </form>
                 </DialogContent>

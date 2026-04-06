@@ -33,6 +33,7 @@ return [
         Stancl\Tenancy\Bootstrappers\CacheTenancyBootstrapper::class,
         Stancl\Tenancy\Bootstrappers\FilesystemTenancyBootstrapper::class,
         Stancl\Tenancy\Bootstrappers\QueueTenancyBootstrapper::class,
+        \App\Tenancy\TransactionDatabaseBootstrapper::class, // Custom: transaction DB per tenant
         // Stancl\Tenancy\Bootstrappers\RedisTenancyBootstrapper::class, // Note: phpredis is needed
     ],
 
@@ -193,10 +194,21 @@ return [
     ],
 
     /**
+     * Parameters used by the tenant transaction migration.
+     */
+    'transaction_migration_parameters' => [
+        '--force' => true,
+        '--path' => [
+            database_path('migrations/transaction'),
+        ],
+        '--realpath' => true,
+    ],
+
+    /**
      * Parameters used by the tenants:seed command.
      */
     'seeder_parameters' => [
-        '--class' => 'DatabaseSeeder', // root seeder class
+        '--class' => 'Database\\Seeders\\TenantDocumentSeeder', // Seed master_documents_trans per tenant
         // '--force' => true, // This needs to be true to seed tenant databases in production
     ],
 ];

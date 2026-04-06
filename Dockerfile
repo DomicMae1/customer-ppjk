@@ -31,6 +31,8 @@ max_execution_time = 600\n\
 
 # Aktifkan mod_rewrite
 RUN a2enmod rewrite ssl proxy proxy_http proxy_wstunnel
+RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf
+RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf
 
 # Ubah DocumentRoot Apache
 ENV APACHE_DOCUMENT_ROOT /var/www/html/public
@@ -47,22 +49,12 @@ RUN echo '<VirtualHost *:80>\n\
     </Directory>\n\
     \n\
     # --- KONFIGURASI PROXY REVERB ---\n\
-    # Kita menggunakan "reverb" sebagai host karena itu nama service di docker-compose\n\
-    <IfModule mod_proxy.c>\n\
-        <IfModule mod_proxy_wstunnel.c>\n\
-            RewriteEngine On\n\
-            RewriteCond %{HTTP:Upgrade} =websocket [NC]\n\
-            RewriteCond %{HTTP:Connection} upgrade$ [NC]\n\
-            RewriteRule ^/app(.*)$ ws://reverb:8080/app$1 [P,L]\n\
-            \n\
-            ProxyPass /app ws://reverb:8080/app\n\
-            ProxyPassReverse /app ws://reverb:8080/app\n\
-        </IfModule>\n\
-        \n\
-        # Fallback HTTP\n\
-        ProxyPass /app http://reverb:8080/app\n\
-        ProxyPassReverse /app http://reverb:8080/app\n\
-    </IfModule>\n\
+    # Preserve Host header agar Reverb terima Host: ppjk.tako.co.id\n\
+    ProxyPreserveHost On\n\
+    \n\
+    # Proxy /app/ ke Reverb WebSocket server\n\
+    ProxyPass "/app/" "http://reverb:8080/app/" upgrade=websocket\n\
+    ProxyPassReverse "/app/" "http://reverb:8080/app/"\n\
     # --------------------------------\n\
     \n\
     ErrorLog ${APACHE_LOG_DIR}/error.log\n\
@@ -89,7 +81,7 @@ COPY . .
 RUN composer install --optimize-autoloader --no-dev
 
 # Install dependency JS & Build
-RUN npm install && npm run build
+RUN npm install && chmod -R +x node_modules/.bin && npm run build
 
 # Buat Script Startup (Entrypoint)
 # UPDATED: Changed /mnt/Customer_Registration to /mnt/Ppjk

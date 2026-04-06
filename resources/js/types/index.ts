@@ -81,7 +81,7 @@ export interface Customer {
 }
 
 export interface Perusahaan {
-    id: number;
+    id_perusahaan: number;
     nama_perusahaan: string;
     id_User_1: number | null;
     id_User_2: number | null;

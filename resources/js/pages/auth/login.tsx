@@ -42,32 +42,38 @@ export default function Login({ status, canResetPassword, company, trans_auth, l
         });
     };
 
-    const companyName = company?.nama_perusahaan || 'Testing';
+    const companyName = company?.nama_perusahaan || 'PT. Tako Anugerah Koporasi';
     const companyLogo = company?.path_company_logo || null;
 
     return (
         <AuthLayout
             company_name={companyName}
             company_logo={companyLogo}
-            // Mengambil teks langsung dari props Laravel
             app_name={trans_auth.app_name}
             title={trans_auth.title}
             description={trans_auth.description}
         >
             <Head title={trans_auth.login_button} />
 
-            {/* --- TOMBOL GANTI BAHASA --- */}
-            {/* Menggunakan Link href ke route laravel, bukan state react */}
-            <div className="absolute top-4 right-4 flex gap-2">
-                <a href="/lang/id" className={`text-xs font-bold ${locale === 'id' ? 'text-black underline' : 'text-gray-400'}`}>
+            <div className="absolute top-4 right-4 flex items-center gap-2">
+                <a
+                    href="/lang/id"
+                    className={`text-xs font-bold transition-colors hover:text-black dark:hover:text-white ${
+                        locale === 'id' ? 'text-black underline dark:text-white' : 'text-gray-400 dark:text-gray-500'
+                    }`}
+                >
                     ID
                 </a>
-                <span className="text-xs text-gray-300">|</span>
-                <a href="/lang/en" className={`text-xs font-bold ${locale === 'en' ? 'text-black underline' : 'text-gray-400'}`}>
+                <span className="text-xs text-gray-300 dark:text-gray-700">|</span>
+                <a
+                    href="/lang/en"
+                    className={`text-xs font-bold transition-colors hover:text-black dark:hover:text-white ${
+                        locale === 'en' ? 'text-black underline dark:text-white' : 'text-gray-400 dark:text-gray-500'
+                    }`}
+                >
                     EN
                 </a>
             </div>
-            {/* --------------------------- */}
 
             <form className="flex flex-col gap-6" onSubmit={submit}>
                 <div className="grid gap-6">

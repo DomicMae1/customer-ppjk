@@ -3,12 +3,12 @@
 namespace Tests\Feature;
 
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Concerns\RefreshDatabaseWithUserMigrations;
 use Tests\TestCase;
 
 class DashboardTest extends TestCase
 {
-    use RefreshDatabase;
+    use RefreshDatabaseWithUserMigrations;
 
     public function test_guests_are_redirected_to_the_login_page()
     {
@@ -19,6 +19,6 @@ class DashboardTest extends TestCase
     {
         $this->actingAs($user = User::factory()->create());
 
-        $this->get('/dashboard')->assertOk();
+        $this->get('/dashboard')->assertRedirect('/shipping');
     }
 }

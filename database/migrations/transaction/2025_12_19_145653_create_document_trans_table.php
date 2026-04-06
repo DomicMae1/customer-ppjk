@@ -44,12 +44,12 @@ return new class extends Migration
             $table->string('mapping_insw')->nullable();
             $table->string('sla_document')->nullable();
 
-            $table->foreign('id_dokumen')
-                ->references('id_dokumen') // Referensi ke kolom 'id_dokumen' (bukan 'id')
-                ->on('master_documents_trans') // Referensi ke tabel 'master_documents_trans' (pakai 's')
-                ->onDelete('cascade');
+            // Note: FK to master_documents_trans is NOT created here because
+            // master_documents_trans lives in the tenant DB, while this table
+            // lives in the transactional DB. Data integrity is enforced at
+            // the Eloquent model level via the DocumentTrans->masterDocument() relation.
 
-            // Relasi ke SPK (Table Lokal Tenant)
+            // Relasi ke SPK (same transactional DB)
             $table->foreign('id_spk')
                   ->references('id')->on('spk')
                   ->onDelete('cascade');

@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\Storage;
 use Spatie\Permission\Exceptions\UnauthorizedException;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use App\Models\Perusahaan;
+
 
 class CustomerController extends Controller
 {
@@ -20,6 +22,10 @@ class CustomerController extends Controller
     public function index()
     {
         $user = auth('web')->user();
+
+        if (!$user->hasPermissionTo('view-customer')) {
+            return redirect('/shipping')->with('error', 'Anda tidak memiliki akses ke halaman tersebut.');
+        }
 
         // 1. Mulai Query dasar dengan relasi
         $query = Customer::with([
@@ -39,11 +45,13 @@ class CustomerController extends Controller
 
         return Inertia::render('m_customer/page', [
             'customers' => $customers,
+            'perusahaan_list' => Perusahaan::select('id_perusahaan', 'nama_perusahaan')->get(),
             'company' => [
                 'id' => session('company_id'),
                 'name' => session('company_name'),
                 'logo' => session('company_logo'),
             ],
+            'trans_customer' => trans('customer'),
             'flash' => [
                 'success' => session('success'),
                 'error' => session('error'),
@@ -57,7 +65,6 @@ class CustomerController extends Controller
     public function store(Request $request)
     {
         $user = auth('web')->user();
-
         // PENTING: Validasi terjadi SEBELUM Try-Catch.
         // Jika validasi gagal, Laravel akan melempar ValidationException dan kode di bawahnya TIDAK dijalankan.
         // Pastikan frontend Anda menangani error validasi (menampilkan pesan merah di form).
@@ -77,12 +84,12 @@ class CustomerController extends Controller
             $roles = $user->getRoleNames();
             $ownership = null;
 
-            if ($roles->contains('user') || $roles->contains('staff')) {
+            if ($roles->contains('admin')) {
+                $ownership = $request->id_perusahaan;
+            } else{
                 $ownership = $user->id_perusahaan;
-            } elseif ($roles->contains('manager') || $roles->contains('direktur')) {
-                $ownership = $request->id_perusahaan ?? $user->id_perusahaan;
             }
-
+            
             Customer::create([
                 'uid'             => (string) Str::uuid(), 
                 'nama_perusahaan' => $validated['nama_perusahaan'],
@@ -124,10 +131,21 @@ class CustomerController extends Controller
             'nama'            => 'required|string|max:255',
             'no_npwp'         => 'nullable|string|max:50',
             'no_npwp_16'      => 'nullable|string|max:50',
+            'id_perusahaan'   => 'nullable|numeric',
         ]);
 
         try {
             DB::beginTransaction();
+
+            $user = auth('web')->user();
+            $roles = $user->getRoleNames();
+            $ownership = $customer->ownership;
+
+            if ($roles->contains('admin')) {
+                $ownership = $validated['id_perusahaan'] ?? $customer->ownership;
+            } else {
+                $ownership = $user->id_perusahaan;
+            }
 
             $customer->update([
                 'nama_perusahaan' => $validated['nama_perusahaan'],
@@ -136,6 +154,7 @@ class CustomerController extends Controller
                 'nama'            => $validated['nama'],
                 'no_npwp'         => $validated['no_npwp'] ?? null,
                 'no_npwp_16'      => $validated['no_npwp_16'] ?? null,
+                'ownership'       => $ownership,
             ]);
 
             DB::commit();

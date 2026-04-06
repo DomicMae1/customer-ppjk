@@ -10,6 +10,7 @@ use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\DB;
 use Stancl\Tenancy\Database\Models\Domain;
 
 class PerusahaanController extends Controller
@@ -26,7 +27,24 @@ class PerusahaanController extends Controller
         }
 
         $perusahaans = Perusahaan::with(['user', 'users','tenant','tenant.domains'])->get();
-        $users = User::select('id_user', 'name')->get();
+        $perusahaans->transform(function ($company) {
+            // Ambil domain pertama dari tenant
+            $domainRecord = $company->tenant->domains->first() ?? null;
+            
+            $logoPath = $domainRecord ? $domainRecord->path_company_logo : null;
+
+            if ($logoPath) {
+                // Kita gunakan helper asset() atau Storage::url() agar URL-nya benar
+                // Hasilnya: http://domain-anda.com/storage/company_logo/xxx.jpg
+                $company->path_company_logo = asset('storage/' . $logoPath);
+            } else {
+                $company->path_company_logo = null;
+            }
+
+            return $company;
+        });
+
+        $users = User::select('id_user', 'name', 'id_perusahaan')->get();
 
         return Inertia::render('company/page', [
             'companies' => $perusahaans,
@@ -53,85 +71,58 @@ class PerusahaanController extends Controller
     {
         $validated = $request->validate([
             'nama_perusahaan' => 'required|string|max:255',
-
             'domain'          => 'required|string|max:255|unique:domains,domain',
-
-            'id_User_1' => 'nullable|integer|exists:users,id', // manager
-            'id_User_2' => 'nullable|integer|exists:users,id', // direktur
-            'id_User_3' => 'nullable|integer|exists:users,id', // lawyer
-            'id_User'   => 'nullable|integer|exists:users,id', // user
-
-            'notify_1' => 'nullable|string',
-            'notify_2' => 'nullable|string',
-
             'company_logo' => 'nullable|image|mimes:jpg,jpeg,png,webp,svg|max:2048',
         ]);
 
-        $logoPath = null;
-        if ($request->hasFile('company_logo')) {
-            $logoPath = $request->file('company_logo')->store('company_logo', 'public');
+        $tenantId = Str::slug($validated['nama_perusahaan']);
+
+        if (Tenant::where('id', $tenantId)->exists()) {
+            return back()->withErrors(['error' => "ID Perusahaan '$tenantId' sudah ada."]);
         }
 
-        $perusahaan = Perusahaan::create([
-            'nama_perusahaan'   => $validated['nama_perusahaan'],
-            'notify_1'          => $validated['notify_1'] ?? null,
-            'notify_2'          => $validated['notify_2'] ?? null,
-            'path_company_logo' => $logoPath,
-        ]);
+        $logoPath = $request->hasFile('company_logo') 
+                ? $request->file('company_logo')->store('company_logo', 'public') 
+                : null;
 
-        $rawDomain = $validated['domain'];
+        try {
+            // 2. Buat Data Perusahaan (Gunakan DB::transaction HANYA untuk tabel reguler)
+            // Jika Tenant::create memicu pembuatan database, jangan masukkan ke dalam DB::transaction
+            $perusahaan = Perusahaan::create([
+                'nama_perusahaan' => $validated['nama_perusahaan'],
+            ]);
 
-        $tenantId = $validated['nama_perusahaan'];
+            // 3. Buat Tenant (Ini yang biasanya memicu CREATE DATABASE secara otomatis)
+            $tenant = Tenant::create([
+                'id'            => $tenantId, 
+                'perusahaan_id' => $perusahaan->id_perusahaan,
+            ]);
 
-        $rawTenant= Str::slug($tenantId);
+            // 4. Buat Domain & Masukkan Logo
+            $appDomain = preg_replace('#^https?://#', '', env('APP_DOMAIN', 'localhost'));
+            $fullDomain = $validated['domain'] . '.' . $appDomain;
 
-        // $appDomain = env('APP_DOMAIN', 'registration.tako.co.id'); // Ambil dari .env (misal: registration.tako.co.id)
-        // $baseSlug = Str::slug($validated['nama_perusahaan']);
-        
-        // // Pastikan subdomain unik di tabel DOMAINS
-        // $subdomain = $baseSlug;
-        // $counter = 1;
-        // while (Domain::where('domain', "registration.{$subdomain}.{$appDomain}")->exists()) {
-        //     $subdomain = "{$baseSlug}-{$counter}";
-        //     $counter++;
-        // }
+            $domainRecord = $tenant->domains()->create([
+                'domain'            => $fullDomain,
+                'path_company_logo' => $logoPath,
+            ]);
 
-        // $fullDomain = "{$subdomain}.{$appDomain}";
+            // 5. Update relasi id_domain di tabel perusahaan
+            $perusahaan->update(['id_domain' => $domainRecord->id]);
 
-        // Buat Tenant Baru
-        // ID Tenant kita samakan dengan subdomain agar mudah dibaca (opsional, bisa juga UUID)
-        $tenant = Tenant::create([
-            'id' => $rawTenant, 
-            'perusahaan_id' => $perusahaan->id, // Sambungkan Relasi ke Perusahaan
-        ]);
+            return back()->with('success', "Perusahaan {$validated['nama_perusahaan']} berhasil dibuat.");
 
-        // Buat Domain untuk Tenant tersebut
-        $tenant->domains()->create([
-            'domain' => $rawDomain,
-        ]);
-
-        // ========================================
-        // 4. Simpan user roles
-        // ========================================
-        $roles = [
-            $validated['id_User_1'] ?? null => 'manager',
-            $validated['id_User_2'] ?? null => 'direktur',
-            $validated['id_User_3'] ?? null => 'lawyer',
-            $validated['id_User']   ?? null => 'user',
-        ];
-
-        foreach ($roles as $userId => $role) {
-            if ($userId) {
-                $perusahaan->users()->attach($userId, ['role' => $role]);
-
-                // Opsional: Update id_perusahaan di tabel users jika perlu fallback
-                User::where('id', $userId)->update([
-                    'id_perusahaan' => $perusahaan->id
-                ]);
+        } catch (\Exception $e) {
+            // Jika gagal, hapus file yang sudah terlanjur diupload
+            if ($logoPath && Storage::disk('public')->exists($logoPath)) {
+                Storage::disk('public')->delete($logoPath);
             }
-        }
+            
+            // Log error untuk debug
+            \Log::error("Gagal membuat perusahaan: " . $e->getMessage());
 
-        return back()->with('success', 'Perusahaan berhasil ditambahkan. Domain: ' . $rawDomain);
+            return back()->withErrors(['error' => "Terjadi kesalahan: " . $e->getMessage()]);
+        }
     }
 
     /**
@@ -157,97 +148,55 @@ class PerusahaanController extends Controller
     /**
      * Update the specified resource in storage.
      */
-
     public function update(Request $request, Perusahaan $perusahaan)
     {
+        // 1. VALIDASI
+        $tenant = Tenant::where('perusahaan_id', $perusahaan->id_perusahaan)->first();
+        $currentDomain = $tenant ? $tenant->domains()->first() : null;
+        $domainId = $currentDomain ? $currentDomain->id : null;
+
         $validated = $request->validate([
             'nama_perusahaan' => 'required|string|max:255',
-
-            'domain'          => 'required|string|max:255|unique:domains,domain',
-
-            // user roles
-            'id_User'   => 'nullable|integer|exists:users,id',
-            'id_User_1' => 'nullable|integer|exists:users,id',
-            'id_User_2' => 'nullable|integer|exists:users,id',
-            'id_User_3' => 'nullable|integer|exists:users,id',
-
-            // notify
-            'notify_1' => 'nullable|string',
-            'notify_2' => 'nullable|string',
-
-            // logo
-            'company_logo' => 'nullable|image|mimes:jpg,jpeg,png,webp,svg|max:2048',
+            'domain'          => 'required|string|max:255|unique:domains,domain,' . ($domainId ?? 'NULL'),
+            'company_logo'    => 'nullable|image|mimes:jpg,jpeg,png,webp,svg|max:2048',
         ]);
 
-        // ========================================
-        // 1. Update logo
-        // ========================================
-        if ($request->hasFile('company_logo')) {
-            // Hapus logo lama
-            if ($perusahaan->path_company_logo && Storage::disk('public')->exists($perusahaan->path_company_logo)) {
-                Storage::disk('public')->delete($perusahaan->path_company_logo);
-            }
+        $path = $currentDomain ? $currentDomain->path_company_logo : null;
 
-            // Upload baru
-            $perusahaan->path_company_logo = $request->file('company_logo')->store('company_logo', 'public');
+        // 2. UPDATE LOGO
+        if ($request->hasFile('company_logo')) {
+            // Hapus file fisik lama jika ada di storage
+            if ($path && Storage::disk('public')->exists($path)) {
+                Storage::disk('public')->delete($path);
+            }
+            // Simpan file baru ke storage dan update variabel path
+            $path = $request->file('company_logo')->store('company_logo', 'public');
         }
 
-        // ========================================
-        // 2. Update perusahaan
-        // ========================================
+        // 4. UPDATE DATA PERUSAHAAN (Hanya nama, karena kolom logo tidak ada di sini)
         $perusahaan->update([
-            'nama_perusahaan'   => $validated['nama_perusahaan'],
-            'notify_1'          => $validated['notify_1'] ?? null,
-            'notify_2'          => $validated['notify_2'] ?? null,
-            'path_company_logo' => $perusahaan->path_company_logo,
+            'nama_perusahaan' => $validated['nama_perusahaan'],
         ]);
 
-        $rawDomain = $validated['domain'];
-
-        $tenantId = $validated['nama_perusahaan'];
-
-        $rawTenant= Str::slug($tenantId);
-
-        // Cari tenant berdasarkan perusahaan_id
-        $tenant = Tenant::where('perusahaan_id', $perusahaan->id)->first();
-
+        // 4. UPDATE TENANT & DOMAIN
         if (!$tenant) {
-            // Jika tenant belum ada (kasus langka)
             $tenant = Tenant::create([
-                'id' => Str::slug($rawTenant),
-                'perusahaan_id' => $perusahaan->id,
+                'id'            => Str::slug($validated['nama_perusahaan']),
+                'perusahaan_id' => $perusahaan->id_perusahaan,
             ]);
         }
 
-        // Hapus semua domain lama
+        // Update Domain: Hapus yang lama, buat yang baru
         $tenant->domains()->delete();
-
-        // Buat domain baru
-        $tenant->domains()->create([
-            'domain' => $rawDomain,
+        $newDomain = $tenant->domains()->create([
+            'domain'            => $validated['domain'],
+            'path_company_logo' => $path, // Simpan ke kolom di tabel domains
         ]);
 
-        // ========================================
-        // 3. Sync user roles
-        // ========================================
-        $sync = [];
+        // Opsional: Update id_domain di tabel perusahaan jika Anda ingin menjaga relasi langsung
+        $perusahaan->update(['id_domain' => $newDomain->id]);
 
-        if (!empty($validated['id_User'])) {
-            $sync[$validated['id_User']] = ['role' => 'user'];
-        }
-        if (!empty($validated['id_User_1'])) {
-            $sync[$validated['id_User_1']] = ['role' => 'manager'];
-        }
-        if (!empty($validated['id_User_2'])) {
-            $sync[$validated['id_User_2']] = ['role' => 'direktur'];
-        }
-        if (!empty($validated['id_User_3'])) {
-            $sync[$validated['id_User_3']] = ['role' => 'lawyer'];
-        }
-
-        $perusahaan->users()->sync($sync);
-
-        return back()->with('success', 'Perusahaan berhasil diedit.');
+        return back()->with('success', 'Perusahaan berhasil diperbarui.');
     }
 
     /**
@@ -255,13 +204,34 @@ class PerusahaanController extends Controller
      */
     public function destroy(Perusahaan $perusahaan)
     {
-        $perusahaan->users()->detach();
+        try {
+            $tenant = \App\Models\Tenant::where('perusahaan_id', $perusahaan->id_perusahaan)->first();
 
-        $perusahaan->delete();
+            if ($tenant) {
+                // 1. Ambil nama database transaksi menggunakan method yang ada di bootstrapper
+                $transactionDbName = $tenant->getTransactionDatabaseName();
 
-        return redirect()
-            ->back()
-            ->with('success', 'Perusahaan berhasil dihapus');
+                // 2. Hapus database transaksi secara manual
+                // Gunakan koneksi central agar bisa melakukan DROP
+                DB::connection('tako-user')->statement("DROP DATABASE IF EXISTS \"{$transactionDbName}\"");
+
+                // 3. Hapus Tenant (Ini akan menghapus DB utama tenant secara otomatis)
+                $tenant->delete();
+            }
+
+            // 4. Hapus data perusahaan & logo
+            $perusahaan->users()->detach();
+            if ($perusahaan->path_company_logo) {
+                Storage::disk('public')->delete($perusahaan->path_company_logo);
+            }
+            $perusahaan->delete();
+
+            return redirect()->back()->with('success', 'Perusahaan dan semua database terkait berhasil dihapus.');
+
+        } catch (\Exception $e) {
+            \Log::error("Gagal hapus database transaksi: " . $e->getMessage());
+            return redirect()->back()->with('error', 'Gagal menghapus database transaksi.');
+        }
     }
 
     public function checkManagerExistence($idPerusahaan)

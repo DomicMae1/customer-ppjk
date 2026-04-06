@@ -11,6 +11,7 @@ class StatusShipment extends Model
     use HasFactory;
 
     // protected $connection = 'tako-user';
+    protected $connection = 'tenant-transaction';
     protected $table = 'status_shipments';
 
     // PENTING: Definisi Primary Key baru

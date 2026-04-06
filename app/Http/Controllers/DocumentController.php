@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\MasterDocument;
 use App\Models\MasterSection; // Asumsi ada model ini
 use App\Models\MasterDocumentTrans;
+use Spatie\Permission\Exceptions\UnauthorizedException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
@@ -18,6 +19,11 @@ class DocumentController extends Controller
     public function index(Request $request)
     {
         $user = Auth::user();
+
+        if (!$user->hasPermissionTo('view-document')) {
+            return redirect('/shipping')->with('error', 'Anda tidak memiliki akses ke halaman tersebut.');
+        }
+
         $documents = [];
 
         // --- 1. LOGIC MANAGER/SUPERVISOR (TENANT) ---
@@ -121,7 +127,7 @@ class DocumentController extends Controller
             if (!$tempPath) return null;
 
             // Pastikan menggunakan disk yang sama ('public' sesuai upload temp anda)
-            $disk = Storage::disk('public'); 
+            $disk = Storage::disk('customers_external'); 
 
             // Cek apakah file ada di temp (hindari error jika path salah/kosong)
             if ($disk->exists($tempPath)) {
@@ -227,7 +233,7 @@ class DocumentController extends Controller
         // --- 2. LOGIC MOVE FILE (Helper) ---
         $moveFileFromTemp = function ($tempPath, $targetFolder) {
             if (!$tempPath) return null;
-            $disk = Storage::disk('public'); 
+            $disk = Storage::disk('customers_external'); 
             if ($disk->exists($tempPath)) {
                 $filename = basename($tempPath);
                 $newPath = $targetFolder . '/' . $filename;
@@ -243,8 +249,8 @@ class DocumentController extends Controller
         // Update Example File
         if (!empty($validated['link_path_example_file'])) {
             // Hapus file lama jika ada
-            if ($document->link_path_example_file && Storage::disk('public')->exists($document->link_path_example_file)) {
-                Storage::disk('public')->delete($document->link_path_example_file);
+            if ($document->link_path_example_file && Storage::disk('customers_external')->exists($document->link_path_example_file)) {
+                Storage::disk('customers_external')->delete($document->link_path_example_file);
             }
             // Pindahkan file baru
             $validated['link_path_example_file'] = $moveFileFromTemp($validated['link_path_example_file'], 'documents/examples');
@@ -255,8 +261,8 @@ class DocumentController extends Controller
 
         // Update Template File
         if (!empty($validated['link_path_template_file'])) {
-            if ($document->link_path_template_file && Storage::disk('public')->exists($document->link_path_template_file)) {
-                Storage::disk('public')->delete($document->link_path_template_file);
+            if ($document->link_path_template_file && Storage::disk('customers_external')->exists($document->link_path_template_file)) {
+                Storage::disk('customers_external')->delete($document->link_path_template_file);
             }
             $validated['link_path_template_file'] = $moveFileFromTemp($validated['link_path_template_file'], 'documents/templates');
         } else {
@@ -311,7 +317,7 @@ class DocumentController extends Controller
 
         // --- 2. Hapus File Fisik (Cleanup) ---
         // Gunakan disk 'public' sama seperti saat store
-        $disk = Storage::disk('public');
+        $disk = Storage::disk('customers_external');
 
         // Hapus Example File
         if ($document->link_path_example_file && $disk->exists($document->link_path_example_file)) {
@@ -361,7 +367,7 @@ class DocumentController extends Controller
 
         // 3. Konfigurasi Penyimpanan (Temp)
         // Gunakan disk 'public' agar mudah dipindahkan nanti, atau disk khusus temp Anda
-        $disk = Storage::disk('public'); 
+        $disk = Storage::disk('customers_external'); 
         $tempDir = 'documents/temp'; // Folder sementara
 
         // Buat folder temp jika belum ada

@@ -961,8 +961,36 @@ class ShippingController extends Controller
             $assignedUser = User::on('tako-user')->find($validated['assigned_pic']);
             
             if ($assignedUser) {
-                NotificationService::handleSpkAssignment($spk, $assignedUser, $user);
+                // 1. Update SPK assignment
+                $spk->update(['validated_by' => $validated['assigned_pic']]);
+
+                // 2. Send notification to newly assigned staff
+                try {
+                    NotificationService::send([
+                        'send_to'    => $assignedUser->id_user,
+                        'created_by' => $user->id_user,
+                        'role'       => 'internal',
+                        'id_spk'     => $spk->id,
+                        'data'       => [
+                            'type'     => 'spk_assigned',
+                            'title'    => 'Penunjukan PIC SPK',
+                            'message'  => "Anda ditunjuk sebagai PIC untuk SPK {$spk->spk_code} oleh {$user->name}",
+                            'url'      => "/shipping/{$spk->id}",
+                            'spk_code' => $spk->spk_code,
+                        ]
+                    ]);
+                } catch (\Exception $e) {
+                    Log::error("Failed to send assignment notification: " . $e->getMessage());
+                }
+
+                // 3. Broadcast realtime update
+                try {
+                    ShippingDataUpdated::dispatch($spk->id, 'staff_assigned');
+                } catch (\Exception $e) {
+                    Log::error('Realtime update failed: ' . $e->getMessage());
+                }
             }
+
             
         } catch (\Exception $e) {
              Log::error("Failed to assign staff: " . $e->getMessage());
@@ -1361,7 +1389,6 @@ class ShippingController extends Controller
     public function getAvailableDocuments(Request $request)
     {
         $user = auth('web')->user();
-
         // Initialize tenant context FIRST
         $tenant = null;
         if ($user->id_perusahaan) {
@@ -1384,13 +1411,13 @@ class ShippingController extends Controller
         
         // Validate AFTER tenant is initialized
         $request->validate([
-            'id_spk' => 'required|integer|exists:spk,id',
+            'id_spk' => 'integer|exists:tenant-transaction.spk,id',
         ]);
 
         try {
             // Get documents where id_section is null or 0 (unassigned documents)
             $availableDocuments = MasterDocumentTrans::whereNull('id_section')
-                ->orWhere('id_section', 0)
+                ->orWhere('id_section', 6)
                 ->select([
                     'id_dokumen',
                     'nama_file',
@@ -1429,7 +1456,6 @@ class ShippingController extends Controller
     public function addDocumentsToSection(Request $request)
     {
         $user = auth('web')->user();
-
         // 1. Initialize Tenant Context
         $tenant = null;
         if ($user->id_perusahaan) {
@@ -1445,27 +1471,27 @@ class ShippingController extends Controller
         tenancy()->initialize($tenant);
 
         $request->validate([
-            'id_spk' => 'required|integer',
+            'id_spk' => 'required|integer|exists:tenant-transaction.spk,id',
             'id_section' => 'required|integer',
             'document_ids' => 'required|array',
-            'document_ids.*' => 'integer|exists:master_documents_trans,id'
+            'document_ids.*' => 'integer|exists:master_documents_trans,id_dokumen'
         ]);
 
         try {
             DB::beginTransaction();
 
             $spkId = $request->id_spk;
-            $sectionId = $request->id_section;
+            $masterSectionId = $request->id_section;
             $documentIds = $request->document_ids;
 
             $addedCount = 0;
+            $skippedCount = 0;
             foreach ($documentIds as $masterDocTransId) {
                 // Get master doc trans info
                 $masterDocTrans = MasterDocumentTrans::find($masterDocTransId);
                 
                 if ($masterDocTrans) {
                     // Check if already exists in this SPK to prevent duplicates
-                    // BUG FIX: Compare id_dokumen (The Master Document Type) instead of ID record.
                     $exists = DocumentTrans::where('id_spk', $spkId)
                         ->where('id_dokumen', $masterDocTrans->id_dokumen)
                         ->exists();
@@ -1473,9 +1499,9 @@ class ShippingController extends Controller
                     if (!$exists) {
                         DocumentTrans::create([
                             'id_spk' => $spkId,
-                            'id_section' => $sectionId,
+                            'id_section' => $masterSectionId, // Use Master ID for correct grouping
                             'id_dokumen' => $masterDocTrans->id_dokumen,
-                            'nama_file' => null,
+                            'nama_file' => $masterDocTrans->nama_file,
                             'url_path_file' => null,
                             'verify' => null,
                             'correction_attachment' => false,
@@ -1485,6 +1511,8 @@ class ShippingController extends Controller
                             'mapping_insw' => $masterDocTrans->mapping_insw,
                         ]);
                         $addedCount++;
+                    } else {
+                        $skippedCount++;
                     }
                 }
             }
@@ -1497,9 +1525,20 @@ class ShippingController extends Controller
                 } catch (\Exception $e) {}
             }
 
+            // Build informative message
+            if ($addedCount > 0 && $skippedCount > 0) {
+                $message = "Berhasil menambah {$addedCount} dokumen. {$skippedCount} dokumen lainnya sudah ada (duplikat) sehingga dilewati.";
+            } elseif ($addedCount > 0) {
+                $message = "Berhasil menambah {$addedCount} dokumen.";
+            } else {
+                $message = "Tidak ada dokumen yang ditambahkan. Semua dokumen yang dipilih sudah ada di SPK ini.";
+            }
+
             return response()->json([
-                'success' => true,
-                'message' => "Successfully added {$addedCount} documents to section."
+                'success' => $addedCount > 0,
+                'message' => $message,
+                'added_count' => $addedCount,
+                'skipped_count' => $skippedCount
             ]);
 
         } catch (\Exception $e) {
@@ -1550,12 +1589,12 @@ class ShippingController extends Controller
             return response()->json(['success' => false, 'message' => 'Tenant not found'], 404);
         }
         tenancy()->initialize($tenant);
-        $tenantConnection = 'tenant';
 
         $spk = Spk::findOrFail($spkId);
         $metrics = ['uploads' => 0, 'verifications' => 0, 'rejections' => 0, 'deadline' => false];
 
         DB::beginTransaction();
+        DB::connection('tenant-transaction')->beginTransaction();
         try {
             // --- A. PROCESS ATTACHMENTS ---
             if ($request->has('attachments') && is_array($request->attachments)) {
@@ -1569,7 +1608,7 @@ class ShippingController extends Controller
                         if (!Storage::disk('customers_external')->exists($tempPath)) continue;
                     }
 
-                    $targetDoc = DocumentTrans::on($tenantConnection)->with('sectionTrans')->find($att['document_id']);
+                    $targetDoc = DocumentTrans::with('sectionTrans')->find($att['document_id']);
                     if (!$targetDoc) continue;
 
                     if ($targetDoc->sectionTrans) {
@@ -1621,7 +1660,7 @@ class ShippingController extends Controller
                         $logId = $targetDoc->id;
                     }
 
-                    DocumentStatus::on($tenantConnection)->create(['id_dokumen_trans' => $logId, 'status' => 'Uploaded', 'by' => $user->name]);
+                    DocumentStatus::create(['id_dokumen_trans' => $logId, 'status' => 'Uploaded', 'by' => $user->name]);
                     $metrics['uploads']++;
                 }
 
@@ -1639,9 +1678,9 @@ class ShippingController extends Controller
             // --- B. VERIFICATIONS ---
             if ($request->has('verified_ids') && is_array($request->verified_ids)) {
                 $ids = $request->verified_ids;
-                DocumentTrans::on($tenantConnection)->whereIn('id', $ids)->update(['verify' => true, 'correction_attachment' => false, 'updated_at' => now()]);
+                DocumentTrans::whereIn('id', $ids)->update(['verify' => true, 'correction_attachment' => false, 'updated_at' => now()]);
                 foreach ($ids as $id) {
-                    DocumentStatus::on($tenantConnection)->create(['id_dokumen_trans' => $id, 'status' => 'Verified', 'by' => $user->name]);
+                    DocumentStatus::create(['id_dokumen_trans' => $id, 'status' => 'Verified', 'by' => $user->name]);
                 }
                 SpkStatus::create(['id_spk' => $spk->id, 'id_status' => 2, 'status' => "{$sectionName} Verified"]);
                 $this->sendBatchVerificationNotification($spk, $sectionName, $user, count($ids));
@@ -1652,15 +1691,15 @@ class ShippingController extends Controller
             if ($request->has('rejections') && is_array($request->rejections)) {
                 $rejSecs = [];
                 foreach ($request->rejections as $index => $rej) {
-                    $doc = DocumentTrans::on($tenantConnection)->with('sectionTrans')->findOrFail($rej['doc_id']);
+                    $doc = DocumentTrans::with('sectionTrans')->findOrFail($rej['doc_id']);
                     if ($doc->sectionTrans) $rejSecs[$doc->sectionTrans->id] = $doc->sectionTrans->section_name;
                     
-                    $rejPath = $doc->correction_attachment_file;
+                    $rejPath = null; // Reset — don't carry over file from previous rejection
                     $file = $request->file("rejections.$index.file");
                     if ($file) $rejPath = $file->store('corrections', 'customers_external');
 
                     $doc->update(['verify' => false, 'correction_attachment' => true, 'correction_description' => $rej['note'], 'correction_attachment_file' => $rejPath]);
-                    DocumentStatus::on($tenantConnection)->create(['id_dokumen_trans' => $doc->id, 'status' => 'Rejected', 'by' => $user->name]);
+                    DocumentStatus::create(['id_dokumen_trans' => $doc->id, 'status' => 'Rejected', 'by' => $user->name]);
                     $metrics['rejections']++;
                 }
                 if ($metrics['rejections'] > 0) {
@@ -1672,13 +1711,19 @@ class ShippingController extends Controller
 
             // --- D. DEADLINE ---
             if ($request->deadline) {
-                $st = SectionTrans::on($tenantConnection)->where(['id_spk' => $spk->id, 'id_section' => $sectionId])->first();
-                if ($st) {
-                    $st->update(['deadline' => $request->deadline]);
+                // $sectionId is the primary key (id) of SectionTrans, NOT id_section.
+                // id_section = master section reference, id = unique transactional row PK.
+                $st = SectionTrans::find($sectionId);
+                if ($st && $st->id_spk == $spk->id) {
+                    $st->update([
+                        'deadline' => true,
+                        'deadline_date' => $request->deadline,
+                    ]);
                     $metrics['deadline'] = true;
                 }
             }
 
+            DB::connection('tenant-transaction')->commit();
             DB::commit();
             
             try {
@@ -1687,21 +1732,144 @@ class ShippingController extends Controller
                 Log::error('Realtime update failed: ' . $e->getMessage());
             }
 
-            if ($request->header('X-Inertia')) {
-                return back();
-            }
+            return redirect()->route('shipping.show', $spk->id);
 
-            return response()->json(['success' => true, 'metrics' => $metrics]);
 
         } catch (\Throwable $e) {
+            DB::connection('tenant-transaction')->rollBack();
             DB::rollBack();
             Log::error("Unified Save Fail: " . $e->getMessage());
 
-            if ($request->header('X-Inertia')) {
-                return back()->withErrors(['message' => $e->getMessage()]);
+            return redirect()->back()->withErrors(['message' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Update deadline (Global or Per-Section)
+     */
+    public function updateDeadline(Request $request)
+    {
+        $user = auth('web')->user();
+
+        // 1. Initialize Tenancy
+        $tenant = null;
+        if ($user->id_perusahaan) {
+            $tenant = Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
+        } elseif ($user->id_customer) {
+            $customer = Customer::find($user->id_customer);
+            if ($customer && $customer->ownership) {
+                $tenant = Tenant::where('perusahaan_id', $customer->ownership)->first();
+            }
+        }
+
+        if (!$tenant) {
+            return response()->json(['success' => false, 'message' => 'Tenant not found'], 404);
+        }
+
+        tenancy()->initialize($tenant);
+
+        $request->validate([
+            'spk_id' => 'required',
+            'unified' => 'required|boolean',
+            'global_deadline' => 'nullable|string',
+            'section_deadlines' => 'nullable|array',
+        ]);
+
+        try {
+            DB::connection('tenant-transaction')->beginTransaction();
+
+            if ($request->unified) {
+                // Update all sections for this SPK
+                SectionTrans::where('id_spk', $request->spk_id)->update([
+                    'deadline' => true,
+                    'deadline_date' => $request->global_deadline
+                ]);
+            } else {
+                // Update specific sections
+                if ($request->has('section_deadlines')) {
+                    foreach ($request->section_deadlines as $sectionId => $date) {
+                        SectionTrans::where(['id_spk' => $request->spk_id, 'id' => $sectionId])->update([
+                            'deadline' => true,
+                            'deadline_date' => $date
+                        ]);
+                    }
+                }
             }
 
-            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+            DB::connection('tenant-transaction')->commit();
+
+            try {
+                broadcast(new ShippingDataUpdated($request->spk_id, 'deadline_update'))->toOthers();
+            } catch (\Exception $e) {
+                Log::error('Realtime update failed: ' . $e->getMessage());
+            }
+
+            return response()->json(['success' => true, 'message' => 'Deadline updated successfully']);
+        } catch (\Exception $e) {
+            DB::connection('tenant-transaction')->rollBack();
+            Log::error('Failed to update deadline: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Failed to update deadline: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Update internal_can_upload toggle for SPK (Supervisor only)
+     */
+    public function updateInternalCanUpload(Request $request)
+    {
+        $user = auth('web')->user();
+
+        // Supervisor-only guard
+        if ($user->role !== 'internal' || $user->role_internal !== 'supervisor') {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+        }
+
+        // Initialize tenant context FIRST
+        $tenant = null;
+        if ($user->id_perusahaan) {
+            $tenant = Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
+        } elseif ($user->id_customer) {
+            $customer = Customer::find($user->id_customer);
+            if ($customer && $customer->ownership) {
+                $tenant = Tenant::where('perusahaan_id', $customer->ownership)->first();
+            }
+        }
+
+        if (!$tenant) {
+            return response()->json(['success' => false, 'message' => 'Tenant not found'], 404);
+        }
+
+        tenancy()->initialize($tenant);
+
+        $validated = $request->validate([
+            'id_spk'              => 'required|integer',
+            'internal_can_upload' => 'required|boolean',
+        ]);
+
+        try {
+            $spk = Spk::findOrFail($validated['id_spk']);
+            $spk->update(['internal_can_upload' => $validated['internal_can_upload']]);
+
+            Log::info('internal_can_upload updated', [
+                'spk_id'              => $spk->id,
+                'internal_can_upload' => $validated['internal_can_upload'],
+                'by'                  => $user->id_user,
+            ]);
+
+            try {
+                ShippingDataUpdated::dispatch($spk->id, 'internal_can_upload_update');
+            } catch (\Exception $e) {
+                Log::error('Realtime update failed: ' . $e->getMessage());
+            }
+
+            return response()->json([
+                'success'             => true,
+                'message'             => 'Upload mode updated',
+                'internal_can_upload' => $validated['internal_can_upload'],
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Failed to update internal_can_upload: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Failed to update upload mode'], 500);
         }
     }
 
@@ -1730,7 +1898,7 @@ class ShippingController extends Controller
         tenancy()->initialize($tenant);
         
         $validated = $request->validate([
-            'id_spk' => 'required|integer|exists:spk,id',
+            'id_spk' => 'required|integer',
             'penjaluran' => 'required|string|in:merah,biru',
         ]);
 

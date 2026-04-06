@@ -19,7 +19,7 @@ import {
     useReactTable,
     VisibilityState,
 } from '@tanstack/react-table';
-import { Plus } from 'lucide-react'; // Import Icon Plus
+import { Plus, Search } from 'lucide-react';
 import * as React from 'react';
 import { ChangeEvent, useState } from 'react';
 import { DataTableViewOptions } from './data-table-view-options';
@@ -50,6 +50,7 @@ interface PageProps {
     sections: MasterSection[];
     flash: { success?: string; error?: string };
     auth: { user: any };
+    trans_doc: Record<string, string>;
     [key: string]: any;
 }
 
@@ -62,11 +63,10 @@ interface DataTableProps<TData, TValue> {
 
 export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file' }: DataTableProps<TData, TValue>) {
     // 1. Ambil data documents dan sections dari props Inertia
-    const { documents, sections, flash, auth } = usePage<PageProps>().props;
+    const { sections, auth, trans_doc } = usePage<PageProps>().props;
 
     const userRole = auth.user?.roles?.[0]?.name;
     const isManager = ['manager', 'supervisor'].includes(userRole);
-    const isAdmin = userRole === 'admin';
 
     const [sorting, setSorting] = React.useState<SortingState>([]);
     const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
@@ -110,12 +110,6 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
         setForm((prev) => ({ ...prev, [name]: value }));
     };
 
-    const handleFileChange = (e: ChangeEvent<HTMLInputElement>, field: 'file_example' | 'file_template') => {
-        if (e.target.files && e.target.files[0]) {
-            setForm((prev) => ({ ...prev, [field]: e.target.files![0] }));
-        }
-    };
-
     const handleDropzoneChange = (field: 'link_path_example_file' | 'link_path_template_file', response: any) => {
         if (response && (response.status === 'success' || response.path)) {
             setForm((prev) => ({ ...prev, [field]: response.path }));
@@ -157,13 +151,15 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
             <div className="flex flex-col gap-4 pb-2 md:flex-row md:items-center md:justify-between">
                 {/* Search Input */}
                 <div className="flex w-full items-center gap-2 md:w-auto">
-                    <Input
-                        placeholder="Filter nama dokumen..."
-                        value={(table.getColumn(filterKey)?.getFilterValue() as string) ?? ''}
-                        onChange={(event) => table.getColumn(filterKey)?.setFilterValue(event.target.value)}
-                        className="w-full md:w-[300px]"
-                    />
-                    {/* Mobile Add Button (Icon Only) */}
+                    <div className="relative w-full md:w-[300px]">
+                        <Search className="absolute top-2.5 left-2.5 h-4 w-4 text-gray-500" />
+                        <Input
+                            placeholder={trans_doc.search_placeholder || 'Filter...'}
+                            value={(table.getColumn(filterKey)?.getFilterValue() as string) ?? ''}
+                            onChange={(event) => table.getColumn(filterKey)?.setFilterValue(event.target.value)}
+                            className="w-full pl-9"
+                        />
+                    </div>
                     <Button size="icon" className="shrink-0 md:hidden" onClick={() => setOpenCreate(true)}>
                         <Plus className="h-4 w-4" />
                     </Button>
@@ -173,7 +169,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
                 <div className="hidden items-center gap-2 md:flex">
                     <DataTableViewOptions table={table} />
                     <Button onClick={() => setOpenCreate(true)}>
-                        <Plus className="mr-2 h-4 w-4" /> Tambah Dokumen
+                        <Plus className="mr-2 h-4 w-4" /> {trans_doc.btn_add || 'Tambah Dokumen'}
                     </Button>
                 </div>
             </div>
@@ -183,23 +179,25 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
                 {table.getRowModel().rows.length > 0 ? (
                     table.getRowModel().rows.map((row) => {
                         const original = row.original as unknown as DocumentData;
-
-                        // Render action column manually
                         const actionsCell = row.getVisibleCells().find((cell) => cell.column.id === 'actions');
 
                         return (
-                            <div key={row.id} className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+                            <div key={row.id} className="border-border bg-card rounded-lg border p-4 shadow-sm">
                                 {/* Header: Name & Actions */}
-                                <div className="mb-2 flex items-start justify-between border-b pb-2">
+                                <div className="border-border mb-2 flex items-start justify-between border-b pb-2">
                                     <div>
-                                        <div className="text-base font-bold text-gray-900">{original.nama_file}</div>
+                                        <div className="text-foreground text-base font-bold">{original.nama_file}</div>
                                         {original.section && (
-                                            <span className="mt-1 inline-block rounded bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-600">
+                                            <span className="bg-muted text-muted-foreground mt-1 inline-block rounded px-2 py-0.5 text-[10px] font-medium">
                                                 {original.section.section_name}
                                             </span>
                                         )}
                                     </div>
-                                    {actionsCell && <div>{flexRender(actionsCell.column.columnDef.cell, actionsCell.getContext())}</div>}
+                                    {actionsCell && (
+                                        <div className="text-foreground">
+                                            {flexRender(actionsCell.column.columnDef.cell, actionsCell.getContext())}
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Body: Details */}
@@ -208,21 +206,25 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
                                     <div className="flex flex-wrap gap-2">
                                         <span
                                             className={`rounded px-2 py-0.5 text-[10px] font-bold ${
-                                                original.is_internal ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'
+                                                original.is_internal
+                                                    ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                                                    : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
                                             }`}
                                         >
                                             {original.is_internal ? 'INTERNAL' : 'EXTERNAL / PUBLIC'}
                                         </span>
                                         {original.attribute && (
-                                            <span className="rounded bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-700">MANDATORY</span>
+                                            <span className="rounded bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-700 dark:bg-red-900/30 dark:text-red-400">
+                                                MANDATORY
+                                            </span>
                                         )}
                                     </div>
 
                                     {/* Description */}
                                     {original.description_file && (
-                                        <div className="text-sm text-gray-600">
-                                            <span className="block text-xs font-semibold text-gray-400">Deskripsi:</span>
-                                            {original.description_file}
+                                        <div className="text-muted-foreground text-sm">
+                                            <span className="text-muted-foreground/70 block text-xs font-semibold">Deskripsi:</span>
+                                            <p className="text-foreground/90">{original.description_file}</p>
                                         </div>
                                     )}
                                 </div>
@@ -230,18 +232,20 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
                         );
                     })
                 ) : (
-                    <div className="py-8 text-center text-gray-500">Tidak ada data dokumen.</div>
+                    <div className="text-muted-foreground border-border rounded-lg border-2 border-dashed py-8 text-center">
+                        {trans_doc.no_data || 'Tidak ada data.'}
+                    </div>
                 )}
             </div>
 
             {/* --- DESKTOP VIEW (Table Layout) --- */}
-            <div className="hidden rounded-md border md:block">
+            <div className="border-border bg-card hidden overflow-hidden rounded-md border md:block">
                 <Table>
-                    <TableHeader>
+                    <TableHeader className="bg-muted/50">
                         {table.getHeaderGroups().map((headerGroup) => (
-                            <TableRow key={headerGroup.id}>
+                            <TableRow key={headerGroup.id} className="border-border hover:bg-transparent">
                                 {headerGroup.headers.map((header) => (
-                                    <TableHead key={header.id}>
+                                    <TableHead key={header.id} className="text-muted-foreground font-bold">
                                         {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
                                     </TableHead>
                                 ))}
@@ -251,16 +255,22 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
                     <TableBody>
                         {table.getRowModel().rows?.length ? (
                             table.getRowModel().rows.map((row) => (
-                                <TableRow key={row.id} data-state={row.getIsSelected() && 'selected'}>
+                                <TableRow
+                                    key={row.id}
+                                    data-state={row.getIsSelected() && 'selected'}
+                                    className="border-border hover:bg-muted/30 transition-colors"
+                                >
                                     {row.getVisibleCells().map((cell) => (
-                                        <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
+                                        <TableCell key={cell.id} className="text-foreground">
+                                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                        </TableCell>
                                     ))}
                                 </TableRow>
                             ))
                         ) : (
                             <TableRow>
-                                <TableCell colSpan={columns.length} className="h-24 text-center">
-                                    Tidak ada data dokumen.
+                                <TableCell colSpan={columns.length} className="text-muted-foreground h-24 text-center">
+                                    {trans_doc.no_data || 'Tidak ada data.'}
                                 </TableCell>
                             </TableRow>
                         )}
@@ -274,169 +284,165 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
 
             {/* Dialog Tambah Dokumen */}
             <Dialog open={openCreate} onOpenChange={setOpenCreate}>
-                <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+                <DialogContent className="border-border bg-background text-foreground max-h-[90vh] w-[95vw] overflow-y-auto rounded-xl p-4 sm:max-w-lg sm:p-6">
                     <DialogHeader>
-                        <DialogTitle>{isManager ? 'Tambah Dokumen Internal Perusahaan' : 'Tambah Master Dokumen (Global)'}</DialogTitle>
-                        <DialogDescription>
-                            {isManager
-                                ? 'Dokumen ini hanya akan tersedia untuk perusahaan Anda.'
-                                : 'Dokumen ini akan tersedia untuk semua perusahaan sebagai standar.'}
+                        <DialogTitle className="text-foreground pt-8 text-xl font-bold">
+                            {isManager ? trans_doc.title_create_internal : trans_doc.title_create_master}
+                        </DialogTitle>
+                        <DialogDescription className="text-muted-foreground text-sm">
+                            {isManager ? trans_doc.desc_create_internal : trans_doc.desc_create_master}
                         </DialogDescription>
                     </DialogHeader>
 
-                    <div className="space-y-4 py-2">
-                        {/* Nama File */}
-                        <div>
-                            <Label htmlFor="nama_file">Nama Dokumen</Label>
+                    <div className="space-y-5 py-3">
+                        <div className="grid gap-2">
+                            <Label htmlFor="nama_file" className="text-foreground font-semibold">
+                                {trans_doc.label_doc_name}
+                            </Label>
                             <Input
                                 id="nama_file"
                                 name="nama_file"
                                 value={form.nama_file}
                                 onChange={handleInputChange}
-                                placeholder="Contoh: SOP Gudang"
+                                placeholder={trans_doc.placeholder_doc_name}
+                                className="bg-background text-foreground h-11 sm:h-10"
                             />
                         </div>
 
-                        {/* Pilihan Section */}
-                        <div>
-                            <Label htmlFor="id_section">Section</Label>
+                        <div className="grid gap-2">
+                            <Label htmlFor="id_section" className="text-foreground font-semibold">
+                                {trans_doc.label_section}
+                            </Label>
                             <select
                                 id="id_section"
                                 name="id_section"
-                                className="w-full rounded border px-2 py-1"
+                                className="border-input bg-background text-foreground focus:ring-primary h-11 w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none sm:h-10"
                                 value={form.id_section}
                                 onChange={handleInputChange}
                             >
-                                <option value="">Pilih Section</option>
+                                <option value="" className="bg-background">
+                                    {trans_doc.placeholder_section}
+                                </option>
                                 {sections.map((sec: any) => (
-                                    <option key={sec.id_section} value={sec.id_section}>
+                                    <option key={sec.id_section} value={sec.id_section} className="bg-background">
                                         {sec.section_name}
                                     </option>
                                 ))}
                             </select>
                         </div>
 
-                        <div className="flex">
-                            {/* === INPUT BARU: Is Internal? === */}
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <div>
-                                <Label className="mb-2 block">Dokumen ini akan diupload oleh siapa</Label>
+                                <Label className="text-muted-foreground mb-2 block text-xs font-bold uppercase">
+                                    {trans_doc.label_upload_access}
+                                </Label>
                                 <div className="flex gap-2">
                                     <Button
                                         type="button"
                                         variant={form.is_internal ? 'default' : 'outline'}
                                         onClick={() => handleBooleanChange('is_internal', true)}
-                                        className="w-20"
+                                        className="h-11 flex-1 sm:h-9"
                                     >
-                                        Internal
+                                        {trans_doc.btn_internal}
                                     </Button>
                                     <Button
                                         type="button"
                                         variant={!form.is_internal ? 'default' : 'outline'}
                                         onClick={() => handleBooleanChange('is_internal', false)}
-                                        className="w-20"
+                                        className="h-11 flex-1 sm:h-9"
                                     >
-                                        External
+                                        {trans_doc.btn_external}
                                     </Button>
                                 </div>
-                                <p className="mt-1 text-xs text-gray-500">
-                                    {form.is_internal
-                                        ? 'Dokumen ini hanya untuk penggunaan internal.'
-                                        : 'Dokumen ini bisa diakses publik/eksternal jika diperlukan.'}
-                                </p>
                             </div>
 
-                            {/* === INPUT BARU: Attribute? === */}
                             <div>
-                                <Label className="mb-2 block">Mandatory atau tidak?</Label>
+                                <Label className="text-muted-foreground mb-2 block text-xs font-bold uppercase">{trans_doc.label_mandatory}</Label>
                                 <div className="flex gap-2">
                                     <Button
                                         type="button"
                                         variant={form.attribute ? 'default' : 'outline'}
                                         onClick={() => handleBooleanChange('attribute', true)}
-                                        className="w-20"
+                                        className="h-11 flex-1 sm:h-9"
                                     >
-                                        Ya
+                                        {trans_doc.btn_yes}
                                     </Button>
                                     <Button
                                         type="button"
                                         variant={!form.attribute ? 'default' : 'outline'}
                                         onClick={() => handleBooleanChange('attribute', false)}
-                                        className="w-20"
+                                        className="h-11 flex-1 sm:h-9"
                                     >
-                                        Tidak
+                                        {trans_doc.btn_no}
                                     </Button>
                                 </div>
                             </div>
                         </div>
 
-                        <div>
-                            <Label htmlFor="link_url_video_file">Link Video Tutorial (Youtube)</Label>
+                        <div className="grid gap-2">
+                            <Label htmlFor="link_url_video_file" className="text-foreground font-semibold">
+                                {trans_doc.label_video_link}
+                            </Label>
                             <Input
                                 id="link_url_video_file"
                                 name="link_url_video_file"
                                 value={form.link_url_video_file}
                                 onChange={handleInputChange}
                                 placeholder="https://youtube.com/..."
+                                className="bg-background text-foreground h-11 sm:h-10"
                             />
                         </div>
 
-                        <div className="max-w-[250px] sm:max-w-[300px]">
-                            <Label className="mb-2" htmlFor="file_example">
-                                Contoh File
-                            </Label>
-                            <div className="w-full">
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            <div className="space-y-2">
+                                <Label className="text-foreground font-semibold">{trans_doc.label_example_file}</Label>
                                 <ResettableDropzone
-                                    label="Upload Contoh"
+                                    label={trans_doc.btn_upload_example}
                                     isRequired={false}
-                                    uploadConfig={{
-                                        url: '/document/upload-temp', // Pastikan route ini ada di backend Anda
-                                        payload: { type: 'example', doc_name: form.nama_file }, // Sesuaikan payload jika perlu
-                                    }}
+                                    uploadConfig={{ url: '/document/upload-temp', payload: { type: 'example', doc_name: form.nama_file } }}
                                     onFileChange={(file, response) => handleDropzoneChange('link_path_example_file', response)}
-                                    // Jika ingin menampilkan file yang sudah ada (saat edit), gunakan existingFile prop
                                 />
                             </div>
-                        </div>
-
-                        <div className="max-w-[250px] sm:max-w-[300px]">
-                            <Label htmlFor="file_template">Template File</Label>
-                            <div className="w-full">
+                            <div className="space-y-2">
+                                <Label className="text-foreground font-semibold">{trans_doc.label_template_file}</Label>
                                 <ResettableDropzone
-                                    label="Upload Template"
+                                    label={trans_doc.btn_upload_template}
                                     isRequired={false}
-                                    uploadConfig={{
-                                        url: '/document/upload-temp',
-                                        payload: { type: 'template', doc_name: form.nama_file },
-                                    }}
+                                    uploadConfig={{ url: '/document/upload-temp', payload: { type: 'template', doc_name: form.nama_file } }}
                                     onFileChange={(file, response) => handleDropzoneChange('link_path_template_file', response)}
                                 />
                             </div>
                         </div>
 
-                        {/* Deskripsi */}
-                        <div>
-                            <Label htmlFor="description_file">Deskripsi</Label>
+                        <div className="grid gap-2">
+                            <Label htmlFor="description_file" className="text-foreground font-semibold">
+                                {trans_doc.label_description}
+                            </Label>
                             <textarea
                                 id="description_file"
                                 name="description_file"
-                                className="w-full rounded border px-2 py-1"
+                                className="border-input bg-background text-foreground focus:ring-primary flex min-h-[100px] w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
                                 rows={3}
                                 value={form.description_file}
                                 onChange={handleInputChange}
-                                placeholder="Deskripsi dokumen..."
+                                placeholder={trans_doc.placeholder_description}
                             />
                         </div>
                     </div>
 
-                    <DialogFooter className="sm:justify-start">
-                        <Button type="button" onClick={handleSubmit}>
-                            Simpan
-                        </Button>
+                    <DialogFooter className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end sm:gap-2">
                         <DialogClose asChild>
-                            <Button type="button" variant="secondary">
-                                Batal
+                            <Button type="button" variant="secondary" className="h-11 w-full sm:h-10 sm:w-auto">
+                                {trans_doc.btn_cancel}
                             </Button>
                         </DialogClose>
+                        <Button
+                            type="button"
+                            onClick={handleSubmit}
+                            className="bg-primary text-primary-foreground h-11 w-full font-bold shadow-md sm:h-10 sm:w-auto"
+                        >
+                            {trans_doc.btn_save_doc}
+                        </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

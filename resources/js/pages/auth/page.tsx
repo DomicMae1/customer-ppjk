@@ -162,7 +162,7 @@ export default function ManageUsers() {
                         </div>
                     </DialogHeader>
                     <DialogFooter className="sm:justify-start">
-                        <Button type="button" variant="destructive" onClick={onConfirmDelete}>
+                        <Button className="text-white" type="button" variant="destructive" onClick={onConfirmDelete}>
                             {trans_auth.btn_delete}
                         </Button>
                         <DialogClose asChild>

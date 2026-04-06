@@ -26,7 +26,7 @@ Route::get('/', function () {
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', function () {
         return redirect('shipping');
-    });
+    })->name('dashboard');
 
     Route::resource('customer', CustomerController::class);
     
@@ -38,8 +38,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('shipping/available-documents', [ShippingController::class, 'getAvailableDocuments'])->name('shipping.availableDocuments');
     Route::post('shipping/add-documents-to-section', [ShippingController::class, 'addDocumentsToSection'])->name('shipping.addDocumentsToSection');
     Route::post('shipping/update-penjaluran', [ShippingController::class, 'updatePenjaluran'])->name('shipping.updatePenjaluran');
+    Route::post('shipping/update-internal-can-upload', [ShippingController::class, 'updateInternalCanUpload'])->name('shipping.updateInternalCanUpload');
     
     Route::post('shipping/unified-save', [ShippingController::class, 'unifiedBatchSave'])->name('shipping.unifiedSave');
+    Route::post('shipping/update-deadline', [ShippingController::class, 'updateDeadline'])->name('shipping.updateDeadline');
     
     // Resource route AFTER specific routes
     Route::resource('shipping', ShippingController::class);

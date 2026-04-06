@@ -3,96 +3,66 @@
 namespace Tests\Feature\Settings;
 
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Concerns\RefreshDatabaseWithUserMigrations;
 use Tests\TestCase;
 
 class ProfileUpdateTest extends TestCase
 {
-    use RefreshDatabase;
+    use RefreshDatabaseWithUserMigrations;
 
     public function test_profile_page_is_displayed()
     {
-        $user = User::factory()->create();
-
-        $response = $this
-            ->actingAs($user)
-            ->get('/settings/profile');
-
-        $response->assertOk();
+        $this->actingAs(User::factory()->create())
+            ->get('/settings/profile')
+            ->assertNotFound();
     }
 
-    public function test_profile_information_can_be_updated()
+    public function test_profile_information_can_not_be_updated_when_route_is_disabled()
     {
-        $user = User::factory()->create();
-
-        $response = $this
-            ->actingAs($user)
+        $this->actingAs(User::factory()->create())
             ->patch('/settings/profile', [
                 'name' => 'Test User',
                 'email' => 'test@example.com',
-            ]);
-
-        $response
-            ->assertSessionHasNoErrors()
-            ->assertRedirect('/settings/profile');
-
-        $user->refresh();
-
-        $this->assertSame('Test User', $user->name);
-        $this->assertSame('test@example.com', $user->email);
-        $this->assertNull($user->email_verified_at);
+            ])
+            ->assertNotFound();
     }
 
-    public function test_email_verification_status_is_unchanged_when_the_email_address_is_unchanged()
+    public function test_profile_email_verification_flow_is_unavailable_when_route_is_disabled()
     {
         $user = User::factory()->create();
 
-        $response = $this
-            ->actingAs($user)
+        $this->actingAs($user)
             ->patch('/settings/profile', [
                 'name' => 'Test User',
                 'email' => $user->email,
-            ]);
-
-        $response
-            ->assertSessionHasNoErrors()
-            ->assertRedirect('/settings/profile');
-
-        $this->assertNotNull($user->refresh()->email_verified_at);
+            ])
+            ->assertNotFound();
     }
 
-    public function test_user_can_delete_their_account()
+    public function test_user_can_not_delete_their_account_when_route_is_disabled()
     {
         $user = User::factory()->create();
 
-        $response = $this
-            ->actingAs($user)
+        $this->actingAs($user)
             ->delete('/settings/profile', [
                 'password' => 'password',
-            ]);
+            ])
+            ->assertNotFound();
 
-        $response
-            ->assertSessionHasNoErrors()
-            ->assertRedirect('/');
-
-        $this->assertGuest();
-        $this->assertNull($user->fresh());
+        $this->assertAuthenticated();
+        $this->assertNotNull($user->fresh());
     }
 
-    public function test_correct_password_must_be_provided_to_delete_account()
+    public function test_invalid_password_delete_attempt_is_unavailable_when_route_is_disabled()
     {
         $user = User::factory()->create();
 
-        $response = $this
-            ->actingAs($user)
+        $this->actingAs($user)
             ->from('/settings/profile')
             ->delete('/settings/profile', [
                 'password' => 'wrong-password',
-            ]);
-
-        $response
-            ->assertSessionHasErrors('password')
-            ->assertRedirect('/settings/profile');
+            ])
+            ->assertNotFound();
 
         $this->assertNotNull($user->fresh());
     }

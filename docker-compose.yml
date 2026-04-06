@@ -36,6 +36,11 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
 
+      # Override REVERB ke internal Docker network (bukan publik)
+      - REVERB_HOST=reverb
+      - REVERB_PORT=8080
+      - REVERB_SCHEME=http
+
       # Setup URL
       - APP_URL=${APP_URL}
       - FILESYSTEM_DISK=${FILESYSTEM_DISK:-public}
@@ -45,6 +50,9 @@ services:
       # Mounting storage public for consistency
       - ./storage/app/public:/var/www/html/storage/app/public
       - /mnt/Ppjk:/mnt/Ppjk
+      - /home/it-staff/sites-available:/etc/apache2/sites-available
+      - /home/it-staff/sites-enabled:/etc/apache2/sites-enabled
+      - /home/it-staff/letsencrypt:/etc/letsencrypt
       - /etc/hosts:/tmp/hosts_external:ro
 
     depends_on:
@@ -96,6 +104,10 @@ services:
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      # Override REVERB ke internal Docker network (bukan publik)
+      - REVERB_HOST=reverb
+      - REVERB_PORT=8080
+      - REVERB_SCHEME=http
       - DB_CONNECTION=pgsql
       - DB_HOST=${DB_SECOND_HOST}
       - DB_PORT=${DB_SECOND_PORT}

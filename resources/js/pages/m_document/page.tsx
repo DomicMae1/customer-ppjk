@@ -14,13 +14,6 @@ import { toast } from 'sonner';
 import { columns } from './table/columns';
 import { DataTable } from './table/data-table';
 
-const breadcrumbs: BreadcrumbItem[] = [
-    {
-        title: 'Manage Documents',
-        href: '/document',
-    },
-];
-
 interface MasterSection {
     id_section: number;
     section_name: string;
@@ -44,11 +37,19 @@ interface PageProps {
     sections: MasterSection[];
     flash: { success?: string; error?: string };
     auth: { user: any };
+    trans_doc: Record<string, string>;
     [key: string]: any;
 }
 
 export default function ManageDocuments() {
-    const { documents, sections, flash, auth } = usePage<PageProps>().props;
+    const { documents, sections, flash, auth, trans_doc } = usePage<PageProps>().props;
+
+    const breadcrumbs: BreadcrumbItem[] = [
+        {
+            title: trans_doc.breadcrumb_title || 'Manage Documents',
+            href: '/document',
+        },
+    ];
 
     const userRole = auth.user?.roles?.[0]?.name;
     const isManager = ['manager', 'supervisor'].includes(userRole);
@@ -97,7 +98,7 @@ export default function ManageDocuments() {
         if (doc) {
             // Validasi: Manager tidak boleh edit Master (Source 'master')
             if (isManager && doc.source === 'master') {
-                toast.error('Anda tidak memiliki izin untuk mengedit Dokumen Master Pusat.');
+                toast.error(trans_doc.error_edit_master || 'Anda tidak memiliki izin untuk mengedit Dokumen Master.');
                 return;
             }
 
@@ -173,18 +174,14 @@ export default function ManageDocuments() {
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Manage Documents" />
+            <Head title={trans_doc.page_title || 'Manage Documents'} />
             <div className="p-4">
                 <div className="mb-4">
-                    <h2 className="text-lg font-semibold">{isAdmin ? 'Master Data Dokumen (Global)' : 'Data Dokumen Perusahaan (Internal)'}</h2>
-                    <p className="text-sm text-gray-500">
-                        {isAdmin
-                            ? 'Dokumen yang dibuat di sini akan menjadi standar untuk semua perusahaan.'
-                            : 'Dokumen ini khusus untuk perusahaan Anda.'}
-                    </p>
+                    <h2 className="text-lg font-semibold">{isAdmin ? trans_doc.header_global : trans_doc.header_internal}</h2>
+                    <p className="text-sm text-gray-500">{isAdmin ? trans_doc.desc_global : trans_doc.desc_internal}</p>
                 </div>
 
-                <DataTable columns={columns(onEditClick, onDeleteClick)} data={documents} />
+                <DataTable columns={columns(onEditClick, onDeleteClick, trans_doc)} data={documents} />
             </div>
 
             {/* --- MODAL EDIT --- */}
@@ -192,16 +189,13 @@ export default function ManageDocuments() {
                 {/* UBAH: w-[95vw] agar di mobile hampir full width, tapi tetap ada margin */}
                 <DialogContent className="max-h-[90vh] w-[95vw] overflow-y-auto sm:max-w-lg">
                     <DialogHeader>
-                        <DialogTitle>Edit Dokumen</DialogTitle>
-                        <DialogDescription>
-                            {isManager ? 'Mengubah dokumen internal perusahaan.' : 'Mengubah dokumen master global.'}
-                        </DialogDescription>
+                        <DialogTitle>{trans_doc.title_edit || 'Edit Dokumen'}</DialogTitle>
+                        <DialogDescription>{isManager ? trans_doc.subtitle_edit_internal : trans_doc.subtitle_edit_master}</DialogDescription>
                     </DialogHeader>
 
                     <form onSubmit={onConfirmEdit} className="space-y-4 py-2">
-                        {/* Nama Dokumen */}
                         <div>
-                            <Label htmlFor="edit_nama_file">Nama Dokumen</Label>
+                            <Label htmlFor="edit_nama_file">{trans_doc.label_doc_name}</Label>
                             <Input
                                 id="edit_nama_file"
                                 value={editForm.nama_file}
@@ -210,12 +204,11 @@ export default function ManageDocuments() {
                             />
                         </div>
 
-                        {/* Section */}
                         <div>
-                            <Label htmlFor="edit_id_section">Section</Label>
+                            <Label htmlFor="edit_id_section">{trans_doc.label_section}</Label>
                             <Select value={editForm.id_section} onValueChange={(val) => setEditForm({ ...editForm, id_section: val })}>
                                 <SelectTrigger className="mt-1 w-full">
-                                    <SelectValue placeholder="Pilih Section" />
+                                    <SelectValue placeholder={trans_doc.placeholder_section} />
                                 </SelectTrigger>
                                 <SelectContent>
                                     {sections.map((sec) => (
@@ -227,20 +220,17 @@ export default function ManageDocuments() {
                             </Select>
                         </div>
 
-                        {/* Grid untuk Toggle Buttons agar rapi di mobile */}
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                            {/* === INPUT EDIT: Is Internal? === */}
                             <div>
-                                <Label className="mb-2 block text-xs font-semibold text-gray-500 uppercase">Akses Upload</Label>
+                                <Label className="mb-2 block text-xs font-semibold text-gray-500 uppercase">{trans_doc.label_upload_access}</Label>
                                 <div className="flex w-full gap-2">
-                                    {/* UBAH: flex-1 agar tombol memenuhi lebar container */}
                                     <Button
                                         type="button"
                                         variant={editForm.is_internal ? 'default' : 'outline'}
                                         onClick={() => handleEditBooleanChange('is_internal', true)}
                                         className="flex-1"
                                     >
-                                        Internal
+                                        {trans_doc.btn_internal}
                                     </Button>
                                     <Button
                                         type="button"
@@ -248,14 +238,13 @@ export default function ManageDocuments() {
                                         onClick={() => handleEditBooleanChange('is_internal', false)}
                                         className="flex-1"
                                     >
-                                        External
+                                        {trans_doc.btn_external}
                                     </Button>
                                 </div>
                             </div>
 
-                            {/* === INPUT EDIT: Attribute? === */}
                             <div>
-                                <Label className="mb-2 block text-xs font-semibold text-gray-500 uppercase">Mandatory?</Label>
+                                <Label className="mb-2 block text-xs font-semibold text-gray-500 uppercase">{trans_doc.label_mandatory}</Label>
                                 <div className="flex w-full gap-2">
                                     <Button
                                         type="button"
@@ -263,7 +252,7 @@ export default function ManageDocuments() {
                                         onClick={() => handleEditBooleanChange('attribute', true)}
                                         className="flex-1"
                                     >
-                                        Ya
+                                        {trans_doc.btn_yes}
                                     </Button>
                                     <Button
                                         type="button"
@@ -271,15 +260,14 @@ export default function ManageDocuments() {
                                         onClick={() => handleEditBooleanChange('attribute', false)}
                                         className="flex-1"
                                     >
-                                        Tidak
+                                        {trans_doc.btn_no}
                                     </Button>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Link Video */}
                         <div>
-                            <Label htmlFor="edit_video">Link Video</Label>
+                            <Label htmlFor="edit_video">{trans_doc.label_video_link}</Label>
                             <Input
                                 id="edit_video"
                                 value={editForm.link_url_video_file}
@@ -289,50 +277,40 @@ export default function ManageDocuments() {
                             />
                         </div>
 
-                        {/* UBAH: Grid Layout untuk Upload File (Vertikal di Mobile, Horizontal di Desktop) */}
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                            {/* Kolom 1: Contoh File */}
                             <div className="w-full">
-                                <Label className="mb-2 block">Ganti Contoh File</Label>
-                                <div className="w-full">
-                                    <ResettableDropzone
-                                        label="Upload Baru"
-                                        isRequired={false}
-                                        uploadConfig={{
-                                            url: '/document/upload-temp',
-                                            payload: { type: 'example', doc_name: editForm.nama_file },
-                                        }}
-                                        onFileChange={(file, response) => handleEditDropzoneChange('link_path_example_file', response)}
-                                        existingFile={editForm.existing_example}
-                                        className="w-full items-start justify-start text-left"
-                                    />
-                                </div>
-                                <p className="mt-1 text-[10px] text-gray-500">*Upload untuk menimpa file lama</p>
+                                <Label className="mb-2 block">{trans_doc.label_change_example}</Label>
+                                <ResettableDropzone
+                                    label={trans_doc.btn_upload_new}
+                                    isRequired={false}
+                                    uploadConfig={{
+                                        url: '/document/upload-temp',
+                                        payload: { type: 'example', doc_name: editForm.nama_file },
+                                    }}
+                                    onFileChange={(file, response) => handleEditDropzoneChange('link_path_example_file', response)}
+                                    existingFile={editForm.existing_example}
+                                />
+                                <p className="mt-1 text-[10px] text-gray-500">{trans_doc.note_overwrite}</p>
                             </div>
 
-                            {/* Kolom 2: Template File */}
                             <div className="w-full">
-                                <Label className="mb-2 block">Ganti Template File</Label>
-                                <div className="w-full">
-                                    <ResettableDropzone
-                                        label="Upload Baru"
-                                        isRequired={false}
-                                        uploadConfig={{
-                                            url: '/document/upload-temp',
-                                            payload: { type: 'template', doc_name: editForm.nama_file },
-                                        }}
-                                        onFileChange={(file, response) => handleEditDropzoneChange('link_path_template_file', response)}
-                                        existingFile={editForm.existing_template}
-                                        className="w-full items-start justify-start text-left"
-                                    />
-                                </div>
-                                <p className="mt-1 text-[10px] text-gray-500">*Upload untuk menimpa file lama</p>
+                                <Label className="mb-2 block">{trans_doc.label_change_template}</Label>
+                                <ResettableDropzone
+                                    label={trans_doc.btn_upload_new}
+                                    isRequired={false}
+                                    uploadConfig={{
+                                        url: '/document/upload-temp',
+                                        payload: { type: 'template', doc_name: editForm.nama_file },
+                                    }}
+                                    onFileChange={(file, response) => handleEditDropzoneChange('link_path_template_file', response)}
+                                    existingFile={editForm.existing_template}
+                                />
+                                <p className="mt-1 text-[10px] text-gray-500">{trans_doc.note_overwrite}</p>
                             </div>
                         </div>
 
-                        {/* Deskripsi */}
                         <div>
-                            <Label htmlFor="edit_desc">Deskripsi</Label>
+                            <Label htmlFor="edit_desc">{trans_doc.label_description}</Label>
                             <Textarea
                                 id="edit_desc"
                                 value={editForm.description_file}
@@ -344,11 +322,11 @@ export default function ManageDocuments() {
 
                         <DialogFooter className="flex-col space-y-2 sm:flex-row sm:justify-end sm:space-y-0 sm:space-x-2">
                             <Button type="submit" className="w-full sm:w-auto">
-                                Simpan Perubahan
+                                {trans_doc.btn_save_changes}
                             </Button>
                             <DialogClose asChild>
                                 <Button type="button" variant="secondary" className="w-full sm:w-auto">
-                                    Batal
+                                    {trans_doc.btn_cancel}
                                 </Button>
                             </DialogClose>
                         </DialogFooter>
@@ -360,17 +338,17 @@ export default function ManageDocuments() {
             <Dialog open={openDelete} onOpenChange={setOpenDelete}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Hapus Dokumen</DialogTitle>
+                        <DialogTitle>{trans_doc.title_delete}</DialogTitle>
                         <DialogDescription>
-                            Anda yakin ingin menghapus <strong>{docToDelete?.nama_file}</strong>? Tindakan ini tidak dapat dibatalkan.
+                            {trans_doc.confirm_delete_1} <strong>{docToDelete?.nama_file}</strong>? {trans_doc.confirm_delete_2}
                         </DialogDescription>
                     </DialogHeader>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setOpenDelete(false)}>
-                            Batal
+                            {trans_doc.btn_cancel}
                         </Button>
                         <Button variant="destructive" className="text-white" onClick={handleConfirmDelete}>
-                            Hapus
+                            {trans_doc.btn_delete}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

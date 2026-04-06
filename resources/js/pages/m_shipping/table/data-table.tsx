@@ -18,10 +18,10 @@ import {
     useReactTable,
     VisibilityState,
 } from '@tanstack/react-table';
-import { ChevronUp, Clipboard, CopyPlus, Image as ImageIcon, Plus, Trash2, X } from 'lucide-react'; // Import Icon Plus & Upload
+import { Clipboard, CopyPlus, Image as ImageIcon, Plus, Trash2, X } from 'lucide-react'; // Import Icon Plus & Upload
 import { nanoid } from 'nanoid';
 import * as React from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { DataTableViewOptions } from './data-table-view-options';
 import { DataTablePagination } from './pagination';
 
@@ -125,6 +125,21 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
 
     const updateHsCode = (id: string, field: keyof HsCodeItem, value: any) => {
         setHsCodes(hsCodes.map((item) => (item.id === id ? { ...item, [field]: value } : item)));
+    };
+
+    const handleFileInPaste = (e: React.ClipboardEvent, itemId: string) => {
+        const items = e.clipboardData.items;
+        for (let i = 0; i < items.length; i++) {
+            if (items[i].type.indexOf('image') !== -1) {
+                const blob = items[i].getAsFile();
+                if (blob) {
+                    const extension = blob.type.split('/')[1] || 'png';
+                    const file = new File([blob], `pasted-image-${Date.now()}.${extension}`, { type: blob.type });
+                    updateHsCode(itemId, 'file', file);
+                    return;
+                }
+            }
+        }
     };
 
     const handleSaveShipment = () => {
@@ -242,16 +257,6 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                         {trans.reset}
                     </Button>
 
-                    {/* <Select value={currentLocale} onValueChange={(val) => (window.location.href = `/lang/${val}`)}>
-                        <SelectTrigger className="w-[150px]">
-                            <SelectValue placeholder={trans.language} />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="id">🇮🇩 {trans.indonesian}</SelectItem>
-                            <SelectItem value="en">🇬🇧 {trans.english}</SelectItem>
-                        </SelectContent>
-                    </Select> */}
-
                     {userRole === 'supervisor' && (
                         <div>
                             <Select value={statusFilter} onValueChange={(val) => setStatusFilter(val as 'sudah' | 'belum' | '')}>
@@ -273,30 +278,32 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                     {userRole && (
                         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                             <DialogTrigger asChild>
-                                <Button className="h-9">{trans.add_shipment}</Button>
+                                <Button className="h-9 font-semibold">{trans.add_shipment}</Button>
                             </DialogTrigger>
 
-                            <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-[550px]">
+                            <DialogContent className="border-border bg-background text-foreground max-h-[85vh] overflow-y-auto sm:max-w-[550px]">
                                 <DialogHeader>
-                                    <DialogTitle className="text-xl font-bold">{trans.shipment_data}</DialogTitle>
-                                    <DialogDescription className="hidden">Form input data shipment</DialogDescription>
+                                    <DialogTitle className="text-foreground text-xl font-bold">{trans.shipment_data}</DialogTitle>
+                                    <DialogDescription className="sr-only">Form input data shipment</DialogDescription>
                                 </DialogHeader>
 
                                 <div className="grid gap-4 py-4">
                                     {/* Shipment Type Toggle */}
                                     <div className="space-y-2">
-                                        <Label className="font-semibold">{trans.shipment_type}</Label>
+                                        <Label className="text-foreground font-semibold">{trans.shipment_type}</Label>
                                         <div className="flex w-full gap-2">
                                             <Button
                                                 type="button"
-                                                className={`w-1/2 ${shipmentType === 'Import' ? 'bg-black text-white hover:bg-gray-800' : 'border bg-white text-black hover:bg-gray-100'}`}
+                                                variant={shipmentType === 'Import' ? 'default' : 'outline'}
+                                                className="w-1/2 font-bold"
                                                 onClick={() => setShipmentType('Import')}
                                             >
                                                 {trans.import}
                                             </Button>
                                             <Button
                                                 type="button"
-                                                className={`w-1/2 ${shipmentType === 'Export' ? 'bg-black text-white hover:bg-gray-800' : 'border bg-white text-black hover:bg-gray-100'}`}
+                                                variant={shipmentType === 'Export' ? 'default' : 'outline'}
+                                                className="w-1/2 font-bold"
                                                 onClick={() => setShipmentType('Export')}
                                             >
                                                 {trans.export}
@@ -306,22 +313,25 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
 
                                     {/* Input Dynamic Label (BL vs SI) */}
                                     <div className="space-y-2">
-                                        <Label className="font-semibold">{shipmentType === 'Import' ? trans.input_bl : trans.input_si}</Label>
+                                        <Label className="text-foreground font-semibold">
+                                            {shipmentType === 'Import' ? trans.input_bl : trans.input_si}
+                                        </Label>
                                         <Input
                                             placeholder={shipmentType === 'Import' ? trans.placeholder_bl : trans.placeholder_si}
                                             value={blNumber}
                                             onChange={(e) => setBlNumber(e.target.value)}
+                                            className="bg-background border-input text-foreground focus:ring-primary"
                                         />
                                     </div>
 
                                     {/* Input Customer */}
                                     <div className="space-y-2">
-                                        <Label className="font-semibold">{trans.input_customer}</Label>
+                                        <Label className="text-foreground font-semibold">{trans.input_customer}</Label>
                                         <Select value={selectedCustomer} onValueChange={setSelectedCustomer} disabled={isUserExternal}>
-                                            <SelectTrigger>
+                                            <SelectTrigger className="bg-background border-input text-foreground">
                                                 <SelectValue placeholder={trans.select_customer_placeholder} />
                                             </SelectTrigger>
-                                            <SelectContent>
+                                            <SelectContent className="bg-popover border-border text-popover-foreground">
                                                 {externalCustomers.length > 0 ? (
                                                     externalCustomers.map((cust: any) => (
                                                         <SelectItem key={cust.id_customer} value={String(cust.id_customer)}>
@@ -329,14 +339,13 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                                         </SelectItem>
                                                     ))
                                                 ) : (
-                                                    <div className="p-2 text-center text-sm text-gray-500">{trans.data_not_found}</div>
+                                                    <div className="text-muted-foreground p-2 text-center text-sm">{trans.data_not_found}</div>
                                                 )}
                                             </SelectContent>
                                         </Select>
-                                        {isUserExternal && <p className="text-[10px] text-gray-500">{trans.auto_selected_msg}</p>}
+                                        {isUserExternal && <p className="text-muted-foreground text-[10px] italic">{trans.auto_selected_msg}</p>}
                                     </div>
 
-                                    {/* NEW: Supervisor Assigns Staff */}
                                     {auth.user?.role === 'internal' && auth.user?.role_internal === 'supervisor' && (
                                         <div className="space-y-2">
                                             <Label className="font-semibold">{trans.assign_staff || 'Assign Staff'}</Label>
@@ -359,118 +368,152 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                         </div>
                                     )}
 
-                                    {/* Data HS Code Section */}
-                                    <div className="space-y-4 pb-4">
-                                        <div className="flex items-center justify-between px-1">
-                                            <Label className="text-base font-bold">{trans.hs_code_data}</Label>
-                                            <ChevronUp className="h-4 w-4" />
+                                    {/* HS Code Section */}
+                                    <div className="space-y-4">
+                                        <div className="border-border flex items-center justify-between border-b pb-2">
+                                            <Label className="text-foreground text-base font-bold">{trans.hs_code_data}</Label>
                                         </div>
 
                                         <div className="flex flex-col gap-4">
                                             {hsCodes.map((item, index) => (
-                                                <div key={item.id} className="relative rounded-lg border bg-white p-4 shadow-sm">
-                                                    {/* TOMBOL DELETE HS CODE */}
+                                                <div
+                                                    key={item.id}
+                                                    className="border-border bg-card group relative rounded-lg border p-4 shadow-sm transition-all focus-within:ring-2 focus-within:ring-primary/20"
+                                                    onPaste={(e) => handleFileInPaste(e, item.id)}
+                                                >
                                                     {index > 0 && (
                                                         <button
                                                             type="button"
                                                             onClick={() => removeHsCodeField(item.id)}
-                                                            className="absolute top-3 right-3 text-red-500 transition-colors hover:text-red-700"
+                                                            className="text-destructive absolute top-3 right-3 transition-colors hover:text-red-400"
                                                         >
                                                             <Trash2 className="h-4 w-4" />
                                                         </button>
                                                     )}
 
                                                     <div className="grid gap-3 pt-1">
-                                                        {/* Input HS Code */}
                                                         <div className="space-y-1">
-                                                            <Label className="text-sm">{trans.input_hs_code}</Label>
+                                                            <Label className="text-foreground text-sm">{trans.input_hs_code}</Label>
                                                             <Input
                                                                 placeholder={trans.placeholder_hs_code}
                                                                 value={item.code}
                                                                 onChange={(e) => updateHsCode(item.id, 'code', e.target.value)}
+                                                                className="bg-background border-input text-foreground"
                                                             />
                                                         </div>
 
-                                                        {/* File Upload */}
+                                                        {/* File Upload / Image Preview */}
                                                         <div className="space-y-2">
-                                                            <Label className="text-sm">{trans.insw_link_ref}</Label>
+                                                            <Label className="text-foreground text-sm">{trans.insw_link_ref}</Label>
                                                             {item.file ? (
-                                                                <div className="relative flex items-center justify-center rounded-md border border-dashed border-gray-300 bg-gray-50 p-4">
+                                                                <div className="border-border bg-muted/50 relative flex items-center justify-center rounded-md border border-dashed p-4">
                                                                     <button
                                                                         type="button"
                                                                         onClick={() => updateHsCode(item.id, 'file', null)}
-                                                                        className="absolute -top-2 -right-2 rounded-full bg-red-500 p-1 text-white shadow-md hover:bg-red-600"
+                                                                        className="bg-destructive absolute -top-2 -right-2 rounded-full p-1 text-white shadow-md"
                                                                     >
-                                                                        <X className="h-4 w-4" />
+                                                                        <X className="h-4 w-4 stroke-[2.5]" />
                                                                     </button>
-
                                                                     <div className="flex flex-col items-center gap-2">
                                                                         {item.file.type.startsWith('image/') ? (
                                                                             <img
                                                                                 src={URL.createObjectURL(item.file)}
                                                                                 alt="Preview"
-                                                                                className="max-h-32 rounded object-contain"
+                                                                                className="border-border max-h-32 rounded border object-contain"
                                                                             />
                                                                         ) : (
-                                                                            <div className="flex flex-col items-center text-gray-500">
-                                                                                <ImageIcon className="mb-2 h-10 w-10" />
-                                                                                <span className="text-xs">{item.file.name}</span>
-                                                                            </div>
+                                                                            <ImageIcon className="text-muted-foreground h-10 w-10" />
                                                                         )}
-                                                                        <span className="text-xs font-medium text-gray-500">{item.file.name}</span>
+                                                                        <span className="text-muted-foreground max-w-[200px] truncate text-xs font-medium">
+                                                                            {item.file.name}
+                                                                        </span>
                                                                     </div>
                                                                 </div>
                                                             ) : (
-                                                                <div className="flex flex-col gap-3">
-                                                                    {/* Tombol Pilih File */}
-                                                                    <div className="relative">
-                                                                        <Input
-                                                                            type="file"
-                                                                            className="hidden"
-                                                                            id={`file-${item.id}`}
-                                                                            accept="image/*"
-                                                                            onChange={(e) =>
-                                                                                updateHsCode(item.id, 'file', e.target.files?.[0] || null)
+                                                                <div className="flex flex-col gap-2">
+                                                                    <Input
+                                                                        type="file"
+                                                                        className="hidden"
+                                                                        id={`file-${item.id}`}
+                                                                        accept="image/*"
+                                                                        onChange={(e) => updateHsCode(item.id, 'file', e.target.files?.[0] || null)}
+                                                                    />
+                                                                    <label
+                                                                        htmlFor={`file-${item.id}`}
+                                                                        className="bg-primary/5 text-primary border-2 border-dashed border-primary/20 hover:border-primary hover:bg-primary/10 flex h-20 w-full cursor-pointer flex-col items-center justify-center gap-1 rounded-md text-sm font-bold transition-all"
+                                                                        onDragOver={(e) => {
+                                                                            e.preventDefault();
+                                                                            e.currentTarget.classList.add('bg-primary/20', 'border-primary');
+                                                                        }}
+                                                                        onDragLeave={(e) => {
+                                                                            e.preventDefault();
+                                                                            e.currentTarget.classList.remove('bg-primary/20', 'border-primary');
+                                                                        }}
+                                                                        onDrop={(e) => {
+                                                                            e.preventDefault();
+                                                                            e.currentTarget.classList.remove('bg-primary/20', 'border-primary');
+                                                                            const file = e.dataTransfer.files[0];
+                                                                            if (file && file.type.startsWith('image/')) {
+                                                                                updateHsCode(item.id, 'file', file);
                                                                             }
-                                                                        />
-                                                                        <label
-                                                                            htmlFor={`file-${item.id}`}
-                                                                            className="flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-md bg-[#1d64d0] text-sm font-bold text-white shadow-sm transition-colors hover:bg-blue-700"
-                                                                        >
-                                                                            <ImageIcon className="h-4 w-4" />
-                                                                            {trans.choose_image}
-                                                                        </label>
-                                                                    </div>
-
-                                                                    {/* Tombol Paste Clipboard */}
+                                                                        }}
+                                                                    >
+                                                                        <ImageIcon className="h-6 w-6" />
+                                                                        <span className="text-xs">
+                                                                            {trans.choose_image}{' '}
+                                                                            <span className="hidden opacity-60 md:inline">
+                                                                                / Drag & Drop / Ctrl+V
+                                                                            </span>
+                                                                        </span>
+                                                                    </label>
                                                                     <Button
                                                                         type="button"
                                                                         variant="outline"
-                                                                        className="flex h-10 w-full items-center justify-center gap-2 rounded-md border border-gray-300 bg-white text-sm font-bold text-[#1d64d0] shadow-sm hover:bg-gray-50"
+                                                                        className="border-border bg-background text-foreground hover:bg-accent flex h-10 w-full items-center justify-center gap-2"
                                                                         onClick={async (e) => {
                                                                             e.preventDefault();
+
+                                                                            if (!window.isSecureContext) {
+                                                                                alert('Fitur paste hanya berfungsi di link HTTPS (koneksi aman).');
+                                                                                return;
+                                                                            }
+
+                                                                            if (!navigator.clipboard || !navigator.clipboard.read) {
+                                                                                alert('Browser ini tidak mendukung fitur paste otomatis.');
+                                                                                return;
+                                                                            }
+
                                                                             try {
                                                                                 const clipboardItems = await navigator.clipboard.read();
                                                                                 let imageFound = false;
                                                                                 for (const clipItem of clipboardItems) {
                                                                                     const imageType = clipItem.types.find((type) =>
-                                                                                        type.startsWith('image/'),
+                                                                                        type.toLowerCase().includes('image'),
                                                                                     );
                                                                                     if (imageType) {
                                                                                         const blob = await clipItem.getType(imageType);
-                                                                                        let extension = imageType.split('/')[1];
-                                                                                        if (extension === 'jpeg') extension = 'jpg';
+                                                                                        let extension = imageType.split('/')[1] || 'png';
+                                                                                        if (extension.includes('jpeg')) extension = 'jpg';
+                                                                                        if (extension.includes('+'))
+                                                                                            extension = extension.split('+')[0];
+
                                                                                         const fileName = `clipboard-${Date.now()}.${extension}`;
-                                                                                        const file = new File([blob], fileName, { type: imageType });
+                                                                                        const file = new File([blob], fileName, {
+                                                                                            type: imageType,
+                                                                                        });
                                                                                         updateHsCode(item.id, 'file', file);
                                                                                         imageFound = true;
                                                                                         break;
                                                                                     }
                                                                                 }
                                                                                 if (!imageFound) alert(trans.alert_no_clipboard);
-                                                                            } catch (err) {
+                                                                            } catch (err: any) {
                                                                                 console.error(err);
-                                                                                alert(trans.alert_clipboard_error);
+                                                                                if (err.name === 'NotAllowedError') {
+                                                                                    alert('Izin baca clipboard ditolak. Silakan izinkan di browser.');
+                                                                                } else {
+                                                                                    alert(trans.alert_clipboard_error);
+                                                                                }
                                                                             }
                                                                         }}
                                                                     >
@@ -486,18 +529,16 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                         </div>
                                     </div>
 
-                                    {/* Add Another HS Code Button */}
                                     <Button
                                         variant="outline"
-                                        className="flex w-full items-center gap-2 border-blue-200 text-blue-600 hover:text-blue-700"
+                                        className="border-primary/30 text-primary hover:bg-primary/10 flex w-full items-center gap-2"
                                         onClick={addHsCodeField}
                                     >
                                         <CopyPlus className="h-4 w-4" />
                                         {trans.add_another_hs}
                                     </Button>
 
-                                    {/* Save Button */}
-                                    <Button className="w-full bg-gray-200 text-black hover:bg-gray-300" onClick={handleSaveShipment}>
+                                    <Button className="w-full font-bold shadow-lg" onClick={handleSaveShipment}>
                                         {trans.save}
                                     </Button>
                                 </div>
@@ -557,17 +598,17 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                             const dateObj = original.tanggal_status ? new Date(original.tanggal_status) : null;
                             const dateStr = dateObj
                                 ? dateObj.toLocaleDateString(currentLocale === 'id' ? 'id-ID' : 'en-GB', {
-                                      day: '2-digit',
-                                      month: '2-digit',
-                                      year: '2-digit',
-                                  })
+                                    day: '2-digit',
+                                    month: '2-digit',
+                                    year: '2-digit',
+                                })
                                 : '-';
                             const timeStr = dateObj
                                 ? dateObj.toLocaleTimeString(currentLocale === 'id' ? 'id-ID' : 'en-GB', {
-                                      hour: '2-digit',
-                                      minute: '2-digit',
-                                      hour12: false,
-                                  })
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    hour12: false,
+                                })
                                 : '';
 
                             // Logic Warna Jalur
@@ -580,81 +621,81 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                             return (
                                 <div
                                     key={row.id}
-                                    className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm"
+                                    className="border-border bg-card active:bg-accent cursor-pointer rounded-lg border p-4 shadow-sm transition-colors"
                                     onClick={() => router.visit(`/shipping/${original.id}`)}
                                 >
                                     {/* Header Card: No SPK & Jalur */}
-                                    <div className="mb-2 flex items-center justify-between border-b pb-2">
-                                        <span className="font-mono text-base font-medium text-gray-900">{original.spk_code || '-'}</span>
-                                        <span className={`text-sm font-bold ${jalurColor}`}>{original.jalur || '-'}</span>
+                                    <div className="border-border mb-2 flex items-center justify-between border-b pb-2">
+                                        <span className="text-foreground font-mono text-base font-medium">{original.spk_code || '-'}</span>
+                                        <span
+                                            className={`text-sm font-bold ${original.jalur?.toLowerCase() === 'hijau'
+                                                    ? 'text-emerald-500'
+                                                    : original.jalur?.toLowerCase() === 'merah'
+                                                        ? 'text-rose-500'
+                                                        : 'text-amber-500'
+                                                }`}
+                                        >
+                                            {original.jalur || '-'}
+                                        </span>
                                     </div>
 
                                     {/* Content Card */}
                                     <div className="space-y-3">
                                         <div>
-                                            <p className="text-xs text-gray-500">{trans.customer_name}</p>
-                                            <p className="font-bold text-gray-900">{original.nama_customer || '-'}</p>
+                                            <p className="text-muted-foreground text-[10px] font-bold uppercase">{trans.customer_name}</p>
+                                            <p className="text-foreground font-bold">{original.nama_customer || '-'}</p>
                                         </div>
 
                                         <div>
-                                            <p className="text-xs text-gray-500">{trans.status_description}</p>
-                                            <div className="text-sm text-gray-800">
-                                                <span className="font-medium">{original.status_label || '-'}</span>
+                                            <p className="text-muted-foreground text-[10px] font-bold uppercase">{trans.status_description}</p>
+                                            <div className="text-foreground/90 text-sm">
+                                                <span className="text-primary font-medium">{original.status_label || '-'}</span>
                                                 {original.nama_user && (
-                                                    <>
+                                                    <span className="text-muted-foreground">
                                                         {' '}
-                                                        {trans.by} <strong>{original.nama_user}</strong>
-                                                    </>
+                                                        {trans.by} <strong className="text-foreground">{original.nama_user}</strong>
+                                                    </span>
                                                 )}
                                                 {dateObj && (
-                                                    <>
-                                                        {' '}
+                                                    <span className="text-muted-foreground mt-1 block text-xs">
                                                         {trans.at}{' '}
-                                                        <strong>
+                                                        <strong className="text-foreground">
                                                             {dateStr} {timeStr} WIB
                                                         </strong>
-                                                    </>
+                                                    </span>
                                                 )}
                                             </div>
                                         </div>
 
-                                        {/* PROGRESS BAR MOBILE */}
+                                        {/* PROGRESS BAR MOBILE (Dark Mode Optimized) */}
                                         <div className="pt-1">
                                             <div className="mb-1 flex items-center justify-between gap-2">
-                                                <span className="text-[10px] font-bold tracking-wider text-slate-500 uppercase">
+                                                <span className="text-muted-foreground text-[10px] font-bold tracking-wider uppercase">
                                                     {trans.progress}
                                                 </span>
-                                                <span className="text-[11px] font-extrabold text-slate-700">{original.progress || 0}%</span>
+                                                <span className="text-foreground text-[11px] font-extrabold">{original.progress || 0}%</span>
                                             </div>
-                                            <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100 shadow-inner">
+                                            <div className="bg-muted h-1.5 w-full overflow-hidden rounded-full shadow-inner">
                                                 <div
-                                                    className={`h-full transition-all duration-1000 ease-out ${
-                                                        original.progress === 100
+                                                    className={`h-full transition-all duration-1000 ease-out ${original.progress === 100
                                                             ? 'bg-emerald-500'
                                                             : (original.progress || 0) >= 80
-                                                              ? 'bg-indigo-500'
-                                                              : (original.progress || 0) >= 40
-                                                                ? 'bg-blue-500'
-                                                                : (original.progress || 0) > 0
-                                                                  ? 'bg-sky-400'
-                                                                  : 'bg-slate-200'
-                                                    }`}
+                                                                ? 'bg-indigo-500'
+                                                                : (original.progress || 0) >= 40
+                                                                    ? 'bg-blue-500'
+                                                                    : 'bg-sky-400'
+                                                        }`}
                                                     style={{ width: `${original.progress || 0}%` }}
                                                 />
                                             </div>
                                         </div>
 
+                                        {/* Deadline Alert */}
                                         {isUserExternal && original.deadline_date && (
-                                            <div className="mt-1 flex items-center gap-1">
-                                                <span className="text-lg font-bold text-red-500">ⓘ</span>
-                                                <span className="text-xs font-bold text-red-500">
-                                                    {trans.submit_before}{' '}
-                                                    {new Date(original.deadline_date).toLocaleDateString(currentLocale === 'id' ? 'id-ID' : 'en-GB', {
-                                                        day: '2-digit',
-                                                        month: '2-digit',
-                                                        year: 'numeric',
-                                                    })}{' '}
-                                                    {trans.wib}
+                                            <div className="mt-1 flex items-center gap-1 rounded border border-rose-500/20 bg-rose-500/10 p-1.5">
+                                                <span className="text-sm font-bold text-rose-500">ⓘ</span>
+                                                <span className="text-[10px] font-bold tracking-tight text-rose-500 uppercase">
+                                                    {trans.submit_before} {new Date(original.deadline_date).toLocaleDateString(dateLocale)}
                                                 </span>
                                             </div>
                                         )}
@@ -682,8 +723,8 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                                     (header.column.getIsSorted() === 'asc'
                                                         ? '⬆️'
                                                         : header.column.getIsSorted() === 'desc'
-                                                          ? '⬇️'
-                                                          : '')}
+                                                            ? '⬇️'
+                                                            : '')}
                                             </button>
                                         ) : (
                                             flexRender(header.column.columnDef.header, header.getContext())
