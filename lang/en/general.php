@@ -19,6 +19,9 @@ return [
     'green' => 'Green',
     'red' => 'Red',
     'yellow' => 'Yellow',
+    'merah' => 'Red',
+    'hijau' => 'Green',
+    'kuning' => 'Yellow',
 
     // Status Cell Text
     'by' => 'by',
@@ -82,7 +85,7 @@ return [
     'status_unknown' => 'STATUS UNKNOWN',
     'shipment_type' => 'Shipment Type',
     'si' => 'SI', // Shipping Instruction
-    'bl' => 'B/L', // Bill of Lading
+    'bl' => 'B/L Number', // Bill of Lading
     'spk' => 'SPK', // Work Order
     'hs_code' => 'HS Code',
     'edit_hs_data' => 'Edit HS Code Data',
@@ -245,4 +248,17 @@ return [
     'light' => 'Light',
     'dark' => 'Dark',
     'system' => 'System',
+
+    // detail shipment
+    'assign_staff' => 'Assign Staff',
+    'staff_upload' => 'Staff Upload',
+    'dual_upload' => 'Dual Upload',
+    'staff_upload_desc' => 'Internal staff uploads all documents',
+    'dual_upload_desc' => 'Documents are uploaded together between internal & external',
+    'upload_mode' => 'Upload Mode',
+    'channel' => 'Channel',
+    'green_line' => 'Green Line',
+    'red_line' => 'Red Line',
+    'no_available_documents' => 'No available documents',
+    'loading_docs' => 'Loading documents...',
 ];
