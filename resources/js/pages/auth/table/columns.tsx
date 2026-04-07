@@ -27,7 +27,7 @@ export const columns = (onDeleteClick: (id: number) => void, onEditClick: (id: n
     },
     {
         id: 'actions',
-        header: t.header_actions, // Opsional: Header untuk kolom aksi
+        header: '', // Opsional: Header untuk kolom aksi
         cell: ({ row }) => {
             const user = row.original;
             const userId = (user as any).id_user || user.id;
