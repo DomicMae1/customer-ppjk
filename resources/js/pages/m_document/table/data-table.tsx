@@ -107,7 +107,14 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
     // --- FORM HANDLERS ---
     const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
-        setForm((prev) => ({ ...prev, [name]: value }));
+        setForm((prev) => {
+            const newState = { ...prev, [name]: value };
+            // Jika id_section diubah ke 6 (Global), otomatis matikan mandatory (attribute = false)
+            if (name === 'id_section' && value === '6') {
+                newState.attribute = false;
+            }
+            return newState;
+        });
     };
 
     const handleDropzoneChange = (field: 'link_path_example_file' | 'link_path_template_file', response: any) => {
@@ -356,27 +363,29 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
                                 </div>
                             </div>
 
-                            <div>
-                                <Label className="text-muted-foreground mb-2 block text-xs font-bold uppercase">{trans_doc.label_mandatory}</Label>
-                                <div className="flex gap-2">
-                                    <Button
-                                        type="button"
-                                        variant={form.attribute ? 'default' : 'outline'}
-                                        onClick={() => handleBooleanChange('attribute', true)}
-                                        className="h-11 flex-1 sm:h-9"
-                                    >
-                                        {trans_doc.btn_yes}
-                                    </Button>
-                                    <Button
-                                        type="button"
-                                        variant={!form.attribute ? 'default' : 'outline'}
-                                        onClick={() => handleBooleanChange('attribute', false)}
-                                        className="h-11 flex-1 sm:h-9"
-                                    >
-                                        {trans_doc.btn_no}
-                                    </Button>
+                            {Number(form.id_section) !== 6 && (
+                                <div>
+                                    <Label className="text-muted-foreground mb-2 block text-xs font-bold uppercase">{trans_doc.label_mandatory}</Label>
+                                    <div className="flex gap-2">
+                                        <Button
+                                            type="button"
+                                            variant={form.attribute ? 'default' : 'outline'}
+                                            onClick={() => handleBooleanChange('attribute', true)}
+                                            className="h-11 flex-1 sm:h-9"
+                                        >
+                                            {trans_doc.btn_yes}
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            variant={!form.attribute ? 'default' : 'outline'}
+                                            onClick={() => handleBooleanChange('attribute', false)}
+                                            className="h-11 flex-1 sm:h-9"
+                                        >
+                                            {trans_doc.btn_no}
+                                        </Button>
+                                    </div>
                                 </div>
-                            </div>
+                            )}
                         </div>
 
                         <div className="grid gap-2">
