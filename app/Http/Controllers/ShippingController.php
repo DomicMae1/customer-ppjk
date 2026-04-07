@@ -326,54 +326,46 @@ class ShippingController extends Controller
                 ]);
             }
 
-            // --- 4. GENERATE DOKUMEN TRANSAKSI (UPDATED LOGIC) ---
-            // Alur: MasterDocument (Global) -> MasterDocumentTrans (Tenant) -> DocumentTrans (Tenant Transaction)
-            
-            $masterDocs = MasterDocument::on('tako-user')->with('section')->get();
+            // --- 4. GENERATE DOKUMEN TRANSAKSI ---
+            // master_document_trans hanya sebagai patokan, tidak diubah saat create SPK
 
-            foreach ($masterDocs as $masterDoc) {
-                // A. Simpan/Cek dahulu ke Master Document Trans (Di Database Tenant)
-                $masterDocTrans = MasterDocumentTrans::firstOrCreate(
-                    [
-                        'id_section' => $masterDoc->id_section,
-                        'nama_file'  => $masterDoc->nama_file,
-                    ],
-                    [
-                        // Data yang akan dicopy jika belum ada
-                        'is_internal'             => $masterDoc->is_internal,
-                        'is_verification'         => $masterDoc->is_verification ?? true, // New: Copy flag, default true
-                        'attribute'               => $masterDoc->attribute,
-                        'link_path_example_file'  => $masterDoc->link_path_example_file,
-                        'link_path_template_file' => $masterDoc->link_path_template_file,
-                        'link_url_video_file'     => $masterDoc->link_url_video_file,
-                        'description_file'        => $masterDoc->description_file,
-                        'updated_by'              => $userId,
-                    ]
-                );
+            $finalDocs = MasterDocumentTrans::where('is_active', true)
+                ->orderBy('id_dokumen', 'asc')
+                ->get()
+                ->unique(function ($doc) {
+                    return $doc->id_section . '|' . \Illuminate\Support\Str::lower(trim($doc->nama_file));
+                })
+                ->sortBy([
+                    ['id_section', 'asc'],
+                    ['id_dokumen', 'asc'],
+                ])
+                ->values();
 
-                // Siapkan Log Message
-                $sectionName = $masterDoc->section ? $masterDoc->section->section_name : 'Unknown Section';
+            foreach ($finalDocs as $doc) {
+                $section = MasterSection::on('tako-user')
+                    ->where('id_section', $doc->id_section)
+                    ->first();
+
+                $sectionName = $section ? $section->section_name : 'Unknown Section';
                 $logMessage = "Document {$sectionName} requested " . now()->format('d-m-Y H:i') . " WIB";
 
-                // B. Buat Document Transaksi (Nyata)
                 $newDocTrans = DocumentTrans::create([
-                    'id_spk'                     => $spk->id,
-                    'id_dokumen'                 => $masterDocTrans->id_dokumen, // Menggunakan PK dari MasterDocumentTrans
-                    'id_section'                 => $masterDocTrans->id_section,
-                    'nama_file'                  => $masterDocTrans->nama_file,
-                    'is_internal'                => $masterDocTrans->is_internal ?? false,
-                    'is_verification'            => $masterDocTrans->is_verification ?? true, // New: from Master
-                    'url_path_file'              => null,
-                    'verify'                     => false,
-                    'correction_attachment'      => false,
-                    'kuota_revisi'               => 3,
-                    'updated_by'                 => $userId,
-                    'logs'                       => $logMessage,
-                    'created_at'                 => now(),
-                    'updated_at'                 => now(),
+                    'id_spk'                => $spk->id,
+                    'id_dokumen'            => $doc->id_dokumen,
+                    'id_section'            => $doc->id_section,
+                    'nama_file'             => $doc->nama_file,
+                    'is_internal'           => $doc->is_internal ?? false,
+                    'is_verification'       => $doc->is_verification ?? true,
+                    'url_path_file'         => null,
+                    'verify'                => false,
+                    'correction_attachment' => false,
+                    'kuota_revisi'          => 3,
+                    'updated_by'            => $userId,
+                    'logs'                  => $logMessage,
+                    'created_at'            => now(),
+                    'updated_at'            => now(),
                 ]);
 
-                // Create Initial Status
                 DocumentStatus::create([
                     'id_dokumen_trans' => $newDocTrans->id,
                     'status'           => $logMessage,
@@ -381,6 +373,59 @@ class ShippingController extends Controller
                     'created_at'       => now(),
                     'updated_at'       => now(),
                 ]);
+            }
+
+            // --- 4B. FINAL DOCS UNTUK SPK = SEMUA DOKUMEN TENANT YANG AKTIF ---
+            $finalDocs = MasterDocumentTrans::where('is_active', true)
+                ->orderBy('id_dokumen', 'asc')
+                ->get()
+                ->unique(function ($doc) {
+                    return $doc->id_section . '|' . \Illuminate\Support\Str::lower(trim($doc->nama_file));
+                })
+                ->sortBy([
+                    ['id_section', 'asc'],
+                    ['id_dokumen', 'asc'],
+                ])
+                ->values();
+
+            foreach ($finalDocs as $doc) {
+                $section = MasterSection::on('tako-user')
+                    ->where('id_section', $doc->id_section)
+                    ->first();
+
+                $sectionName = $section ? $section->section_name : 'Unknown Section';
+                $logMessage = "Document {$sectionName} requested " . now()->format('d-m-Y H:i') . " WIB";
+
+                $newDocTrans = DocumentTrans::firstOrCreate(
+                    [
+                        'id_spk'     => $spk->id,
+                        'id_dokumen' => $doc->id_dokumen,
+                    ],
+                    [
+                        'id_section'            => $doc->id_section,
+                        'nama_file'             => $doc->nama_file,
+                        'is_internal'           => $doc->is_internal ?? false,
+                        'is_verification'       => $doc->is_verification ?? true,
+                        'url_path_file'         => null,
+                        'verify'                => false,
+                        'correction_attachment' => false,
+                        'kuota_revisi'          => 3,
+                        'updated_by'            => $userId,
+                        'logs'                  => $logMessage,
+                        'created_at'            => now(),
+                        'updated_at'            => now(),
+                    ]
+                );
+
+                if ($newDocTrans->wasRecentlyCreated) {
+                    DocumentStatus::create([
+                        'id_dokumen_trans' => $newDocTrans->id,
+                        'status'           => $logMessage,
+                        'by'               => $userId,
+                        'created_at'       => now(),
+                        'updated_at'       => now(),
+                    ]);
+                }
             }
 
             if ($user->role === 'internal') {
