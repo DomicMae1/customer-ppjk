@@ -35,6 +35,7 @@ class UserController extends Controller
         $companyQuery = Perusahaan::select(['id_perusahaan as id', 'nama_perusahaan']);
 
         if ($user->hasRole('admin')) {
+            
         } 
         elseif ($user->hasRole(['manager', 'supervisor'])) {
             $usersQuery->where('id_perusahaan', $user->id_perusahaan);
@@ -49,7 +50,22 @@ class UserController extends Controller
         $roles = Role::all(['id', 'name']);
         $perusahaan = $companyQuery->get();
         
-        $customers = Customer::select(['id_customer as id', 'nama_perusahaan'])->where('ownership', $user->id_perusahaan)->get();
+        if ($user->hasRole('admin')) {
+            $customers = Customer::select([
+                    'id_customer as id',
+                    'nama_perusahaan',
+                    'ownership',
+                ])
+                ->get();
+        } else {
+            $customers = Customer::select([
+                    'id_customer as id',
+                    'nama_perusahaan',
+                    'ownership',
+                ])
+                ->where('ownership', $user->id_perusahaan)
+                ->get();
+        }
 
         return Inertia::render('auth/page', [
             'users' => $users,
