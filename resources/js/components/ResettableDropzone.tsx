@@ -4,6 +4,7 @@
 // resources/js/components/ResettableDropzone.tsx
 
 import { cn } from '@/lib/utils';
+import { usePage } from '@inertiajs/react';
 import axios from 'axios';
 import { AlertCircle, File as FileIcon, Trash2Icon } from 'lucide-react';
 import React, { useState } from 'react';
@@ -48,6 +49,9 @@ export function ResettableDropzone({
 }: ResettableDropzoneProps & { disabled?: boolean }) {
     const [fileStatus, setFileStatus] = useState<FileStatus | null>(null);
     const [componentKey, setComponentKey] = useState(Date.now());
+    const { trans_doc } = usePage().props as unknown as {
+        trans_doc: Record<string, string>;
+    };
 
     React.useEffect(() => {
         if (existingFile && existingFile.path) {
@@ -121,7 +125,7 @@ export function ResettableDropzone({
             onFileChange(file, res.data);
         } catch (error: any) {
             console.error(error);
-            const msg = error.response?.data?.error || 'Gagal mengupload file';
+            const msg = error.response?.data?.error || trans_doc.dropzone_upload_failed;
             setFileStatus({
                 id: String(Date.now()),
                 status: 'error',
@@ -140,7 +144,7 @@ export function ResettableDropzone({
 
                 if (rejection.errors[0].code === 'file-too-large') {
                     const sizeInMb = validation.maxSize! / (1024 * 1024);
-                    msg = `Ukuran file terlalu besar. Maksimal ${sizeInMb}MB.`;
+                    msg = `${trans_doc.dropzone_file_too_large} ${sizeInMb}MB.`;
                 }
 
                 setFileStatus({
@@ -247,13 +251,15 @@ export function ResettableDropzone({
 
                                     {fixedPreviewUrl && (
                                         <span className="text-[10px] text-blue-600 underline decoration-blue-600/30 dark:text-blue-400">
-                                            Lihat File
+                                            {trans_doc.dropzone_view_file}
                                         </span>
                                     )}
 
                                     {!fixedPreviewUrl && (fileStatus.status === 'uploading' || fileStatus.status === 'processing') && (
                                         <span className="text-muted-foreground text-[10px]">
-                                            {fileStatus.status === 'processing' ? 'Processing...' : `Uploading ${fileStatus.progress}%`}
+                                            {fileStatus.status === 'processing'
+                                                ? trans_doc.dropzone_processing
+                                                : `${trans_doc.dropzone_uploading} ${fileStatus.progress}%`}
                                         </span>
                                     )}
                                 </div>
@@ -273,12 +279,12 @@ export function ResettableDropzone({
                             )}
                         </div>
                     ) : (
-                        <span className="text-muted-foreground text-xs font-medium">Upload here</span>
+                        <span className="text-muted-foreground text-xs font-medium">{trans_doc.dropzone_upload_here}</span>
                     )}
                 </div>
 
                 {/* Helper Text */}
-                {!fileStatus && <p className="text-muted-foreground mt-1 text-[10px] italic">* Maksimal ukuran attachment 20 MB</p>}
+                {!fileStatus && <p className="text-muted-foreground mt-1 text-[10px] italic">{trans_doc.dropzone_max_attachment}</p>}
 
                 {/* Error Message */}
                 {fileStatus?.status === 'error' && (

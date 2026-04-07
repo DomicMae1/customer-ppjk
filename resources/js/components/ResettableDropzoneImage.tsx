@@ -3,6 +3,7 @@
 // resources/js/components/ResettableDropzone.tsx
 
 import { cn } from '@/lib/utils';
+import { usePage } from '@inertiajs/react';
 import { CloudUploadIcon, Trash2Icon } from 'lucide-react';
 import React, { useState } from 'react';
 import { Accept, FileRejection, useDropzone } from 'react-dropzone';
@@ -43,6 +44,9 @@ export function ResettableDropzoneImage({
     const [fileStatus, setFileStatus] = useState<FileStatus | null>(null);
     const [lastLoadedFile, setLastLoadedFile] = useState<string | null>(null);
     const [componentKey, setComponentKey] = useState(Date.now());
+    const { trans_doc } = usePage().props as unknown as {
+        trans_doc: Record<string, string>;
+    };
 
     React.useEffect(() => {
         // Jika user sudah upload file baru, jangan timpa dengan existingFile
@@ -65,7 +69,7 @@ export function ResettableDropzoneImage({
                     id: String(Date.now()),
                     status: 'error',
                     fileName: rejection.file.name,
-                    errorMessage: rejection.errors[0].message,
+                    errorMessage: trans_doc.dropzone_image_invalid,
                 });
                 onFileChange(null);
             } else if (acceptedFiles.length > 0) {
@@ -135,7 +139,7 @@ export function ResettableDropzoneImage({
                         {fileStatus.previewUrl && (
                             <img
                                 src={fileStatus.previewUrl}
-                                alt="preview"
+                                alt={trans_doc.dropzone_image_preview}
                                 className="h-24 w-auto rounded-md object-contain"
                                 onClick={(e) => {
                                     e.stopPropagation();
@@ -152,8 +156,8 @@ export function ResettableDropzoneImage({
                 ) : (
                     <div className="flex flex-col items-center gap-2 text-sm text-gray-500 dark:text-white">
                         <CloudUploadIcon className="h-10 w-10" />
-                        <p>Klik atau drag gambar ke sini</p>
-                        <p className="text-xs">(PNG, JPG, JPEG, WEBP, SVG)</p>
+                        <p>{trans_doc.dropzone_image_click_or_drag}</p>
+                        <p className="text-xs">{trans_doc.dropzone_image_format}</p>
                     </div>
                 )}
             </div>

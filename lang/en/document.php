@@ -63,4 +63,19 @@ return [
     "label_of" => "of",
     "label_rows_per_page" => "Rows per page",
     "label_rows_selected" => "row(s) selected",
+
+    //dropzone
+    'dropzone_upload_here' => 'Upload here',
+    'dropzone_view_file' => 'View File',
+    'dropzone_processing' => 'Processing...',
+    'dropzone_uploading' => 'Uploading',
+    'dropzone_max_attachment' => '* Maximum attachment size 20 MB',
+    'dropzone_upload_failed' => 'Failed to upload file',
+    'dropzone_file_too_large' => 'File size is too large. Maximum',
+
+    //dropzone_image
+    'dropzone_image_click_or_drag' => 'Click or drag image here',
+    'dropzone_image_format' => '(PNG, JPG, JPEG, WEBP, SVG)',
+    'dropzone_image_preview' => 'Image preview',
+    'dropzone_image_invalid' => 'Invalid image file',
 ];
