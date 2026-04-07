@@ -203,8 +203,6 @@ export const columns = (
                                 </span>
                             </div>
                         )}
-
-                        {!isUserExternal && <div className="text-xs font-bold">-</div>}
                     </div>
                 );
             },
