@@ -28,6 +28,9 @@ return new class extends Migration
             $table->string('link_url_video_file')->nullable();
             
             $table->text('description_file')->nullable();
+            $table->unsignedBigInteger('source_master_document_id')->nullable()->after('id_dokumen');
+            $table->boolean('is_custom')->default(false)->after('source_master_document_id');
+            $table->boolean('is_active')->default(true)->after('is_custom');
 
             // 5. Tracking
             $table->unsignedBigInteger('updated_by')->nullable();
