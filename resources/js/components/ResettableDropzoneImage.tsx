@@ -23,6 +23,8 @@ interface ResettableDropzoneProps {
     isRequired?: boolean;
     existingFile?: { nama_file: string; path: string };
     validation?: { accept?: Accept; maxSize?: number };
+    className?: string;
+    disabled?: boolean;
 }
 
 export function ResettableDropzoneImage({
@@ -39,6 +41,8 @@ export function ResettableDropzoneImage({
         },
         maxSize: 5 * 1024 * 1024,
     },
+    className,
+    disabled = false,
 }: ResettableDropzoneProps) {
     const [fileStatus, setFileStatus] = useState<FileStatus | null>(null);
     const [lastLoadedFile, setLastLoadedFile] = useState<string | null>(null);
@@ -91,6 +95,7 @@ export function ResettableDropzoneImage({
         maxSize: validation.maxSize,
         noClick: !!fileStatus, // DISABLED KLIK DROPZONE JIKA FILE SUDAH ADA
         noKeyboard: !!fileStatus,
+        disabled: disabled,
     });
 
     const handleDelete = (e: React.MouseEvent) => {
@@ -115,6 +120,8 @@ export function ResettableDropzoneImage({
                 className={cn(
                     'flex min-h-37.5 cursor-pointer items-center justify-center rounded-md border-2 border-black p-4 text-center transition-colors dark:border-neutral-800',
                     borderColor,
+                    className,
+                    disabled && 'cursor-not-allowed opacity-50',
                 )}
             >
                 <input {...getInputProps()} />

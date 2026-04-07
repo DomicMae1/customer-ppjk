@@ -2005,7 +2005,7 @@ class ShippingController extends Controller
         
         $validated = $request->validate([
             'id_spk' => 'required|integer',
-            'penjaluran' => 'required|string|in:merah,biru',
+            'penjaluran' => 'required|string|in:merah,hijau',
         ]);
 
         try {
