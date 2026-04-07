@@ -1075,7 +1075,7 @@ export default function ViewCustomerForm({
                         {/* Assign Staff */}
                         <div>
                             <Label className="mb-2 block text-[11px] font-bold tracking-wider text-slate-500 uppercase">
-                                {trans.assign_staff || 'Assign Staff'}
+                                {trans.assign_staff}
                             </Label>
                             <div className="flex items-center gap-2">
                                 <Select value={selectedStaff} onValueChange={setSelectedStaff}>
@@ -1106,7 +1106,7 @@ export default function ViewCustomerForm({
 
                         {/* Upload Mode Toggle */}
                         <div>
-                            <Label className="mb-2 block text-[11px] font-bold tracking-wider text-slate-500 uppercase">Upload Mode</Label>
+                            <Label className="mb-2 block text-[11px] font-bold tracking-wider text-slate-500 uppercase">{trans.upload_mode}</Label>
                             <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 p-1">
                                 <button
                                     onClick={() => !isUpdatingUploadMode && handleToggleInternalCanUpload(true)}
@@ -1114,7 +1114,7 @@ export default function ViewCustomerForm({
                                     className={`flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition-all duration-200 ${internalCanUpload ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
                                         } disabled:opacity-50`}
                                 >
-                                    Staff Upload
+                                    {trans.staff_upload}
                                 </button>
                                 <button
                                     onClick={() => !isUpdatingUploadMode && handleToggleInternalCanUpload(false)}
@@ -1122,13 +1122,13 @@ export default function ViewCustomerForm({
                                     className={`flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition-all duration-200 ${!internalCanUpload ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
                                         } disabled:opacity-50`}
                                 >
-                                    Dual Upload
+                                    {trans.dual_upload}
                                 </button>
                             </div>
                             <p className="mt-1.5 text-[10px] text-slate-400">
                                 {internalCanUpload
-                                    ? 'Staff internal yang mengupload semua dokumen'
-                                    : 'Dokumen diupload bersama antara internal & eksternal'}
+                                    ? trans.staff_upload_desc
+                                    : trans.dual_upload_desc}
                             </p>
                         </div>
                     </div>
@@ -1147,7 +1147,7 @@ export default function ViewCustomerForm({
                     {/* Penjaluran */}
                     {shipmentData.penjaluran && (
                         <div className="space-y-1 text-right sm:text-left">
-                            <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">Penjaluran</div>
+                            <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.channel}</div>
                             <div>
                                 <span
                                     className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold tracking-tight uppercase ring-1 ring-inset ${shipmentData.penjaluran === 'merah'
@@ -1155,7 +1155,7 @@ export default function ViewCustomerForm({
                                             : 'bg-green-50 text-green-700 ring-green-600/20'
                                         }`}
                                 >
-                                    {shipmentData.penjaluran}
+                                    {trans[shipmentData.penjaluran] || shipmentData.penjaluran}
                                 </span>
                             </div>
                         </div>
@@ -1167,9 +1167,8 @@ export default function ViewCustomerForm({
                             {shipmentData.type === 'Export'
                                 ? trans.si || 'SI'
                                 : shipmentData.type === 'Import'
-                                    ? trans.bl || 'BL'
+                                    ? trans.bl || 'B'
                                     : trans.spk || 'SPK'}{' '}
-                            Number
                         </div>
                         <div className="text-sm font-bold tracking-tight break-all text-slate-900 dark:text-white">{shipmentData.spkNumber}</div>
                     </div>
@@ -1548,14 +1547,14 @@ export default function ViewCustomerForm({
                         disabled={isUpdatingPenjaluran}
                         className="rounded-lg bg-gradient-to-r from-rose-500 to-rose-600 px-6 py-3 text-center text-sm font-medium text-white shadow-md transition-all duration-300 hover:from-rose-600 hover:to-rose-700 hover:shadow-lg focus:ring-4 focus:ring-rose-300 focus:outline-none"
                     >
-                        Jalur Merah
+                        {trans.red_line}
                     </Button>
                     <Button
                         onClick={() => handleUpdatePenjaluran('hijau')}
                         disabled={isUpdatingPenjaluran}
                         className="rounded-lg bg-gradient-to-r from-green-500 to-green-600 px-6 py-3 text-center text-sm font-medium text-white shadow-md transition-all duration-300 hover:from-green-600 hover:to-green-700 hover:shadow-lg focus:ring-4 focus:ring-green-300 focus:outline-none"
                     >
-                        Jalur Hijau
+                        {trans.green_line}
                     </Button>
                 </div>
             )}
@@ -1583,9 +1582,9 @@ export default function ViewCustomerForm({
                     {/* List Pilihan Checkbox */}
                     <div className="max-h-75 overflow-y-auto px-4 py-2">
                         {isLoadingDocs ? (
-                            <div className="py-8 text-center text-sm text-gray-500">Loading documents...</div>
+                            <div className="py-8 text-center text-sm text-gray-500">{trans.loading_docs}</div>
                         ) : availableDocuments.length === 0 ? (
-                            <div className="py-8 text-center text-sm text-gray-500">No available documents</div>
+                            <div className="py-8 text-center text-sm text-gray-500">{trans.no_available_documents}</div>
                         ) : (
                             <div className="space-y-4">
                                 {availableDocuments

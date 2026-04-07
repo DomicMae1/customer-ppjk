@@ -18,6 +18,9 @@ return [
     'green' => 'Hijau',
     'red' => 'Merah',
     'yellow' => 'Kuning',
+    'merah' => 'Merah',
+    'hijau' => 'Hijau',
+    'kuning' => 'Kuning',
     
     // Teks dalam Cell Status
     'by' => 'oleh',
@@ -76,7 +79,7 @@ return [
     'status_unknown' => 'STATUS TIDAK DIKETAHUI',
     'shipment_type' => 'Tipe Shipment',
     'si' => 'SI',
-    'bl' => 'BL',
+    'bl' => 'Nomor B/L',
     'spk' => 'SPK',
     'hs_code' => 'Kode HS',
     'edit_hs_data' => 'Edit Data HS Code',
@@ -188,7 +191,7 @@ return [
     // Additional Document Section
     'req_additional_doc' => 'Minta Dokumen Tambahan',
     'additional_doc' => 'Dokumen Tambahan',
-    'set_deadline' => 'Atur Tanggal Deadline',
+    'set_deadline' => 'Atur Tenggat Waktu',
     'apply_deadline_all' => 'Terapkan deadline sama ke semua section',
     'upload_here' => 'Unggah disini..',
     'add_document' => 'Tambah Dokumen Lain',
@@ -239,4 +242,17 @@ return [
     'light' => 'Terang',
     'dark' => 'Gelap',
     'system' => 'Sistem',
+
+    // detail shipment
+    'assign_staff' => 'Tugaskan Staff',
+    'staff_upload' => 'Upload Staff',
+    'dual_upload' => 'Dual Upload',
+    'staff_upload_desc' => 'Staff internal yang mengupload semua dokumen',
+    'dual_upload_desc' => 'Dokumen diupload bersama antara internal & eksternal',
+    'upload_mode' => 'Mode Upload',
+    'channel' => 'Penjaluran',
+    'green_line' => 'Jalur Hijau',
+    'red_line' => 'Jalur Merah',
+    'no_available_documents' => 'Tidak ada dokumen yang tersedia',
+    'loading_docs' => 'Memuat dokumen...',
 ];
