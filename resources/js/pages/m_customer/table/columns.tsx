@@ -59,7 +59,7 @@ export const columns = (
                         <Button
                             variant="outline"
                             size="icon"
-                            className="h-8 w-8 text-white hover:bg-orange-50 hover:text-orange-700"
+                            className="h-8 w-8 text-black hover:bg-orange-50 hover:text-orange-700 dark:text-white"
                             onClick={() => onEditClick(customer)}
                             title={trans.title_edit || 'Edit'}
                         >

@@ -190,7 +190,7 @@ export const columns = (
                 return (
                     <div className="flex flex-col justify-center md:min-w-[200px] md:px-2">
                         {/* Tampilkan Warning Merah (Khusus External) */}
-                        {isUserExternal && (
+                        {(
                             <div className="flex items-center gap-1 text-red-600">
                                 <AlertCircle className="h-3 w-3" />
                                 <span className="mt-0.5 flex text-xs font-bold">
@@ -199,8 +199,7 @@ export const columns = (
                                         day: '2-digit',
                                         month: '2-digit',
                                         year: '2-digit',
-                                    })}{' '}
-                                    {trans.wib}
+                                    })}
                                 </span>
                             </div>
                         )}
