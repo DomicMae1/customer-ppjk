@@ -131,25 +131,24 @@ export const columns = (
             cell: ({ row }) => {
                 const progress = row.original.progress || 0;
 
-                // Human-friendly labels for laypeople
-                let statusText = 'Belum dimulai';
+                let statusText = trans.progress_not_started;
                 let colorClass = 'bg-slate-200';
                 let textClass = 'text-slate-500';
 
                 if (progress === 100) {
-                    statusText = 'Selesai';
+                    statusText = trans.progress_completed;
                     colorClass = 'bg-emerald-500';
                     textClass = 'text-emerald-600';
                 } else if (progress >= 80) {
-                    statusText = 'Hampir selesai';
+                    statusText = trans.progress_almost_done;
                     colorClass = 'bg-indigo-500';
                     textClass = 'text-indigo-600';
                 } else if (progress >= 40) {
-                    statusText = 'Sedang diproses';
+                    statusText = trans.progress_in_process;
                     colorClass = 'bg-blue-500';
                     textClass = 'text-blue-600';
                 } else if (progress > 0) {
-                    statusText = 'Baru dimulai';
+                    statusText = trans.progress_started;
                     colorClass = 'bg-sky-400';
                     textClass = 'text-sky-600';
                 }
@@ -157,16 +156,11 @@ export const columns = (
                 return (
                     <div className="flex flex-col gap-1.5 md:min-w-[150px] md:px-2">
                         <div className="flex items-center justify-between gap-2">
-                            <span className={`text-[10px] font-bold uppercase tracking-wider ${textClass}`}>
-                                {statusText}
-                            </span>
+                            <span className={`text-[10px] font-bold tracking-wider uppercase ${textClass}`}>{statusText}</span>
                             <span className="text-[11px] font-extrabold text-slate-700">{progress}%</span>
                         </div>
                         <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100 shadow-inner">
-                            <div
-                                className={`h-full transition-all duration-1000 ease-out ${colorClass}`}
-                                style={{ width: `${progress}%` }}
-                            />
+                            <div className={`h-full transition-all duration-1000 ease-out ${colorClass}`} style={{ width: `${progress}%` }} />
                         </div>
                     </div>
                 );
