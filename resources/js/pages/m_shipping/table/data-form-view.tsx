@@ -666,7 +666,10 @@ export default function ViewCustomerForm({
 
         try {
             const response = await axios.get('/shipping/available-documents', {
-                params: { id_spk: shipmentData.id_spk },
+                params: { 
+                    id_spk: shipmentData.id_spk,
+                    id_section: sectionId
+                },
             });
 
             if (response.data.success) {

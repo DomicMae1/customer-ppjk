@@ -1563,12 +1563,26 @@ class ShippingController extends Controller
         // Validate AFTER tenant is initialized
         $request->validate([
             'id_spk' => 'integer|exists:tenant-transaction.spk,id',
+            'id_section' => 'nullable|integer',
         ]);
 
         try {
-            // Get documents where id_section is null or 0 (unassigned documents)
-            $availableDocuments = MasterDocumentTrans::whereNull('id_section')
-                ->orWhere('id_section', 6)
+            // Get documents where id_section is null or 0 (unassigned documents) or 6 (Global)
+            // Or documents in current section that can be added (attribute 0/false)
+            $availableDocuments = MasterDocumentTrans::where(function ($query) use ($request) {
+                // Global / Unassigned docs
+                $query->whereNull('id_section')
+                    ->orWhere('id_section', 0)
+                    ->orWhere('id_section', 6);
+
+                // Section-specific addable docs (only if attribute 0/false)
+                if ($request->id_section) {
+                    $query->orWhere(function ($sub) use ($request) {
+                        $sub->where('id_section', $request->id_section)
+                            ->where('attribute', 0); // 0 = false/manually addable
+                    });
+                }
+            })
                 ->select([
                     'id_dokumen',
                     'nama_file',

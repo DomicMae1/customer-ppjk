@@ -206,7 +206,17 @@ export default function ManageDocuments() {
 
                         <div>
                             <Label htmlFor="edit_id_section">{trans_doc.label_section}</Label>
-                            <Select value={editForm.id_section} onValueChange={(val) => setEditForm({ ...editForm, id_section: val })}>
+                            <Select
+                                value={editForm.id_section}
+                                onValueChange={(val) => {
+                                    setEditForm((prev) => {
+                                        const newState = { ...prev, id_section: val };
+                                        // Auto-reset mandatory if Global section selected
+                                        if (val === '6') newState.attribute = false;
+                                        return newState;
+                                    });
+                                }}
+                            >
                                 <SelectTrigger className="mt-1 w-full">
                                     <SelectValue placeholder={trans_doc.placeholder_section} />
                                 </SelectTrigger>
@@ -243,27 +253,29 @@ export default function ManageDocuments() {
                                 </div>
                             </div>
 
-                            <div>
-                                <Label className="mb-2 block text-xs font-semibold text-gray-500 uppercase">{trans_doc.label_mandatory}</Label>
-                                <div className="flex w-full gap-2">
-                                    <Button
-                                        type="button"
-                                        variant={editForm.attribute ? 'default' : 'outline'}
-                                        onClick={() => handleEditBooleanChange('attribute', true)}
-                                        className="flex-1"
-                                    >
-                                        {trans_doc.btn_yes}
-                                    </Button>
-                                    <Button
-                                        type="button"
-                                        variant={!editForm.attribute ? 'default' : 'outline'}
-                                        onClick={() => handleEditBooleanChange('attribute', false)}
-                                        className="flex-1"
-                                    >
-                                        {trans_doc.btn_no}
-                                    </Button>
+                            {Number(editForm.id_section) !== 6 && (
+                                <div>
+                                    <Label className="mb-2 block text-xs font-semibold text-gray-500 uppercase">{trans_doc.label_mandatory}</Label>
+                                    <div className="flex w-full gap-2">
+                                        <Button
+                                            type="button"
+                                            variant={editForm.attribute ? 'default' : 'outline'}
+                                            onClick={() => handleEditBooleanChange('attribute', true)}
+                                            className="flex-1"
+                                        >
+                                            {trans_doc.btn_yes}
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            variant={!editForm.attribute ? 'default' : 'outline'}
+                                            onClick={() => handleEditBooleanChange('attribute', false)}
+                                            className="flex-1"
+                                        >
+                                            {trans_doc.btn_no}
+                                        </Button>
+                                    </div>
                                 </div>
-                            </div>
+                            )}
                         </div>
 
                         <div>
