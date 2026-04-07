@@ -24,6 +24,11 @@ return [
     'by' => 'by',
     'at' => 'at',
     'progress' => 'Progress',
+    'progress_not_started' => 'Not started',
+    'progress_completed' => 'Completed',
+    'progress_almost_done' => 'Almost done',
+    'progress_in_process' => 'In progress',
+    'progress_started' => 'Just started',
 
     // Actions
     'view_customer' => 'View Customer',
