@@ -732,7 +732,7 @@ export default function ViewCustomerForm({
     // Penjaluran Handler
     const [isUpdatingPenjaluran, setIsUpdatingPenjaluran] = useState(false);
 
-    const handleUpdatePenjaluran = async (jalur: 'merah' | 'biru') => {
+    const handleUpdatePenjaluran = async (jalur: 'merah' | 'hijau') => {
         setIsUpdatingPenjaluran(true);
         try {
             const response = await axios.post('/shipping/update-penjaluran', {
@@ -1111,18 +1111,16 @@ export default function ViewCustomerForm({
                                 <button
                                     onClick={() => !isUpdatingUploadMode && handleToggleInternalCanUpload(true)}
                                     disabled={isUpdatingUploadMode}
-                                    className={`flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition-all duration-200 ${
-                                        internalCanUpload ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                                    } disabled:opacity-50`}
+                                    className={`flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition-all duration-200 ${internalCanUpload ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                                        } disabled:opacity-50`}
                                 >
                                     Staff Upload
                                 </button>
                                 <button
                                     onClick={() => !isUpdatingUploadMode && handleToggleInternalCanUpload(false)}
                                     disabled={isUpdatingUploadMode}
-                                    className={`flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition-all duration-200 ${
-                                        !internalCanUpload ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                                    } disabled:opacity-50`}
+                                    className={`flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition-all duration-200 ${!internalCanUpload ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                                        } disabled:opacity-50`}
                                 >
                                     Dual Upload
                                 </button>
@@ -1152,11 +1150,10 @@ export default function ViewCustomerForm({
                             <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">Penjaluran</div>
                             <div>
                                 <span
-                                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold tracking-tight uppercase ring-1 ring-inset ${
-                                        shipmentData.penjaluran === 'merah'
+                                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold tracking-tight uppercase ring-1 ring-inset ${shipmentData.penjaluran === 'merah'
                                             ? 'bg-rose-50 text-rose-700 ring-rose-600/20'
-                                            : 'bg-blue-50 text-blue-700 ring-blue-600/20'
-                                    }`}
+                                            : 'bg-green-50 text-green-700 ring-green-600/20'
+                                        }`}
                                 >
                                     {shipmentData.penjaluran}
                                 </span>
@@ -1170,8 +1167,8 @@ export default function ViewCustomerForm({
                             {shipmentData.type === 'Export'
                                 ? trans.si || 'SI'
                                 : shipmentData.type === 'Import'
-                                  ? trans.bl || 'BL'
-                                  : trans.spk || 'SPK'}{' '}
+                                    ? trans.bl || 'BL'
+                                    : trans.spk || 'SPK'}{' '}
                             Number
                         </div>
                         <div className="text-sm font-bold tracking-tight break-all text-slate-900 dark:text-white">{shipmentData.spkNumber}</div>
@@ -1233,9 +1230,9 @@ export default function ViewCustomerForm({
                                                             existingFile={
                                                                 !item.file && item.link
                                                                     ? {
-                                                                          nama_file: item.link,
-                                                                          path: `/file/view/${item.link}`,
-                                                                      }
+                                                                        nama_file: item.link,
+                                                                        path: `/file/view/${item.link}`,
+                                                                    }
                                                                     : undefined
                                                             }
                                                             onFileChange={(file) => {
@@ -1555,11 +1552,11 @@ export default function ViewCustomerForm({
                         Jalur Merah
                     </Button>
                     <Button
-                        onClick={() => handleUpdatePenjaluran('biru')}
+                        onClick={() => handleUpdatePenjaluran('hijau')}
                         disabled={isUpdatingPenjaluran}
-                        className="rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 px-6 py-3 text-center text-sm font-medium text-white shadow-md transition-all duration-300 hover:from-blue-600 hover:to-blue-700 hover:shadow-lg focus:ring-4 focus:ring-blue-300 focus:outline-none"
+                        className="rounded-lg bg-gradient-to-r from-green-500 to-green-600 px-6 py-3 text-center text-sm font-medium text-white shadow-md transition-all duration-300 hover:from-green-600 hover:to-green-700 hover:shadow-lg focus:ring-4 focus:ring-green-300 focus:outline-none"
                     >
-                        Jalur Biru
+                        Jalur Hijau
                     </Button>
                 </div>
             )}

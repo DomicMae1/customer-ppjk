@@ -32,6 +32,8 @@ interface ResettableDropzoneProps {
     existingFile?: { nama_file: string; path: string };
     validation?: { accept?: Accept; maxSize?: number };
     uploadConfig?: UploadConfig;
+    className?: string;
+    disabled?: boolean;
 }
 
 export function ResettableDropzone({
@@ -44,8 +46,9 @@ export function ResettableDropzone({
         maxSize: 20 * 1024 * 1024, // 20MB
     },
     uploadConfig,
+    className,
     disabled = false,
-}: ResettableDropzoneProps & { disabled?: boolean }) {
+}: ResettableDropzoneProps) {
     const [fileStatus, setFileStatus] = useState<FileStatus | null>(null);
     const [componentKey, setComponentKey] = useState(Date.now());
 
@@ -224,6 +227,7 @@ export function ResettableDropzone({
                         fileStatus && 'dark:border-blue-900/50 dark:bg-blue-950/30',
 
                         borderColor,
+                        className,
                     )}
                 >
                     <input {...getInputProps()} />

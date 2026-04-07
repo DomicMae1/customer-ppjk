@@ -10,7 +10,7 @@
         <p>Halo <strong>{{ $recipient->name }}</strong>,</p>
         
         <p>
-            Dokumen <strong>{{ $documentName }}</strong> pada SPK <strong>{{ $spk->spk_code }}</strong> perlu diperbaiki.
+            Silahkan cek sistem PPJK anda, terdapat dokumen yang perlu diperbaiki pada SPK <strong>{{ $spk->spk_code }}</strong>.
         </p>
 
         <div style="background-color: #f9f2f4; border-left: 5px solid #d9534f; padding: 15px; margin: 20px 0;">
