@@ -1456,7 +1456,6 @@ export default function ViewCustomerForm({
                                                                 year: 'numeric',
                                                             },
                                                         )}{' '}
-                                                        {trans.wib}
                                                     </span>
                                                 </div>
                                             )}
