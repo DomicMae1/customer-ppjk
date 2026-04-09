@@ -26,6 +26,11 @@ return [
     'by' => 'oleh',
     'at' => 'pada',
     'progress' => 'Progres',
+    'progress_not_started' => 'Belum dimulai',
+    'progress_completed' => 'Selesai',
+    'progress_almost_done' => 'Hampir selesai',
+    'progress_in_process' => 'Sedang diproses',
+    'progress_started' => 'Baru dimulai',
     
     // Actions
     'view_customer' => 'Lihat Customer',

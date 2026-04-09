@@ -33,11 +33,9 @@ interface ResettableDropzoneProps {
     existingFile?: { nama_file: string; path: string };
     validation?: { accept?: Accept; maxSize?: number };
     uploadConfig?: UploadConfig;
-    className?: string;
-    disabled?: boolean;
 }
 
-export function ResettableDropzone({
+export function ResettableDropzoneDocument({
     onFileChange,
     label,
     isRequired = false,
@@ -47,11 +45,11 @@ export function ResettableDropzone({
         maxSize: 20 * 1024 * 1024, // 20MB
     },
     uploadConfig,
-    className,
     disabled = false,
-}: ResettableDropzoneProps) {
+}: ResettableDropzoneProps & { disabled?: boolean }) {
     const [fileStatus, setFileStatus] = useState<FileStatus | null>(null);
     const [componentKey, setComponentKey] = useState(Date.now());
+
     const { trans_doc } = usePage().props as unknown as {
         trans_doc: Record<string, string>;
     };
@@ -215,23 +213,22 @@ export function ResettableDropzone({
                 {label} {isRequired && <span className="text-destructive">*</span>}
             </Label>
 
-            <div className="flex w-full flex-col items-end">
+            <div className="flex w-full flex-col items-start">
                 <div
                     key={componentKey}
                     {...getRootProps()}
                     className={cn(
                         // Base Style
-                        'relative flex cursor-pointer items-center justify-center rounded-lg border transition-all',
+                        'relative flex cursor-pointer items-center justify-start rounded-lg border p-4 transition-all',
 
                         // Light Mode Styles
-                        !fileStatus ? 'h-9 w-28 border-gray-300 bg-white hover:bg-gray-50' : 'h-auto w-auto border-blue-200 bg-blue-50 p-2',
+                        !fileStatus ? 'h-9 w-64 border-gray-300 bg-white hover:bg-gray-50' : 'h-auto w-64 border-blue-200 bg-blue-50 p-2',
 
                         // Dark Mode Styles (Ditingkatkan)
                         'dark:border-neutral-700 dark:bg-neutral-900 dark:hover:bg-neutral-800',
                         fileStatus && 'dark:border-blue-900/50 dark:bg-blue-950/30',
 
                         borderColor,
-                        className,
                     )}
                 >
                     <input {...getInputProps()} />
@@ -283,7 +280,7 @@ export function ResettableDropzone({
                             )}
                         </div>
                     ) : (
-                        <span className="text-muted-foreground text-xs font-medium">{trans_doc.dropzone_upload_here}</span>
+                        <span className="text-muted-foreground text-xs font-medium"> {trans_doc.dropzone_upload_here}</span>
                     )}
                 </div>
 

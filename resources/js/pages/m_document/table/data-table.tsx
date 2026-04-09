@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { ResettableDropzone } from '@/components/ResettableDropzone';
+import { ResettableDropzoneDocument } from '@/components/ResettableDropzoneDocument';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'; // Import Description
 import { Input } from '@/components/ui/input';
@@ -291,7 +291,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
 
             {/* Dialog Tambah Dokumen */}
             <Dialog open={openCreate} onOpenChange={setOpenCreate}>
-                <DialogContent className="border-border bg-background text-foreground max-h-[90vh] w-[95vw] overflow-y-auto rounded-xl p-4 sm:max-w-lg sm:p-6">
+                <DialogContent className="border-border bg-background text-foreground max-h-[90vh] w-[95vw] overflow-y-auto rounded-xl p-4 sm:max-w-2xl sm:p-6">
                     <DialogHeader>
                         <DialogTitle className="text-foreground pt-8 text-xl font-bold">
                             {isManager ? trans_doc.title_create_internal : trans_doc.title_create_master}
@@ -405,7 +405,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <div className="space-y-2">
                                 <Label className="text-foreground font-semibold">{trans_doc.label_example_file}</Label>
-                                <ResettableDropzone
+                                <ResettableDropzoneDocument
                                     label={trans_doc.btn_upload_example}
                                     isRequired={false}
                                     uploadConfig={{ url: '/document/upload-temp', payload: { type: 'example', doc_name: form.nama_file } }}
@@ -414,7 +414,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
                             </div>
                             <div className="space-y-2">
                                 <Label className="text-foreground font-semibold">{trans_doc.label_template_file}</Label>
-                                <ResettableDropzone
+                                <ResettableDropzoneDocument
                                     label={trans_doc.btn_upload_template}
                                     isRequired={false}
                                     uploadConfig={{ url: '/document/upload-temp', payload: { type: 'template', doc_name: form.nama_file } }}

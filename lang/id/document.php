@@ -63,4 +63,19 @@ return [
     "label_of" => "dari",
     "label_rows_per_page" => "Baris per halaman",
     "label_rows_selected" => "baris dipilih",
+
+    //dropzone
+    'dropzone_upload_here' => 'Unggah di sini',
+    'dropzone_view_file' => 'Lihat File',
+    'dropzone_processing' => 'Sedang diproses...',
+    'dropzone_uploading' => 'Mengunggah',
+    'dropzone_max_attachment' => '* Maksimal ukuran lampiran 20 MB',
+    'dropzone_upload_failed' => 'Gagal mengunggah file',
+    'dropzone_file_too_large' => 'Ukuran file terlalu besar. Maksimal',
+
+    //dropzone_image
+    'dropzone_image_click_or_drag' => 'Klik atau tarik gambar ke sini',
+    'dropzone_image_format' => '(PNG, JPG, JPEG, WEBP, SVG)',
+    'dropzone_image_preview' => 'Preview gambar',
+    'dropzone_image_invalid' => 'File gambar tidak valid',
 ];
