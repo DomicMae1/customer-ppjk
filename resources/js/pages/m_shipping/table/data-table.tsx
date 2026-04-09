@@ -62,6 +62,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
     const [selectedCustomer, setSelectedCustomer] = useState('');
     const [selectedStaff, setSelectedStaff] = useState(''); // NEW: Selected Staff State
     const [hsCodes, setHsCodes] = useState<HsCodeItem[]>([{ id: nanoid(), code: '', link: '', file: null }]);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const [filterColumn, setFilterColumn] = useState<'nama_customer' | 'creator_name' | 'nama_perusahaan' | 'keterangan_status' | 'status'>(
         'nama_customer',
@@ -185,6 +186,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
         });
 
         // D. Kirim Request ke Backend
+        setIsSubmitting(true);
         router.post('/shipping', formData, {
             forceFormData: true, // Wajib true agar file terkirim sebagai multipart/form-data
             onSuccess: () => {
@@ -203,6 +205,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                 else if (errors['hs_codes.0.file']) alert(trans.alert_file_problem);
                 else alert(trans.alert_save_error);
             },
+            onFinish: () => setIsSubmitting(false),
         });
     };
 
@@ -539,8 +542,12 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                         {trans.add_another_hs}
                                     </Button>
 
-                                    <Button className="w-full font-bold shadow-lg" onClick={handleSaveShipment}>
-                                        {trans.save}
+                                    <Button 
+                                        className="w-full font-bold shadow-lg" 
+                                        onClick={handleSaveShipment}
+                                        disabled={isSubmitting}
+                                    >
+                                        {isSubmitting ? trans.saving : trans.save}
                                     </Button>
                                 </div>
                             </DialogContent>

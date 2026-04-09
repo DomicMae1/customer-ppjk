@@ -1702,7 +1702,7 @@ export default function ViewCustomerForm({
                             className="flex-1"
                             disabled={isUpdatingPenjaluran}
                         >
-                            Batal
+                            {trans.cancel}
                         </Button>
                         <Button
                             onClick={handleUpdatePenjaluran}
@@ -1713,7 +1713,7 @@ export default function ViewCustomerForm({
                                     : 'bg-green-500 hover:bg-green-600'
                             }`}
                         >
-                            {isUpdatingPenjaluran ? 'Menyimpan...' : 'Simpan'}
+                            {isUpdatingPenjaluran ? trans.saving : trans.save}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
