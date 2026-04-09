@@ -260,4 +260,13 @@ return [
     'red_line' => 'Jalur Merah',
     'no_available_documents' => 'Tidak ada dokumen yang tersedia',
     'loading_docs' => 'Memuat dokumen...',
+    'complete_registration_data' => 'Lengkapi data pendaftaran sebelum menyimpan penjaluran.',
+    'register_number' => 'Nomor Pendaftaran',
+    'register_date' => 'Tanggal Pendaftaran',
+    'save' => 'Simpan',
+    'saving' => 'Menyimpan...',
+    'cancel' => 'Batal',
+    'placeholder_register_number' => 'Masukkan nomor pendaftaran',
+    'placeholder_register_date' => 'Masukkan tanggal pendaftaran',
+    'locale' => 'id-ID',
 ];

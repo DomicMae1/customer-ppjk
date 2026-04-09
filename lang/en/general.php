@@ -261,4 +261,13 @@ return [
     'red_line' => 'Red Line',
     'no_available_documents' => 'No available documents',
     'loading_docs' => 'Loading documents...',
+    'complete_registration_data' => 'Complete registration data before saving penjaluran.',
+    'register_number' => 'Register Number',
+    'register_date' => 'Register Date',
+    'save' => 'Save',
+    'saving' => 'Saving...',
+    'cancel' => 'Cancel',
+    'placeholder_register_number' => 'Enter register number',
+    'placeholder_register_date' => 'Enter register date',
+    'locale' => 'en-US',
 ];

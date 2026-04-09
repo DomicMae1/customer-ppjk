@@ -910,6 +910,8 @@ class ShippingController extends Controller
             'internal_can_upload' => $spk->internal_can_upload,
             'is_created_by_internal' => $spk->is_created_by_internal,
             'validated_by' => $spk->validated_by, // Send to frontend
+            'register_number' => $spk->register_number,
+            'register_date' => $spk->register_date,
         ];
 
         // 3. Mapping HS Code
@@ -2011,13 +2013,19 @@ class ShippingController extends Controller
         tenancy()->initialize($tenant);
         
         $validated = $request->validate([
-            'id_spk' => 'required|integer',
-            'penjaluran' => 'required|string|in:merah,hijau',
+            'id_spk'          => 'required|integer',
+            'penjaluran'      => 'required|string|in:merah,hijau',
+            'register_number' => 'required|string|max:50',
+            'register_date'   => 'required|date',
         ]);
 
         try {
             $spk = Spk::findOrFail($validated['id_spk']);
-            $spk->update(['penjaluran' => $validated['penjaluran']]);
+            $spk->update([
+                'penjaluran'      => $validated['penjaluran'],
+                'register_number' => $validated['register_number'],
+                'register_date'   => $validated['register_date'],
+            ]);
 
             Log::info('Penjaluran updated', ['spk_id' => $spk->id, 'penjaluran' => $validated['penjaluran']]);
 
