@@ -36,8 +36,19 @@ class DocumentUploadedMail extends Mailable implements ShouldQueue
      */
     public function envelope(): Envelope
     {
+        $type = $this->spk->shipment_type;
+        $code = $this->spk->spk_code;
+
+        if ($type === 'Import') {
+            $subject = 'Dokumen telah diupload: Nomor B/L ' . $code;
+        } elseif ($type === 'Export') {
+            $subject = 'Dokumen telah diupload: Nomor S/I ' . $code;
+        } else {
+            $subject = 'Dokumen telah diupload: ' . $code;
+        }
+
         return new Envelope(
-            subject: 'Notifikasi Dokumen Diupload - SPK ' . $this->spk->spk_code,
+            subject: $subject,
         );
     }
 

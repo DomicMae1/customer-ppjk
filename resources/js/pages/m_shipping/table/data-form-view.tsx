@@ -1342,7 +1342,7 @@ export default function ViewCustomerForm({
             </div>
 
             {/* NEW: Global Deadline Section - ONLY for Internal Users */}
-            {isInternalUser && (
+            {isSupervisor && (
                 <div className="mb-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:mb-5 sm:p-5 dark:border-zinc-800 dark:bg-zinc-900">
                     <div className="flex flex-col gap-3">
                         {/* Garis Kuning: Global Deadline Field */}
@@ -1501,7 +1501,7 @@ export default function ViewCustomerForm({
 
                                     {isOpen && (
                                         <div className="animate-in fade-in slide-in-from-top-2 mt-1 rounded-xl border-t border-slate-100 bg-white px-4 pt-3 pb-5 shadow-sm duration-300">
-                                            {isInternalUser && (
+                                            {isSupervisor && (
                                                 <div className="mb-4 flex items-center gap-3">
                                                     <label className="text-sm font-semibold whitespace-nowrap text-slate-700">
                                                         {trans.deadline}:

@@ -252,7 +252,7 @@ return [
     // detail shipment
     'assign_staff' => 'Assign Staff',
     'staff_upload' => 'Staff Upload',
-    'dual_upload' => 'Dual Upload',
+    'dual_upload' => 'Customer Upload',
     'staff_upload_desc' => 'Internal staff uploads all documents',
     'dual_upload_desc' => 'Documents are uploaded together between internal & external',
     'upload_mode' => 'Upload Mode',

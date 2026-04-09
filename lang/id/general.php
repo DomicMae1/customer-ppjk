@@ -251,7 +251,7 @@ return [
     // detail shipment
     'assign_staff' => 'Tugaskan Staff',
     'staff_upload' => 'Upload Staff',
-    'dual_upload' => 'Dual Upload',
+    'dual_upload' => 'Upload Customer',
     'staff_upload_desc' => 'Staff internal yang mengupload semua dokumen',
     'dual_upload_desc' => 'Dokumen diupload bersama antara internal & eksternal',
     'upload_mode' => 'Mode Upload',
