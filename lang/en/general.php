@@ -27,6 +27,11 @@ return [
     'by' => 'by',
     'at' => 'at',
     'progress' => 'Progress',
+    'progress_not_started' => 'Not started',
+    'progress_completed' => 'Completed',
+    'progress_almost_done' => 'Almost done',
+    'progress_in_process' => 'In progress',
+    'progress_started' => 'Just started',
 
     // Actions
     'view_customer' => 'View Customer',
@@ -247,7 +252,7 @@ return [
     // detail shipment
     'assign_staff' => 'Assign Staff',
     'staff_upload' => 'Staff Upload',
-    'dual_upload' => 'Dual Upload',
+    'dual_upload' => 'Customer Upload',
     'staff_upload_desc' => 'Internal staff uploads all documents',
     'dual_upload_desc' => 'Documents are uploaded together between internal & external',
     'upload_mode' => 'Upload Mode',
@@ -256,4 +261,13 @@ return [
     'red_line' => 'Red Line',
     'no_available_documents' => 'No available documents',
     'loading_docs' => 'Loading documents...',
+    'complete_registration_data' => 'Complete registration data before saving penjaluran.',
+    'register_number' => 'Register Number',
+    'register_date' => 'Register Date',
+    'save' => 'Save',
+    'saving' => 'Saving...',
+    'cancel' => 'Cancel',
+    'placeholder_register_number' => 'Enter register number',
+    'placeholder_register_date' => 'Enter register date',
+    'locale' => 'en-US',
 ];

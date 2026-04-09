@@ -32,8 +32,19 @@ class SpkCreatedMail extends Mailable
      */
     public function envelope(): Envelope
     {
+        $type = $this->spk->shipment_type;
+        $code = $this->spk->spk_code;
+
+        if ($type === 'Import') {
+            $subject = 'SPK telah dibuat: Nomor B/L ' . $code;
+        } elseif ($type === 'Export') {
+            $subject = 'SPK telah dibuat: Nomor S/I ' . $code;
+        } else {
+            $subject = 'SPK telah dibuat: ' . $code;
+        }
+
         return new Envelope(
-            subject: 'New SPK Created: ' . $this->spk->spk_code,
+            subject: $subject,
         );
     }
 

@@ -42,6 +42,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     
     Route::post('shipping/unified-save', [ShippingController::class, 'unifiedBatchSave'])->name('shipping.unifiedSave');
     Route::post('shipping/update-deadline', [ShippingController::class, 'updateDeadline'])->name('shipping.updateDeadline');
+    Route::get('shipping/{id}/download-zip', [ShippingController::class, 'downloadZip'])->name('shipping.downloadZip');
     
     // Resource route AFTER specific routes
     Route::resource('shipping', ShippingController::class);

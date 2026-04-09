@@ -24,6 +24,8 @@ class Spk extends Model
         'validated_by',      // ID User validator
         'penjaluran',
         'internal_can_upload',       // Boolean
+        'register_number',
+        'register_date',
     ];
 
     protected $appends = ['is_created_by_internal'];
