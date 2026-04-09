@@ -1543,24 +1543,38 @@ export default function ViewCustomerForm({
             </div>
 
             {/* Penjaluran Buttons */}
-            {isInternalUser && (
-                <div className="mt-6 flex flex-col justify-center gap-3 sm:mt-12 sm:flex-row sm:gap-4">
-                    <Button
-                        onClick={() => handleUpdatePenjaluran('merah')}
-                        disabled={isUpdatingPenjaluran}
-                        className="rounded-lg bg-gradient-to-r from-rose-500 to-rose-600 px-6 py-3 text-center text-sm font-medium text-white shadow-md transition-all duration-300 hover:from-rose-600 hover:to-rose-700 hover:shadow-lg focus:ring-4 focus:ring-rose-300 focus:outline-none"
-                    >
-                        {trans.red_line}
-                    </Button>
-                    <Button
-                        onClick={() => handleUpdatePenjaluran('hijau')}
-                        disabled={isUpdatingPenjaluran}
-                        className="rounded-lg bg-gradient-to-r from-green-500 to-green-600 px-6 py-3 text-center text-sm font-medium text-white shadow-md transition-all duration-300 hover:from-green-600 hover:to-green-700 hover:shadow-lg focus:ring-4 focus:ring-green-300 focus:outline-none"
-                    >
-                        {trans.green_line}
-                    </Button>
-                </div>
-            )}
+            {(() => {
+                // Cek apakah semua dokumen di id_section === 4 sudah verified
+                const section4 = sectionsTransProp?.find((s: any) => s.id_section === 4);
+                const section4AllVerified = (() => {
+                    if (!section4) return false;
+                    const docs = section4.documents || [];
+                    const latestDocs = processDocumentsForRender(docs).map((g) => g.current);
+                    if (latestDocs.length === 0) return false;
+                    return latestDocs.every((d: any) => d.verify === true);
+                })();
+
+                if (!isInternalUser || !section4AllVerified) return null;
+
+                return (
+                    <div className="mt-6 flex flex-col justify-center gap-3 sm:mt-12 sm:flex-row sm:gap-4">
+                        <Button
+                            onClick={() => handleUpdatePenjaluran('merah')}
+                            disabled={isUpdatingPenjaluran}
+                            className="rounded-lg bg-gradient-to-r from-rose-500 to-rose-600 px-6 py-3 text-center text-sm font-medium text-white shadow-md transition-all duration-300 hover:from-rose-600 hover:to-rose-700 hover:shadow-lg focus:ring-4 focus:ring-rose-300 focus:outline-none"
+                        >
+                            {trans.red_line}
+                        </Button>
+                        <Button
+                            onClick={() => handleUpdatePenjaluran('hijau')}
+                            disabled={isUpdatingPenjaluran}
+                            className="rounded-lg bg-gradient-to-r from-green-500 to-green-600 px-6 py-3 text-center text-sm font-medium text-white shadow-md transition-all duration-300 hover:from-green-600 hover:to-green-700 hover:shadow-lg focus:ring-4 focus:ring-green-300 focus:outline-none"
+                        >
+                            {trans.green_line}
+                        </Button>
+                    </div>
+                );
+            })()}
 
             <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
                 <DialogContent className="max-w-85 rounded-xl p-0 sm:max-w-100">
