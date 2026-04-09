@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { router, usePage } from '@inertiajs/react';
 import axios from 'axios';
-import { AlertTriangle, ChevronDown, ChevronUp, CircleHelp, FileText, Play, Plus, Save, Search, Trash2, Undo2, X } from 'lucide-react';
+import { AlertTriangle, Archive, ChevronDown, ChevronUp, CircleHelp, FileText, Play, Plus, Save, Search, Trash2, Undo2, X } from 'lucide-react';
 import { nanoid } from 'nanoid';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -666,7 +666,7 @@ export default function ViewCustomerForm({
 
         try {
             const response = await axios.get('/shipping/available-documents', {
-                params: { 
+                params: {
                     id_spk: shipmentData.id_spk,
                     id_section: sectionId
                 },
@@ -753,6 +753,41 @@ export default function ViewCustomerForm({
             toast.error(error.response?.data?.message || 'Failed to update penjaluran');
         } finally {
             setIsUpdatingPenjaluran(false);
+        }
+    };
+
+    // Download ZIP Handler
+    const [isDownloadingZip, setIsDownloadingZip] = useState(false);
+
+    const handleDownloadZip = async () => {
+        setIsDownloadingZip(true);
+        try {
+            const response = await axios.get(`/shipping/${shipmentData.id_spk}/download-zip`, {
+                responseType: 'blob',
+            });
+
+            const contentDisposition = response.headers['content-disposition'] || '';
+            const match = contentDisposition.match(/filename="?([^"]+)"?/);
+            const fileName = match ? match[1] : `dokumen_${shipmentData.id_spk}.zip`;
+
+            const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/zip' }));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', fileName);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+
+            toast.success('Dokumen berhasil diunduh!');
+        } catch (error: any) {
+            if (error.response?.status === 404) {
+                toast.error('Belum ada dokumen yang diupload.');
+            } else {
+                toast.error(error.response?.data?.error || 'Gagal mengunduh dokumen.');
+            }
+        } finally {
+            setIsDownloadingZip(false);
         }
     };
 
@@ -1154,8 +1189,8 @@ export default function ViewCustomerForm({
                             <div>
                                 <span
                                     className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold tracking-tight uppercase ring-1 ring-inset ${shipmentData.penjaluran === 'merah'
-                                            ? 'bg-rose-50 text-rose-700 ring-rose-600/20'
-                                            : 'bg-green-50 text-green-700 ring-green-600/20'
+                                        ? 'bg-rose-50 text-rose-700 ring-rose-600/20'
+                                        : 'bg-green-50 text-green-700 ring-green-600/20'
                                         }`}
                                 >
                                     {trans[shipmentData.penjaluran] || shipmentData.penjaluran}
@@ -1405,7 +1440,7 @@ export default function ViewCustomerForm({
                             if (hasRejection) {
                                 // ROSE (Rejected) - Soft left-border accent + Header Highlight
                                 containerClass += 'bg-rose-50 border-l-4 border-rose-500 border-slate-200';
-                                headerClass += 'bg-rose-100/50 hover:bg-rose-200/50';
+                                headerClass += 'bg-rose-100 hover:bg-rose-200';
                                 titleClass += 'text-rose-900 font-bold';
                                 chevronClass += 'text-rose-700';
                                 deadlineIconClass += 'text-rose-700';
@@ -1413,7 +1448,7 @@ export default function ViewCustomerForm({
                             } else if (allVerified) {
                                 // EMERALD (Verified) - Soft left-border accent + Header Highlight
                                 containerClass += 'bg-emerald-50 border-l-4 border-emerald-500 border-slate-200';
-                                headerClass += 'bg-emerald-100/50 hover:bg-emerald-200/50';
+                                headerClass += 'bg-emerald-100 hover:bg-emerald-200';
                                 titleClass += 'text-emerald-900 font-bold';
                                 chevronClass += 'text-emerald-700';
                                 deadlineIconClass += 'text-emerald-700';
@@ -1572,6 +1607,33 @@ export default function ViewCustomerForm({
                         >
                             {trans.green_line}
                         </Button>
+                    </div>
+                );
+            })()}
+
+            {/* Download All Documents as ZIP */}
+            {(() => {
+                // Cek apakah semua dokumen di id_section 1 DAN id_section 2 sudah verified
+                const isSectionAllVerified = (idSection: number) => {
+                    const sec = sectionsTransProp?.find((s: any) => s.id_section === idSection);
+                    if (!sec) return false;
+                    const latestDocs = processDocumentsForRender(sec.documents || []).map((g) => g.current);
+                    if (latestDocs.length === 0) return false;
+                    return latestDocs.every((d: any) => d.verify === true);
+                };
+
+                if (!isInternalUser ||!isSectionAllVerified(1) || !isSectionAllVerified(2)) return null;
+
+                return (
+                    <div className="mt-4 flex justify-center">
+                        <button
+                            onClick={handleDownloadZip}
+                            disabled={isDownloadingZip}
+                            className="group flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-600 shadow-sm transition-all duration-200 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:border-blue-500 dark:hover:bg-blue-950 dark:hover:text-blue-400"
+                        >
+                            <Archive className="h-4 w-4 transition-transform duration-200 group-hover:scale-110" />
+                            {isDownloadingZip ? 'Mengunduh...' : 'Unduh Semua Dokumen (.zip)'}
+                        </button>
                     </div>
                 );
             })()}

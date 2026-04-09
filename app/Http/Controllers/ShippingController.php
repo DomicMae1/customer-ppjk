@@ -2034,4 +2034,106 @@ class ShippingController extends Controller
         }
     }
 
+    /**
+     * Download semua dokumen terbaru dari SPK sebagai ZIP
+     * Hanya ambil versi terbaru per id_dokumen (bukan semua histori upload)
+     */
+    public function downloadZip($id)
+    {
+        $user = auth('web')->user();
+
+        // Resolve tenant
+        $tenant = null;
+        if ($user->id_perusahaan) {
+            $tenant = Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
+        } elseif ($user->id_customer) {
+            $customer = Customer::find($user->id_customer);
+            if ($customer && $customer->ownership) {
+                $tenant = Tenant::where('perusahaan_id', $customer->ownership)->first();
+            }
+        }
+
+        if (!$tenant) {
+            return response()->json(['error' => 'Tenant not found'], 404);
+        }
+
+        tenancy()->initialize($tenant);
+
+        $spk = Spk::findOrFail($id);
+
+        // Ambil semua dokumen yang sudah punya file (url_path_file tidak kosong)
+        $allDocs = DocumentTrans::where('id_spk', $spk->id)
+            ->whereNotNull('url_path_file')
+            ->where('url_path_file', '!=', '')
+            ->orderBy('id', 'asc')
+            ->get();
+
+        // Hanya ambil versi TERBARU per id_dokumen (id terbesar = paling baru)
+        $latestDocs = $allDocs
+            ->groupBy('id_dokumen')
+            ->map(fn($group) => $group->sortByDesc('id')->first())
+            ->values()
+            ->filter(fn($doc) => !empty($doc->url_path_file));
+
+        if ($latestDocs->isEmpty()) {
+            return response()->json(['error' => 'Tidak ada dokumen yang tersedia untuk diunduh.'], 404);
+        }
+
+        $disk = Storage::disk('customers_external');
+        $spkCode = Str::slug($spk->spk_code, '_');
+        $zipFileName = "dokumen_{$spkCode}.zip";
+
+        // Gunakan sys_get_temp_dir() untuk temporary file
+        $tempZipPath = sys_get_temp_dir() . DIRECTORY_SEPARATOR . $zipFileName;
+
+        $zip = new \ZipArchive();
+        if ($zip->open($tempZipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
+            return response()->json(['error' => 'Gagal membuat file ZIP.'], 500);
+        }
+
+        $addedCount = 0;
+        $usedNames = []; // Untuk handle collision nama file
+
+        foreach ($latestDocs as $doc) {
+            $filePath = $disk->path($doc->url_path_file);
+
+            if (!file_exists($filePath)) {
+                Log::warning("downloadZip: file tidak ditemukan: {$filePath}");
+                continue;
+            }
+
+            // Buat nama file yang aman dan unik di dalam ZIP
+            $originalName = $doc->nama_file ?? basename($doc->url_path_file);
+            $ext = pathinfo($doc->url_path_file, PATHINFO_EXTENSION);
+            $safeBaseName = Str::slug($originalName, '_');
+            if ($ext && !Str::endsWith($safeBaseName, ".{$ext}")) {
+                $safeBaseName .= ".{$ext}";
+            }
+
+            // Handle duplikat nama
+            $finalName = $safeBaseName;
+            $counter = 1;
+            while (isset($usedNames[$finalName])) {
+                $nameWithoutExt = pathinfo($safeBaseName, PATHINFO_FILENAME);
+                $finalName = "{$nameWithoutExt}_{$counter}.{$ext}";
+                $counter++;
+            }
+            $usedNames[$finalName] = true;
+
+            $zip->addFile($filePath, $finalName);
+            $addedCount++;
+        }
+
+        $zip->close();
+
+        if ($addedCount === 0) {
+            @unlink($tempZipPath);
+            return response()->json(['error' => 'Tidak ada file fisik yang ditemukan.'], 404);
+        }
+
+        return response()->download($tempZipPath, $zipFileName, [
+            'Content-Type' => 'application/zip',
+        ])->deleteFileAfterSend(true);
+    }
+
 }
