@@ -1,4 +1,5 @@
 # How to running laravel project
+
 # project developed by PT. Tako Anugerah Koporasi
 
 ## 1. Clone repository
@@ -47,6 +48,7 @@ php artisan migrate:fresh --database=tako-user --path=database/migrations/user
 ## 6. Make a Seeder
 
 This will:
+
 - Seed roles, permissions, users, master data into Central DB
 - Create tenants (auto-creates Tenant DB + Transactional DB per company)
 
@@ -97,6 +99,7 @@ php artisan tenant:migrate-transaction alpha
 ```
 
 ### Check tenants/company DB
+
 ```bash
 #before we cutoff tenants_trans_db you should check all db with this action
 php artisan tenants:list
@@ -105,7 +108,7 @@ php artisan tenants:list
 ### Cut-off tahunan
 
 ```bash
-# Cut-off a tenant (archive current year, create fresh DB) 
+# Cut-off a tenant (archive current year, create fresh DB)
 # make sure you already backup the database before running this command
 php artisan tenant:cutoff alpha 2026
 
