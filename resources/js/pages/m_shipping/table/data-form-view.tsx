@@ -38,6 +38,7 @@ interface ShipmentData {
     register_number?: string;
     register_date?: string;
     hsCodes: HsCodeItem[];
+    updated_by_name?: string | null;
 }
 
 interface DocumentTrans {
@@ -1122,7 +1123,7 @@ export default function ViewCustomerForm({
 
                 <div className="flex items-center gap-1 text-xs font-medium text-slate-500 italic">
                     <span className="h-1.5 w-1.5 rounded-full bg-slate-300"></span>
-                    {trans.last_updated || 'Last updated'}: {shipmentData.spkDate}
+                    {trans.last_updated || 'Last updated'}: {shipmentData.spkDate} {shipmentData.updated_by_name ? `by ${shipmentData.updated_by_name}` : ''}
                 </div>
 
                 {/* SUPERVISOR: Assign Staff */}

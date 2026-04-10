@@ -897,12 +897,17 @@ class ShippingController extends Controller
         ])->first();
 
         // 3. Format Data sesuai kebutuhan Frontend (shipmentData)
+        $latestLog = \App\Models\DocumentStatus::whereIn('id_dokumen_trans', $allDocs->pluck('id'))
+            ->latest()
+            ->first();
+
         $shipmentData = [
             'id_spk'    => $spk->id,
             // Format tanggal: 12/11/25 10.35 WIB
             'spkDate'   => $priorityStatus ? $priorityStatus->created_at->format('d/m/y H.i') . ' WIB' : '-',
             // Use SPK Status Name directly as requested
             'status'    => $priorityStatus ? $priorityStatus->status : 'UNKNOWN',
+            'updated_by_name' => $latestLog->by ?? null, // Added to show who uploaded
             'shipmentType' => $spk->shipment_type,
             'type'      => $spk->shipment_type,
             'spkNumber'  => $spk->spk_code, // Mapping spk_code ke siNumber
