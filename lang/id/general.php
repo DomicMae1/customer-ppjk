@@ -251,7 +251,7 @@ return [
     // detail shipment
     'assign_staff' => 'Tugaskan Staff',
     'staff_upload' => 'Upload Staff',
-    'dual_upload' => 'Dual Upload',
+    'dual_upload' => 'Upload Customer',
     'staff_upload_desc' => 'Staff internal yang mengupload semua dokumen',
     'dual_upload_desc' => 'Dokumen diupload bersama antara internal & eksternal',
     'upload_mode' => 'Mode Upload',
@@ -260,4 +260,13 @@ return [
     'red_line' => 'Jalur Merah',
     'no_available_documents' => 'Tidak ada dokumen yang tersedia',
     'loading_docs' => 'Memuat dokumen...',
+    'complete_registration_data' => 'Lengkapi data pendaftaran sebelum menyimpan penjaluran.',
+    'register_number' => 'Nomor Pendaftaran',
+    'register_date' => 'Tanggal Pendaftaran',
+    'save' => 'Simpan',
+    'saving' => 'Menyimpan...',
+    'cancel' => 'Batal',
+    'placeholder_register_number' => 'Masukkan nomor pendaftaran',
+    'placeholder_register_date' => 'Masukkan tanggal pendaftaran',
+    'locale' => 'id-ID',
 ];

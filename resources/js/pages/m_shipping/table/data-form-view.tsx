@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { router, usePage } from '@inertiajs/react';
 import axios from 'axios';
-import { AlertTriangle, ChevronDown, ChevronUp, CircleHelp, FileText, Play, Plus, Save, Search, Trash2, Undo2, X } from 'lucide-react';
+import { AlertTriangle, Archive, ChevronDown, ChevronUp, CircleHelp, FileText, Play, Plus, Save, Search, Trash2, Undo2, X } from 'lucide-react';
 import { nanoid } from 'nanoid';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -35,6 +35,8 @@ interface ShipmentData {
     siNumber: string;
     status: string;
     penjaluran: string | null;
+    register_number?: string;
+    register_date?: string;
     hsCodes: HsCodeItem[];
 }
 
@@ -666,7 +668,7 @@ export default function ViewCustomerForm({
 
         try {
             const response = await axios.get('/shipping/available-documents', {
-                params: { 
+                params: {
                     id_spk: shipmentData.id_spk,
                     id_section: sectionId
                 },
@@ -734,25 +736,76 @@ export default function ViewCustomerForm({
 
     // Penjaluran Handler
     const [isUpdatingPenjaluran, setIsUpdatingPenjaluran] = useState(false);
+    const [penjaluranModalOpen, setPenjaluranModalOpen] = useState(false);
+    const [pendingJalur, setPendingJalur] = useState<'merah' | 'hijau' | null>(null);
+    const [registerNumber, setRegisterNumber] = useState('');
+    const [registerDate, setRegisterDate] = useState('');
 
-    const handleUpdatePenjaluran = async (jalur: 'merah' | 'hijau') => {
+    // Buka modal terlebih dahulu sebelum submit penjaluran
+    const openPenjaluranModal = (jalur: 'merah' | 'hijau') => {
+        setPendingJalur(jalur);
+        setRegisterNumber('');
+        setRegisterDate('');
+        setPenjaluranModalOpen(true);
+    };
+
+    const handleUpdatePenjaluran = async () => {
+        if (!pendingJalur) return;
         setIsUpdatingPenjaluran(true);
         try {
             const response = await axios.post('/shipping/update-penjaluran', {
                 id_spk: shipmentData.id_spk,
-                penjaluran: jalur,
+                penjaluran: pendingJalur,
+                register_number: registerNumber,
+                register_date: registerDate,
             });
 
             if (response.data.success) {
-                toast.success(`Penjaluran updated to ${jalur}`);
+                toast.success(`Penjaluran berhasil diset ke jalur ${pendingJalur}`);
+                setPenjaluranModalOpen(false);
             } else {
-                toast.error(response.data.message || 'Failed to update penjaluran');
+                toast.error(response.data.message || 'Gagal update penjaluran');
             }
         } catch (error: any) {
             console.error('Error updating penjaluran:', error);
-            toast.error(error.response?.data?.message || 'Failed to update penjaluran');
+            toast.error(error.response?.data?.message || 'Gagal update penjaluran');
         } finally {
             setIsUpdatingPenjaluran(false);
+        }
+    };
+
+    // Download ZIP Handler
+    const [isDownloadingZip, setIsDownloadingZip] = useState(false);
+
+    const handleDownloadZip = async () => {
+        setIsDownloadingZip(true);
+        try {
+            const response = await axios.get(`/shipping/${shipmentData.id_spk}/download-zip`, {
+                responseType: 'blob',
+            });
+
+            const contentDisposition = response.headers['content-disposition'] || '';
+            const match = contentDisposition.match(/filename="?([^"]+)"?/);
+            const fileName = match ? match[1] : `dokumen_${shipmentData.id_spk}.zip`;
+
+            const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/zip' }));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', fileName);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+
+            toast.success('Dokumen berhasil diunduh!');
+        } catch (error: any) {
+            if (error.response?.status === 404) {
+                toast.error('Belum ada dokumen yang diupload.');
+            } else {
+                toast.error(error.response?.data?.error || 'Gagal mengunduh dokumen.');
+            }
+        } finally {
+            setIsDownloadingZip(false);
         }
     };
 
@@ -1154,12 +1207,34 @@ export default function ViewCustomerForm({
                             <div>
                                 <span
                                     className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold tracking-tight uppercase ring-1 ring-inset ${shipmentData.penjaluran === 'merah'
-                                            ? 'bg-rose-50 text-rose-700 ring-rose-600/20'
-                                            : 'bg-green-50 text-green-700 ring-green-600/20'
+                                        ? 'bg-rose-50 text-rose-700 ring-rose-600/20'
+                                        : 'bg-green-50 text-green-700 ring-green-600/20'
                                         }`}
                                 >
                                     {trans[shipmentData.penjaluran] || shipmentData.penjaluran}
                                 </span>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Registration No */}
+                    {shipmentData.register_number && (
+                        <div className="space-y-1">
+                            <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.register_number || 'Nomor Pendaftaran'}</div>
+                            <div className="text-sm font-semibold text-slate-700 dark:text-zinc-300">{shipmentData.register_number}</div>
+                        </div>
+                    )}
+
+                    {/* Registration Date */}
+                    {shipmentData.register_date && (
+                        <div className="space-y-1 text-right sm:text-left">
+                            <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.register_date || 'Tanggal Pendaftaran'}</div>
+                            <div className="text-sm font-semibold text-slate-700 dark:text-zinc-300">
+                                {new Date(shipmentData.register_date).toLocaleDateString(`${trans.locale}`, {
+                                    day: 'numeric',
+                                    month: 'long',
+                                    year: 'numeric'
+                                })}
                             </div>
                         </div>
                     )}
@@ -1307,7 +1382,7 @@ export default function ViewCustomerForm({
             </div>
 
             {/* NEW: Global Deadline Section - ONLY for Internal Users */}
-            {isInternalUser && (
+            {isSupervisor && (
                 <div className="mb-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:mb-5 sm:p-5 dark:border-zinc-800 dark:bg-zinc-900">
                     <div className="flex flex-col gap-3">
                         {/* Garis Kuning: Global Deadline Field */}
@@ -1405,7 +1480,7 @@ export default function ViewCustomerForm({
                             if (hasRejection) {
                                 // ROSE (Rejected) - Soft left-border accent + Header Highlight
                                 containerClass += 'bg-rose-50 border-l-4 border-rose-500 border-slate-200';
-                                headerClass += 'bg-rose-100/50 hover:bg-rose-200/50';
+                                headerClass += 'bg-rose-100 hover:bg-rose-200';
                                 titleClass += 'text-rose-900 font-bold';
                                 chevronClass += 'text-rose-700';
                                 deadlineIconClass += 'text-rose-700';
@@ -1413,7 +1488,7 @@ export default function ViewCustomerForm({
                             } else if (allVerified) {
                                 // EMERALD (Verified) - Soft left-border accent + Header Highlight
                                 containerClass += 'bg-emerald-50 border-l-4 border-emerald-500 border-slate-200';
-                                headerClass += 'bg-emerald-100/50 hover:bg-emerald-200/50';
+                                headerClass += 'bg-emerald-100 hover:bg-emerald-200';
                                 titleClass += 'text-emerald-900 font-bold';
                                 chevronClass += 'text-emerald-700';
                                 deadlineIconClass += 'text-emerald-700';
@@ -1466,7 +1541,7 @@ export default function ViewCustomerForm({
 
                                     {isOpen && (
                                         <div className="animate-in fade-in slide-in-from-top-2 mt-1 rounded-xl border-t border-slate-100 bg-white px-4 pt-3 pb-5 shadow-sm duration-300">
-                                            {isInternalUser && (
+                                            {isSupervisor && (
                                                 <div className="mb-4 flex items-center gap-3">
                                                     <label className="text-sm font-semibold whitespace-nowrap text-slate-700">
                                                         {trans.deadline}:
@@ -1543,24 +1618,133 @@ export default function ViewCustomerForm({
             </div>
 
             {/* Penjaluran Buttons */}
-            {isInternalUser && (
-                <div className="mt-6 flex flex-col justify-center gap-3 sm:mt-12 sm:flex-row sm:gap-4">
-                    <Button
-                        onClick={() => handleUpdatePenjaluran('merah')}
-                        disabled={isUpdatingPenjaluran}
-                        className="rounded-lg bg-gradient-to-r from-rose-500 to-rose-600 px-6 py-3 text-center text-sm font-medium text-white shadow-md transition-all duration-300 hover:from-rose-600 hover:to-rose-700 hover:shadow-lg focus:ring-4 focus:ring-rose-300 focus:outline-none"
-                    >
-                        {trans.red_line}
-                    </Button>
-                    <Button
-                        onClick={() => handleUpdatePenjaluran('hijau')}
-                        disabled={isUpdatingPenjaluran}
-                        className="rounded-lg bg-gradient-to-r from-green-500 to-green-600 px-6 py-3 text-center text-sm font-medium text-white shadow-md transition-all duration-300 hover:from-green-600 hover:to-green-700 hover:shadow-lg focus:ring-4 focus:ring-green-300 focus:outline-none"
-                    >
-                        {trans.green_line}
-                    </Button>
-                </div>
-            )}
+            {(() => {
+                // Cek apakah semua dokumen di id_section === 4 sudah verified
+                const section4 = sectionsTransProp?.find((s: any) => s.id_section === 4);
+                const section4AllVerified = (() => {
+                    if (!section4) return false;
+                    const docs = section4.documents || [];
+                    const latestDocs = processDocumentsForRender(docs).map((g) => g.current);
+                    if (latestDocs.length === 0) return false;
+                    return latestDocs.every((d: any) => d.verify === true);
+                })();
+
+                if (!isInternalUser || !section4AllVerified) return null;
+
+                return (
+                    <div className="mt-6 flex flex-col justify-center gap-3 sm:mt-12 sm:flex-row sm:gap-4">
+                        <Button
+                            onClick={() => openPenjaluranModal('merah')}
+                            disabled={isUpdatingPenjaluran}
+                            className="rounded-lg bg-gradient-to-r from-rose-500 to-rose-600 px-6 py-3 text-center text-sm font-medium text-white shadow-md transition-all duration-300 hover:from-rose-600 hover:to-rose-700 hover:shadow-lg focus:ring-4 focus:ring-rose-300 focus:outline-none"
+                        >
+                            {trans.red_line}
+                        </Button>
+                        <Button
+                            onClick={() => openPenjaluranModal('hijau')}
+                            disabled={isUpdatingPenjaluran}
+                            className="rounded-lg bg-gradient-to-r from-green-500 to-green-600 px-6 py-3 text-center text-sm font-medium text-white shadow-md transition-all duration-300 hover:from-green-600 hover:to-green-700 hover:shadow-lg focus:ring-4 focus:ring-green-300 focus:outline-none"
+                        >
+                            {trans.green_line}
+                        </Button>
+                    </div>
+                );
+            })()}
+
+            {/* Modal Konfirmasi Penjaluran */}
+            <Dialog open={penjaluranModalOpen} onOpenChange={setPenjaluranModalOpen}>
+                <DialogContent className="max-w-sm rounded-2xl p-0">
+                    <DialogHeader className="px-6 pt-6 pb-2">
+                        <DialogTitle className="flex items-center gap-2 text-base font-bold">
+                            <span
+                                className={`inline-block h-3 w-3 rounded-full ${
+                                    pendingJalur === 'merah' ? 'bg-rose-500' : 'bg-green-500'
+                                }`}
+                            />
+                            {pendingJalur === 'merah' ? trans.red_line : trans.green_line}
+                        </DialogTitle>
+                    </DialogHeader>
+
+                    <div className="space-y-4 px-6 pb-2">
+                        <p className="text-sm text-slate-500">{trans.complete_registration_data}</p>
+
+                        {/* No. Pendaftaran */}
+                        <div className="space-y-1.5">
+                            <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                {trans.register_number}
+                            </Label>
+                            <Input
+                                placeholder={trans.placeholder_register_number}
+                                value={registerNumber}
+                                onChange={(e) => setRegisterNumber(e.target.value)}
+                                className="h-9 rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                            />
+                        </div>
+
+                        {/* Tanggal Pendaftaran */}
+                        <div className="space-y-1.5">
+                            <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                {trans.register_date}
+                            </Label>
+                            <Input
+                                type="date"
+                                value={registerDate}
+                                onChange={(e) => setRegisterDate(e.target.value)}
+                                className="h-9 rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                            />
+                        </div>
+                    </div>
+
+                    <DialogFooter className="flex gap-2 rounded-b-2xl border-t bg-slate-50 px-6 py-4">
+                        <Button
+                            variant="outline"
+                            onClick={() => setPenjaluranModalOpen(false)}
+                            className="flex-1"
+                            disabled={isUpdatingPenjaluran}
+                        >
+                            {trans.cancel}
+                        </Button>
+                        <Button
+                            onClick={handleUpdatePenjaluran}
+                            disabled={isUpdatingPenjaluran || !registerNumber || !registerDate}
+                            className={`flex-1 text-white ${
+                                pendingJalur === 'merah'
+                                    ? 'bg-rose-500 hover:bg-rose-600'
+                                    : 'bg-green-500 hover:bg-green-600'
+                            }`}
+                        >
+                            {isUpdatingPenjaluran ? trans.saving : trans.save}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Download All Documents as ZIP */}
+            {(() => {
+                // Cek apakah semua dokumen di id_section 1 DAN id_section 2 sudah verified
+                const isSectionAllVerified = (idSection: number) => {
+                    const sec = sectionsTransProp?.find((s: any) => s.id_section === idSection);
+                    if (!sec) return false;
+                    const latestDocs = processDocumentsForRender(sec.documents || []).map((g) => g.current);
+                    if (latestDocs.length === 0) return false;
+                    return latestDocs.every((d: any) => d.verify === true);
+                };
+
+                if (!isInternalUser ||!isSectionAllVerified(1) || !isSectionAllVerified(2)) return null;
+
+                return (
+                    <div className="mt-4 flex justify-center">
+                        <button
+                            onClick={handleDownloadZip}
+                            disabled={isDownloadingZip}
+                            className="group flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-600 shadow-sm transition-all duration-200 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:border-blue-500 dark:hover:bg-blue-950 dark:hover:text-blue-400"
+                        >
+                            <Archive className="h-4 w-4 transition-transform duration-200 group-hover:scale-110" />
+                            {isDownloadingZip ? 'Mengunduh...' : 'Unduh Semua Dokumen (.zip)'}
+                        </button>
+                    </div>
+                );
+            })()}
 
             <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
                 <DialogContent className="max-w-85 rounded-xl p-0 sm:max-w-100">
