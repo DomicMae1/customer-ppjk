@@ -67,6 +67,7 @@ class HandleInertiaRequests extends Middleware
             'trans_nav' => __('sidebar'),
             'trans_customer' => __('customer'),
             'trans_doc' => __('document'),
+            'trans_sec' => __('section'),
             'trans_role' => __('role'),
             'trans_company' => __('company'),
             'company' => [

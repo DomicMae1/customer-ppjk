@@ -50,6 +50,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('role-manager', RoleController::class);
     Route::resource('perusahaan', PerusahaanController::class);
     Route::resource('document', DocumentController::class);
+    Route::resource('section', SectionController::class);
 
     // Notification routes
     Route::get('notifications', [NotificationController::class, 'index'])->name('notifications.index');
