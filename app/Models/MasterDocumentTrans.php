@@ -29,6 +29,7 @@ class MasterDocumentTrans extends Model
         'link_url_video_file',
         'description_file',
         'updated_by',
+        'kuota_revisi'
         // created_at dan updated_at otomatis dihandle
     ];
 

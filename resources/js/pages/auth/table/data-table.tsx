@@ -383,7 +383,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                         </SelectTrigger>
                                         <SelectContent className="bg-popover text-popover-foreground">
                                             {roles
-                                                .filter((role) => ['staff', 'manager', 'supervisor'].includes(role.name))
+                                                .filter((role) => ['staff', 'marketing', 'manager', 'supervisor'].includes(role.name))
                                                 .map((role) => (
                                                     <SelectItem key={role.id} value={String(role.id)}>
                                                         {role.name.charAt(0).toUpperCase() + role.name.slice(1)}

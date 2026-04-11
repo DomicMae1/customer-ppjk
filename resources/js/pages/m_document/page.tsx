@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { ResettableDropzone } from '@/components/ResettableDropzone';
+import { ResettableDropzoneDocument } from '@/components/ResettableDropzoneDocument';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -29,6 +29,7 @@ interface DocumentData {
     link_path_example_file?: string;
     link_path_template_file?: string;
     link_url_video_file?: string;
+    kuota_revisi?: number;
     source?: 'master' | 'trans';
     section?: MasterSection;
 }
@@ -65,6 +66,7 @@ export default function ManageDocuments() {
         is_internal: false,
         attribute: false,
         link_url_video_file: '',
+        kuota_revisi: '',
 
         link_path_example_file: '',
         link_path_template_file: '',
@@ -110,6 +112,7 @@ export default function ManageDocuments() {
                 is_internal: Boolean(doc.is_internal),
                 attribute: Boolean(doc.attribute),
                 link_url_video_file: doc.link_url_video_file || '',
+                kuota_revisi: doc.kuota_revisi != null ? String(doc.kuota_revisi) : '',
 
                 link_path_example_file: '',
                 link_path_template_file: '',
@@ -187,7 +190,7 @@ export default function ManageDocuments() {
             {/* --- MODAL EDIT --- */}
             <Dialog open={openEdit} onOpenChange={setOpenEdit}>
                 {/* UBAH: w-[95vw] agar di mobile hampir full width, tapi tetap ada margin */}
-                <DialogContent className="max-h-[90vh] w-[95vw] overflow-y-auto sm:max-w-lg">
+                <DialogContent className="max-h-[90vh] w-[95vw] overflow-y-auto sm:max-w-2xl">
                     <DialogHeader>
                         <DialogTitle>{trans_doc.title_edit || 'Edit Dokumen'}</DialogTitle>
                         <DialogDescription>{isManager ? trans_doc.subtitle_edit_internal : trans_doc.subtitle_edit_master}</DialogDescription>
@@ -278,21 +281,36 @@ export default function ManageDocuments() {
                             )}
                         </div>
 
-                        <div>
-                            <Label htmlFor="edit_video">{trans_doc.label_video_link}</Label>
-                            <Input
-                                id="edit_video"
-                                value={editForm.link_url_video_file}
-                                onChange={(e) => setEditForm({ ...editForm, link_url_video_file: e.target.value })}
-                                placeholder="https://youtube.com/..."
-                                className="mt-1"
-                            />
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            <div>
+                                <Label htmlFor="edit_video">{trans_doc.label_video_link}</Label>
+                                <Input
+                                    id="edit_video"
+                                    value={editForm.link_url_video_file}
+                                    onChange={(e) => setEditForm({ ...editForm, link_url_video_file: e.target.value })}
+                                    placeholder="https://youtube.com/..."
+                                    className="mt-1"
+                                />
+                            </div>
+
+                            <div>
+                                <Label htmlFor="edit_kuota_revisi">{trans_doc.count_revisi}</Label>
+                                <Input
+                                    id="edit_kuota_revisi"
+                                    type="number"
+                                    min="0"
+                                    value={editForm.kuota_revisi}
+                                    onChange={(e) => setEditForm({ ...editForm, kuota_revisi: e.target.value })}
+                                    placeholder="Masukkan jumlah revisi"
+                                    className="mt-1"
+                                />
+                            </div>
                         </div>
 
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <div className="w-full">
                                 <Label className="mb-2 block">{trans_doc.label_change_example}</Label>
-                                <ResettableDropzone
+                                <ResettableDropzoneDocument
                                     label={trans_doc.btn_upload_new}
                                     isRequired={false}
                                     uploadConfig={{
@@ -307,7 +325,7 @@ export default function ManageDocuments() {
 
                             <div className="w-full">
                                 <Label className="mb-2 block">{trans_doc.label_change_template}</Label>
-                                <ResettableDropzone
+                                <ResettableDropzoneDocument
                                     label={trans_doc.btn_upload_new}
                                     isRequired={false}
                                     uploadConfig={{

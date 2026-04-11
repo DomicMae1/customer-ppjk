@@ -31,6 +31,7 @@ return new class extends Migration
             $table->unsignedBigInteger('source_master_document_id')->nullable()->after('id_dokumen');
             $table->boolean('is_custom')->default(false)->after('source_master_document_id');
             $table->boolean('is_active')->default(true)->after('is_custom');
+            $table->unsignedBigInteger('kuota_revisi')->nullable();
 
             // 5. Tracking
             $table->unsignedBigInteger('updated_by')->nullable();

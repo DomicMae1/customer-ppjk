@@ -17,6 +17,8 @@ class SectionTrans extends Model
 
     // PENTING: Definisi Primary Key baru
     protected $primaryKey = 'id';
+    public $incrementing = true;
+    protected $keyType = 'int';
 
     protected $fillable = [
         'id_section',
@@ -28,9 +30,11 @@ class SectionTrans extends Model
     ];
 
     protected $casts = [
-        'deadline' => 'boolean', // Convert 1/0 ke True/False otomatis
-        'deadline_date' => 'date:Y-m-d', // FIX: Use date format only (no time/timezone)
+        'id_section' => 'integer',
+        'id_spk' => 'integer',
         'section_order' => 'integer',
+        'deadline' => 'boolean',
+        'deadline_date' => 'date:Y-m-d',
     ];
 
     /*

@@ -36,6 +36,7 @@ interface DocumentData {
     link_path_example_file?: string;
     link_path_template_file?: string;
     link_url_video_file?: string;
+    kuota_revisi: number;
     source?: 'master' | 'trans';
     section?: MasterSection;
 }
@@ -51,6 +52,10 @@ interface PageProps {
     flash: { success?: string; error?: string };
     auth: { user: any };
     trans_doc: Record<string, string>;
+    filters?: {
+        search?: string;
+        attribute?: string;
+    };
     [key: string]: any;
 }
 
@@ -71,6 +76,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
     const [sorting, setSorting] = React.useState<SortingState>([]);
     const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
     const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
+    const [mandatoryFilter, setMandatoryFilter] = useState<'all' | 'mandatory' | 'non_mandatory'>('all');
     const [rowSelection, setRowSelection] = React.useState({});
 
     // State Form Create Document (Bukan Perusahaan lagi)
@@ -84,14 +90,27 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
         is_internal: false,
         attribute: false,
         link_url_video_file: '',
+        kuota_revisi: '',
         file_example: null as File | null, // Untuk file
         file_template: null as File | null, // Untuk file
     });
 
+    const filteredData = React.useMemo(() => {
+        if (mandatoryFilter === 'mandatory') {
+            return data.filter((item: any) => item.attribute === true);
+        }
+
+        if (mandatoryFilter === 'non_mandatory') {
+            return data.filter((item: any) => item.attribute === false);
+        }
+
+        return data;
+    }, [data, mandatoryFilter]);
+
     const table = useReactTable({
         // Gunakan data dari props 'data' yang dilempar dari parent component (index.tsx)
         // Pastikan di index.tsx: <DataTable data={documents} ... />
-        data,
+        data: filteredData,
         columns,
         getCoreRowModel: getCoreRowModel(),
         getPaginationRowModel: getPaginationRowModel(),
@@ -144,6 +163,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
                     is_internal: false,
                     attribute: false,
                     link_url_video_file: '',
+                    kuota_revisi: '',
                     file_example: null,
                     file_template: null,
                 });
@@ -158,15 +178,30 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
             <div className="flex flex-col gap-4 pb-2 md:flex-row md:items-center md:justify-between">
                 {/* Search Input */}
                 <div className="flex w-full items-center gap-2 md:w-auto">
-                    <div className="relative w-full md:w-[300px]">
-                        <Search className="absolute top-2.5 left-2.5 h-4 w-4 text-gray-500" />
-                        <Input
-                            placeholder={trans_doc.search_placeholder || 'Filter...'}
-                            value={(table.getColumn(filterKey)?.getFilterValue() as string) ?? ''}
-                            onChange={(event) => table.getColumn(filterKey)?.setFilterValue(event.target.value)}
-                            className="w-full pl-9"
-                        />
+                    <div className="flex w-full items-center gap-2 md:w-[520px]">
+                        {/* Search Input */}
+                        <div className="relative flex-1">
+                            <Search className="absolute top-2.5 left-2.5 h-4 w-4 text-gray-500" />
+                            <Input
+                                placeholder={trans_doc.search_placeholder || 'Search document name...'}
+                                value={(table.getColumn(filterKey)?.getFilterValue() as string) ?? ''}
+                                onChange={(event) => table.getColumn(filterKey)?.setFilterValue(event.target.value)}
+                                className="w-full pl-9"
+                            />
+                        </div>
+
+                        {/* Select Filter */}
+                        <select
+                            value={mandatoryFilter}
+                            onChange={(e) => setMandatoryFilter(e.target.value as 'all' | 'mandatory' | 'non_mandatory')}
+                            className="border-input bg-background text-foreground focus:ring-primary ml-2 h-10 min-w-[160px] rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
+                        >
+                            <option value="all">Semua</option>
+                            <option value="mandatory">Mandatory</option>
+                            <option value="non_mandatory">Non Mandatory</option>
+                        </select>
                     </div>
+
                     <Button size="icon" className="shrink-0 md:hidden" onClick={() => setOpenCreate(true)}>
                         <Plus className="h-4 w-4" />
                     </Button>
@@ -365,7 +400,9 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
 
                             {Number(form.id_section) !== 6 && (
                                 <div>
-                                    <Label className="text-muted-foreground mb-2 block text-xs font-bold uppercase">{trans_doc.label_mandatory}</Label>
+                                    <Label className="text-muted-foreground mb-2 block text-xs font-bold uppercase">
+                                        {trans_doc.label_mandatory}
+                                    </Label>
                                     <div className="flex gap-2">
                                         <Button
                                             type="button"
@@ -388,18 +425,36 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
                             )}
                         </div>
 
-                        <div className="grid gap-2">
-                            <Label htmlFor="link_url_video_file" className="text-foreground font-semibold">
-                                {trans_doc.label_video_link}
-                            </Label>
-                            <Input
-                                id="link_url_video_file"
-                                name="link_url_video_file"
-                                value={form.link_url_video_file}
-                                onChange={handleInputChange}
-                                placeholder="https://youtube.com/..."
-                                className="bg-background text-foreground h-11 sm:h-10"
-                            />
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            <div className="grid gap-2">
+                                <Label htmlFor="link_url_video_file" className="text-foreground font-semibold">
+                                    {trans_doc.label_video_link}
+                                </Label>
+                                <Input
+                                    id="link_url_video_file"
+                                    name="link_url_video_file"
+                                    value={form.link_url_video_file}
+                                    onChange={handleInputChange}
+                                    placeholder="https://youtube.com/..."
+                                    className="bg-background text-foreground h-11 sm:h-10"
+                                />
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label htmlFor="kuota_revisi" className="text-foreground font-semibold">
+                                    {trans_doc.count_revisi}
+                                </Label>
+                                <Input
+                                    id="kuota_revisi"
+                                    name="kuota_revisi"
+                                    type="number"
+                                    min="0"
+                                    value={form.kuota_revisi}
+                                    onChange={handleInputChange}
+                                    placeholder="Masukkan jumlah revisi"
+                                    className="bg-background text-foreground h-11 sm:h-10"
+                                />
+                            </div>
                         </div>
 
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

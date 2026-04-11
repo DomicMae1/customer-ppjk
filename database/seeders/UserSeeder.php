@@ -16,7 +16,7 @@ class UserSeeder extends Seeder
     public function run(): void
     {
         // 1. Setup Roles
-        $roles = ['staff', 'manager', 'supervisor', 'admin', 'customer'];
+        $roles = ['staff','marketing', 'manager', 'supervisor', 'admin', 'customer'];
         foreach ($roles as $roleName) {
             Role::firstOrCreate(['name' => $roleName, 'guard_name' => 'web']);
         }
@@ -24,9 +24,10 @@ class UserSeeder extends Seeder
         // 2. Setup Internal Users
         $internalUsers = [
             // Perusahaan 1
-            ['name' => 'John Doe', 'email' => 'marketing@gmail.com', 'password' => '1234', 'role_internal' => 'staff',      'id_perusahaan' => 1],
+            ['name' => 'John Doe', 'email' => 'staff@gmail.com', 'password' => '1234', 'role_internal' => 'staff',      'id_perusahaan' => 1],
             ['name' => 'Rose Doe', 'email' => 'manager@gmail.com', 'password' => '1234', 'role_internal' => 'manager',     'id_perusahaan' => 1],
             ['name' => 'Emi Rina', 'email' => 'direktur@gmail.com', 'password' => '1234', 'role_internal' => 'supervisor', 'id_perusahaan' => 1],
+            ['name' => 'Mark', 'email' => 'marketing@gmail.com', 'password' => '1234', 'role_internal' => 'marketing', 'id_perusahaan' => 1],
 
             // Perusahaan 2
             ['name' => 'Don 5', 'email' => 'don5@gmail.com', 'password' => '1234', 'role_internal' => 'staff',      'id_perusahaan' => 2],
