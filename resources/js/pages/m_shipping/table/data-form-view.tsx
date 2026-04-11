@@ -129,7 +129,6 @@ export default function ViewCustomerForm({
     const currentLocale = props.locale as string;
 
     // Check if user is internal (not external)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const auth = (props.auth as any) || {};
     const isInternalUser = userRole !== 'eksternal';
     const isSupervisor = auth.user?.role === 'internal' && auth.user?.role_internal === 'supervisor';
@@ -159,6 +158,14 @@ export default function ViewCustomerForm({
     const [currentSectionId, setCurrentSectionId] = useState<number | null>(null);
     const [isLoadingDocs, setIsLoadingDocs] = useState(false);
     const [isSavingDocs, setIsSavingDocs] = useState(false);
+
+    //Modal Sections
+    const [isAddSectionModalOpen, setIsAddSectionModalOpen] = useState(false);
+    const [availableSections, setAvailableSections] = useState<any[]>([]);
+    const [selectedSections, setSelectedSections] = useState<number[]>([]);
+    const [isLoadingSections, setIsLoadingSections] = useState(false);
+    const [isSavingSections, setIsSavingSections] = useState(false);
+    const [sectionSearchQuery, setSectionSearchQuery] = useState('');
 
     // NEW: Deadline Date Feature States
     const [useUnifiedDeadline, setUseUnifiedDeadline] = useState(true); // Checkbox: apply same deadline to all
@@ -670,7 +677,7 @@ export default function ViewCustomerForm({
             const response = await axios.get('/shipping/available-documents', {
                 params: {
                     id_spk: shipmentData.id_spk,
-                    id_section: sectionId
+                    id_section: sectionId,
                 },
             });
 
@@ -1071,6 +1078,74 @@ export default function ViewCustomerForm({
         }
     };
 
+    const handleOpenAddSectionModal = async () => {
+        setIsAddSectionModalOpen(true);
+        setSelectedSections([]);
+        setSectionSearchQuery('');
+        setIsLoadingSections(true);
+
+        try {
+            const response = await axios.get('/shipping/available-sections', {
+                params: {
+                    id_spk: shipmentData.id_spk,
+                },
+            });
+
+            if (response.data.success) {
+                setAvailableSections(response.data.sections || []);
+            } else {
+                toast.error(response.data.message || 'Failed to load sections');
+            }
+        } catch (error: any) {
+            console.error('Error fetching sections:', error);
+            toast.error(error.response?.data?.message || 'Failed to load sections');
+        } finally {
+            setIsLoadingSections(false);
+        }
+    };
+
+    const handleSectionCheckboxChange = (sectionId: number, checked: boolean) => {
+        if (checked) {
+            setSelectedSections((prev) => [...prev, sectionId]);
+        } else {
+            setSelectedSections((prev) => prev.filter((id) => id !== sectionId));
+        }
+    };
+
+    const handleSaveSelectedSections = async () => {
+        if (selectedSections.length === 0) {
+            toast.error('Please select at least one section');
+            return;
+        }
+
+        setIsSavingSections(true);
+
+        try {
+            const response = await axios.post('/shipping/add-sections-to-spk', {
+                id_spk: shipmentData.id_spk,
+                section_ids: selectedSections,
+            });
+
+            if (response.data.success) {
+                toast.success(response.data.message || 'Sections added successfully');
+                setIsAddSectionModalOpen(false);
+                setSelectedSections([]);
+
+                router.reload({
+                    only: ['sectionsTransProp'],
+                    preserveScroll: true,
+                });
+            } else {
+                toast.error(response.data.message || 'Failed to add sections');
+            }
+        } catch (error: any) {
+            console.error('Error adding sections:', error);
+            toast.error(error.response?.data?.message || 'Failed to add sections');
+        } finally {
+            setIsSavingSections(false);
+        }
+    };
+
     // Calculate overall progress across all sections
     const calculateProgress = () => {
         let totalDocs = 0;
@@ -1130,9 +1205,7 @@ export default function ViewCustomerForm({
                     <div className="mt-5 space-y-4 border-t border-slate-100 pt-4">
                         {/* Assign Staff */}
                         <div>
-                            <Label className="mb-2 block text-[11px] font-bold tracking-wider text-slate-500 uppercase">
-                                {trans.assign_staff}
-                            </Label>
+                            <Label className="mb-2 block text-[11px] font-bold tracking-wider text-slate-500 uppercase">{trans.assign_staff}</Label>
                             <div className="flex items-center gap-2">
                                 <Select value={selectedStaff} onValueChange={setSelectedStaff}>
                                     <SelectTrigger className="h-9 flex-1 rounded-lg border-slate-200 text-xs focus:ring-blue-500/20">
@@ -1167,24 +1240,24 @@ export default function ViewCustomerForm({
                                 <button
                                     onClick={() => !isUpdatingUploadMode && handleToggleInternalCanUpload(true)}
                                     disabled={isUpdatingUploadMode}
-                                    className={`flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition-all duration-200 ${internalCanUpload ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                                        } disabled:opacity-50`}
+                                    className={`flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition-all duration-200 ${
+                                        internalCanUpload ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                                    } disabled:opacity-50`}
                                 >
                                     {trans.staff_upload}
                                 </button>
                                 <button
                                     onClick={() => !isUpdatingUploadMode && handleToggleInternalCanUpload(false)}
                                     disabled={isUpdatingUploadMode}
-                                    className={`flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition-all duration-200 ${!internalCanUpload ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                                        } disabled:opacity-50`}
+                                    className={`flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition-all duration-200 ${
+                                        !internalCanUpload ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                                    } disabled:opacity-50`}
                                 >
                                     {trans.dual_upload}
                                 </button>
                             </div>
                             <p className="mt-1.5 text-[10px] text-slate-400">
-                                {internalCanUpload
-                                    ? trans.staff_upload_desc
-                                    : trans.dual_upload_desc}
+                                {internalCanUpload ? trans.staff_upload_desc : trans.dual_upload_desc}
                             </p>
                         </div>
                     </div>
@@ -1206,10 +1279,11 @@ export default function ViewCustomerForm({
                             <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.channel}</div>
                             <div>
                                 <span
-                                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold tracking-tight uppercase ring-1 ring-inset ${shipmentData.penjaluran === 'merah'
-                                        ? 'bg-rose-50 text-rose-700 ring-rose-600/20'
-                                        : 'bg-green-50 text-green-700 ring-green-600/20'
-                                        }`}
+                                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold tracking-tight uppercase ring-1 ring-inset ${
+                                        shipmentData.penjaluran === 'merah'
+                                            ? 'bg-rose-50 text-rose-700 ring-rose-600/20'
+                                            : 'bg-green-50 text-green-700 ring-green-600/20'
+                                    }`}
                                 >
                                     {trans[shipmentData.penjaluran] || shipmentData.penjaluran}
                                 </span>
@@ -1220,7 +1294,9 @@ export default function ViewCustomerForm({
                     {/* Registration No */}
                     {shipmentData.register_number && (
                         <div className="space-y-1">
-                            <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.register_number || 'Nomor Pendaftaran'}</div>
+                            <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
+                                {trans.register_number || 'Nomor Pendaftaran'}
+                            </div>
                             <div className="text-sm font-semibold text-slate-700 dark:text-zinc-300">{shipmentData.register_number}</div>
                         </div>
                     )}
@@ -1228,12 +1304,14 @@ export default function ViewCustomerForm({
                     {/* Registration Date */}
                     {shipmentData.register_date && (
                         <div className="space-y-1 text-right sm:text-left">
-                            <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.register_date || 'Tanggal Pendaftaran'}</div>
+                            <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
+                                {trans.register_date || 'Tanggal Pendaftaran'}
+                            </div>
                             <div className="text-sm font-semibold text-slate-700 dark:text-zinc-300">
                                 {new Date(shipmentData.register_date).toLocaleDateString(`${trans.locale}`, {
                                     day: 'numeric',
                                     month: 'long',
-                                    year: 'numeric'
+                                    year: 'numeric',
                                 })}
                             </div>
                         </div>
@@ -1245,8 +1323,8 @@ export default function ViewCustomerForm({
                             {shipmentData.type === 'Export'
                                 ? trans.si || 'SI'
                                 : shipmentData.type === 'Import'
-                                    ? trans.bl || 'B'
-                                    : trans.spk || 'SPK'}{' '}
+                                  ? trans.bl || 'B'
+                                  : trans.spk || 'SPK'}{' '}
                         </div>
                         <div className="text-sm font-bold tracking-tight break-all text-slate-900 dark:text-white">{shipmentData.spkNumber}</div>
                     </div>
@@ -1307,9 +1385,9 @@ export default function ViewCustomerForm({
                                                             existingFile={
                                                                 !item.file && item.link
                                                                     ? {
-                                                                        nama_file: item.link,
-                                                                        path: `/file/view/${item.link}`,
-                                                                    }
+                                                                          nama_file: item.link,
+                                                                          path: `/file/view/${item.link}`,
+                                                                      }
                                                                     : undefined
                                                             }
                                                             onFileChange={(file) => {
@@ -1587,7 +1665,7 @@ export default function ViewCustomerForm({
                                                 {isInternalUser && (
                                                     <button
                                                         onClick={() => handleOpenModal(section.id_section)}
-                                                        className="flex items-center gap-2 text-sm font-semibold text-slate-700 hover:text-slate-900 transition-colors duration-200"
+                                                        className="flex items-center gap-2 text-sm font-semibold text-slate-700 transition-colors duration-200 hover:text-slate-900"
                                                     >
                                                         <div className="rounded border-2 border-slate-400 p-0.5 transition-colors duration-200 hover:border-slate-600">
                                                             <Plus className="h-4 w-4" />
@@ -1616,6 +1694,18 @@ export default function ViewCustomerForm({
                     </div>
                 )}
             </div>
+
+            {isInternalUser && (
+                <div className="mt-4 flex justify-center">
+                    <Button
+                        onClick={handleOpenAddSectionModal}
+                        className="w-full rounded-lg bg-black px-6 py-2 text-sm font-semibold text-white hover:bg-gray-800"
+                    >
+                        <Plus className="mr-2 h-4 w-4" />
+                        {trans.add_section || 'Add Section'}
+                    </Button>
+                </div>
+            )}
 
             {/* Penjaluran Buttons */}
             {(() => {
@@ -1656,11 +1746,7 @@ export default function ViewCustomerForm({
                 <DialogContent className="max-w-sm rounded-2xl p-0">
                     <DialogHeader className="px-6 pt-6 pb-2">
                         <DialogTitle className="flex items-center gap-2 text-base font-bold">
-                            <span
-                                className={`inline-block h-3 w-3 rounded-full ${
-                                    pendingJalur === 'merah' ? 'bg-rose-500' : 'bg-green-500'
-                                }`}
-                            />
+                            <span className={`inline-block h-3 w-3 rounded-full ${pendingJalur === 'merah' ? 'bg-rose-500' : 'bg-green-500'}`} />
                             {pendingJalur === 'merah' ? trans.red_line : trans.green_line}
                         </DialogTitle>
                     </DialogHeader>
@@ -1670,9 +1756,7 @@ export default function ViewCustomerForm({
 
                         {/* No. Pendaftaran */}
                         <div className="space-y-1.5">
-                            <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                {trans.register_number}
-                            </Label>
+                            <Label className="text-xs font-semibold tracking-wide text-slate-500 uppercase">{trans.register_number}</Label>
                             <Input
                                 placeholder={trans.placeholder_register_number}
                                 value={registerNumber}
@@ -1683,9 +1767,7 @@ export default function ViewCustomerForm({
 
                         {/* Tanggal Pendaftaran */}
                         <div className="space-y-1.5">
-                            <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                {trans.register_date}
-                            </Label>
+                            <Label className="text-xs font-semibold tracking-wide text-slate-500 uppercase">{trans.register_date}</Label>
                             <Input
                                 type="date"
                                 value={registerDate}
@@ -1696,21 +1778,14 @@ export default function ViewCustomerForm({
                     </div>
 
                     <DialogFooter className="flex gap-2 rounded-b-2xl border-t bg-slate-50 px-6 py-4">
-                        <Button
-                            variant="outline"
-                            onClick={() => setPenjaluranModalOpen(false)}
-                            className="flex-1"
-                            disabled={isUpdatingPenjaluran}
-                        >
+                        <Button variant="outline" onClick={() => setPenjaluranModalOpen(false)} className="flex-1" disabled={isUpdatingPenjaluran}>
                             {trans.cancel}
                         </Button>
                         <Button
                             onClick={handleUpdatePenjaluran}
                             disabled={isUpdatingPenjaluran || !registerNumber || !registerDate}
                             className={`flex-1 text-white ${
-                                pendingJalur === 'merah'
-                                    ? 'bg-rose-500 hover:bg-rose-600'
-                                    : 'bg-green-500 hover:bg-green-600'
+                                pendingJalur === 'merah' ? 'bg-rose-500 hover:bg-rose-600' : 'bg-green-500 hover:bg-green-600'
                             }`}
                         >
                             {isUpdatingPenjaluran ? trans.saving : trans.save}
@@ -1730,7 +1805,7 @@ export default function ViewCustomerForm({
                     return latestDocs.every((d: any) => d.verify === true);
                 };
 
-                if (!isInternalUser ||!isSectionAllVerified(1) || !isSectionAllVerified(2)) return null;
+                if (!isInternalUser || !isSectionAllVerified(1) || !isSectionAllVerified(2)) return null;
 
                 return (
                     <div className="mt-4 flex justify-center">
@@ -1961,6 +2036,66 @@ export default function ViewCustomerForm({
                             {trans.close || 'Close'}
                         </Button>
                     </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={isAddSectionModalOpen} onOpenChange={setIsAddSectionModalOpen}>
+                <DialogContent className="max-w-85 rounded-xl p-0 sm:max-w-100">
+                    <DialogHeader className="px-4 py-3">
+                        <DialogTitle className="text-left text-lg font-bold">{trans.add_section || 'Add Section'}</DialogTitle>
+                    </DialogHeader>
+
+                    <div className="px-4 pb-2">
+                        <div className="relative">
+                            <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                            <Input
+                                placeholder={trans.search_section || 'Search section'}
+                                className="h-10 rounded-md border-gray-400 pl-9 focus-visible:border-black focus-visible:ring-0"
+                                value={sectionSearchQuery}
+                                onChange={(e) => setSectionSearchQuery(e.target.value)}
+                            />
+                        </div>
+                    </div>
+
+                    <div className="max-h-75 overflow-y-auto px-4 py-2">
+                        {isLoadingSections ? (
+                            <div className="py-8 text-center text-sm text-gray-500">{trans.loading_sections || 'Loading sections...'}</div>
+                        ) : availableSections.length === 0 ? (
+                            <div className="py-8 text-center text-sm text-gray-500">{trans.no_available_sections || 'No available sections'}</div>
+                        ) : (
+                            <div className="space-y-4">
+                                {availableSections
+                                    .filter((section) => section.section_name.toLowerCase().includes(sectionSearchQuery.toLowerCase()))
+                                    .map((section) => (
+                                        <div key={section.id_section} className="flex items-center space-x-3">
+                                            <Checkbox
+                                                id={`section-${section.id_section}`}
+                                                checked={selectedSections.includes(section.id_section)}
+                                                onCheckedChange={(checked) => handleSectionCheckboxChange(section.id_section, checked as boolean)}
+                                                className="h-5 w-5 rounded border-2 border-black data-[state=checked]:bg-transparent data-[state=checked]:text-black"
+                                            />
+                                            <label
+                                                htmlFor={`section-${section.id_section}`}
+                                                className="cursor-pointer text-base leading-none font-normal"
+                                            >
+                                                {section.section_name}
+                                            </label>
+                                        </div>
+                                    ))}
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="flex flex-col items-center gap-3 border-t p-4 pt-2">
+                        {selectedSections.length > 0 && <div className="text-sm text-gray-600">{selectedSections.length} section(s) selected</div>}
+                        <Button
+                            className="h-10 w-full rounded-md bg-black text-sm font-bold text-white hover:bg-gray-800 disabled:opacity-50"
+                            onClick={handleSaveSelectedSections}
+                            disabled={isSavingSections || selectedSections.length === 0}
+                        >
+                            {isSavingSections ? 'Saving...' : trans.save_changes || 'Save Changes'}
+                        </Button>
+                    </div>
                 </DialogContent>
             </Dialog>
         </div>

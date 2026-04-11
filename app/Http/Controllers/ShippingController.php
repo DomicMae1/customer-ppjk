@@ -313,7 +313,10 @@ class ShippingController extends Controller
 
             // --- 3. GENERATE SECTION TRANSAKSI ---
             // Mengambil section dari DB Master (Global) dan copy ke Transaksi (Tenant)
-            $masterSections = MasterSection::on('tako-user')->get();
+            $masterSections = MasterSection::on('tako-user')
+                ->where('attribute_section', true)
+                ->orderBy('section_order', 'asc')
+                ->get();
 
             foreach ($masterSections as $masterSec) {
                 SectionTrans::create([
@@ -330,8 +333,14 @@ class ShippingController extends Controller
             // --- 4. GENERATE DOKUMEN TRANSAKSI (MANDATORY ONLY) ---
             // Hanya dokumen dengan attribute = true yang otomatis ditambahkan saat SPK dibuat.
             // Dokumen lain (attribute = false) ditambahkan secara manual melalui modal di frontend.
+            $allowedSectionIds = MasterSection::on('tako-user')
+                ->where('attribute_section', true)
+                ->pluck('id_section')
+                ->toArray();
+
             $finalDocs = MasterDocumentTrans::where('is_active', true)
                 ->where('attribute', true)
+                ->whereIn('id_section', $allowedSectionIds)
                 ->orderBy('id_dokumen', 'asc')
                 ->get()
                 ->unique(function ($doc) {
@@ -2144,6 +2153,171 @@ class ShippingController extends Controller
         return response()->download($tempZipPath, $zipFileName, [
             'Content-Type' => 'application/zip',
         ])->deleteFileAfterSend(true);
+    }
+
+    public function availableSections(Request $request)
+    {
+        $user = auth('web')->user();
+
+        $request->validate([
+            'id_spk' => 'required|integer',
+        ]);
+
+        // Tentukan tenant
+        $tenant = null;
+
+        if ($user->id_perusahaan) {
+            $tenant = \App\Models\Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
+        } elseif ($user->id_customer) {
+            $customer = \App\Models\Customer::find($user->id_customer);
+            if ($customer && $customer->ownership) {
+                $tenant = \App\Models\Tenant::where('perusahaan_id', $customer->ownership)->first();
+            }
+        }
+
+        if (!$tenant) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Tenant tidak ditemukan.',
+            ], 404);
+        }
+
+        tenancy()->initialize($tenant);
+
+        $idSpk = $request->id_spk;
+
+        // Pastikan SPK ada di tenant
+        $spk = \App\Models\Spk::find($idSpk);
+        if (!$spk) {
+            return response()->json([
+                'success' => false,
+                'message' => 'SPK tidak ditemukan.',
+            ], 404);
+        }
+
+        // Ambil id_section yang sudah ada di section_trans
+        $existingSectionIds = SectionTrans::where('id_spk', $idSpk)
+            ->pluck('id_section')
+            ->filter()
+            ->values()
+            ->toArray();
+
+        // Ambil master section yang belum dipakai
+        $sections = MasterSection::on('tako-user')
+            ->when(!empty($existingSectionIds), function ($query) use ($existingSectionIds) {
+                $query->whereNotIn('id_section', $existingSectionIds);
+            })
+            ->orderBy('section_order', 'asc')
+            ->get([
+                'id_section',
+                'section_name',
+                'section_order',
+                'is_penjaluran',
+                'attribute_section',
+            ]);
+
+        return response()->json([
+            'success' => true,
+            'sections' => $sections,
+        ]);
+    }
+
+    public function addSectionsToSpk(Request $request)
+    {
+        $user = auth('web')->user();
+
+        $request->validate([
+            'id_spk' => 'required|integer',
+            'section_ids' => 'required|array|min:1',
+            'section_ids.*' => 'required|integer',
+        ]);
+
+        // Tentukan tenant
+        $tenant = null;
+
+        if ($user->id_perusahaan) {
+            $tenant = \App\Models\Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
+        } elseif ($user->id_customer) {
+            $customer = \App\Models\Customer::find($user->id_customer);
+            if ($customer && $customer->ownership) {
+                $tenant = \App\Models\Tenant::where('perusahaan_id', $customer->ownership)->first();
+            }
+        }
+
+        if (!$tenant) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Tenant tidak ditemukan.',
+            ], 404);
+        }
+
+        tenancy()->initialize($tenant);
+
+        $idSpk = $request->id_spk;
+        $sectionIds = collect($request->section_ids)->unique()->values()->toArray();
+
+        $spk = \App\Models\Spk::find($idSpk);
+        if (!$spk) {
+            return response()->json([
+                'success' => false,
+                'message' => 'SPK tidak ditemukan.',
+            ], 404);
+        }
+
+        \Illuminate\Support\Facades\DB::beginTransaction();
+
+        try {
+            // Ambil section yang sudah ada di tenant untuk SPK ini
+            $existingSectionIds = SectionTrans::where('id_spk', $idSpk)
+                ->pluck('id_section')
+                ->filter()
+                ->values()
+                ->toArray();
+
+            // Filter supaya hanya section yang belum ada
+            $newSectionIds = array_values(array_diff($sectionIds, $existingSectionIds));
+
+            if (empty($newSectionIds)) {
+                \Illuminate\Support\Facades\DB::rollBack();
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Semua section yang dipilih sudah ada.',
+                ], 422);
+            }
+
+            // Ambil master section dari DB global
+            $masterSections = MasterSection::on('tako-user')
+                ->whereIn('id_section', $newSectionIds)
+                ->orderBy('section_order', 'asc')
+                ->get();
+
+            foreach ($masterSections as $masterSec) {
+                SectionTrans::create([
+                    'id_section' => $masterSec->id_section,
+                    'id_spk' => $idSpk,
+                    'section_name' => $masterSec->section_name,
+                    'section_order' => $masterSec->section_order,
+                    'deadline' => false,
+                    'deadline_date' => null,
+                ]);
+            }
+
+            \Illuminate\Support\Facades\DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Section berhasil ditambahkan ke SPK.',
+            ]);
+        } catch (\Throwable $th) {
+            \Illuminate\Support\Facades\DB::rollBack();
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal menambahkan section.',
+                'error' => $th->getMessage(),
+            ], 500);
+        }
     }
 
 }

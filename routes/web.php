@@ -13,6 +13,7 @@ use App\Models\Customers_Status;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use App\Http\Controllers\FileController;
+use App\Http\Controllers\SectionController;
 use App\Http\Controllers\ShippingController;
 use App\Http\Controllers\NotificationController;
 use Illuminate\Support\Facades\Session;
@@ -43,6 +44,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('shipping/unified-save', [ShippingController::class, 'unifiedBatchSave'])->name('shipping.unifiedSave');
     Route::post('shipping/update-deadline', [ShippingController::class, 'updateDeadline'])->name('shipping.updateDeadline');
     Route::get('shipping/{id}/download-zip', [ShippingController::class, 'downloadZip'])->name('shipping.downloadZip');
+    Route::get('/shipping/available-sections', [ShippingController::class, 'availableSections']);
+    Route::post('/shipping/add-sections-to-spk', [ShippingController::class, 'addSectionsToSpk']);
     
     // Resource route AFTER specific routes
     Route::resource('shipping', ShippingController::class);
