@@ -107,12 +107,10 @@ export const columns = (
                 return (
                     <div className="text-sm md:min-w-[200px] md:truncate md:px-2">
                         <span>
-                            {label}
-                            {/* 2. Gunakan trans untuk kata sambung */}
-                            {nama_user ? ` ${trans.by} ` : ' '}
-                            {nama_user && <strong>{nama_user}</strong>}
-                            {` ${trans.at} `}
+                            {label} {trans.last_updated || 'updated'} {` ${trans.at || 'at'} `}
                             <strong>{`${tanggalFormat} ${jamMenit} WIB`}</strong>
+                            {nama_user ? ` ${trans.by || 'by'} ` : ''}
+                            {nama_user && <strong>{nama_user}</strong>}
                         </span>
                     </div>
                 );
