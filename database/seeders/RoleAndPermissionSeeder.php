@@ -56,6 +56,7 @@ class RoleAndPermissionSeeder extends Seeder
             'staff',
             'manager',
             'supervisor',
+            'marketing',
             'customer',
         ];
 
@@ -74,6 +75,13 @@ class RoleAndPermissionSeeder extends Seeder
 
         // Staff
         $rolesObj['staff']->syncPermissions([
+            'create-master-shipping',
+            'update-master-shipping',
+            'view-master-shipping',
+        ]);
+
+        // Marketing
+        $rolesObj['marketing']->syncPermissions([
             'create-master-shipping',
             'update-master-shipping',
             'view-master-shipping',

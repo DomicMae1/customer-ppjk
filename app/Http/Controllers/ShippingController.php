@@ -159,6 +159,7 @@ class ShippingController extends Controller
             $internalStaff = User::on('tako-user')
                 ->where('role', 'internal')
                 ->where('role_internal', 'staff')
+                ->orWhere('role_internal', 'marketing')
                 ->where('id_perusahaan', $user->id_perusahaan)
                 ->select('id_user', 'name')
                 ->get();
@@ -384,8 +385,8 @@ class ShippingController extends Controller
                     // Optional: Notification Logic to Assigned Staff can be added here
                     /* NotificationService::send([...]); */
 
-                } elseif ($user->role_internal === 'staff') {
-                   // STAFF: Auto-assign to Self
+                } elseif (in_array($user->role_internal, ['staff', 'marketing'])) {
+                   // STAFF & Marketing: Auto-assign to Self
                    $spk->update(['validated_by' => $userId]);
                 }
             }
@@ -399,7 +400,7 @@ class ShippingController extends Controller
                     // Find all Internal Users (Staff & Supervisor)
                     $internalUsers = \App\Models\User::on('tako-user')
                         ->where('role', 'internal')
-                        ->whereIn('role_internal', ['staff', 'supervisor'])
+                        ->whereIn('role_internal', ['staff', 'marketing', 'supervisor'])
                         ->distinct()
                         ->get();
                     
@@ -496,8 +497,8 @@ class ShippingController extends Controller
                         }
                     }
 
-                   // 2. Notify External Customer (For both Staff and Supervisor)
-                   // We query the central user table for users of this customer
+                //    2. Notify External Customer (For both Staff and Supervisor)
+                //    We query the central user table for users of this customer
                    $externalUsers = \App\Models\User::on('tako-user')
                         ->where('id_customer', $spk->id_customer)
                         ->where('role', 'eksternal')
@@ -758,6 +759,7 @@ class ShippingController extends Controller
             $internalStaff = \App\Models\User::on('tako-user')
                 ->where('role', 'internal')
                 ->where('role_internal', 'staff')
+                ->orWhere('role_internal', 'marketing')
                 ->where('id_perusahaan', $user->id_perusahaan)
                 ->select('id_user', 'name')
                 ->get();
@@ -790,7 +792,7 @@ class ShippingController extends Controller
         $spk = Spk::with(['creator','hsCodes', 'customer'])->findOrFail($id);
 
                 // --- FIRST CLICK VALIDATION ASSIGNMENT ---
-        if ($user->role === 'internal' && $user->role_internal === 'staff') {
+        if ($user->role === 'internal' && ($user->role_internal === 'staff' || $user->role_internal === 'marketing')) {
             if (is_null($spk->validated_by)) {
                 
                 $notificationsToRemove = collect([]);
@@ -811,6 +813,7 @@ class ShippingController extends Controller
                     $staffIdsToCleanup = \App\Models\User::on('tako-user')
                         ->where('role', 'internal')
                         ->where('role_internal', 'staff')
+                        ->orWhere('role_internal', 'marketing')
                         ->where('id_user', '!=', $user->id_user)
                         ->pluck('id_user');
 
@@ -1356,7 +1359,6 @@ class ShippingController extends Controller
             DB::beginTransaction();
 
             $customer->update($validated);
-            $roles = $user->getRoleNames();
 
             DB::commit();
             return redirect()->route('shipping.index')->with('success', 'Data Shipping berhasil diperbarui!');
