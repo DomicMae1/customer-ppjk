@@ -20,6 +20,7 @@ return [
     "btn_yes" => "Yes",
     "btn_no" => "No",
     "label_video_link" => "Video Link",
+    "count_revisi" => "Quota Revision",
     "label_change_example" => "Change Example File",
     "label_change_template" => "Change Template File",
     "btn_upload_new" => "Upload New",

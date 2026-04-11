@@ -25,6 +25,7 @@ class DocumentController extends Controller
         }
 
         $documents = [];
+        $attributeFilter = $request->get('attribute');
 
         // --- 1. LOGIC MANAGER/SUPERVISOR (TENANT) ---
         if ($user->hasRole(['manager', 'supervisor'])) {
@@ -36,6 +37,14 @@ class DocumentController extends Controller
             if ($tenant) {
                 tenancy()->initialize($tenant);
 
+                $query = MasterDocumentTrans::with('section');
+
+                if ($attributeFilter === 'mandatory') {
+                    $query->where('attribute', true);
+                } elseif ($attributeFilter === 'non_mandatory') {
+                    $query->where('attribute', false);
+                }
+
                 $documents = MasterDocumentTrans::with('section')
                     ->get()
                     ->map(function($item) {
@@ -46,6 +55,7 @@ class DocumentController extends Controller
                             'description_file' => $item->description_file,
                             'is_internal' => $item->is_internal, // Boolean
                             'attribute' => $item->attribute,     // Boolean
+                            'kuota_revisi' => $item->kuota_revisi,
                             
                             // --- FIELD BARU ---
                             'link_path_example_file' => $item->link_path_example_file ? Storage::url($item->link_path_example_file) : null,
@@ -60,6 +70,13 @@ class DocumentController extends Controller
 
         // --- 2. LOGIC ADMIN (GLOBAL) ---
         } elseif ($user->hasRole('admin')) {
+            $query = MasterDocument::with('section');
+
+            if ($attributeFilter === 'mandatory') {
+                $query->where('attribute', true);
+            } elseif ($attributeFilter === 'non_mandatory') {
+                $query->where('attribute', false);
+            }
             $documents = MasterDocument::with('section')
                 ->get()
                 ->map(function($item) {
@@ -70,6 +87,7 @@ class DocumentController extends Controller
                         'description_file' => $item->description_file,
                         'is_internal' => $item->is_internal, // Boolean
                         'attribute' => $item->attribute,     // Boolean
+                        'kuota_revisi' => $item->kuota_revisi,
                         
                         // --- FIELD BARU ---
                         'link_path_example_file' => $item->link_path_example_file,
@@ -90,7 +108,7 @@ class DocumentController extends Controller
         return Inertia::render('m_document/page', [
             'documents' => $documents,
             'sections' => $sections,
-            'filters' => $request->only(['search']),
+            'filters' => $request->only(['search', 'attribute']),
         ]);
     }
 
@@ -107,6 +125,7 @@ class DocumentController extends Controller
             'nama_file' => 'required|string|max:255',
             'description_file' => 'nullable|string',
             'link_url_video_file' => 'nullable|url',
+            'kuota_revisi' => 'nullable|integer|min:0',
             
             // PERUBAHAN: Validasi String Path (Bukan File Upload lagi)
             // Karena file sudah diupload via dropzone ke folder temp
@@ -120,6 +139,10 @@ class DocumentController extends Controller
         // Default value boolean
         $validated['is_internal'] = $request->boolean('is_internal', false);
         $validated['attribute'] = $request->boolean('attribute', false);
+
+        $validated['kuota_revisi'] = $request->filled('kuota_revisi')
+        ? (int) $request->kuota_revisi
+        : 0;
 
         // --- Logic Helper: Pindahkan File dari Temp ke Permanen ---
         $moveFileFromTemp = function ($tempPath, $targetFolder) {

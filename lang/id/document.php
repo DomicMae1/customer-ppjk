@@ -20,6 +20,7 @@ return [
     "btn_yes" => "Ya",
     "btn_no" => "Tidak",
     "label_video_link" => "Link Video",
+    "count_revisi" => "Kuota Revisi",
     "label_change_example" => "Ganti Contoh File",
     "label_change_template" => "Ganti Template File",
     "btn_upload_new" => "Upload Baru",

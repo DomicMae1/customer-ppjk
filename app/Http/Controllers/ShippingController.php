@@ -361,7 +361,7 @@ class ShippingController extends Controller
                     'url_path_file'         => null,
                     'verify'                => false,
                     'correction_attachment' => false,
-                    'kuota_revisi'          => 3,
+                    'kuota_revisi'          => $doc->kuota_revisi ?? 0,
                     'updated_by'            => $userId,
                     'logs'                  => $logMessage,
                     'created_at'            => now(),

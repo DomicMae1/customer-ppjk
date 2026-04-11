@@ -36,6 +36,7 @@ interface DocumentData {
     link_path_example_file?: string;
     link_path_template_file?: string;
     link_url_video_file?: string;
+    kuota_revisi: number;
     source?: 'master' | 'trans';
     section?: MasterSection;
 }
@@ -89,6 +90,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
         is_internal: false,
         attribute: false,
         link_url_video_file: '',
+        kuota_revisi: '',
         file_example: null as File | null, // Untuk file
         file_template: null as File | null, // Untuk file
     });
@@ -161,6 +163,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
                     is_internal: false,
                     attribute: false,
                     link_url_video_file: '',
+                    kuota_revisi: '',
                     file_example: null,
                     file_template: null,
                 });
@@ -397,7 +400,9 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
 
                             {Number(form.id_section) !== 6 && (
                                 <div>
-                                    <Label className="text-muted-foreground mb-2 block text-xs font-bold uppercase">{trans_doc.label_mandatory}</Label>
+                                    <Label className="text-muted-foreground mb-2 block text-xs font-bold uppercase">
+                                        {trans_doc.label_mandatory}
+                                    </Label>
                                     <div className="flex gap-2">
                                         <Button
                                             type="button"
@@ -420,18 +425,36 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
                             )}
                         </div>
 
-                        <div className="grid gap-2">
-                            <Label htmlFor="link_url_video_file" className="text-foreground font-semibold">
-                                {trans_doc.label_video_link}
-                            </Label>
-                            <Input
-                                id="link_url_video_file"
-                                name="link_url_video_file"
-                                value={form.link_url_video_file}
-                                onChange={handleInputChange}
-                                placeholder="https://youtube.com/..."
-                                className="bg-background text-foreground h-11 sm:h-10"
-                            />
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            <div className="grid gap-2">
+                                <Label htmlFor="link_url_video_file" className="text-foreground font-semibold">
+                                    {trans_doc.label_video_link}
+                                </Label>
+                                <Input
+                                    id="link_url_video_file"
+                                    name="link_url_video_file"
+                                    value={form.link_url_video_file}
+                                    onChange={handleInputChange}
+                                    placeholder="https://youtube.com/..."
+                                    className="bg-background text-foreground h-11 sm:h-10"
+                                />
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label htmlFor="kuota_revisi" className="text-foreground font-semibold">
+                                    {trans_doc.count_revisi}
+                                </Label>
+                                <Input
+                                    id="kuota_revisi"
+                                    name="kuota_revisi"
+                                    type="number"
+                                    min="0"
+                                    value={form.kuota_revisi}
+                                    onChange={handleInputChange}
+                                    placeholder="Masukkan jumlah revisi"
+                                    className="bg-background text-foreground h-11 sm:h-10"
+                                />
+                            </div>
                         </div>
 
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
