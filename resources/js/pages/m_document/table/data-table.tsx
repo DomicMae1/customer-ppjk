@@ -51,6 +51,10 @@ interface PageProps {
     flash: { success?: string; error?: string };
     auth: { user: any };
     trans_doc: Record<string, string>;
+    filters?: {
+        search?: string;
+        attribute?: string;
+    };
     [key: string]: any;
 }
 
@@ -71,6 +75,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
     const [sorting, setSorting] = React.useState<SortingState>([]);
     const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
     const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
+    const [mandatoryFilter, setMandatoryFilter] = useState<'all' | 'mandatory' | 'non_mandatory'>('all');
     const [rowSelection, setRowSelection] = React.useState({});
 
     // State Form Create Document (Bukan Perusahaan lagi)
@@ -88,10 +93,22 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
         file_template: null as File | null, // Untuk file
     });
 
+    const filteredData = React.useMemo(() => {
+        if (mandatoryFilter === 'mandatory') {
+            return data.filter((item: any) => item.attribute === true);
+        }
+
+        if (mandatoryFilter === 'non_mandatory') {
+            return data.filter((item: any) => item.attribute === false);
+        }
+
+        return data;
+    }, [data, mandatoryFilter]);
+
     const table = useReactTable({
         // Gunakan data dari props 'data' yang dilempar dari parent component (index.tsx)
         // Pastikan di index.tsx: <DataTable data={documents} ... />
-        data,
+        data: filteredData,
         columns,
         getCoreRowModel: getCoreRowModel(),
         getPaginationRowModel: getPaginationRowModel(),
@@ -158,15 +175,30 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
             <div className="flex flex-col gap-4 pb-2 md:flex-row md:items-center md:justify-between">
                 {/* Search Input */}
                 <div className="flex w-full items-center gap-2 md:w-auto">
-                    <div className="relative w-full md:w-[300px]">
-                        <Search className="absolute top-2.5 left-2.5 h-4 w-4 text-gray-500" />
-                        <Input
-                            placeholder={trans_doc.search_placeholder || 'Filter...'}
-                            value={(table.getColumn(filterKey)?.getFilterValue() as string) ?? ''}
-                            onChange={(event) => table.getColumn(filterKey)?.setFilterValue(event.target.value)}
-                            className="w-full pl-9"
-                        />
+                    <div className="flex w-full items-center gap-2 md:w-[520px]">
+                        {/* Search Input */}
+                        <div className="relative flex-1">
+                            <Search className="absolute top-2.5 left-2.5 h-4 w-4 text-gray-500" />
+                            <Input
+                                placeholder={trans_doc.search_placeholder || 'Search document name...'}
+                                value={(table.getColumn(filterKey)?.getFilterValue() as string) ?? ''}
+                                onChange={(event) => table.getColumn(filterKey)?.setFilterValue(event.target.value)}
+                                className="w-full pl-9"
+                            />
+                        </div>
+
+                        {/* Select Filter */}
+                        <select
+                            value={mandatoryFilter}
+                            onChange={(e) => setMandatoryFilter(e.target.value as 'all' | 'mandatory' | 'non_mandatory')}
+                            className="border-input bg-background text-foreground focus:ring-primary ml-2 h-10 min-w-[160px] rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
+                        >
+                            <option value="all">Semua</option>
+                            <option value="mandatory">Mandatory</option>
+                            <option value="non_mandatory">Non Mandatory</option>
+                        </select>
                     </div>
+
                     <Button size="icon" className="shrink-0 md:hidden" onClick={() => setOpenCreate(true)}>
                         <Plus className="h-4 w-4" />
                     </Button>
