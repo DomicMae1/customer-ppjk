@@ -270,4 +270,19 @@ return [
     'placeholder_register_number' => 'Enter register number',
     'placeholder_register_date' => 'Enter register date',
     'locale' => 'en-US',
+
+    'select_channel' => 'Select Clearance Channel',
+    'not_finished' => 'Pending',
+    'red' => 'Red Channel',
+    'green' => 'Green Channel',
+    'handled_by' => 'Handled By',
+    'select_handler' => 'Select Responsible Staff',
+
+    'shipment_form_description' => 'Shipment data input form',
+    'no_results' => 'No results.',
+    'no_results_found' => 'No results found.',
+    'clipboard_https_only' => 'Paste feature only works on HTTPS links (secure connection).',
+    'clipboard_not_supported' => 'This browser does not support automatic paste.',
+    'clipboard_permission_denied' => 'Clipboard read permission was denied. Please allow it in your browser.',
+    'select_staff_placeholder' => 'Select Staff',
 ];

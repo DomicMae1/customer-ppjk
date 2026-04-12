@@ -2,7 +2,7 @@
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import AppLayout from '@/layouts/app-layout';
-import { MasterCustomer, type BreadcrumbItem } from '@/types';
+import { type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
@@ -91,10 +91,6 @@ export default function MasterCustomerPage() {
             <Head title={trans_general.master_customer} />
 
             <div className="md:p-4">
-                {/* Catatan: Jika header di dalam 'columns' perlu ditranslate,
-                   Anda perlu mengubah cara passing columns, tapi untuk saat ini
-                   kita fokus pada file ini saja.
-                */}
                 <DataTable columns={columns(trans_general, onDeleteClick)} data={customers} />
             </div>
 

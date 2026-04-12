@@ -21,7 +21,7 @@ import {
 import { Clipboard, CopyPlus, Image as ImageIcon, Plus, Trash2, X } from 'lucide-react'; // Import Icon Plus & Upload
 import { nanoid } from 'nanoid';
 import * as React from 'react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { DataTableViewOptions } from './data-table-view-options';
 import { DataTablePagination } from './pagination';
 
@@ -63,17 +63,101 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
     const [selectedStaff, setSelectedStaff] = useState(''); // NEW: Selected Staff State
     const [hsCodes, setHsCodes] = useState<HsCodeItem[]>([{ id: nanoid(), code: '', link: '', file: null }]);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [handlerFilter, setHandlerFilter] = useState<string>('all');
 
-    const [filterColumn, setFilterColumn] = useState<'nama_customer' | 'creator_name' | 'nama_perusahaan' | 'keterangan_status' | 'status'>(
-        'nama_customer',
-    );
+    const [filterColumn, setFilterColumn] = useState<'spk_code' | 'nama_customer' | 'jalur' | 'keterangan_status' | 'handler_name'>('handler_name');
+    const [routeFilter, setRouteFilter] = useState<string>('all');
+    const [statusLabelFilter, setStatusLabelFilter] = useState<string>('all');
 
     const [filterValue, setFilterValue] = useState('');
-    const isKeteranganStatus = filterColumn === 'keterangan_status';
-    const isStatusReview = filterColumn === 'status';
+
+    const filteredData = React.useMemo(() => {
+        let result = [...(data as any[])];
+
+        if (filterColumn === 'jalur') {
+            if (routeFilter !== 'all') {
+                result = result.filter((item) => {
+                    const jalur = String(item.jalur ?? '')
+                        .toLowerCase()
+                        .trim();
+
+                    if (routeFilter === 'merah') {
+                        return jalur === 'merah';
+                    }
+
+                    if (routeFilter === 'hijau') {
+                        return jalur === 'hijau';
+                    }
+
+                    if (routeFilter === 'belum_selesai') {
+                        return jalur === '' || jalur === '-' || jalur === 'belum selesai' || jalur === 'pending';
+                    }
+
+                    return true;
+                });
+            }
+        } else if (filterColumn === 'keterangan_status') {
+            if (statusLabelFilter !== 'all') {
+                result = result.filter((item) => {
+                    const status = String(item.status_label ?? '')
+                        .toLowerCase()
+                        .trim();
+                    return status === statusLabelFilter.toLowerCase().trim();
+                });
+            }
+        } else if (filterColumn === 'handler_name') {
+            if (handlerFilter !== 'all') {
+                result = result.filter((item) => {
+                    const handler = String(item.handler_name ?? item.nama_user ?? '')
+                        .toLowerCase()
+                        .trim();
+
+                    return handler === handlerFilter.toLowerCase().trim();
+                });
+            }
+        } else if (filterValue.trim() !== '') {
+            const keyword = filterValue.toLowerCase().trim();
+
+            result = result.filter((item) => {
+                if (filterColumn === 'spk_code') {
+                    return String(item.spk_code ?? '')
+                        .toLowerCase()
+                        .includes(keyword);
+                }
+
+                if (filterColumn === 'nama_customer') {
+                    return String(item.nama_customer ?? '')
+                        .toLowerCase()
+                        .includes(keyword);
+                }
+
+                if (filterColumn === 'progress') {
+                    return String(item.progress ?? '').includes(keyword);
+                }
+
+                return true;
+            });
+        }
+
+        return result;
+    }, [data, filterColumn, filterValue, routeFilter, statusLabelFilter, statusFilter, userRole]);
+
+    const uniqueStatusOptions = React.useMemo(() => {
+        const statuses = [...new Set((data as any[]).map((item) => String(item.status_label ?? '').trim()).filter((item) => item !== ''))];
+
+        return statuses;
+    }, [data]);
+
+    const uniqueHandlerOptions = React.useMemo(() => {
+        const handlers = [
+            ...new Set((data as any[]).map((item) => String(item.handler_name ?? item.nama_user ?? '').trim()).filter((item) => item !== '')),
+        ];
+
+        return handlers;
+    }, [data]);
 
     const table = useReactTable({
-        data,
+        data: filteredData,
         columns,
         getCoreRowModel: getCoreRowModel(),
         getPaginationRowModel: getPaginationRowModel(),
@@ -95,26 +179,21 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
     });
 
     useEffect(() => {
-        const column = table.getColumn(filterColumn);
-        if (!column) return;
-
-        column.setFilterValue(filterValue === '' ? undefined : filterValue);
-    }, [filterValue, filterColumn, table]);
-
-    useEffect(() => {
         if (isUserExternal && externalCustomers.length > 0) {
             setSelectedCustomer(String(externalCustomers[0].id_customer));
         }
     }, [isUserExternal, externalCustomers]);
 
     const handleReset = () => {
-        table.resetColumnFilters();
-        setColumnFilters([]);
         setFilterValue('');
+        setFilterColumn('handler_name');
+        setStatusFilter('');
+        setRouteFilter('all');
+        setStatusLabelFilter('all');
+        setHandlerFilter('all');
         table.resetSorting();
         setSorting([{ id: 'keterangan_status', desc: true }]);
         setHasUserSorted(false);
-        setFilterColumn('nama_customer');
     };
 
     const addHsCodeField = () => {
@@ -218,63 +297,66 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                             <SelectValue placeholder={trans.select_column} />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="nama_perusahaan">{trans.ownership}</SelectItem>
-                            <SelectItem value="creator_name">{trans.submitted_by}</SelectItem>
+                            <SelectItem value="spk_code">{trans.spk_number}</SelectItem>
                             <SelectItem value="nama_customer">{trans.customer_name}</SelectItem>
                             <SelectItem value="keterangan_status">{trans.status_description}</SelectItem>
-                            <SelectItem value="status">{trans.review_status}</SelectItem>
+                            <SelectItem value="jalur">{trans.channel}</SelectItem>
+                            <SelectItem value="handler_name">{trans.handled_by || 'Handled By'}</SelectItem>
                         </SelectContent>
                     </Select>
 
-                    {isKeteranganStatus ? (
-                        <Select value={filterValue} onValueChange={(val) => setFilterValue(val)}>
-                            <SelectTrigger className="w-[200px]">
-                                <SelectValue placeholder={trans.select_status} />
+                    {filterColumn === 'jalur' ? (
+                        <Select value={routeFilter} onValueChange={setRouteFilter}>
+                            <SelectTrigger className="w-[220px]">
+                                <SelectValue placeholder={trans.select_channel || 'Pilih Penjaluran'} />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="diinput">{trans.inputted}</SelectItem>
-                                <SelectItem value="disubmit">{trans.submitted}</SelectItem>
-                                <SelectItem value="diverifikasi">{trans.verified}</SelectItem>
-                                <SelectItem value="diketahui">{trans.acknowledged}</SelectItem>
-                                <SelectItem value="direview">{trans.reviewed}</SelectItem>
+                                <SelectItem value="all">{trans.all || 'Semua'}</SelectItem>
+                                <SelectItem value="belum_selesai">{trans.not_finished || 'Belum Selesai'}</SelectItem>
+                                <SelectItem value="merah">{trans.red || 'Merah'}</SelectItem>
+                                <SelectItem value="hijau">{trans.green || 'Hijau'}</SelectItem>
                             </SelectContent>
                         </Select>
-                    ) : isStatusReview ? (
-                        <Select value={filterValue} onValueChange={(val) => setFilterValue(val)}>
-                            <SelectTrigger className="w-[200px]">
-                                <SelectValue placeholder={trans.select_review_status} />
+                    ) : filterColumn === 'keterangan_status' ? (
+                        <Select value={statusLabelFilter} onValueChange={setStatusLabelFilter}>
+                            <SelectTrigger className="w-[220px]">
+                                <SelectValue placeholder={trans.select_status || 'Pilih Status'} />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="approved">{trans.approved}</SelectItem>
-                                <SelectItem value="rejected">{trans.rejected}</SelectItem>
+                                <SelectItem value="all">{trans.all || 'Semua'}</SelectItem>
+                                {uniqueStatusOptions.map((status) => (
+                                    <SelectItem key={status} value={status}>
+                                        {status}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    ) : filterColumn === 'handler_name' ? (
+                        <Select value={handlerFilter} onValueChange={setHandlerFilter}>
+                            <SelectTrigger className="w-[220px]">
+                                <SelectValue placeholder={trans.select_handler || 'Pilih Handler'} />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">{trans.all || 'Semua'}</SelectItem>
+                                {uniqueHandlerOptions.map((handler) => (
+                                    <SelectItem key={handler} value={handler}>
+                                        {handler}
+                                    </SelectItem>
+                                ))}
                             </SelectContent>
                         </Select>
                     ) : (
                         <Input
                             placeholder={trans.typing_keyword}
                             value={filterValue}
-                            onChange={(event) => setFilterValue(event.target.value)}
-                            className="max-w-sm"
+                            onChange={(e) => setFilterValue(e.target.value)}
+                            className="w-[250px]"
                         />
                     )}
+
                     <Button variant="outline" className="h-auto" onClick={handleReset}>
                         {trans.reset}
                     </Button>
-
-                    {userRole === 'supervisor' && (
-                        <div>
-                            <Select value={statusFilter} onValueChange={(val) => setStatusFilter(val as 'sudah' | 'belum' | '')}>
-                                <SelectTrigger className="w-[180px]">
-                                    <SelectValue placeholder={trans.filter_status} />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">{trans.all}</SelectItem>
-                                    <SelectItem value="sudah">{trans.already_know}</SelectItem>
-                                    <SelectItem value="belum">{trans.not_yet_know}</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    )}
                 </div>
 
                 <div className="flex gap-2 pt-4">
@@ -382,7 +464,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                             {hsCodes.map((item, index) => (
                                                 <div
                                                     key={item.id}
-                                                    className="border-border bg-card group relative rounded-lg border p-4 shadow-sm transition-all focus-within:ring-2 focus-within:ring-primary/20"
+                                                    className="border-border bg-card group focus-within:ring-primary/20 relative rounded-lg border p-4 shadow-sm transition-all focus-within:ring-2"
                                                     onPaste={(e) => handleFileInPaste(e, item.id)}
                                                 >
                                                     {index > 0 && (
@@ -444,7 +526,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                                                     />
                                                                     <label
                                                                         htmlFor={`file-${item.id}`}
-                                                                        className="bg-primary/5 text-primary border-2 border-dashed border-primary/20 hover:border-primary hover:bg-primary/10 flex h-20 w-full cursor-pointer flex-col items-center justify-center gap-1 rounded-md text-sm font-bold transition-all"
+                                                                        className="bg-primary/5 text-primary border-primary/20 hover:border-primary hover:bg-primary/10 flex h-20 w-full cursor-pointer flex-col items-center justify-center gap-1 rounded-md border-2 border-dashed text-sm font-bold transition-all"
                                                                         onDragOver={(e) => {
                                                                             e.preventDefault();
                                                                             e.currentTarget.classList.add('bg-primary/20', 'border-primary');
@@ -542,11 +624,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                         {trans.add_another_hs}
                                     </Button>
 
-                                    <Button 
-                                        className="w-full font-bold shadow-lg" 
-                                        onClick={handleSaveShipment}
-                                        disabled={isSubmitting}
-                                    >
+                                    <Button className="w-full font-bold shadow-lg" onClick={handleSaveShipment} disabled={isSubmitting}>
                                         {isSubmitting ? trans.saving : trans.save}
                                     </Button>
                                 </div>
@@ -556,75 +634,115 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                 </div>
             </div>
 
-            {/* --- MOBILE VIEW: CARD LAYOUT (Mirip Gambar) --- */}
+            {/* --- MOBILE VIEW: CARD LAYOUT --- */}
             <div className="px-4 py-4 md:hidden">
-                <div className="mb-4 flex w-full items-center justify-between gap-2">
-                    <Select value={filterColumn} onValueChange={(val) => setFilterColumn(val as any)}>
-                        <SelectTrigger className="w-[250px]">
-                            <SelectValue placeholder={trans.select_column} />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="nama_perusahaan">{trans.ownership}</SelectItem>
-                            <SelectItem value="creator_name">{trans.submitted_by}</SelectItem>
-                            <SelectItem value="nama_customer">{trans.customer_name}</SelectItem>
-                            <SelectItem value="keterangan_status">{trans.status_description}</SelectItem>
-                            <SelectItem value="status">{trans.review_status}</SelectItem>
-                        </SelectContent>
-                    </Select>
+                {/* Row 1: pilih kolom + tombol tambah */}
+                <div className="mb-3 flex w-full items-center gap-2">
+                    <div className="min-w-0 flex-1">
+                        <Select value={filterColumn} onValueChange={(val) => setFilterColumn(val as any)}>
+                            <SelectTrigger className="w-full">
+                                <SelectValue placeholder={trans.select_column} />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="spk_code">{trans.spk_number}</SelectItem>
+                                <SelectItem value="nama_customer">{trans.customer_name}</SelectItem>
+                                <SelectItem value="keterangan_status">{trans.status_description}</SelectItem>
+                                <SelectItem value="jalur">{trans.channel}</SelectItem>
+                                <SelectItem value="handler_name">{trans.handled_by || 'Handled By'}</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
 
                     {userRole && (
                         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                             <DialogTrigger asChild>
-                                <Button size="icon" className="shrink-0">
+                                <Button size="icon" className="h-10 w-10 shrink-0">
                                     <Plus className="h-4 w-4" />
                                 </Button>
                             </DialogTrigger>
                         </Dialog>
                     )}
                 </div>
-                {/* Filter Sederhana di Mobile */}
-                <div className="mb-4 flex gap-2">
-                    <Input
-                        placeholder={trans.typing_keyword}
-                        value={filterValue}
-                        onChange={(event) => setFilterValue(event.target.value)}
-                        className="w-full"
-                    />
 
-                    <Button variant="outline" className="h-auto" onClick={handleReset}>
+                {/* Row 2: filter dinamis */}
+                <div className="mb-3">
+                    {filterColumn === 'jalur' ? (
+                        <Select value={routeFilter} onValueChange={setRouteFilter}>
+                            <SelectTrigger className="w-full">
+                                <SelectValue placeholder={trans.select_channel || 'Pilih Penjaluran'} />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">{trans.all || 'Semua'}</SelectItem>
+                                <SelectItem value="belum_selesai">{trans.not_finished || 'Belum Selesai'}</SelectItem>
+                                <SelectItem value="merah">{trans.red || 'Merah'}</SelectItem>
+                                <SelectItem value="hijau">{trans.green || 'Hijau'}</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    ) : filterColumn === 'keterangan_status' ? (
+                        <Select value={statusLabelFilter} onValueChange={setStatusLabelFilter}>
+                            <SelectTrigger className="w-full">
+                                <SelectValue placeholder={trans.select_status || 'Pilih Status'} />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">{trans.all || 'Semua'}</SelectItem>
+                                {uniqueStatusOptions.map((status) => (
+                                    <SelectItem key={status} value={status}>
+                                        {status}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    ) : filterColumn === 'handler_name' ? (
+                        <Select value={handlerFilter} onValueChange={setHandlerFilter}>
+                            <SelectTrigger className="w-full">
+                                <SelectValue placeholder={trans.select_handler || 'Pilih Handler'} />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">{trans.all || 'Semua'}</SelectItem>
+                                {uniqueHandlerOptions.map((handler) => (
+                                    <SelectItem key={handler} value={handler}>
+                                        {handler}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    ) : (
+                        <Input
+                            placeholder={trans.typing_keyword}
+                            value={filterValue}
+                            onChange={(event) => setFilterValue(event.target.value)}
+                            className="w-full"
+                        />
+                    )}
+                </div>
+
+                {/* Row 3: reset */}
+                <div className="mb-4">
+                    <Button variant="outline" className="w-full" onClick={handleReset}>
                         {trans.reset}
                     </Button>
                 </div>
 
                 <div className="flex flex-col gap-4">
-                    {/* Looping Data untuk Card View */}
                     {table.getRowModel().rows.length > 0 ? (
                         table.getRowModel().rows.map((row) => {
-                            const original = row.original as any; // Cast ke any atau tipe data Shipping
+                            const original = row.original as any;
 
-                            // Formatting Tanggal
                             const dateObj = original.tanggal_status ? new Date(original.tanggal_status) : null;
                             const dateStr = dateObj
                                 ? dateObj.toLocaleDateString(currentLocale === 'id' ? 'id-ID' : 'en-GB', {
-                                    day: '2-digit',
-                                    month: '2-digit',
-                                    year: '2-digit',
-                                })
+                                      day: '2-digit',
+                                      month: '2-digit',
+                                      year: '2-digit',
+                                  })
                                 : '-';
                             const timeStr = dateObj
                                 ? dateObj.toLocaleTimeString(currentLocale === 'id' ? 'id-ID' : 'en-GB', {
-                                    hour: '2-digit',
-                                    minute: '2-digit',
-                                    hour12: false,
-                                })
+                                      hour: '2-digit',
+                                      minute: '2-digit',
+                                      hour12: false,
+                                  })
                                 : '';
-
-                            // Logic Warna Jalur
-                            const jalur = original.jalur ? original.jalur.toLowerCase() : '';
-                            let jalurColor = 'text-gray-500';
-                            if (jalur === 'hijau') jalurColor = 'text-green-600';
-                            if (jalur === 'merah') jalurColor = 'text-red-600';
-                            if (jalur === 'kuning') jalurColor = 'text-yellow-600';
 
                             return (
                                 <div
@@ -632,22 +750,21 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                     className="border-border bg-card active:bg-accent cursor-pointer rounded-lg border p-4 shadow-sm transition-colors"
                                     onClick={() => router.visit(`/shipping/${original.id}`)}
                                 >
-                                    {/* Header Card: No SPK & Jalur */}
                                     <div className="border-border mb-2 flex items-center justify-between border-b pb-2">
                                         <span className="text-foreground font-mono text-base font-medium">{original.spk_code || '-'}</span>
                                         <span
-                                            className={`text-sm font-bold ${original.jalur?.toLowerCase() === 'hijau'
-                                                ? 'text-emerald-500'
-                                                : original.jalur?.toLowerCase() === 'merah'
-                                                    ? 'text-rose-500'
-                                                    : 'text-amber-500'
-                                                }`}
+                                            className={`text-sm font-bold ${
+                                                original.jalur?.toLowerCase() === 'hijau'
+                                                    ? 'text-emerald-500'
+                                                    : original.jalur?.toLowerCase() === 'merah'
+                                                      ? 'text-rose-500'
+                                                      : 'text-amber-500'
+                                            }`}
                                         >
                                             {original.jalur || '-'}
                                         </span>
                                     </div>
 
-                                    {/* Content Card */}
                                     <div className="space-y-3">
                                         <div>
                                             <p className="text-muted-foreground text-[10px] font-bold uppercase">{trans.customer_name}</p>
@@ -675,7 +792,6 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                             </div>
                                         </div>
 
-                                        {/* PROGRESS BAR MOBILE (Dark Mode Optimized) */}
                                         <div className="pt-1">
                                             <div className="mb-1 flex items-center justify-between gap-2">
                                                 <span className="text-muted-foreground text-[10px] font-bold tracking-wider uppercase">
@@ -685,20 +801,20 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                             </div>
                                             <div className="bg-muted h-1.5 w-full overflow-hidden rounded-full shadow-inner">
                                                 <div
-                                                    className={`h-full transition-all duration-1000 ease-out ${original.progress === 100
-                                                        ? 'bg-emerald-500'
-                                                        : (original.progress || 0) >= 80
-                                                            ? 'bg-indigo-500'
-                                                            : (original.progress || 0) >= 40
+                                                    className={`h-full transition-all duration-1000 ease-out ${
+                                                        original.progress === 100
+                                                            ? 'bg-emerald-500'
+                                                            : (original.progress || 0) >= 80
+                                                              ? 'bg-indigo-500'
+                                                              : (original.progress || 0) >= 40
                                                                 ? 'bg-blue-500'
                                                                 : 'bg-sky-400'
-                                                        }`}
+                                                    }`}
                                                     style={{ width: `${original.progress || 0}%` }}
                                                 />
                                             </div>
                                         </div>
 
-                                        {/* Deadline Alert */}
                                         {original.deadline_date && (
                                             <div className="mt-1 flex items-center gap-1 rounded border border-rose-500/20 bg-rose-500/10 p-1.5">
                                                 <span className="text-sm font-bold text-rose-500">ⓘ</span>
@@ -731,8 +847,8 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                                     (header.column.getIsSorted() === 'asc'
                                                         ? '⬆️'
                                                         : header.column.getIsSorted() === 'desc'
-                                                            ? '⬇️'
-                                                            : '')}
+                                                          ? '⬇️'
+                                                          : '')}
                                             </button>
                                         ) : (
                                             flexRender(header.column.columnDef.header, header.getContext())
