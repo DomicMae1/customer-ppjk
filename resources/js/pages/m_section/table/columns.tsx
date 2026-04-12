@@ -25,7 +25,6 @@ export const columns = (
         cell: ({ row }) => (
             <div className="flex flex-col px-2 py-2">
                 <span className="font-medium">{row.original.section_name}</span>
-                <span className="text-muted-foreground text-xs">ID: {row.original.id_section}</span>
             </div>
         ),
     },

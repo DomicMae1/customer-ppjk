@@ -167,7 +167,6 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'section_n
                                 <div className="border-border mb-2 flex items-start justify-between border-b pb-2">
                                     <div>
                                         <div className="text-foreground text-base font-bold">{original.section_name}</div>
-                                        <span className="text-muted-foreground mt-1 inline-block text-xs">ID: {original.id_section}</span>
                                     </div>
 
                                     {actionsCell && (
