@@ -78,6 +78,20 @@ class SectionReminderService
     }
 
     /**
+     * Kirim email saat section tambahan ditambahkan.
+     */
+    public static function sendSectionAdded(Spk $spk, $sectionNames, User $adminUser, User $recipient, $count)
+    {
+        if (!$recipient || empty($recipient->email)) return;
+
+        try {
+            \Illuminate\Support\Facades\Mail::to($recipient->email)->queue(new \App\Mail\SectionAddedMail($spk, $sectionNames, $adminUser, $recipient, $count));
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error("Failed to queue SectionAddedMail: " . $e->getMessage());
+        }
+    }
+
+    /**
      * Kirim email saat dokumen diverifikasi (Batch).
      */
     public static function sendDocumentVerified(Spk $spk, $sectionName, User $verifier, User $recipient)

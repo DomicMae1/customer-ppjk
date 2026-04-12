@@ -2369,6 +2369,47 @@ class ShippingController extends Controller
 
             \Illuminate\Support\Facades\DB::commit();
 
+            // NOTIFICATION & EMAIL TO CUSTOMER
+            try {
+                if ($spk && $spk->id_customer) {
+                    $sectionNames = $masterSections->pluck('section_name')->implode(', ');
+                    $sectionCount = $masterSections->count();
+
+                    $customerUsers = \App\Models\User::on('tako-user')
+                        ->where('role', 'eksternal')
+                        ->where('id_customer', $spk->id_customer)
+                        ->get();
+
+                    foreach ($customerUsers as $extUser) {
+                        try {
+                            SectionReminderService::sendSectionAdded($spk, $sectionNames, $user, $extUser, $sectionCount);
+                        } catch (\Exception $e) {
+                            \Illuminate\Support\Facades\Log::error("Failed to send Section Added Email: " . $e->getMessage());
+                        }
+
+                        try {
+                            NotificationService::send([
+                                'send_to' => $extUser->id_user,
+                                'created_by' => $user->id_user,
+                                'role' => 'eksternal',
+                                'id_spk' => $spk->id,
+                                'data' => [
+                                    'type' => 'section_added',
+                                    'title' => 'Section Tambahan',
+                                    'message' => "Ada section tambahan yang perlu anda cek pada SPK {$spk->spk_code} ({$sectionNames})",
+                                    'url' => "/shipping/{$spk->id}",
+                                    'spk_code' => $spk->spk_code
+                                ]
+                            ]);
+                        } catch (\Exception $e) {
+                            \Illuminate\Support\Facades\Log::error("Failed to send Section Added Notification: " . $e->getMessage());
+                        }
+                    }
+                }
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error("Failed to process section added notifications: " . $e->getMessage());
+            }
+
             return response()->json([
                 'success' => true,
                 'message' => 'Section berhasil ditambahkan ke SPK.',
