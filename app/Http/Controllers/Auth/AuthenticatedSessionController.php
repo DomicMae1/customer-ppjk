@@ -29,17 +29,12 @@ class AuthenticatedSessionController extends Controller
         $domainRecord = Domain::where('domain', $origin)->first();
 
         if ($domainRecord) {
-            // Ambil Tenant dari Domain, lalu Perusahaan dari Tenant
-            $company = $domainRecord->tenant?->perusahaan;
-
-            if ($company) {
-                $companyData = [
-                    'nama_perusahaan' => $company->nama_perusahaan,
-                    'path_company_logo' => $company->path_company_logo 
-                        ? asset('storage/' . $company->path_company_logo) 
-                        : null,
-                ];
-            }
+            $companyData = [
+                'nama_perusahaan' => $domainRecord->nama_perusahaan,
+                'path_company_logo' => $domainRecord->path_company_logo 
+                    ? asset('storage/' . $domainRecord->path_company_logo) 
+                    : null,
+            ];
         }
 
         // 3. Render Halaman Login dengan menyertakan data Company
@@ -96,8 +91,8 @@ class AuthenticatedSessionController extends Controller
             session([
                 'company_id'   => $company->id,               // ID dari tabel perusahaan
                 'company_name' => $company->nama_perusahaan,  // Nama dari tabel perusahaan
-                'company_logo' => $company->path_company_logo // Logo dari tabel perusahaan
-                    ? asset('storage/' . $company->path_company_logo)
+                'company_logo' => $domainRecord->path_company_logo
+                    ? asset('storage/' . $domainRecord->path_company_logo)
                     : null,
                 'company_url'  => $origin,                    // URL akses saat ini
             ]);
