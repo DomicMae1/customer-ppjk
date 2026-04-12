@@ -24,23 +24,13 @@ class UserSeeder extends Seeder
         // 2. Setup Internal Users
         $internalUsers = [
             // Perusahaan 1
-            ['name' => 'John Doe', 'email' => 'staff@gmail.com', 'password' => '1234', 'role_internal' => 'staff',      'id_perusahaan' => 1],
-            ['name' => 'Rose Doe', 'email' => 'manager@gmail.com', 'password' => '1234', 'role_internal' => 'manager',     'id_perusahaan' => 1],
-            ['name' => 'Emi Rina', 'email' => 'direktur@gmail.com', 'password' => '1234', 'role_internal' => 'supervisor', 'id_perusahaan' => 1],
-            ['name' => 'Mark', 'email' => 'marketing@gmail.com', 'password' => '1234', 'role_internal' => 'marketing', 'id_perusahaan' => 1],
-
-            // Perusahaan 2
-            ['name' => 'Don 5', 'email' => 'don5@gmail.com', 'password' => '1234', 'role_internal' => 'staff',      'id_perusahaan' => 2],
-            ['name' => 'Don 6', 'email' => 'don6@gmail.com', 'password' => '1234', 'role_internal' => 'manager',    'id_perusahaan' => 2],
-            ['name' => 'Don 7', 'email' => 'don7@gmail.com', 'password' => '1234', 'role_internal' => 'supervisor', 'id_perusahaan' => 2],
+            ['name' => 'John Doe', 'email' => 'staff@gmail.com', 'password' => 'Ppjk_tako@2026', 'role_internal' => 'staff',      'id_perusahaan' => 1],
+            ['name' => 'Rose Doe', 'email' => 'manager@gmail.com', 'password' => 'Ppjk_tako@2026', 'role_internal' => 'manager',     'id_perusahaan' => 1],
+            ['name' => 'Emi Rina', 'email' => 'direktur@gmail.com', 'password' => 'Ppjk_tako@2026', 'role_internal' => 'supervisor', 'id_perusahaan' => 1],
+            ['name' => 'Mark', 'email' => 'marketing@gmail.com', 'password' => 'Ppjk_tako@2026', 'role_internal' => 'marketing', 'id_perusahaan' => 1],
 
             // Admin Global (Tanpa Perusahaan)
-            ['name' => 'Super Admin', 'email' => 'admin@gmail.com', 'password' => '1234', 'role_internal' => 'admin', 'id_perusahaan' => null],
-
-            // Perusahaan 3
-            ['name' => 'Don 9',  'email' => 'don9@gmail.com',  'password' => '1234', 'role_internal' => 'staff',      'id_perusahaan' => 3],
-            ['name' => 'Don 10', 'email' => 'don10@gmail.com', 'password' => '1234', 'role_internal' => 'manager',    'id_perusahaan' => 3],
-            ['name' => 'Don 11', 'email' => 'don11@gmail.com', 'password' => '1234', 'role_internal' => 'supervisor', 'id_perusahaan' => 3],
+            ['name' => 'Admin PPJK', 'email' => 'admin@gmail.com', 'password' => 'Ppjk_tako@2026', 'role_internal' => 'admin', 'id_perusahaan' => null],
         ];
 
         foreach ($internalUsers as $data) {
