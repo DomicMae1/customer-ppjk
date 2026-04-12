@@ -269,4 +269,19 @@ return [
     'placeholder_register_number' => 'Masukkan nomor pendaftaran',
     'placeholder_register_date' => 'Masukkan tanggal pendaftaran',
     'locale' => 'id-ID',
+
+    'select_channel' => 'Pilih Penjaluran',
+    'not_finished' => 'Belum Selesai',
+    'red' => 'Merah',
+    'green' => 'Hijau',
+    'handled_by' => 'Pilih Staff',
+    'select_handler' => 'Pilih Staff',
+
+    'shipment_form_description' => 'Form input data shipment',
+    'no_results' => 'Tidak ada hasil.',
+    'no_results_found' => 'Tidak ada data ditemukan.',
+    'clipboard_https_only' => 'Fitur paste hanya berfungsi di link HTTPS (koneksi aman).',
+    'clipboard_not_supported' => 'Browser ini tidak mendukung fitur paste otomatis.',
+    'clipboard_permission_denied' => 'Izin baca clipboard ditolak. Silakan izinkan di browser.',
+    'select_staff_placeholder' => 'Pilih Staff',
 ];

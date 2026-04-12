@@ -145,15 +145,16 @@ class ShippingController extends Controller
 
                 return [
                     'id'              => $item->id,
-                    'spk_code'        => $item->spk_code, // Sesuai permintaan
-                    'nama_customer'   => $item->customer->nama_perusahaan ?? '-', // Sesuai permintaan
-                    'nama_cust'       => $item->customer->nama_perusahaan ?? '-', // Alias for compatibility
-                    'tanggal_status'  => $latestDocLog ? $latestDocLog->created_at : $item->created_at, // Sesuai permintaan
+                    'spk_code'        => $item->spk_code,
+                    'nama_customer'   => $item->customer->nama_perusahaan ?? '-',
+                    'nama_cust'       => $item->customer->nama_perusahaan ?? '-',
+                    'tanggal_status'  => $latestDocLog ? $latestDocLog->created_at : $item->created_at,
                     'status_label'    => $item->latestStatus->status ?? 'Draft/Pending',
                     'nama_user'       => $latestDocLog->by ?? $item->creator->name ?? 'System',
-                    'jalur'           => $item->penjaluran, // Ambil dari field penjaluran
+                    'jalur'           => $item->penjaluran,
+                    'jalur_filter'    => $item->penjaluran,
                     'deadline_date'   => $minDeadline,
-                    'progress'        => $progress, // Add progress
+                    'progress'        => $progress,
                 ];
             });
         }
