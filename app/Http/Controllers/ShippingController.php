@@ -138,14 +138,19 @@ class ShippingController extends Controller
                 
                 $progress = $totalDocs === 0 ? 0 : (int) round(($verifiedDocs / $totalDocs) * 100);
 
+                // Ambil log terbaru dari document_statuses untuk kumpulan dokumen SPK ini (Cara yang sama seperti di show)
+                $latestDocLog = \App\Models\DocumentStatus::whereIn('id_dokumen_trans', $allDocs->pluck('id'))
+                    ->latest()
+                    ->first();
+
                 return [
                     'id'              => $item->id,
                     'spk_code'        => $item->spk_code, // Sesuai permintaan
                     'nama_customer'   => $item->customer->nama_perusahaan ?? '-', // Sesuai permintaan
                     'nama_cust'       => $item->customer->nama_perusahaan ?? '-', // Alias for compatibility
-                    'tanggal_status'  => $item->created_at, // Sesuai permintaan
+                    'tanggal_status'  => $latestDocLog ? $latestDocLog->created_at : $item->created_at, // Sesuai permintaan
                     'status_label'    => $item->latestStatus->status ?? 'Draft/Pending',
-                    'nama_user'       => $item->creator->name ?? 'System',
+                    'nama_user'       => $latestDocLog->by ?? $item->creator->name ?? 'System',
                     'jalur'           => $item->penjaluran, // Ambil dari field penjaluran
                     'deadline_date'   => $minDeadline,
                     'progress'        => $progress, // Add progress
@@ -307,7 +312,7 @@ class ShippingController extends Controller
                     'path_link_insw' => $filePath,
                     'created_by'     => $userId,
                     'updated_by'     => $userId,
-                    'logs'           => json_encode(['action' => 'created', 'by' => $user->name, 'at' => now()]),
+                    'logs'           => json_encode(['action' => 'created', 'by' => $userName, 'at' => now()]),
                 ]);
             }
 
@@ -380,7 +385,7 @@ class ShippingController extends Controller
                 DocumentStatus::create([
                     'id_dokumen_trans' => $newDocTrans->id,
                     'status'           => $logMessage,
-                    'by'               => $userId,
+                    'by'               => $userName,
                     'created_at'       => now(),
                     'updated_at'       => now(),
                 ]);
@@ -909,12 +914,17 @@ class ShippingController extends Controller
         ])->first();
 
         // 3. Format Data sesuai kebutuhan Frontend (shipmentData)
+        $latestLog = \App\Models\DocumentStatus::whereIn('id_dokumen_trans', $allDocs->pluck('id'))
+            ->latest()
+            ->first();
+
         $shipmentData = [
             'id_spk'    => $spk->id,
             // Format tanggal: 12/11/25 10.35 WIB
             'spkDate'   => $priorityStatus ? $priorityStatus->created_at->format('d/m/y H.i') . ' WIB' : '-',
             // Use SPK Status Name directly as requested
             'status'    => $priorityStatus ? $priorityStatus->status : 'UNKNOWN',
+            'updated_by_name' => $latestLog->by ?? null, // Added to show who uploaded
             'shipmentType' => $spk->shipment_type,
             'type'      => $spk->shipment_type,
             'spkNumber'  => $spk->spk_code, // Mapping spk_code ke siNumber

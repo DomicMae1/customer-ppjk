@@ -36,6 +36,14 @@ return [
 
     // Search & Table Header
     "search_placeholder" => "Search by document name...",
+    // FILTER ATTRIBUTE
+    'filter_all_attribute' => 'All Attribute',
+    'filter_mandatory' => 'Mandatory',
+    'filter_non_mandatory' => 'Non Mandatory',
+
+    // FILTER SECTION
+    'filter_all_section' => 'All Section',
+
     "no_data" => "No document data found.",
     "label_status" => "Status",
     "label_open_menu" => "Open menu",

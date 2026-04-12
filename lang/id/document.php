@@ -36,6 +36,14 @@ return [
 
     // Pencarian & Header Tabel
     "search_placeholder" => "Cari nama dokumen...",
+    // FILTER ATTRIBUTE
+    'filter_all_attribute' => 'Semua Attribute',
+    'filter_mandatory' => 'Mandatory',
+    'filter_non_mandatory' => 'Non Mandatory',
+
+    // FILTER SECTION
+    'filter_all_section' => 'Semua Section',
+    
     "no_data" => "Tidak ada data dokumen.",
     "label_status" => "Status",
     "label_open_menu" => "Buka menu",
