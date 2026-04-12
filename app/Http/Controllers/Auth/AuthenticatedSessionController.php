@@ -29,8 +29,10 @@ class AuthenticatedSessionController extends Controller
         $domainRecord = Domain::where('domain', $origin)->first();
 
         if ($domainRecord) {
+            $company = $domainRecord->tenant?->perusahaan;
+            
             $companyData = [
-                'nama_perusahaan' => $domainRecord->nama_perusahaan,
+                'nama_perusahaan' => $company->nama_perusahaan,
                 'path_company_logo' => $domainRecord->path_company_logo 
                     ? asset('storage/' . $domainRecord->path_company_logo) 
                     : null,
@@ -90,7 +92,7 @@ class AuthenticatedSessionController extends Controller
         if ($company) {
             session([
                 'company_id'   => $company->id,               // ID dari tabel perusahaan
-                'company_name' => $domainRecord->nama_perusahaan,  // Nama dari tabel perusahaan
+                'company_name' => $company->nama_perusahaan,  // Nama dari tabel perusahaan
                 'company_logo' => $domainRecord->path_company_logo
                     ? asset('storage/' . $domainRecord->path_company_logo)
                     : null,
