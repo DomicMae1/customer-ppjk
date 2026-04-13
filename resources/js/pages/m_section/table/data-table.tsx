@@ -30,6 +30,7 @@ interface SectionData {
     section_name: string;
     is_penjaluran?: boolean;
     attribute_section: string;
+    is_checklist?: boolean;
     deadline?: boolean;
     deadline_date?: string | null;
     source?: 'master' | 'trans';
@@ -66,6 +67,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'section_n
         section_name: '',
         is_penjaluran: false,
         attribute_section: '',
+        is_checklist: false,
         deadline: false,
         deadline_date: '',
     });
@@ -89,7 +91,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'section_n
         setForm((prev) => ({ ...prev, [name]: value }));
     };
 
-    const handleBooleanChange = (field: 'is_penjaluran' | 'deadline', value: boolean) => {
+    const handleBooleanChange = (field: 'is_penjaluran' | 'deadline' | 'is_checklist', value: boolean) => {
         setForm((prev) => ({ ...prev, [field]: value }));
     };
 
@@ -98,6 +100,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'section_n
             section_name: '',
             is_penjaluran: false,
             attribute_section: '',
+            is_checklist: false,
             deadline: false,
             deadline_date: '',
         });
@@ -114,6 +117,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'section_n
 
         if (isManager) {
             payload.attribute_section = form.attribute_section || null;
+            payload.is_checklist = form.is_checklist;
             payload.deadline = form.deadline;
             payload.deadline_date = form.deadline_date || null;
         }
@@ -189,6 +193,11 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'section_n
                                                 ? trans_sec.option_mandatory || 'Mandatory'
                                                 : trans_sec.option_non_mandatory || 'Non Mandatory'}
                                         </span>
+                                        {original.is_checklist && (
+                                            <span className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 rounded px-2 py-0.5 text-[10px] font-bold">
+                                                Special (Checklist)
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -317,6 +326,33 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'section_n
                                         <option value="mandatory">{trans_sec.option_mandatory || 'Mandatory'}</option>
                                         <option value="non_mandatory">{trans_sec.option_non_mandatory || 'Non Mandatory'}</option>
                                     </select>
+                                </div>
+
+                                <div>
+                                    <Label className="text-foreground mb-2 block font-semibold">
+                                        {trans_sec.label_is_checklist || 'Special Section (Muncul di Checklist SPK Baru)'}
+                                    </Label>
+                                    <div className="flex gap-2">
+                                        <Button
+                                            type="button"
+                                            variant={form.is_checklist ? 'default' : 'outline'}
+                                            onClick={() => handleBooleanChange('is_checklist', true)}
+                                            className="h-11 flex-1 sm:h-9"
+                                        >
+                                            {trans_sec.btn_yes || 'Ya'}
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            variant={!form.is_checklist ? 'default' : 'outline'}
+                                            onClick={() => handleBooleanChange('is_checklist', false)}
+                                            className="h-11 flex-1 sm:h-9"
+                                        >
+                                            {trans_sec.btn_no || 'Tidak'}
+                                        </Button>
+                                    </div>
+                                    <p className="text-muted-foreground mt-1 text-xs">
+                                        Jika diaktifkan, section ini akan muncul sebagai opsi tambahan (checkbox) saat membuat SPK baru.
+                                    </p>
                                 </div>
                             </>
                         )}
