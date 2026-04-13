@@ -13,6 +13,7 @@ use App\Models\Perusahaan;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Models\MasterSection;
+use App\Models\MasterSectionTrans;
 use App\Models\SectionTrans;
 use App\Models\DocumentStatus;
 use App\Events\ShippingDataUpdated;
@@ -156,6 +157,12 @@ class ShippingController extends Controller
                     'progress'        => $progress,
                 ];
             });
+
+            // NEW: Fetch sections that are marked as checklist (optional sections for SPK)
+            $checklistSections = MasterSectionTrans::where('is_checklist', true)
+                ->orderBy('section_order', 'asc')
+                ->select('id_section', 'section_name')
+                ->get();
         }
 
         // NEW: Fetch Internal Staff for Supervisor Assignment
@@ -164,7 +171,6 @@ class ShippingController extends Controller
             $internalStaff = User::on('tako-user')
                 ->where('role', 'internal')
                 ->where('role_internal', 'staff')
-                ->orWhere('role_internal', 'marketing')
                 ->where('id_perusahaan', $user->id_perusahaan)
                 ->select('id_user', 'name')
                 ->get();
@@ -179,6 +185,7 @@ class ShippingController extends Controller
                 'name' => session('company_name'),
                 'logo' => session('company_logo'),
             ],
+            'checklistSections' => $checklistSections ?? [], // Pass to frontend
             'flash' => [
                 'success' => session('success'),
                 'error' => session('error'),
@@ -317,11 +324,20 @@ class ShippingController extends Controller
             }
 
             // --- 3. GENERATE SECTION TRANSAKSI ---
-            // Mengambil section dari DB Master (Global) dan copy ke Transaksi (Tenant)
-            $masterSections = MasterSection::on('tako-user')
-                ->where('attribute_section', true)
-                ->orderBy('section_order', 'asc')
-                ->get();
+            // Simpan yang Core Mandatory (is_checklist false & attribute_section true)
+            // PLUS yang dicentang user di modal (selected_sections)
+            $selectedChecklistIds = $request->input('selected_sections', []); // Array of id_section
+
+            $masterSections = MasterSectionTrans::where(function($q) use ($selectedChecklistIds) {
+                $q->where(function($sq) {
+                    $sq->where('is_checklist', false)
+                         ->where('id_section', '!=', 6)
+                       ->where('attribute_section', true);
+                })
+                ->orWhereIn('id_section', $selectedChecklistIds);
+            })
+            ->orderBy('section_order', 'asc')
+            ->get();
 
             foreach ($masterSections as $masterSec) {
                 SectionTrans::create([
@@ -338,8 +354,7 @@ class ShippingController extends Controller
             // --- 4. GENERATE DOKUMEN TRANSAKSI (MANDATORY ONLY) ---
             // Hanya dokumen dengan attribute = true yang otomatis ditambahkan saat SPK dibuat.
             // Dokumen lain (attribute = false) ditambahkan secara manual melalui modal di frontend.
-            $allowedSectionIds = MasterSection::on('tako-user')
-                ->where('attribute_section', true)
+            $allowedSectionIds = MasterSectionTrans::where('attribute_section', true)
                 ->pluck('id_section')
                 ->toArray();
 
@@ -358,8 +373,7 @@ class ShippingController extends Controller
                 ->values();
 
             foreach ($finalDocs as $doc) {
-                $section = MasterSection::on('tako-user')
-                    ->where('id_section', $doc->id_section)
+                $section = MasterSectionTrans::where('id_section', $doc->id_section)
                     ->first();
 
                 $sectionName = $section ? $section->section_name : 'Unknown Section';
@@ -1676,7 +1690,7 @@ class ShippingController extends Controller
                 try {
                     $spk = Spk::find($spkId);
                     if ($spk && $spk->id_customer) {
-                        $section = MasterSection::on('tako-user')->find($masterSectionId);
+                        $section = MasterSectionTrans::find($masterSectionId);
                         $sectionName = $section ? $section->section_name : 'Section';
 
                         $customerUsers = \App\Models\User::on('tako-user')
@@ -2266,9 +2280,8 @@ class ShippingController extends Controller
             ->values()
             ->toArray();
 
-        // Ambil master section yang belum dipakai
-        $sections = MasterSection::on('tako-user')
-            ->when(!empty($existingSectionIds), function ($query) use ($existingSectionIds) {
+        // Ambil master section yang belum dipakai (dari DB Tenant)
+        $sections = MasterSectionTrans::when(!empty($existingSectionIds), function ($query) use ($existingSectionIds) {
                 $query->whereNotIn('id_section', $existingSectionIds);
             })
             ->orderBy('section_order', 'asc')
@@ -2278,6 +2291,7 @@ class ShippingController extends Controller
                 'section_order',
                 'is_penjaluran',
                 'attribute_section',
+                'is_checklist',
             ]);
 
         return response()->json([
@@ -2350,9 +2364,8 @@ class ShippingController extends Controller
                 ], 422);
             }
 
-            // Ambil master section dari DB global
-            $masterSections = MasterSection::on('tako-user')
-                ->whereIn('id_section', $newSectionIds)
+            // Ambil master section dari DB Tenant
+            $masterSections = MasterSectionTrans::whereIn('id_section', $newSectionIds)
                 ->orderBy('section_order', 'asc')
                 ->get();
 
@@ -2365,6 +2378,36 @@ class ShippingController extends Controller
                     'deadline' => false,
                     'deadline_date' => null,
                 ]);
+
+                // NEW: Generate Dokumen Mandatory untuk section yang baru ditambahkan ini
+                // Mengambil template dokumen terbaru dari MasterDocumentTrans
+                $masterDocs = MasterDocumentTrans::where('id_section', $masterSec->id_section)
+                    ->where('is_active', true)
+                    ->where('attribute', true) // Hanya yang mandatory
+                    ->get();
+
+                foreach ($masterDocs as $mDoc) {
+                    $logMessage = "Document {$masterSec->section_name} requested " . now()->format('d-m-Y H:i') . " WIB";
+                    
+                    $newDoc = DocumentTrans::create([
+                        'id_spk'          => $idSpk,
+                        'id_dokumen'      => $mDoc->id_dokumen,
+                        'id_section'      => $mDoc->id_section,
+                        'nama_file'       => $mDoc->nama_file,
+                        'is_internal'     => $mDoc->is_internal ?? false,
+                        'is_verification' => $mDoc->is_verification ?? true,
+                        'verify'          => false,
+                        'kuota_revisi'    => $mDoc->kuota_revisi ?? 0,
+                        'updated_by'      => $user->id_user,
+                        'logs'            => $logMessage,
+                    ]);
+
+                    DocumentStatus::create([
+                        'id_dokumen_trans' => $newDoc->id,
+                        'status'           => $logMessage,
+                        'by'               => $user->name,
+                    ]);
+                }
             }
 
             \Illuminate\Support\Facades\DB::commit();
