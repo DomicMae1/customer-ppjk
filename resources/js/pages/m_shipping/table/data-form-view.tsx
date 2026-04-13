@@ -213,6 +213,11 @@ export default function ViewCustomerForm({
     const [selectedHistoryDocs, setSelectedHistoryDocs] = useState<DocumentTrans[]>([]);
     const [selectedHistoryTitle, setSelectedHistoryTitle] = useState('');
 
+    // Remove Section Modal states
+    const [isRemoveSectionModalOpen, setIsRemoveSectionModalOpen] = useState(false);
+    const [sectionToRemove, setSectionToRemove] = useState<any>(null);
+    const [isRemovingSection, setIsRemovingSection] = useState(false);
+
     useEffect(() => {
         if (helpModalOpen) {
             setIsVideoPlaying(false);
@@ -616,6 +621,39 @@ export default function ViewCustomerForm({
             toast.error('Terjadi kesalahan saat menyimpan.');
             setProcessingSectionId(null);
             isSavingRef.current = false;
+        }
+    };
+
+    const handleRemoveSection = (section: any) => {
+        setSectionToRemove(section);
+        setIsRemoveSectionModalOpen(true);
+    };
+
+    const confirmRemoveSection = async () => {
+        if (!sectionToRemove) return;
+
+        setIsRemovingSection(true);
+        try {
+            const response = await axios.post('/shipping/remove-section', {
+                id_spk: shipmentData.id_spk,
+                id: sectionToRemove.id,
+            });
+
+            if (response.data.success) {
+                toast.success(response.data.message || 'Section berhasil dihapus');
+                setIsRemoveSectionModalOpen(false);
+                setSectionToRemove(null);
+                router.reload({
+                    only: ['sectionsTransProp'],
+                });
+            } else {
+                toast.error(response.data.message || 'Gagal menghapus section');
+            }
+        } catch (error: any) {
+            console.error('Error removing section:', error);
+            toast.error(error.response?.data?.message || 'Gagal menghapus section');
+        } finally {
+            setIsRemovingSection(false);
         }
     };
 
@@ -1135,7 +1173,6 @@ export default function ViewCustomerForm({
 
                 router.reload({
                     only: ['sectionsTransProp'],
-                    preserveScroll: true,
                 });
             } else {
                 toast.error(response.data.message || 'Failed to add sections');
@@ -1614,6 +1651,18 @@ export default function ViewCustomerForm({
                                                 </div>
                                             )}
                                         </div>
+                                        {isSupervisor && section.id_section > 6 && (
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleRemoveSection(section);
+                                                }}
+                                                className="ml-2 rounded-lg p-1.5 text-slate-400 transition-all hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-900/20"
+                                                title={trans.remove_section || 'Hapus Section'}
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </button>
+                                        )}
                                     </div>
 
                                     {isOpen && (
@@ -2094,6 +2143,44 @@ export default function ViewCustomerForm({
                             {isSavingSections ? 'Saving...' : trans.save_changes || 'Save Changes'}
                         </Button>
                     </div>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={isRemoveSectionModalOpen} onOpenChange={setIsRemoveSectionModalOpen}>
+                <DialogContent className="max-w-md rounded-2xl p-6 dark:border-zinc-800 dark:bg-zinc-900">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-xl font-bold dark:text-white">
+                            <AlertTriangle className="h-6 w-6 text-rose-500" />
+                            {trans.confirm_removal || 'Konfirmasi Hapus'}
+                        </DialogTitle>
+                    </DialogHeader>
+
+                    <div className="py-4">
+                        <p className="text-slate-600 dark:text-zinc-400">
+                            Apakah Anda yakin ingin menghapus section{' '}
+                            <span className="font-bold text-slate-900 dark:text-white">"{sectionToRemove?.section_name}"</span>? Semua dokumen di
+                            dalam section ini juga akan dihapus secara permanen.
+                        </p>
+                    </div>
+
+                    <DialogFooter className="flex gap-3 sm:justify-end">
+                        <Button
+                            variant="outline"
+                            className="rounded-xl border-slate-200 px-6 dark:border-zinc-700 dark:text-zinc-300"
+                            onClick={() => setIsRemoveSectionModalOpen(false)}
+                            disabled={isRemovingSection}
+                        >
+                            {trans.cancel || 'Batal'}
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            className="rounded-xl bg-rose-600 px-6 text-white hover:bg-rose-700 disabled:opacity-50"
+                            onClick={confirmRemoveSection}
+                            disabled={isRemovingSection}
+                        >
+                            {isRemovingSection ? trans.removing || 'Menghapus...' : trans.confirm_delete || 'Hapus Sekarang'}
+                        </Button>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
         </div>

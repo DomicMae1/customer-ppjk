@@ -2473,4 +2473,74 @@ class ShippingController extends Controller
             ], 500);
         }
     }
+    public function removeSectionFromSpk(Request $request)
+    {
+        $user = auth('web')->user();
+
+        // Security check: Only internal supervisors can remove sections
+        if ($user->role !== 'internal' || $user->role_internal !== 'supervisor') {
+            return response()->json(['success' => false, 'message' => 'Hanya Supervisor yang diperbolehkan menghapus section.'], 403);
+        }
+
+        $request->validate([
+            'id_spk' => 'required|integer',
+            'id' => 'required|integer', // This is the PK of SectionTrans
+        ]);
+
+        // Resolve Tenant
+        $tenant = null;
+        if ($user->id_perusahaan) {
+            $tenant = \App\Models\Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
+        } elseif ($user->id_customer) {
+            $customer = \App\Models\Customer::find($user->id_customer);
+            if ($customer && $customer->ownership) {
+                $tenant = \App\Models\Tenant::where('perusahaan_id', $customer->ownership)->first();
+            }
+        }
+
+        if (!$tenant) {
+            return response()->json(['success' => false, 'message' => 'Tenant not found.'], 404);
+        }
+
+        tenancy()->initialize($tenant);
+
+        try {
+            DB::beginTransaction();
+            DB::connection('tenant-transaction')->beginTransaction();
+
+            $section = SectionTrans::where('id', $request->id)
+                ->where('id_spk', $request->id_spk)
+                ->first();
+
+            if (!$section) {
+                return response()->json(['success' => false, 'message' => 'Section not found.'], 404);
+            }
+
+            // ONLY allow if id_section > 6
+            if ($section->id_section <= 6) {
+                return response()->json(['success' => false, 'message' => 'Cannot delete mandatory sections.'], 403);
+            }
+
+            // Delete associated documents first to be safe (though maybe cascaded)
+            DocumentTrans::where('id_spk', $request->id_spk)
+                ->where('id_section', $section->id_section)
+                ->delete();
+
+            $section->delete();
+
+            DB::connection('tenant-transaction')->commit();
+            DB::commit();
+
+            try {
+                ShippingDataUpdated::dispatch($request->id_spk, 'section_removed');
+            } catch (\Exception $e) {
+            }
+
+            return response()->json(['success' => true, 'message' => 'Section removed successfully.']);
+        } catch (\Throwable $th) {
+            DB::connection('tenant-transaction')->rollBack();
+            DB::rollBack();
+            return response()->json(['success' => false, 'message' => 'Failed to remove section.', 'error' => $th->getMessage()], 500);
+        }
+    }
 }
