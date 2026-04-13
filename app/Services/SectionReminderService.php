@@ -36,9 +36,9 @@ class SectionReminderService
      */
     public static function sendSpkCreated(User $staff, Spk $spk, User $creator)
     {
-         if (!$staff || empty($staff->email)) {
+        if (!$staff || empty($staff->email)) {
             // Log warning logic here if needed, but for now just return or throw
-            return; 
+            return;
         }
         Mail::to($staff->email)->send(new \App\Mail\SpkCreatedMail($spk, $creator));
     }
@@ -60,6 +60,34 @@ class SectionReminderService
             \Illuminate\Support\Facades\Mail::to($recipient->email)->queue(new \App\Mail\DocumentUploadedMail($spk, $sectionName, $uploader, $recipient));
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\Log::error("Failed to queue DocumentUploadedMail: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Kirim email saat dokumen tambahan ditambahkan.
+     */
+    public static function sendDocumentAdded(Spk $spk, $sectionName, User $adminUser, User $recipient, $count)
+    {
+        if (!$recipient || empty($recipient->email)) return;
+
+        try {
+            \Illuminate\Support\Facades\Mail::to($recipient->email)->queue(new \App\Mail\DocumentAddedMail($spk, $sectionName, $adminUser, $recipient, $count));
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error("Failed to queue DocumentAddedMail: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Kirim email saat section tambahan ditambahkan.
+     */
+    public static function sendSectionAdded(Spk $spk, $sectionNames, User $adminUser, User $recipient, $count)
+    {
+        if (!$recipient || empty($recipient->email)) return;
+
+        try {
+            \Illuminate\Support\Facades\Mail::to($recipient->email)->queue(new \App\Mail\SectionAddedMail($spk, $sectionNames, $adminUser, $recipient, $count));
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error("Failed to queue SectionAddedMail: " . $e->getMessage());
         }
     }
 
@@ -101,7 +129,7 @@ class SectionReminderService
         try {
             // We reuse DocumentRejectedMail but adapt the "documentName" parameter to show count.
             $docNameSummary = "{$count} Documents";
-            
+
             \Illuminate\Support\Facades\Mail::to($recipient->email)->queue(new \App\Mail\DocumentRejectedMail($spk, $sectionName, $rejector, $recipient, $reason, $docNameSummary));
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\Log::error("Failed to queue BatchDocumentRejectedMail: " . $e->getMessage());

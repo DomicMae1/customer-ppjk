@@ -2,33 +2,34 @@
 
 namespace App\Mail;
 
+use App\Models\Spk;
+use App\Models\User;
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
-use App\Models\Spk;
-use App\Models\User;
 
-class DocumentUploadedMail extends Mailable implements ShouldQueue
+class DocumentAddedMail extends Mailable
 {
     use Queueable, SerializesModels;
 
     public $spk;
     public $sectionName;
-    public $uploader;
+    public $adminUser;
     public $recipient;
+    public $count;
 
     /**
      * Create a new message instance.
      */
-    public function __construct(Spk $spk, $sectionName, User $uploader, User $recipient)
+    public function __construct(Spk $spk, $sectionName, User $adminUser, User $recipient, $count)
     {
         $this->spk = $spk;
         $this->sectionName = $sectionName;
-        $this->uploader = $uploader;
+        $this->adminUser = $adminUser;
         $this->recipient = $recipient;
+        $this->count = $count;
     }
 
     /**
@@ -40,11 +41,11 @@ class DocumentUploadedMail extends Mailable implements ShouldQueue
         $code = $this->spk->spk_code;
 
         if ($type === 'Import') {
-            $subject = 'Dokumen telah diupload: Nomor B/L ' . $code;
+            $subject = 'Dokumen Tambahan (B/L ' . $code . ') - ' . $this->sectionName;
         } elseif ($type === 'Export') {
-            $subject = 'Dokumen telah diupload: Nomor S/I ' . $code;
+            $subject = 'Dokumen Tambahan (S/I ' . $code . ') - ' . $this->sectionName;
         } else {
-            $subject = 'Dokumen telah diupload: ' . $code;
+            $subject = 'Dokumen Tambahan (' . $code . ') - ' . $this->sectionName;
         }
 
         return new Envelope(
@@ -58,20 +59,12 @@ class DocumentUploadedMail extends Mailable implements ShouldQueue
     public function content(): Content
     {
         return new Content(
-            view: 'emails.document_uploaded',
-            with: [
-                'spk' => $this->spk,
-                'sectionName' => $this->sectionName,
-                'uploader' => $this->uploader,
-                'recipient' => $this->recipient,
-            ],
+            view: 'emails.document_added',
         );
     }
 
     /**
      * Get the attachments for the message.
-     *
-     * @return array<int, \Illuminate\Mail\Mailables\Attachment>
      */
     public function attachments(): array
     {

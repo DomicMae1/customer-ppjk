@@ -40,8 +40,19 @@ class DocumentRejectedMail extends Mailable implements ShouldQueue
      */
     public function envelope(): Envelope
     {
+        $type = $this->spk->shipment_type;
+        $code = $this->spk->spk_code;
+
+        if ($type === 'Import') {
+            $subject = 'Dokumen ditolak: Nomor B/L ' . $code;
+        } elseif ($type === 'Export') {
+            $subject = 'Dokumen ditolak: Nomor S/I ' . $code;
+        } else {
+            $subject = 'Dokumen ditolak: ' . $code;
+        }
+
         return new Envelope(
-            subject: 'Dokumen Ditolak - SPK ' . $this->spk->spk_code,
+            subject: $subject,
         );
     }
 

@@ -25,6 +25,8 @@ class DocumentController extends Controller
         }
 
         $documents = [];
+        $attributeFilter = $request->get('attribute');
+        $sectionFilter = $request->get('section');
 
         // --- 1. LOGIC MANAGER/SUPERVISOR (TENANT) ---
         if ($user->hasRole(['manager', 'supervisor'])) {
@@ -36,61 +38,82 @@ class DocumentController extends Controller
             if ($tenant) {
                 tenancy()->initialize($tenant);
 
-                $documents = MasterDocumentTrans::with('section')
+                $query = MasterDocumentTrans::with('section')
+                    ->orderBy('id_section', 'asc')
+                    ->orderBy('id_dokumen', 'asc');
+
+                if ($attributeFilter === 'mandatory') {
+                    $query->where('attribute', true);
+                } elseif ($attributeFilter === 'non_mandatory') {
+                    $query->where('attribute', false);
+                }
+
+                if (!empty($sectionFilter) && $sectionFilter !== 'all') {
+                    $query->where('id_section', $sectionFilter);
+                }
+
+                $documents = $query
                     ->get()
-                    ->map(function($item) {
+                    ->map(function ($item) {
                         return [
                             'id_dokumen' => $item->id_dokumen,
                             'id_section' => $item->id_section,
                             'nama_file' => $item->nama_file,
                             'description_file' => $item->description_file,
-                            'is_internal' => $item->is_internal, // Boolean
-                            'attribute' => $item->attribute,     // Boolean
-                            
-                            // --- FIELD BARU ---
+                            'is_internal' => $item->is_internal,
+                            'attribute' => $item->attribute,
+                            'kuota_revisi' => $item->kuota_revisi,
                             'link_path_example_file' => $item->link_path_example_file ? Storage::url($item->link_path_example_file) : null,
                             'link_path_template_file' => $item->link_path_template_file ? Storage::url($item->link_path_template_file) : null,
                             'link_url_video_file' => $item->link_url_video_file,
-                            
                             'section' => $item->section,
-                            'source' => 'trans'
+                            'source' => 'trans',
                         ];
                     });
             }
 
         // --- 2. LOGIC ADMIN (GLOBAL) ---
         } elseif ($user->hasRole('admin')) {
-            $documents = MasterDocument::with('section')
+            $query = MasterDocument::with('section')
+                ->orderBy('id_section', 'asc')
+                ->orderBy('id_dokumen', 'asc');
+
+            if ($attributeFilter === 'mandatory') {
+                $query->where('attribute', true);
+            } elseif ($attributeFilter === 'non_mandatory') {
+                $query->where('attribute', false);
+            }
+
+            if (!empty($sectionFilter) && $sectionFilter !== 'all') {
+                $query->where('id_section', $sectionFilter);
+            }
+
+            $documents = $query
                 ->get()
-                ->map(function($item) {
+                ->map(function ($item) {
                     return [
                         'id_dokumen' => $item->id_dokumen,
                         'id_section' => $item->id_section,
                         'nama_file' => $item->nama_file,
                         'description_file' => $item->description_file,
-                        'is_internal' => $item->is_internal, // Boolean
-                        'attribute' => $item->attribute,     // Boolean
-                        
-                        // --- FIELD BARU ---
+                        'is_internal' => $item->is_internal,
+                        'attribute' => $item->attribute,
+                        'kuota_revisi' => $item->kuota_revisi,
                         'link_path_example_file' => $item->link_path_example_file,
                         'link_path_template_file' => $item->link_path_template_file,
                         'link_url_video_file' => $item->link_url_video_file,
-                        
                         'section' => $item->section,
-                        'source' => 'master'
+                        'source' => 'master',
                     ];
                 });
         }
 
-        // Ambil data section untuk dropdown
-        // Asumsi MasterSection ada di database 'tako-user' (Global)
-        // Kita gunakan on('tako-user') untuk memastikan ambil dari global meskipun sedang di context tenant
         $sections = MasterSection::on('tako-user')->orderBy('section_order', 'asc')->get();
 
         return Inertia::render('m_document/page', [
             'documents' => $documents,
             'sections' => $sections,
-            'filters' => $request->only(['search']),
+            'filters' => $request->only(['search', 'attribute', 'section']),
         ]);
     }
 
@@ -107,6 +130,7 @@ class DocumentController extends Controller
             'nama_file' => 'required|string|max:255',
             'description_file' => 'nullable|string',
             'link_url_video_file' => 'nullable|url',
+            'kuota_revisi' => 'nullable|integer|min:0',
             
             // PERUBAHAN: Validasi String Path (Bukan File Upload lagi)
             // Karena file sudah diupload via dropzone ke folder temp
@@ -120,6 +144,10 @@ class DocumentController extends Controller
         // Default value boolean
         $validated['is_internal'] = $request->boolean('is_internal', false);
         $validated['attribute'] = $request->boolean('attribute', false);
+
+        $validated['kuota_revisi'] = $request->filled('kuota_revisi')
+        ? (int) $request->kuota_revisi
+        : 0;
 
         // --- Logic Helper: Pindahkan File dari Temp ke Permanen ---
         $moveFileFromTemp = function ($tempPath, $targetFolder) {
@@ -199,16 +227,16 @@ class DocumentController extends Controller
     public function update(Request $request, $id)
     {
         $user = Auth::user();
-        
+
         $validated = $request->validate([
-            'id_section' => 'required|numeric', 
+            'id_section' => 'required|numeric',
             'nama_file' => 'required|string|max:255',
             'description_file' => 'nullable|string',
             'is_internal' => 'boolean',
             'attribute' => 'boolean',
             'link_url_video_file' => 'nullable|url',
-            
-            // Validasi string path temp (nullable)
+
+            // path file sementara
             'link_path_example_file' => 'nullable|string',
             'link_path_template_file' => 'nullable|string',
         ]);
@@ -221,57 +249,113 @@ class DocumentController extends Controller
         // --- 1. GET DOCUMENT & CHECK PERMISSION ---
         if ($user->hasRole('admin')) {
             $document = MasterDocument::findOrFail($id);
-            $request->validate(['id_section' => 'exists:tako-user.master_sections,id_section']);
+            $request->validate([
+                'id_section' => 'exists:tako-user.master_sections,id_section'
+            ]);
         } elseif ($user->hasRole(['manager', 'supervisor'])) {
             $tenant = \App\Models\Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
-            if ($tenant) tenancy()->initialize($tenant);
+            if ($tenant) {
+                tenancy()->initialize($tenant);
+            }
             $document = MasterDocumentTrans::findOrFail($id);
         } else {
             abort(403, 'Unauthorized action.');
         }
 
-        // --- 2. LOGIC MOVE FILE (Helper) ---
+        // --- 2. HELPER MOVE FILE ---
         $moveFileFromTemp = function ($tempPath, $targetFolder) {
-            if (!$tempPath) return null;
-            $disk = Storage::disk('customers_external'); 
+            if (!$tempPath) {
+                return null;
+            }
+
+            $disk = Storage::disk('customers_external');
+
             if ($disk->exists($tempPath)) {
                 $filename = basename($tempPath);
                 $newPath = $targetFolder . '/' . $filename;
-                if (!$disk->exists($targetFolder)) $disk->makeDirectory($targetFolder);
+
+                if (!$disk->exists($targetFolder)) {
+                    $disk->makeDirectory($targetFolder);
+                }
+
                 $disk->move($tempPath, $newPath);
+
                 return $newPath;
             }
+
             return null;
         };
 
-        // --- 3. PROCESS UPDATE FILE ---
-        
-        // Update Example File
+        // --- 3. SIAPKAN DATA YANG BENAR-BENAR BERUBAH SAJA ---
+        $updateData = [
+            'id_section' => $validated['id_section'],
+            'nama_file' => $validated['nama_file'],
+            'description_file' => $validated['description_file'] ?? null,
+            'is_internal' => $validated['is_internal'],
+            'attribute' => $validated['attribute'],
+            'link_url_video_file' => $validated['link_url_video_file'] ?? null,
+        ];
+
+        $hasRealChange = false;
+
+        foreach ($updateData as $field => $value) {
+            if ((string) $document->{$field} !== (string) $value) {
+                $hasRealChange = true;
+                break;
+            }
+        }
+
+        // --- 4. HANDLE FILE EXAMPLE ---
         if (!empty($validated['link_path_example_file'])) {
-            // Hapus file lama jika ada
-            if ($document->link_path_example_file && Storage::disk('customers_external')->exists($document->link_path_example_file)) {
+            $newExamplePath = $moveFileFromTemp($validated['link_path_example_file'], 'documents/examples');
+
+            if ($newExamplePath && $newExamplePath !== $document->link_path_example_file) {
+                $updateData['link_path_example_file'] = $newExamplePath;
+                $hasRealChange = true;
+            }
+        }
+
+        // --- 5. HANDLE FILE TEMPLATE ---
+        if (!empty($validated['link_path_template_file'])) {
+            $newTemplatePath = $moveFileFromTemp($validated['link_path_template_file'], 'documents/templates');
+
+            if ($newTemplatePath && $newTemplatePath !== $document->link_path_template_file) {
+                $updateData['link_path_template_file'] = $newTemplatePath;
+                $hasRealChange = true;
+            }
+        }
+
+        // --- 6. JIKA TIDAK ADA PERUBAHAN, JANGAN UPDATE DATABASE ---
+        if (!$hasRealChange) {
+            return redirect()->back()->with('success', 'Tidak ada perubahan data.');
+        }
+
+        // updated_by hanya diisi kalau memang ada perubahan
+        $updateData['updated_by'] = $user->id;
+
+        // --- 7. HAPUS FILE LAMA HANYA JIKA ADA FILE BARU ---
+        if (array_key_exists('link_path_example_file', $updateData)) {
+            if (
+                $document->link_path_example_file &&
+                $document->link_path_example_file !== $updateData['link_path_example_file'] &&
+                Storage::disk('customers_external')->exists($document->link_path_example_file)
+            ) {
                 Storage::disk('customers_external')->delete($document->link_path_example_file);
             }
-            // Pindahkan file baru
-            $validated['link_path_example_file'] = $moveFileFromTemp($validated['link_path_example_file'], 'documents/examples');
-        } else {
-            // Jika tidak ada upload baru, hapus key dari validated agar tidak menimpa data lama dengan null/empty
-            unset($validated['link_path_example_file']);
         }
 
-        // Update Template File
-        if (!empty($validated['link_path_template_file'])) {
-            if ($document->link_path_template_file && Storage::disk('customers_external')->exists($document->link_path_template_file)) {
+        if (array_key_exists('link_path_template_file', $updateData)) {
+            if (
+                $document->link_path_template_file &&
+                $document->link_path_template_file !== $updateData['link_path_template_file'] &&
+                Storage::disk('customers_external')->exists($document->link_path_template_file)
+            ) {
                 Storage::disk('customers_external')->delete($document->link_path_template_file);
             }
-            $validated['link_path_template_file'] = $moveFileFromTemp($validated['link_path_template_file'], 'documents/templates');
-        } else {
-            unset($validated['link_path_template_file']);
         }
 
-        // --- 4. SAVE ---
-        $validated['updated_by'] = $user->id;
-        $document->update($validated);
+        // --- 8. SAVE ---
+        $document->update($updateData);
 
         return redirect()->back()->with('success', 'Dokumen berhasil diperbarui.');
     }

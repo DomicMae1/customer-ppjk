@@ -36,8 +36,19 @@ class DocumentVerifiedMail extends Mailable implements ShouldQueue
      */
     public function envelope(): Envelope
     {
+        $type = $this->spk->shipment_type;
+        $code = $this->spk->spk_code;
+
+        if ($type === 'Import') {
+            $subject = 'Dokumen telah diverifikasi: Nomor B/L ' . $code;
+        } elseif ($type === 'Export') {
+            $subject = 'Dokumen telah diverifikasi: Nomor S/I ' . $code;
+        } else {
+            $subject = 'Dokumen telah diverifikasi: ' . $code;
+        }
+
         return new Envelope(
-            subject: 'Dokumen Telah Diverifikasi - SPK ' . $this->spk->spk_code,
+            subject: $subject,
         );
     }
 

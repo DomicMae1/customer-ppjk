@@ -77,6 +77,16 @@ WORKDIR /var/www/html
 # Copy semua file project
 COPY . .
 
+# Pastikan folder Laravel wajib ada
+RUN mkdir -p storage/framework/cache \
+    storage/framework/sessions \
+    storage/framework/views \
+    bootstrap/cache
+
+# Set permission
+RUN chown -R www-data:www-data storage bootstrap/cache \
+    && chmod -R 775 storage bootstrap/cache
+
 # Install dependency PHP
 RUN composer install --optimize-autoloader --no-dev
 

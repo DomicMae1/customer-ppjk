@@ -23,6 +23,8 @@ return new class extends Migration
             $table->unsignedBigInteger('created_by')->nullable();   // User Eksternal
             $table->unsignedBigInteger('validated_by')->nullable(); // User Internal
             $table->string('penjaluran')->nullable(); // Import/Export
+            $table->string('register_number')->nullable();
+            $table->date('register_date')->nullable();
 
             $table->timestamps();
         });

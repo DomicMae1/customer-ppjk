@@ -20,6 +20,7 @@ return [
     "btn_yes" => "Ya",
     "btn_no" => "Tidak",
     "label_video_link" => "Link Video",
+    "count_revisi" => "Kuota Revisi",
     "label_change_example" => "Ganti Contoh File",
     "label_change_template" => "Ganti Template File",
     "btn_upload_new" => "Upload Baru",
@@ -35,6 +36,14 @@ return [
 
     // Pencarian & Header Tabel
     "search_placeholder" => "Cari nama dokumen...",
+    // FILTER ATTRIBUTE
+    'filter_all_attribute' => 'Semua Attribute',
+    'filter_mandatory' => 'Mandatory',
+    'filter_non_mandatory' => 'Non Mandatory',
+
+    // FILTER SECTION
+    'filter_all_section' => 'Semua Section',
+    
     "no_data" => "Tidak ada data dokumen.",
     "label_status" => "Status",
     "label_open_menu" => "Buka menu",

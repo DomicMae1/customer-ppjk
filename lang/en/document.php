@@ -20,6 +20,7 @@ return [
     "btn_yes" => "Yes",
     "btn_no" => "No",
     "label_video_link" => "Video Link",
+    "count_revisi" => "Quota Revision",
     "label_change_example" => "Change Example File",
     "label_change_template" => "Change Template File",
     "btn_upload_new" => "Upload New",
@@ -35,6 +36,14 @@ return [
 
     // Search & Table Header
     "search_placeholder" => "Search by document name...",
+    // FILTER ATTRIBUTE
+    'filter_all_attribute' => 'All Attribute',
+    'filter_mandatory' => 'Mandatory',
+    'filter_non_mandatory' => 'Non Mandatory',
+
+    // FILTER SECTION
+    'filter_all_section' => 'All Section',
+
     "no_data" => "No document data found.",
     "label_status" => "Status",
     "label_open_menu" => "Open menu",

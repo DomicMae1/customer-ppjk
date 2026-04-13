@@ -7,4 +7,5 @@ return [
     'manage_company' => 'Manage Company',
     'manage_document' => 'Manage Document',
     'manage_customer' => 'Manage Customer',
+    'manage_section' => 'Manage Section',
 ];

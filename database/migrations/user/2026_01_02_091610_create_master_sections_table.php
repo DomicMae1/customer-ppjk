@@ -19,6 +19,7 @@ return new class extends Migration
             $table->string('section_name');
             $table->integer('section_order')->default(0); // Untuk mengatur urutan tampilan
             $table->boolean('is_penjaluran')->default(false);
+            $table->boolean('attribute_section')->default(0);
 
             $table->timestamps();
         });

@@ -44,11 +44,13 @@ interface Customer {
 }
 
 export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData, TValue>) {
-    const { roles, companies, customers, trans_auth } = usePage().props as unknown as {
+    const { roles, companies, customers, trans_auth, isAdmin, authCompanyId } = usePage().props as unknown as {
         roles: Role[];
         companies: Perusahaan[];
         customers: Customer[];
         trans_auth: Record<string, string>;
+        isAdmin: boolean;
+        authCompanyId: number | null;
     };
 
     const [sorting, setSorting] = React.useState<SortingState>([]);
@@ -108,8 +110,8 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
         }
 
         // 2. Validate Company & User Type Selection
-        if (!selectedCompany) {
-            alert(trans_auth.validation_company_required); // Translate
+        if (isAdmin && !selectedCompany) {
+            alert(trans_auth.validation_company_required);
             return;
         }
 
@@ -147,7 +149,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
             password_confirmation: passwordConfirmation,
 
             // Relational Data
-            id_perusahaan: Number(selectedCompany), // Always send company ID
+            id_perusahaan: isAdmin ? Number(selectedCompany) : authCompanyId,
             id_customer: selectedRole === 'external' ? Number(selectedCustomer) : null, // Send customer ID only if external
 
             // Role Data
@@ -214,7 +216,6 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
             </div>
 
             {/* --- MOBILE CARD VIEW --- */}
-            {/* --- MOBILE VIEW: CARD LAYOUT --- */}
             <div className="flex flex-col gap-4 md:hidden">
                 {table.getRowModel().rows.length > 0 ? (
                     table.getRowModel().rows.map((row) => {
@@ -243,10 +244,27 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                         <span className="text-foreground font-medium">{original.email}</span>
                                     </div>
 
-                                    {original.nama_perusahaan && (
-                                        <div className="flex flex-col">
-                                            <span className="text-muted-foreground/70 text-xs">{trans_auth.label_company}</span>
-                                            <span className="text-foreground">{original.nama_perusahaan}</span>
+                                    {isAdmin && (
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="company" className="text-foreground font-semibold">
+                                                {trans_auth.label_company}
+                                            </Label>
+                                            <Select onValueChange={setSelectedCompany} value={selectedCompany}>
+                                                <SelectTrigger className="border-input bg-background text-foreground h-11 w-full sm:h-10">
+                                                    <SelectValue placeholder={trans_auth.placeholder_company} />
+                                                </SelectTrigger>
+                                                <SelectContent className="bg-popover text-popover-foreground">
+                                                    {companies.length > 0 ? (
+                                                        companies.map((company) => (
+                                                            <SelectItem key={company.id} value={String(company.id)}>
+                                                                {company.nama_perusahaan}
+                                                            </SelectItem>
+                                                        ))
+                                                    ) : (
+                                                        <div className="text-muted-foreground p-2 text-sm">{trans_auth.no_data_company}</div>
+                                                    )}
+                                                </SelectContent>
+                                            </Select>
                                         </div>
                                     )}
                                 </div>
@@ -318,10 +336,6 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                     }
                 }}
             >
-                {/* Optimasi Mobile: 
-        1. max-w-[95%] agar tidak menempel ke pinggir layar hp.
-        2. max-h-[90vh] dan overflow-y-auto agar form bisa di-scroll jika layar pendek atau keyboard muncul.
-    */}
                 <DialogContent className="border-border bg-background text-foreground max-h-[90vh] max-w-[95%] overflow-y-auto rounded-xl p-4 sm:max-w-md sm:p-6">
                     <DialogHeader>
                         <DialogTitle className="text-foreground text-xl font-bold">{trans_auth.title_create}</DialogTitle>
@@ -334,25 +348,29 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                         <div className="bg-muted/50 space-y-4 rounded-lg p-3 sm:bg-transparent sm:p-0">
                             {/* Company Select */}
                             <div className="grid gap-2">
-                                <Label htmlFor="company" className="text-foreground font-semibold">
-                                    {trans_auth.label_company}
-                                </Label>
-                                <Select onValueChange={setSelectedCompany} value={selectedCompany}>
-                                    <SelectTrigger className="border-input bg-background text-foreground h-11 w-full sm:h-10">
-                                        <SelectValue placeholder={trans_auth.placeholder_company} />
-                                    </SelectTrigger>
-                                    <SelectContent className="bg-popover text-popover-foreground">
-                                        {companies.length > 0 ? (
-                                            companies.map((company) => (
-                                                <SelectItem key={company.id} value={String(company.id)}>
-                                                    {company.nama_perusahaan}
-                                                </SelectItem>
-                                            ))
-                                        ) : (
-                                            <div className="text-muted-foreground p-2 text-sm">{trans_auth.no_data_company}</div>
-                                        )}
-                                    </SelectContent>
-                                </Select>
+                                {isAdmin && (
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="company" className="text-foreground font-semibold">
+                                            {trans_auth.label_company}
+                                        </Label>
+                                        <Select onValueChange={setSelectedCompany} value={selectedCompany}>
+                                            <SelectTrigger className="border-input bg-background text-foreground h-11 w-full sm:h-10">
+                                                <SelectValue placeholder={trans_auth.placeholder_company} />
+                                            </SelectTrigger>
+                                            <SelectContent className="bg-popover text-popover-foreground">
+                                                {companies.length > 0 ? (
+                                                    companies.map((company) => (
+                                                        <SelectItem key={company.id} value={String(company.id)}>
+                                                            {company.nama_perusahaan}
+                                                        </SelectItem>
+                                                    ))
+                                                ) : (
+                                                    <div className="text-muted-foreground p-2 text-sm">{trans_auth.no_data_company}</div>
+                                                )}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                )}
                             </div>
 
                             {/* User Type Select */}
@@ -383,7 +401,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                         </SelectTrigger>
                                         <SelectContent className="bg-popover text-popover-foreground">
                                             {roles
-                                                .filter((role) => ['staff', 'manager', 'supervisor'].includes(role.name))
+                                                .filter((role) => ['staff', 'marketing', 'manager', 'supervisor'].includes(role.name))
                                                 .map((role) => (
                                                     <SelectItem key={role.id} value={String(role.id)}>
                                                         {role.name.charAt(0).toUpperCase() + role.name.slice(1)}

@@ -18,10 +18,15 @@ class MasterSection extends Model
     // PENTING: Definisi Primary Key baru
     protected $primaryKey = 'id_section';
 
+    public $incrementing = false;
+    protected $keyType = 'int';
+
     protected $fillable = [
+        'id_section',
         'section_name',
         'section_order',
         'is_penjaluran',
+        'attribute_section',
     ];
 
     protected $casts = [
