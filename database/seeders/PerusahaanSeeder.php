@@ -11,7 +11,9 @@ class PerusahaanSeeder extends Seeder
     public function run(): void
     {
         $perusahaans = [
-            ['nama_perusahaan' => 'PT Alpha', 'subdomain' => 'alpha'],
+            // ['nama_perusahaan' => 'PT Alpha', 'subdomain' => 'alpha'],
+            ['nama_perusahaan' => 'PT Beta', 'subdomain' => 'beta'],
+            ['nama_perusahaan' => 'PT Gamma', 'subdomain' => 'gamma'],
         ];
 
         $appDomain = env('APP_DOMAIN');

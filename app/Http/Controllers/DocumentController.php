@@ -108,7 +108,12 @@ class DocumentController extends Controller
                 });
         }
 
-        $sections = MasterSection::on('tako-user')->orderBy('section_order', 'asc')->get();
+        $sections = [];
+        if ($user->hasRole(['manager', 'supervisor'])) {
+            $sections = \App\Models\MasterSectionTrans::orderBy('section_order', 'asc')->get();
+        } else {
+            $sections = MasterSection::on('tako-user')->orderBy('section_order', 'asc')->get();
+        }
 
         return Inertia::render('m_document/page', [
             'documents' => $documents,

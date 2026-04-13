@@ -81,7 +81,7 @@ class DocumentTrans extends Model
      */
     public function section(): BelongsTo
     {
-        return $this->belongsTo(MasterSection::class, 'id_section', 'id_section');
+        return $this->belongsTo(MasterSectionTrans::class, 'id_section', 'id_section');
     }
 
     public function sectionTrans(): BelongsTo

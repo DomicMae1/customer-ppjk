@@ -10,6 +10,7 @@ export type SectionRow = {
     section_order: number;
     is_penjaluran?: boolean;
     attribute_section?: boolean | string | null;
+    is_checklist?: boolean;
     created_at?: string;
     updated_at?: string;
 };
@@ -39,6 +40,19 @@ export const columns = (
             return (
                 <Badge variant={isMandatory ? 'default' : 'secondary'}>
                     {isMandatory ? trans.option_mandatory || 'Mandatory' : trans.option_non_mandatory || 'Non Mandatory'}
+                </Badge>
+            );
+        },
+    },
+    {
+        accessorKey: 'is_checklist',
+        header: trans.label_is_checklist || 'Special Section',
+        cell: ({ row }) => {
+            const isChecklist = !!row.original.is_checklist;
+
+            return (
+                <Badge variant={isChecklist ? 'secondary' : 'outline'} className={isChecklist ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' : ''}>
+                    {isChecklist ? trans.option_checklist || 'Yes (Checklist)' : trans.option_no_checklist || 'No'}
                 </Badge>
             );
         },

@@ -21,5 +21,17 @@ class DatabaseSeeder extends Seeder
             MasterSectionSeeder::class,
             DocumentSeeder::class,
         ]);
+
+        // --- SEED ALL TENANTS ---
+        \App\Models\Tenant::all()->each(function ($tenant) {
+            tenancy()->initialize($tenant);
+            
+            $this->call([
+                TenantSectionSeeder::class,
+                TenantDocumentSeeder::class,
+            ]);
+            
+            tenancy()->end();
+        });
     }
 }
