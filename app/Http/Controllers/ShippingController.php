@@ -1004,7 +1004,7 @@ class ShippingController extends Controller
         }
 
         if (!$tenant) {
-            return response()->json(['message' => 'Tenant not found'], 404);
+            return redirect()->back()->withErrors(['error' => 'Tenant not found']);
         }
 
         tenancy()->initialize($tenant);
@@ -1016,7 +1016,7 @@ class ShippingController extends Controller
             $spk = Spk::findOrFail($id);
 
             if ($spk->validated_by == $validated['assigned_pic']) {
-                return response()->json(['message' => 'User is already assigned.']);
+                return redirect()->back()->withErrors(['assigned_pic' => 'User is already assigned.']);
             }
 
             $assignedUser = User::on('tako-user')->find($validated['assigned_pic']);

@@ -843,7 +843,7 @@ export default function ViewCustomerForm({
                 <div className="flex items-start justify-between gap-4">
                     {/* Left: Name & History */}
                     <div className="flex flex-1 flex-col gap-1">
-                        <div className="flex items-center gap-2 text-gray-800 dark:text-zinc-200">
+                        <div className="flex items-center gap-2 text-gray-800 dark:text-slate-900">
                             <span className="text-sm font-medium">
                                 {idx + 1}. {doc.master_document?.nama_dokumen || doc.nama_file}
                             </span>
@@ -856,17 +856,17 @@ export default function ViewCustomerForm({
                             {!canVerify && doc.url_path_file && (
                                 <div className="flex gap-1">
                                     {isVerified && (
-                                        <span className="rounded border border-green-200 bg-green-100 px-2 py-0.5 text-xs font-bold text-green-700 dark:border-green-800 dark:bg-green-900/30 dark:text-green-400">
+                                        <span className="rounded-full border border-green-200 bg-green-100 px-2.5 py-0.5 text-[10px] font-bold tracking-tight uppercase text-green-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-400">
                                             {trans.verified}
                                         </span>
                                     )}
                                     {isRejected && (
-                                        <span className="rounded border border-red-200 bg-red-100 px-2 py-0.5 text-xs font-bold text-red-700 dark:border-red-800 dark:bg-red-900/30 dark:text-red-400">
+                                        <span className="rounded-full border border-red-200 bg-red-100 px-2.5 py-0.5 text-[10px] font-bold tracking-tight uppercase text-red-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-400">
                                             {trans.rejected}
                                         </span>
                                     )}
                                     {isPending && (
-                                        <span className="rounded border border-yellow-200 bg-yellow-100 px-2 py-0.5 text-xs font-bold text-yellow-700 dark:border-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
+                                        <span className="rounded-full border border-yellow-200 bg-yellow-100 px-2.5 py-0.5 text-[10px] font-bold tracking-tight uppercase text-yellow-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-400">
                                             {trans.pending}
                                         </span>
                                     )}
@@ -900,7 +900,7 @@ export default function ViewCustomerForm({
                                                     <a
                                                         href={`/file/view/${v.url_path_file}`}
                                                         target="_blank"
-                                                        className={`transition-colors hover:underline ${vIdx === 0 ? 'font-bold text-black dark:text-white' : 'text-gray-600 dark:text-zinc-400'}`}
+                                                        className={`transition-colors hover:underline ${vIdx === 0 ? 'font-bold text-black dark:text-black' : 'text-gray-600 dark:text-zinc-400'}`}
                                                     >
                                                         {v.nama_file}
                                                     </a>
@@ -1007,8 +1007,8 @@ export default function ViewCustomerForm({
                                 )}
                             </div>
                         )}
-                        <div className="text-gray-500 dark:text-zinc-500">
-                            {trans.revision_quota}: <span className="font-bold text-gray-700 dark:text-zinc-300">{doc.kuota_revisi ?? 0}</span>{' '}
+                        <div className="text-gray-500 dark:text-slate-700">
+                            {trans.revision_quota}: <span className="font-bold text-gray-700 dark:text-zinc-800">{doc.kuota_revisi ?? 0}</span>{' '}
                             {trans.remaining}
                         </div>
                         {quotaExceeded && (
@@ -1051,8 +1051,9 @@ export default function ViewCustomerForm({
                 onSuccess: () => {
                     toast.success('Staff assigned successfully');
                 },
-                onError: (errors) => {
-                    toast.error('Failed to assign staff');
+                onError: (errors: any) => {
+                    const errorMessage = errors.assigned_pic || errors.error || 'Failed to assign staff';
+                    toast.error(errorMessage);
                     console.error(errors);
                 },
             },
@@ -1215,7 +1216,7 @@ export default function ViewCustomerForm({
                                     <SelectContent className="rounded-xl border-slate-200 shadow-xl">
                                         {internalStaff.length > 0 ? (
                                             internalStaff.map((staff: any) => (
-                                                <SelectItem key={staff.id_user} value={String(staff.id_user)} className="text-xs focus:bg-blue-50">
+                                                <SelectItem key={staff.id_user} value={String(staff.id_user)} className="text-xs cursor-pointer focus:bg-blue-50 hover:bg-blue-50 dark:focus:bg-zinc-800 dark:hover:bg-zinc-800 dark:text-zinc-200">
                                                     {staff.name}
                                                 </SelectItem>
                                             ))
@@ -1241,18 +1242,16 @@ export default function ViewCustomerForm({
                                 <button
                                     onClick={() => !isUpdatingUploadMode && handleToggleInternalCanUpload(true)}
                                     disabled={isUpdatingUploadMode}
-                                    className={`flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition-all duration-200 ${
-                                        internalCanUpload ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                                    } disabled:opacity-50`}
+                                    className={`flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition-all duration-200 ${internalCanUpload ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                                        } disabled:opacity-50`}
                                 >
                                     {trans.staff_upload}
                                 </button>
                                 <button
                                     onClick={() => !isUpdatingUploadMode && handleToggleInternalCanUpload(false)}
                                     disabled={isUpdatingUploadMode}
-                                    className={`flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition-all duration-200 ${
-                                        !internalCanUpload ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                                    } disabled:opacity-50`}
+                                    className={`flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition-all duration-200 ${!internalCanUpload ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                                        } disabled:opacity-50`}
                                 >
                                     {trans.dual_upload}
                                 </button>
@@ -1280,11 +1279,10 @@ export default function ViewCustomerForm({
                             <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.channel}</div>
                             <div>
                                 <span
-                                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold tracking-tight uppercase ring-1 ring-inset ${
-                                        shipmentData.penjaluran === 'merah'
-                                            ? 'bg-rose-50 text-rose-700 ring-rose-600/20'
-                                            : 'bg-green-50 text-green-700 ring-green-600/20'
-                                    }`}
+                                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold tracking-tight uppercase ring-1 ring-inset ${shipmentData.penjaluran === 'merah'
+                                        ? 'bg-rose-50 text-rose-700 ring-rose-600/20'
+                                        : 'bg-green-50 text-green-700 ring-green-600/20'
+                                        }`}
                                 >
                                     {trans[shipmentData.penjaluran] || shipmentData.penjaluran}
                                 </span>
@@ -1324,8 +1322,8 @@ export default function ViewCustomerForm({
                             {shipmentData.type === 'Export'
                                 ? trans.si || 'SI'
                                 : shipmentData.type === 'Import'
-                                  ? trans.bl || 'B'
-                                  : trans.spk || 'SPK'}{' '}
+                                    ? trans.bl || 'B'
+                                    : trans.spk || 'SPK'}{' '}
                         </div>
                         <div className="text-sm font-bold tracking-tight break-all text-slate-900 dark:text-white">{shipmentData.spkNumber}</div>
                     </div>
@@ -1386,9 +1384,9 @@ export default function ViewCustomerForm({
                                                             existingFile={
                                                                 !item.file && item.link
                                                                     ? {
-                                                                          nama_file: item.link,
-                                                                          path: `/file/view/${item.link}`,
-                                                                      }
+                                                                        nama_file: item.link,
+                                                                        path: `/file/view/${item.link}`,
+                                                                    }
                                                                     : undefined
                                                             }
                                                             onFileChange={(file) => {
@@ -1622,12 +1620,12 @@ export default function ViewCustomerForm({
                                         <div className="animate-in fade-in slide-in-from-top-2 mt-1 rounded-xl border-t border-slate-100 bg-white px-4 pt-3 pb-5 shadow-sm duration-300">
                                             {isSupervisor && (
                                                 <div className="mb-4 flex items-center gap-3">
-                                                    <label className="text-sm font-semibold whitespace-nowrap text-slate-700">
+                                                    <label className="text-sm font-semibold whitespace-nowrap text-slate-700 dark:text-slate-900">
                                                         {trans.deadline}:
                                                     </label>
                                                     <Input
                                                         type="date"
-                                                        className={`h-9 flex-1 rounded-lg border-slate-300 text-sm transition-all duration-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 ${useUnifiedDeadline ? 'cursor-not-allowed bg-slate-50 opacity-50' : 'bg-white'}`}
+                                                        className={`h-9 flex-1 rounded-lg border-slate-300 text-sm transition-all duration-200 dark:text-slate-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 ${useUnifiedDeadline ? 'cursor-not-allowed bg-slate-50 opacity-50' : 'bg-white'}`}
                                                         value={useUnifiedDeadline ? globalDeadlineDate : sectionDeadlines[section.id] || ''}
                                                         onChange={(e) => {
                                                             if (!useUnifiedDeadline) {
@@ -1700,7 +1698,7 @@ export default function ViewCustomerForm({
                 <div className="mt-4 flex justify-center">
                     <Button
                         onClick={handleOpenAddSectionModal}
-                        className="w-full rounded-lg bg-black px-6 py-2 text-sm font-semibold text-white hover:bg-gray-800"
+                        className="w-full rounded-lg bg-black px-6 py-2 text-sm font-semibold text-white hover:bg-gray-800 dark:bg-white dark:hover:bg-gray-200 dark:text-slate-900"
                     >
                         <Plus className="mr-2 h-4 w-4" />
                         {trans.add_section || 'Add Section'}
@@ -1785,9 +1783,8 @@ export default function ViewCustomerForm({
                         <Button
                             onClick={handleUpdatePenjaluran}
                             disabled={isUpdatingPenjaluran || !registerNumber || !registerDate}
-                            className={`flex-1 text-white ${
-                                pendingJalur === 'merah' ? 'bg-rose-500 hover:bg-rose-600' : 'bg-green-500 hover:bg-green-600'
-                            }`}
+                            className={`flex-1 text-white ${pendingJalur === 'merah' ? 'bg-rose-500 hover:bg-rose-600' : 'bg-green-500 hover:bg-green-600'
+                                }`}
                         >
                             {isUpdatingPenjaluran ? trans.saving : trans.save}
                         </Button>
@@ -1858,7 +1855,7 @@ export default function ViewCustomerForm({
                                                 id={`doc-${doc.id_dokumen}`}
                                                 checked={selectedDocuments.includes(doc.id_dokumen)}
                                                 onCheckedChange={(checked) => handleDocumentCheckboxChange(doc.id_dokumen, checked as boolean)}
-                                                className="h-5 w-5 rounded border-2 border-black data-[state=checked]:bg-transparent data-[state=checked]:text-black"
+                                                className="h-5 w-5 rounded border-2 border-black data-[state=checked]:bg-black data-[state=checked]:text-white dark:border-zinc-500 dark:data-[state=checked]:bg-white dark:data-[state=checked]:text-black"
                                             />
                                             <label
                                                 htmlFor={`doc-${doc.id_dokumen}`}
@@ -2073,7 +2070,7 @@ export default function ViewCustomerForm({
                                                 id={`section-${section.id_section}`}
                                                 checked={selectedSections.includes(section.id_section)}
                                                 onCheckedChange={(checked) => handleSectionCheckboxChange(section.id_section, checked as boolean)}
-                                                className="h-5 w-5 rounded border-2 border-black data-[state=checked]:bg-transparent data-[state=checked]:text-black"
+                                                className="h-5 w-5 rounded border-2 border-black data-[state=checked]:bg-black data-[state=checked]:text-white dark:border-zinc-500 dark:data-[state=checked]:bg-white dark:data-[state=checked]:text-black"
                                             />
                                             <label
                                                 htmlFor={`section-${section.id_section}`}
