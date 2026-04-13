@@ -160,6 +160,7 @@ class ShippingController extends Controller
 
             // NEW: Fetch sections that are marked as checklist (optional sections for SPK)
             $checklistSections = MasterSectionTrans::where('is_checklist', true)
+                ->where('id_section', '!=', 6)
                 ->orderBy('section_order', 'asc')
                 ->select('id_section', 'section_name')
                 ->get();
@@ -328,16 +329,17 @@ class ShippingController extends Controller
             // PLUS yang dicentang user di modal (selected_sections)
             $selectedChecklistIds = $request->input('selected_sections', []); // Array of id_section
 
-            $masterSections = MasterSectionTrans::where(function($q) use ($selectedChecklistIds) {
-                $q->where(function($sq) {
+            $masterSections = MasterSectionTrans::where(function ($q) use ($selectedChecklistIds) {
+                $q->where(function ($sq) {
                     $sq->where('is_checklist', false)
-                         ->where('id_section', '!=', 6)
-                       ->where('attribute_section', true);
+                        ->where('id_section', '!=', 6)
+                        ->where('attribute_section', true);
                 })
-                ->orWhereIn('id_section', $selectedChecklistIds);
+                    ->orWhereIn('id_section', $selectedChecklistIds);
             })
-            ->orderBy('section_order', 'asc')
-            ->get();
+                ->where('id_section', '!=', 6)
+                ->orderBy('section_order', 'asc')
+                ->get();
 
             foreach ($masterSections as $masterSec) {
                 SectionTrans::create([
@@ -355,6 +357,8 @@ class ShippingController extends Controller
             // Hanya dokumen dengan attribute = true yang otomatis ditambahkan saat SPK dibuat.
             // Dokumen lain (attribute = false) ditambahkan secara manual melalui modal di frontend.
             $allowedSectionIds = MasterSectionTrans::where('attribute_section', true)
+                ->where('is_checklist', false)
+                ->where('id_section', '!=', 6)
                 ->pluck('id_section')
                 ->toArray();
 
@@ -389,7 +393,7 @@ class ShippingController extends Controller
                     'url_path_file'         => null,
                     'verify'                => false,
                     'correction_attachment' => false,
-                    'kuota_revisi'          => $doc->kuota_revisi ?? 0,
+                    'kuota_revisi'          => $doc->kuota_revisi ?: 3,
                     'updated_by'            => $userId,
                     'logs'                  => $logMessage,
                     'created_at'            => now(),
@@ -2282,8 +2286,9 @@ class ShippingController extends Controller
 
         // Ambil master section yang belum dipakai (dari DB Tenant)
         $sections = MasterSectionTrans::when(!empty($existingSectionIds), function ($query) use ($existingSectionIds) {
-                $query->whereNotIn('id_section', $existingSectionIds);
-            })
+            $query->whereNotIn('id_section', $existingSectionIds);
+        })
+            ->where('id_section', '!=', 6)
             ->orderBy('section_order', 'asc')
             ->get([
                 'id_section',
@@ -2366,6 +2371,7 @@ class ShippingController extends Controller
 
             // Ambil master section dari DB Tenant
             $masterSections = MasterSectionTrans::whereIn('id_section', $newSectionIds)
+                ->where('id_section', '!=', 6)
                 ->orderBy('section_order', 'asc')
                 ->get();
 
@@ -2388,7 +2394,7 @@ class ShippingController extends Controller
 
                 foreach ($masterDocs as $mDoc) {
                     $logMessage = "Document {$masterSec->section_name} requested " . now()->format('d-m-Y H:i') . " WIB";
-                    
+
                     $newDoc = DocumentTrans::create([
                         'id_spk'          => $idSpk,
                         'id_dokumen'      => $mDoc->id_dokumen,
@@ -2397,7 +2403,7 @@ class ShippingController extends Controller
                         'is_internal'     => $mDoc->is_internal ?? false,
                         'is_verification' => $mDoc->is_verification ?? true,
                         'verify'          => false,
-                        'kuota_revisi'    => $mDoc->kuota_revisi ?? 0,
+                        'kuota_revisi'    => $mDoc->kuota_revisi ?: 3,
                         'updated_by'      => $user->id_user,
                         'logs'            => $logMessage,
                     ]);
