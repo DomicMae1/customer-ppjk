@@ -24,15 +24,27 @@ export function AppSidebar() {
             icon: SquareUserRound,
         },
         {
+            title: trans_nav.manage_customer, // Translate
+            url: '/customer',
+            icon: BookUser,
+            supervisorManagerOnly: true,
+        },
+        {
             title: trans_nav.manage_users, // Translate
             url: '/users',
             icon: Users,
             supervisorManagerOnly: true,
         },
         {
-            title: trans_nav.manage_customer, // Translate
-            url: '/customer',
-            icon: BookUser,
+            title: trans_nav.manage_document, // Translate
+            url: '/document',
+            icon: BookCheck,
+            supervisorManagerOnly: true,
+        },
+        {
+            title: trans_nav.manage_section, // Translate
+            url: '/section',
+            icon: SquareLibrary,
             supervisorManagerOnly: true,
         },
         {
@@ -46,18 +58,6 @@ export function AppSidebar() {
             url: '/perusahaan',
             icon: Building2,
             adminOnly: true,
-        },
-        {
-            title: trans_nav.manage_document, // Translate
-            url: '/document',
-            icon: BookCheck,
-            supervisorManagerOnly: true,
-        },
-        {
-            title: trans_nav.manage_section, // Translate
-            url: '/section',
-            icon: SquareLibrary,
-            supervisorManagerOnly: true,
         },
     ];
 

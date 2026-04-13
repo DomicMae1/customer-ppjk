@@ -72,6 +72,8 @@ class UserController extends Controller
             'roles' => $roles,
             'companies' => $perusahaan,
             'customers' => $customers,
+            'isAdmin' => $user->hasRole('admin'),
+            'authCompanyId' => $user->id_perusahaan,
         ]);
     }
 
