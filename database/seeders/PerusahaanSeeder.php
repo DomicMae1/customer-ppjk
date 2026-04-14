@@ -13,7 +13,8 @@ class PerusahaanSeeder extends Seeder
         $perusahaans = [
             // ['nama_perusahaan' => 'PT Alpha', 'subdomain' => 'alpha'],
             ['nama_perusahaan' => 'PT Beta', 'subdomain' => 'beta'],
-            ['nama_perusahaan' => 'PT Gamma', 'subdomain' => 'gamma'],
+            ['nama_perusahaan' => 'PT. Anugerah Multi Logistik', 'subdomain' => 'pt-anugerah-multi-logistik'],
+            ['nama_perusahaan' => 'PT. Anugerah Mandiri Internasional Trans', 'subdomain' => 'pt-anugerah-mandiri-internasional-trans'],
         ];
 
         $appDomain = env('APP_DOMAIN');
