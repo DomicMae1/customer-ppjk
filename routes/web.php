@@ -30,7 +30,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     })->name('dashboard');
 
     Route::resource('customer', CustomerController::class);
-    
+
     // Shipping-specific routes MUST be before resource route to avoid conflicts
     Route::post('shipping/upload-temp', [ShippingController::class, 'upload'])->name('shipping.upload');
     Route::post('shipping/{id}/update-hs-codes', [ShippingController::class, 'updateHsCodes'])
@@ -40,13 +40,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('shipping/add-documents-to-section', [ShippingController::class, 'addDocumentsToSection'])->name('shipping.addDocumentsToSection');
     Route::post('shipping/update-penjaluran', [ShippingController::class, 'updatePenjaluran'])->name('shipping.updatePenjaluran');
     Route::post('shipping/update-internal-can-upload', [ShippingController::class, 'updateInternalCanUpload'])->name('shipping.updateInternalCanUpload');
-    
+
     Route::post('shipping/unified-save', [ShippingController::class, 'unifiedBatchSave'])->name('shipping.unifiedSave');
     Route::post('shipping/update-deadline', [ShippingController::class, 'updateDeadline'])->name('shipping.updateDeadline');
     Route::get('shipping/{id}/download-zip', [ShippingController::class, 'downloadZip'])->name('shipping.downloadZip');
     Route::get('/shipping/available-sections', [ShippingController::class, 'availableSections']);
     Route::post('/shipping/add-sections-to-spk', [ShippingController::class, 'addSectionsToSpk']);
-    
+    Route::post('/shipping/remove-section', [ShippingController::class, 'removeSectionFromSpk']);
+
     // Resource route AFTER specific routes
     Route::resource('shipping', ShippingController::class);
     Route::resource('users', UserController::class);
@@ -66,12 +67,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
 });
 
 Route::get('/file/view/{path}', [FileController::class, 'view'])->middleware('auth')
-    ->where('path', '.*') 
+    ->where('path', '.*')
     ->name('file.view');
 
 Route::get('/shipping/{path}', [FileController::class, 'view'])
-    ->where('path', '.*') 
-    ->name('file.view');    
+    ->where('path', '.*')
+    ->name('file.view');
 
 Route::get('lang/{locale}', function ($locale) {
     if (in_array($locale, ['en', 'id'])) {

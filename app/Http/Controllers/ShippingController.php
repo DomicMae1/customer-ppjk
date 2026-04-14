@@ -13,6 +13,7 @@ use App\Models\Perusahaan;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Models\MasterSection;
+use App\Models\MasterSectionTrans;
 use App\Models\SectionTrans;
 use App\Models\DocumentStatus;
 use App\Events\ShippingDataUpdated;
@@ -204,7 +205,14 @@ class ShippingController extends Controller
                     'deadline_date'         => $minDeadline,
                     'progress'              => $progress,
                 ];
-            })->values();
+            });
+
+            // NEW: Fetch sections that are marked as checklist (optional sections for SPK)
+            $checklistSections = MasterSectionTrans::where('is_checklist', true)
+                ->where('id_section', '!=', 6)
+                ->orderBy('section_order', 'asc')
+                ->select('id_section', 'section_name')
+                ->get();
         }
 
         // NEW: Fetch Internal Staff for Supervisor Assignment
@@ -212,6 +220,7 @@ class ShippingController extends Controller
         if ($user->role === 'internal') {
             $internalStaff = User::on('tako-user')
                 ->where('role', 'internal')
+                ->where('role_internal', 'staff')
                 ->where('id_perusahaan', $user->id_perusahaan)
                 ->where(function ($q) {
                     $q->where('role_internal', 'staff')
@@ -230,6 +239,7 @@ class ShippingController extends Controller
                 'name' => session('company_name'),
                 'logo' => session('company_logo'),
             ],
+            'checklistSections' => $checklistSections ?? [], // Pass to frontend
             'flash' => [
                 'success' => session('success'),
                 'error' => session('error'),
@@ -368,9 +378,19 @@ class ShippingController extends Controller
             }
 
             // --- 3. GENERATE SECTION TRANSAKSI ---
-            // Mengambil section dari DB Master (Global) dan copy ke Transaksi (Tenant)
-            $masterSections = MasterSection::on('tako-user')
-                ->where('attribute_section', true)
+            // Simpan yang Core Mandatory (is_checklist false & attribute_section true)
+            // PLUS yang dicentang user di modal (selected_sections)
+            $selectedChecklistIds = $request->input('selected_sections', []); // Array of id_section
+
+            $masterSections = MasterSectionTrans::where(function ($q) use ($selectedChecklistIds) {
+                $q->where(function ($sq) {
+                    $sq->where('is_checklist', false)
+                        ->where('id_section', '!=', 6)
+                        ->where('attribute_section', true);
+                })
+                    ->orWhereIn('id_section', $selectedChecklistIds);
+            })
+                ->where('id_section', '!=', 6)
                 ->orderBy('section_order', 'asc')
                 ->get();
 
@@ -389,8 +409,9 @@ class ShippingController extends Controller
             // --- 4. GENERATE DOKUMEN TRANSAKSI (MANDATORY ONLY) ---
             // Hanya dokumen dengan attribute = true yang otomatis ditambahkan saat SPK dibuat.
             // Dokumen lain (attribute = false) ditambahkan secara manual melalui modal di frontend.
-            $allowedSectionIds = MasterSection::on('tako-user')
-                ->where('attribute_section', true)
+            $allowedSectionIds = MasterSectionTrans::where('attribute_section', true)
+                ->where('is_checklist', false)
+                ->where('id_section', '!=', 6)
                 ->pluck('id_section')
                 ->toArray();
 
@@ -409,8 +430,7 @@ class ShippingController extends Controller
                 ->values();
 
             foreach ($finalDocs as $doc) {
-                $section = MasterSection::on('tako-user')
-                    ->where('id_section', $doc->id_section)
+                $section = MasterSectionTrans::where('id_section', $doc->id_section)
                     ->first();
 
                 $sectionName = $section ? $section->section_name : 'Unknown Section';
@@ -426,7 +446,7 @@ class ShippingController extends Controller
                     'url_path_file'         => null,
                     'verify'                => false,
                     'correction_attachment' => false,
-                    'kuota_revisi'          => $doc->kuota_revisi ?? 0,
+                    'kuota_revisi'          => $doc->kuota_revisi ?: 3,
                     'updated_by'            => $userId,
                     'logs'                  => $logMessage,
                     'created_at'            => now(),
@@ -1037,7 +1057,7 @@ class ShippingController extends Controller
         }
 
         if (!$tenant) {
-            return response()->json(['message' => 'Tenant not found'], 404);
+            return redirect()->back()->withErrors(['error' => 'Tenant not found']);
         }
 
         tenancy()->initialize($tenant);
@@ -1049,7 +1069,7 @@ class ShippingController extends Controller
             $spk = Spk::findOrFail($id);
 
             if ($spk->validated_by == $validated['assigned_pic']) {
-                return response()->json(['message' => 'User is already assigned.']);
+                return redirect()->back()->withErrors(['assigned_pic' => 'User is already assigned.']);
             }
 
             $assignedUser = User::on('tako-user')->find($validated['assigned_pic']);
@@ -1727,7 +1747,7 @@ class ShippingController extends Controller
                 try {
                     $spk = Spk::find($spkId);
                     if ($spk && $spk->id_customer) {
-                        $section = MasterSection::on('tako-user')->find($masterSectionId);
+                        $section = MasterSectionTrans::find($masterSectionId);
                         $sectionName = $section ? $section->section_name : 'Section';
 
                         $customerUsers = \App\Models\User::on('tako-user')
@@ -2317,11 +2337,11 @@ class ShippingController extends Controller
             ->values()
             ->toArray();
 
-        // Ambil master section yang belum dipakai
-        $sections = MasterSection::on('tako-user')
-            ->when(!empty($existingSectionIds), function ($query) use ($existingSectionIds) {
-                $query->whereNotIn('id_section', $existingSectionIds);
-            })
+        // Ambil master section yang belum dipakai (dari DB Tenant)
+        $sections = MasterSectionTrans::when(!empty($existingSectionIds), function ($query) use ($existingSectionIds) {
+            $query->whereNotIn('id_section', $existingSectionIds);
+        })
+            ->where('id_section', '!=', 6)
             ->orderBy('section_order', 'asc')
             ->get([
                 'id_section',
@@ -2329,6 +2349,7 @@ class ShippingController extends Controller
                 'section_order',
                 'is_penjaluran',
                 'attribute_section',
+                'is_checklist',
             ]);
 
         return response()->json([
@@ -2401,9 +2422,9 @@ class ShippingController extends Controller
                 ], 422);
             }
 
-            // Ambil master section dari DB global
-            $masterSections = MasterSection::on('tako-user')
-                ->whereIn('id_section', $newSectionIds)
+            // Ambil master section dari DB Tenant
+            $masterSections = MasterSectionTrans::whereIn('id_section', $newSectionIds)
+                ->where('id_section', '!=', 6)
                 ->orderBy('section_order', 'asc')
                 ->get();
 
@@ -2416,6 +2437,36 @@ class ShippingController extends Controller
                     'deadline' => false,
                     'deadline_date' => null,
                 ]);
+
+                // NEW: Generate Dokumen Mandatory untuk section yang baru ditambahkan ini
+                // Mengambil template dokumen terbaru dari MasterDocumentTrans
+                $masterDocs = MasterDocumentTrans::where('id_section', $masterSec->id_section)
+                    ->where('is_active', true)
+                    ->where('attribute', true) // Hanya yang mandatory
+                    ->get();
+
+                foreach ($masterDocs as $mDoc) {
+                    $logMessage = "Document {$masterSec->section_name} requested " . now()->format('d-m-Y H:i') . " WIB";
+
+                    $newDoc = DocumentTrans::create([
+                        'id_spk'          => $idSpk,
+                        'id_dokumen'      => $mDoc->id_dokumen,
+                        'id_section'      => $mDoc->id_section,
+                        'nama_file'       => $mDoc->nama_file,
+                        'is_internal'     => $mDoc->is_internal ?? false,
+                        'is_verification' => $mDoc->is_verification ?? true,
+                        'verify'          => false,
+                        'kuota_revisi'    => $mDoc->kuota_revisi ?: 3,
+                        'updated_by'      => $user->id_user,
+                        'logs'            => $logMessage,
+                    ]);
+
+                    DocumentStatus::create([
+                        'id_dokumen_trans' => $newDoc->id,
+                        'status'           => $logMessage,
+                        'by'               => $user->name,
+                    ]);
+                }
             }
 
             \Illuminate\Support\Facades\DB::commit();
@@ -2473,6 +2524,76 @@ class ShippingController extends Controller
                 'message' => 'Gagal menambahkan section.',
                 'error' => $th->getMessage(),
             ], 500);
+        }
+    }
+    public function removeSectionFromSpk(Request $request)
+    {
+        $user = auth('web')->user();
+
+        // Security check: Only internal supervisors can remove sections
+        if ($user->role !== 'internal' || $user->role_internal !== 'supervisor') {
+            return response()->json(['success' => false, 'message' => 'Hanya Supervisor yang diperbolehkan menghapus section.'], 403);
+        }
+
+        $request->validate([
+            'id_spk' => 'required|integer',
+            'id' => 'required|integer', // This is the PK of SectionTrans
+        ]);
+
+        // Resolve Tenant
+        $tenant = null;
+        if ($user->id_perusahaan) {
+            $tenant = \App\Models\Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
+        } elseif ($user->id_customer) {
+            $customer = \App\Models\Customer::find($user->id_customer);
+            if ($customer && $customer->ownership) {
+                $tenant = \App\Models\Tenant::where('perusahaan_id', $customer->ownership)->first();
+            }
+        }
+
+        if (!$tenant) {
+            return response()->json(['success' => false, 'message' => 'Tenant not found.'], 404);
+        }
+
+        tenancy()->initialize($tenant);
+
+        try {
+            DB::beginTransaction();
+            DB::connection('tenant-transaction')->beginTransaction();
+
+            $section = SectionTrans::where('id', $request->id)
+                ->where('id_spk', $request->id_spk)
+                ->first();
+
+            if (!$section) {
+                return response()->json(['success' => false, 'message' => 'Section not found.'], 404);
+            }
+
+            // ONLY allow if id_section > 6
+            if ($section->id_section <= 6) {
+                return response()->json(['success' => false, 'message' => 'Cannot delete mandatory sections.'], 403);
+            }
+
+            // Delete associated documents first to be safe (though maybe cascaded)
+            DocumentTrans::where('id_spk', $request->id_spk)
+                ->where('id_section', $section->id_section)
+                ->delete();
+
+            $section->delete();
+
+            DB::connection('tenant-transaction')->commit();
+            DB::commit();
+
+            try {
+                ShippingDataUpdated::dispatch($request->id_spk, 'section_removed');
+            } catch (\Exception $e) {
+            }
+
+            return response()->json(['success' => true, 'message' => 'Section removed successfully.']);
+        } catch (\Throwable $th) {
+            DB::connection('tenant-transaction')->rollBack();
+            DB::rollBack();
+            return response()->json(['success' => false, 'message' => 'Failed to remove section.', 'error' => $th->getMessage()], 500);
         }
     }
 }

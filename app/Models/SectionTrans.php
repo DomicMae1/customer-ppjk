@@ -45,8 +45,7 @@ class SectionTrans extends Model
 
     public function masterSection(): BelongsTo
     {
-        // Cross-database relation via Eloquent
-        return $this->belongsTo(MasterSection::class, 'id_section', 'id_section');
+        return $this->belongsTo(MasterSectionTrans::class, 'id_section', 'id_section');
     }
 
     public function spk(): BelongsTo

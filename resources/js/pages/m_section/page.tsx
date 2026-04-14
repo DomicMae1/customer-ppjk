@@ -19,6 +19,7 @@ interface SectionData {
     section_order: number;
     is_penjaluran?: boolean;
     attribute_section: string;
+    is_checklist?: boolean;
     deadline?: boolean;
     deadline_date?: string | null;
     source: 'master' | 'trans';
@@ -57,6 +58,7 @@ export default function ManageSections() {
         is_penjaluran: false,
         id_section: '',
         attribute_section: '',
+        is_checklist: false,
         id_spk: '',
         deadline: false,
         deadline_date: '',
@@ -82,10 +84,7 @@ export default function ManageSections() {
     }, [flash]);
 
     const onEditClick = (id: number) => {
-        const section = sections.find((item) => {
-            const rowId = item.source === 'trans' ? item.id : item.id_section;
-            return rowId === id;
-        });
+        const section = sections.find((item) => item.id_section === id);
 
         if (!section) return;
 
@@ -97,6 +96,7 @@ export default function ManageSections() {
             id_section: section.id_section != null ? String(section.id_section) : '',
             id_spk: section.id_spk != null ? String(section.id_spk) : '',
             attribute_section: section.attribute_section || '',
+            is_checklist: Boolean(section.is_checklist),
             deadline: Boolean(section.deadline),
             deadline_date: section.deadline_date || '',
         });
@@ -112,6 +112,7 @@ export default function ManageSections() {
             section_name: editForm.section_name,
             section_order: editForm.section_order,
             attribute_section: editForm.attribute_section || null,
+            is_checklist: editForm.is_checklist,
         };
 
         router.post(`/section/${sectionIdToEdit}`, payload, {
@@ -204,6 +205,33 @@ export default function ManageSections() {
                                     <option value="mandatory">{trans_sec.option_mandatory || 'Mandatory'}</option>
                                     <option value="non_mandatory">{trans_sec.option_non_mandatory || 'Non Mandatory'}</option>
                                 </select>
+                            </div>
+
+                            <div>
+                                <Label className="text-foreground mb-2 block font-semibold">
+                                    {trans_sec.label_is_checklist || 'Special Section (Muncul di Checklist SPK Baru)'}
+                                </Label>
+                                <div className="flex gap-2">
+                                    <Button
+                                        type="button"
+                                        variant={editForm.is_checklist ? 'default' : 'outline'}
+                                        onClick={() => setEditForm({ ...editForm, is_checklist: true })}
+                                        className="h-11 flex-1 sm:h-9"
+                                    >
+                                        {trans_sec.btn_yes || 'Ya'}
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant={!editForm.is_checklist ? 'default' : 'outline'}
+                                        onClick={() => setEditForm({ ...editForm, is_checklist: false })}
+                                        className="h-11 flex-1 sm:h-9"
+                                    >
+                                        {trans_sec.btn_no || 'Tidak'}
+                                    </Button>
+                                </div>
+                                 <p className="text-muted-foreground mt-1 text-xs">
+                                    Jika diaktifkan, section ini akan muncul sebagai opsi tambahan (checkbox) saat membuat SPK baru.
+                                </p>
                             </div>
                         </div>
 

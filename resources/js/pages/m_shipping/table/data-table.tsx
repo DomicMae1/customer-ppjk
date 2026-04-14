@@ -2,6 +2,7 @@
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -63,6 +64,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
     const [selectedStaff, setSelectedStaff] = useState(''); // NEW: Selected Staff State
     const [hsCodes, setHsCodes] = useState<HsCodeItem[]>([{ id: nanoid(), code: '', link: '', file: null }]);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [selectedSections, setSelectedSections] = useState<number[]>([]); // NEW: Selected Checklist Sections
     const [handlerFilter, setHandlerFilter] = useState<string>('all');
 
     const [filterColumn, setFilterColumn] = useState<'spk_code' | 'nama_customer' | 'jalur' | 'keterangan_status' | 'handler_name'>('handler_name');
@@ -250,6 +252,11 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
             formData.append('assigned_pic', selectedStaff);
         }
 
+        // NEW: Append Selected Checklist Sections
+        selectedSections.forEach((id, index) => {
+            formData.append(`selected_sections[${index}]`, String(id));
+        });
+
         // Append Array HS Codes
         hsCodes.forEach((item, index) => {
             // 1. Kode HS
@@ -274,6 +281,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                 setIsDialogOpen(false);
                 setBlNumber('');
                 setHsCodes([{ id: nanoid(), code: '', link: '', file: null }]);
+                setSelectedSections([]); // Reset selected sections
                 // Opsional: toast.success('Data berhasil disimpan');
             },
             onError: (errors) => {
@@ -452,6 +460,38 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                                     )}
                                                 </SelectContent>
                                             </Select>
+                                        </div>
+                                    )}
+
+                                    {/* Checklist Sections (Optional) */}
+                                    {!isUserExternal && (props.checklistSections as any[])?.length > 0 && (
+                                        <div className="space-y-3">
+                                            <Label className="text-foreground font-semibold">
+                                                {trans.optional_sections || 'Tambahkan Section Opsional?'}
+                                            </Label>
+                                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                                {(props.checklistSections as any[]).map((sec) => (
+                                                    <div key={sec.id_section} className="flex items-center space-x-2 rounded-md border p-2 transition-colors hover:bg-muted/50">
+                                                        <Checkbox
+                                                            id={`sec-${sec.id_section}`}
+                                                            checked={selectedSections.includes(sec.id_section)}
+                                                            onCheckedChange={(checked) => {
+                                                                if (checked) {
+                                                                    setSelectedSections([...selectedSections, sec.id_section]);
+                                                                } else {
+                                                                    setSelectedSections(selectedSections.filter((id) => id !== sec.id_section));
+                                                                }
+                                                            }}
+                                                        />
+                                                        <Label
+                                                            htmlFor={`sec-${sec.id_section}`}
+                                                            className="text-foreground cursor-pointer text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                                        >
+                                                            {sec.section_name}
+                                                        </Label>
+                                                    </div>
+                                                ))}
+                                            </div>
                                         </div>
                                     )}
 
@@ -732,17 +772,17 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                             const dateObj = original.tanggal_status ? new Date(original.tanggal_status) : null;
                             const dateStr = dateObj
                                 ? dateObj.toLocaleDateString(currentLocale === 'id' ? 'id-ID' : 'en-GB', {
-                                      day: '2-digit',
-                                      month: '2-digit',
-                                      year: '2-digit',
-                                  })
+                                    day: '2-digit',
+                                    month: '2-digit',
+                                    year: '2-digit',
+                                })
                                 : '-';
                             const timeStr = dateObj
                                 ? dateObj.toLocaleTimeString(currentLocale === 'id' ? 'id-ID' : 'en-GB', {
-                                      hour: '2-digit',
-                                      minute: '2-digit',
-                                      hour12: false,
-                                  })
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    hour12: false,
+                                })
                                 : '';
 
                             return (
@@ -754,13 +794,12 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                     <div className="border-border mb-2 flex items-center justify-between border-b pb-2">
                                         <span className="text-foreground font-mono text-base font-medium">{original.spk_code || '-'}</span>
                                         <span
-                                            className={`text-sm font-bold ${
-                                                original.jalur?.toLowerCase() === 'hijau'
-                                                    ? 'text-emerald-500'
-                                                    : original.jalur?.toLowerCase() === 'merah'
-                                                      ? 'text-rose-500'
-                                                      : 'text-amber-500'
-                                            }`}
+                                            className={`text-sm font-bold ${original.jalur?.toLowerCase() === 'hijau'
+                                                ? 'text-emerald-500'
+                                                : original.jalur?.toLowerCase() === 'merah'
+                                                    ? 'text-rose-500'
+                                                    : 'text-amber-500'
+                                                }`}
                                         >
                                             {original.jalur || '-'}
                                         </span>
@@ -802,15 +841,14 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                             </div>
                                             <div className="bg-muted h-1.5 w-full overflow-hidden rounded-full shadow-inner">
                                                 <div
-                                                    className={`h-full transition-all duration-1000 ease-out ${
-                                                        original.progress === 100
-                                                            ? 'bg-emerald-500'
-                                                            : (original.progress || 0) >= 80
-                                                              ? 'bg-indigo-500'
-                                                              : (original.progress || 0) >= 40
+                                                    className={`h-full transition-all duration-1000 ease-out ${original.progress === 100
+                                                        ? 'bg-emerald-500'
+                                                        : (original.progress || 0) >= 80
+                                                            ? 'bg-indigo-500'
+                                                            : (original.progress || 0) >= 40
                                                                 ? 'bg-blue-500'
                                                                 : 'bg-sky-400'
-                                                    }`}
+                                                        }`}
                                                     style={{ width: `${original.progress || 0}%` }}
                                                 />
                                             </div>
@@ -848,8 +886,8 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                                     (header.column.getIsSorted() === 'asc'
                                                         ? '⬆️'
                                                         : header.column.getIsSorted() === 'desc'
-                                                          ? '⬇️'
-                                                          : '')}
+                                                            ? '⬇️'
+                                                            : '')}
                                             </button>
                                         ) : (
                                             flexRender(header.column.columnDef.header, header.getContext())

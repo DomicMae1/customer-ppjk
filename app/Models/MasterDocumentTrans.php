@@ -45,8 +45,7 @@ class MasterDocumentTrans extends Model
 
     public function section(): BelongsTo
     {
-        // Asumsi Model Section bernama MasterSection dan PK-nya id_section
-        return $this->belongsTo(MasterSection::class, 'id_section', 'id_section');
+        return $this->belongsTo(MasterSectionTrans::class, 'id_section', 'id_section');
     }
     
     /**
