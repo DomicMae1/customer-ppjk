@@ -110,8 +110,35 @@ class ShippingController extends Controller
                 $query->where('id_customer', $user->id_customer);
             }
 
+            // Ambil data SPK tenant
+            $spkItems = $query->latest()->get();
+
+            // Ambil semua ID user internal yang mungkin jadi handler:
+            // - validated_by => PIC hasil assign supervisor / auto-assign staff
+            // - created_by   => fallback kalau validated_by kosong
+            $internalUserIds = $spkItems
+                ->flatMap(function ($item) {
+                    return array_filter([
+                        $item->validated_by ?? null,
+                        $item->created_by ?? null,
+                    ]);
+                })
+                ->unique()
+                ->values()
+                ->toArray();
+
+            // Ambil user pusat dari DB tako-user
+            $internalUsers = collect();
+            if (!empty($internalUserIds)) {
+                $internalUsers = User::on('tako-user')
+                    ->whereIn('id_user', $internalUserIds)
+                    ->select('id_user', 'name', 'role_internal')
+                    ->get()
+                    ->keyBy('id_user');
+            }
+
             // Mapping data agar sesuai dengan kolom Frontend
-            $spkData = $query->latest()->get()->map(function ($item) {
+            $spkData = $spkItems->map(function ($item) use ($internalUsers) {
                 $minDeadline = $item->sections->pluck('deadline_date')->filter()->min();
 
                 // --- PROGRESS CALCULATION ---
@@ -138,24 +165,46 @@ class ShippingController extends Controller
                 $progress = $totalDocs === 0 ? 0 : (int) round(($verifiedDocs / $totalDocs) * 100);
 
                 // Ambil log terbaru dari document_statuses untuk kumpulan dokumen SPK ini (Cara yang sama seperti di show)
+                $latestDocLog = null;
+            if ($allDocs->isNotEmpty()) {
                 $latestDocLog = \App\Models\DocumentStatus::whereIn('id_dokumen_trans', $allDocs->pluck('id'))
                     ->latest()
                     ->first();
+            }
+
+            // Tentukan handler internal:
+            // 1. validated_by (kalau supervisor assign ke staff, ini yang dipakai)
+            // 2. created_by (fallback)
+            $handlerUser = null;
+
+            if (!empty($item->validated_by) && $internalUsers->has($item->validated_by)) {
+                $handlerUser = $internalUsers->get($item->validated_by);
+            } elseif (!empty($item->created_by) && $internalUsers->has($item->created_by)) {
+                $handlerUser = $internalUsers->get($item->created_by);
+            }
 
                 return [
-                    'id'              => $item->id,
-                    'spk_code'        => $item->spk_code,
-                    'nama_customer'   => $item->customer->nama_perusahaan ?? '-',
-                    'nama_cust'       => $item->customer->nama_perusahaan ?? '-',
-                    'tanggal_status'  => $latestDocLog ? $latestDocLog->created_at : $item->created_at,
-                    'status_label'    => $item->latestStatus->status ?? 'Draft/Pending',
-                    'nama_user'       => $latestDocLog->by ?? $item->creator->name ?? 'System',
-                    'jalur'           => $item->penjaluran,
-                    'jalur_filter'    => $item->penjaluran,
-                    'deadline_date'   => $minDeadline,
-                    'progress'        => $progress,
+                    'id'                    => $item->id,
+                    'spk_code'              => $item->spk_code,
+                    'nama_customer'         => $item->customer->nama_perusahaan ?? '-',
+                    'nama_cust'             => $item->customer->nama_perusahaan ?? '-',
+                    'tanggal_status'        => $latestDocLog ? $latestDocLog->created_at : $item->created_at,
+                    'status_label'          => $item->latestStatus->status ?? 'Draft/Pending',
+                    'nama_user'             => $latestDocLog->by ?? $item->creator->name ?? 'System',
+
+                    // FIELD UNTUK FILTER HANDLED BY
+                    'internal_handler_name' => $handlerUser->name ?? '',
+                    'assigned_pic_name'     => $handlerUser->name ?? null,
+                    'handler_role_internal' => $handlerUser->role_internal ?? null,
+                    'validated_by'          => $item->validated_by ?? null,
+                    'created_by'            => $item->created_by ?? null,
+
+                    'jalur'                 => $item->penjaluran,
+                    'jalur_filter'          => $item->penjaluran,
+                    'deadline_date'         => $minDeadline,
+                    'progress'              => $progress,
                 ];
-            });
+            })->values();
         }
 
         // NEW: Fetch Internal Staff for Supervisor Assignment
@@ -163,9 +212,11 @@ class ShippingController extends Controller
         if ($user->role === 'internal') {
             $internalStaff = User::on('tako-user')
                 ->where('role', 'internal')
-                ->where('role_internal', 'staff')
-                ->orWhere('role_internal', 'marketing')
                 ->where('id_perusahaan', $user->id_perusahaan)
+                ->where(function ($q) {
+                    $q->where('role_internal', 'staff')
+                    ->orWhere('role_internal', 'marketing');
+                })
                 ->select('id_user', 'name')
                 ->get();
         }

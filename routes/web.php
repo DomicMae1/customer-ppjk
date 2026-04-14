@@ -80,23 +80,5 @@ Route::get('lang/{locale}', function ($locale) {
     return redirect()->back();
 })->name('switch.language');
 
-Route::middleware([
-    'web',
-    \Stancl\Tenancy\Middleware\InitializeTenancyByDomain::class, // Middleware Wajib
-    \Stancl\Tenancy\Middleware\PreventAccessFromCentralDomains::class,
-])->group(function () {
-    
-    Route::get('/cek-tenant', function () {
-        return response()->json([
-            'status' => 'Tenant Aktif',
-            'tenant_id' => tenant('id'), // Mengambil ID dari context tenant
-            'domain' => request()->getHost(),
-            'database_connected' => DB::connection()->getDatabaseName(), // Cek nama DB
-            'storage_path' => storage_path(), // Cek apakah path storage berubah
-        ]);
-    });
-
-});
-
 require __DIR__ . '/settings.php';
 require __DIR__ . '/auth.php';

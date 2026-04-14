@@ -71,6 +71,10 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
 
     const [filterValue, setFilterValue] = useState('');
 
+    const getInternalHandlerName = (item: any) => {
+        return String(item.internal_handler_name ?? item.assigned_pic_name ?? item.pic_internal_name ?? item.nama_user_internal ?? '').trim();
+    };
+
     const filteredData = React.useMemo(() => {
         let result = [...(data as any[])];
 
@@ -108,10 +112,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
         } else if (filterColumn === 'handler_name') {
             if (handlerFilter !== 'all') {
                 result = result.filter((item) => {
-                    const handler = String(item.handler_name ?? item.nama_user ?? '')
-                        .toLowerCase()
-                        .trim();
-
+                    const handler = getInternalHandlerName(item).toLowerCase().trim();
                     return handler === handlerFilter.toLowerCase().trim();
                 });
             }
@@ -140,7 +141,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
         }
 
         return result;
-    }, [data, filterColumn, filterValue, routeFilter, statusLabelFilter, statusFilter, userRole]);
+    }, [data, filterColumn, filterValue, routeFilter, statusLabelFilter, statusFilter, userRole, handlerFilter]);
 
     const uniqueStatusOptions = React.useMemo(() => {
         const statuses = [...new Set((data as any[]).map((item) => String(item.status_label ?? '').trim()).filter((item) => item !== ''))];
@@ -149,12 +150,12 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
     }, [data]);
 
     const uniqueHandlerOptions = React.useMemo(() => {
-        const handlers = [
-            ...new Set((data as any[]).map((item) => String(item.handler_name ?? item.nama_user ?? '').trim()).filter((item) => item !== '')),
-        ];
+        const handlersFromData = (data as any[]).map((item) => getInternalHandlerName(item)).filter((name) => name !== '');
 
-        return handlers;
-    }, [data]);
+        const handlersFromStaff = internalStaff.map((staff: any) => String(staff.name ?? '').trim()).filter((name: string) => name !== '');
+
+        return [...new Set([...handlersFromData, ...handlersFromStaff])];
+    }, [data, internalStaff]);
 
     const table = useReactTable({
         data: filteredData,
