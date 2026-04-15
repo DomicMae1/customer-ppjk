@@ -19,8 +19,9 @@ import {
     useReactTable,
     VisibilityState,
 } from '@tanstack/react-table';
-import { Plus } from 'lucide-react';
+import { Eye, EyeOff, Plus } from 'lucide-react';
 import * as React from 'react';
+import { useState } from 'react';
 import { DataTableViewOptions } from './data-table-view-options';
 import { DataTablePagination } from './pagination';
 
@@ -67,6 +68,8 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
     const [selectedRoleInternal, setSelectedRoleInternal] = React.useState<string>('');
     const [selectedCompany, setSelectedCompany] = React.useState<string>('');
     const [selectedCustomer, setSelectedCustomer] = React.useState<string>('');
+    const [showPassword, setShowPassword] = useState(false);
+    const [showPasswordConfirmation, setShowPasswordConfirmation] = useState(false);
 
     const [filterValue, setFilterValue] = React.useState('');
 
@@ -471,28 +474,52 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                 <Label htmlFor="password" className="text-foreground font-semibold">
                                     {trans_auth.label_password}
                                 </Label>
-                                <Input
-                                    id="password"
-                                    type="password"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    placeholder={trans_auth.placeholder_password}
-                                    className="border-input bg-background text-foreground h-11 sm:h-10"
-                                />
+
+                                <div className="relative">
+                                    <Input
+                                        id="password"
+                                        type={showPassword ? 'text' : 'password'}
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                        placeholder={trans_auth.placeholder_password}
+                                        className="border-input bg-background text-foreground h-11 pr-10 sm:h-10"
+                                    />
+
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPassword((prev) => !prev)}
+                                        className="text-muted-foreground hover:text-foreground absolute top-1/2 right-3 -translate-y-1/2 transition-colors"
+                                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                                    >
+                                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                    </button>
+                                </div>
                             </div>
 
                             <div className="grid gap-2">
                                 <Label htmlFor="password_confirmation" className="text-foreground font-semibold">
                                     {trans_auth.label_password_confirm}
                                 </Label>
-                                <Input
-                                    id="password_confirmation"
-                                    type="password"
-                                    value={passwordConfirmation}
-                                    onChange={(e) => setPasswordConfirmation(e.target.value)}
-                                    placeholder={trans_auth.placeholder_password_confirm}
-                                    className="border-input bg-background text-foreground h-11 sm:h-10"
-                                />
+
+                                <div className="relative">
+                                    <Input
+                                        id="password_confirmation"
+                                        type={showPasswordConfirmation ? 'text' : 'password'}
+                                        value={passwordConfirmation}
+                                        onChange={(e) => setPasswordConfirmation(e.target.value)}
+                                        placeholder={trans_auth.placeholder_password_confirm}
+                                        className="border-input bg-background text-foreground h-11 pr-10 sm:h-10"
+                                    />
+
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPasswordConfirmation((prev) => !prev)}
+                                        className="text-muted-foreground hover:text-foreground absolute top-1/2 right-3 -translate-y-1/2 transition-colors"
+                                        aria-label={showPasswordConfirmation ? 'Hide password confirmation' : 'Show password confirmation'}
+                                    >
+                                        {showPasswordConfirmation ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                    </button>
+                                </div>
                             </div>
                         </div>
 

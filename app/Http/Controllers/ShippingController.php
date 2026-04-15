@@ -789,10 +789,12 @@ class ShippingController extends Controller
         if ($user->role === 'internal') {
             $internalStaff = \App\Models\User::on('tako-user')
                 ->where('role', 'internal')
-                ->where('role_internal', 'staff')
-                ->orWhere('role_internal', 'marketing')
                 ->where('id_perusahaan', $user->id_perusahaan)
-                ->select('id_user', 'name')
+                ->where(function ($q) {
+                    $q->where('role_internal', 'staff')
+                    ->orWhere('role_internal', 'marketing');
+                })
+                ->select('id_user', 'name', 'role_internal', 'id_perusahaan')
                 ->get();
         }
 

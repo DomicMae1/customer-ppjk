@@ -66,7 +66,7 @@ return [
     'rejected' => 'Bermasalah',
 
     // --- ADD SHIPMENT DIALOG ---
-    'add_shipment' => 'Tambah Shipment',
+    'add_shipment' => 'Tambah Data',
     'shipment_data' => 'Data Shipment', // Judul Dialog
     'shipment_type' => 'Jenis Pengiriman',
     'import' => 'Impor',

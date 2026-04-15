@@ -42,19 +42,6 @@ export const columns = (
 
     return [
         {
-            accessorKey: 'spk_code',
-            header: ({ column }) => (
-                <div
-                    className="cursor-pointer text-sm font-medium select-none md:px-2 md:py-2"
-                    onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-                >
-                    {/* 2. Gunakan trans */}
-                    {trans.spk_number}
-                </div>
-            ),
-            cell: ({ row }) => <div className="text-sm font-bold md:min-w-[150px] md:truncate md:px-2 md:py-2">{row.original.spk_code ?? '-'}</div>,
-        },
-        {
             accessorKey: 'nama_customer',
             header: ({ column }) => (
                 <div
@@ -68,50 +55,49 @@ export const columns = (
             cell: ({ row }) => <div className="text-sm md:min-w-[150px] md:truncate md:px-2">{row.original.nama_customer || '-'}</div>,
         },
         {
-            accessorKey: 'keterangan_status',
-            accessorFn: (row) => {
-                return {
-                    sort: row.tanggal_status ? new Date(row.tanggal_status).getTime() : 0,
-                    label: row.status_label ?? null,
-                };
-            },
-            // 2. Gunakan trans
-            header: ({ column }) => <div className="cursor-pointer text-sm font-medium select-none md:px-2 md:py-2">{trans.status_description}</div>,
+            accessorKey: 'spk_code',
+            header: ({ column }) => (
+                <div
+                    className="cursor-pointer text-sm font-medium select-none md:px-2 md:py-2"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+                >
+                    {/* 2. Gunakan trans */}
+                    {trans.spk_number}
+                </div>
+            ),
+            cell: ({ row }) => <div className="text-sm font-bold md:min-w-[150px] md:truncate md:px-2 md:py-2">{row.original.spk_code ?? '-'}</div>,
+        },
+        {
+            accessorKey: 'deadline_date',
+            header: () => <div className="text-sm font-medium md:px-2 md:py-2">{trans.deadline}</div>,
             cell: ({ row }) => {
-                const tanggal = row.original.tanggal_status;
-                const label = row.original.status_label;
-                const nama_user = row.original.nama_user;
+                const deadline = row.original.deadline_date;
+                // Ambil data user dari usePage() di dalam cell render (aman)
+                const { props } = usePage();
+                const auth = props.auth as any;
+                const isUserExternal = auth.user?.role === 'eksternal';
+                const currentLocale = props.locale as string;
 
-                if (!tanggal) return <div className="text-sm">-</div>;
-
-                const dateObj = new Date(tanggal);
-
-                // Gunakan locale dari usePage jika ingin format tanggal ikut berubah (opsional)
-                // Tapi format 'id-ID' biasanya standar di Indonesia meski UI Inggris
-                const tanggalFormat = dateObj
-                    .toLocaleDateString('id-ID', {
-                        day: '2-digit',
-                        month: '2-digit',
-                        year: 'numeric',
-                    })
-                    .replace(/\./g, '/');
-
-                const jamMenit = dateObj
-                    .toLocaleTimeString('id-ID', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        hour12: false,
-                    })
-                    .replace('.', ':');
+                if (!deadline) {
+                    return <div className="text-sm md:px-2">-</div>;
+                }
 
                 return (
-                    <div className="text-sm md:min-w-[200px] md:truncate md:px-2">
-                        <span>
-                            {label} {trans.last_updated || 'updated'} {` ${trans.at || 'at'} `}
-                            <strong>{`${tanggalFormat} ${jamMenit} WIB`}</strong>
-                            {nama_user ? ` ${trans.by || 'by'} ` : ''}
-                            {nama_user && <strong>{nama_user}</strong>}
-                        </span>
+                    <div className="flex flex-col justify-center md:min-w-[200px] md:px-2">
+                        {/* Tampilkan Warning Merah (Khusus External) */}
+                        {
+                            <div className="flex items-center gap-1 text-red-600">
+                                <AlertCircle className="h-3 w-3" />
+                                <span className="mt-0.5 flex text-xs font-bold">
+                                    {trans.submit_before}{' '}
+                                    {new Date(deadline).toLocaleDateString(currentLocale === 'id' ? 'id-ID' : 'en-GB', {
+                                        day: '2-digit',
+                                        month: '2-digit',
+                                        year: '2-digit',
+                                    })}
+                                </span>
+                            </div>
+                        }
                     </div>
                 );
             },
@@ -165,41 +151,6 @@ export const columns = (
             },
         },
         {
-            accessorKey: 'deadline_date',
-            header: () => <div className="text-sm font-medium md:px-2 md:py-2">{trans.deadline}</div>,
-            cell: ({ row }) => {
-                const deadline = row.original.deadline_date;
-                // Ambil data user dari usePage() di dalam cell render (aman)
-                const { props } = usePage();
-                const auth = props.auth as any;
-                const isUserExternal = auth.user?.role === 'eksternal';
-                const currentLocale = props.locale as string;
-
-                if (!deadline) {
-                    return <div className="text-sm md:px-2">-</div>;
-                }
-
-                return (
-                    <div className="flex flex-col justify-center md:min-w-[200px] md:px-2">
-                        {/* Tampilkan Warning Merah (Khusus External) */}
-                        {(
-                            <div className="flex items-center gap-1 text-red-600">
-                                <AlertCircle className="h-3 w-3" />
-                                <span className="mt-0.5 flex text-xs font-bold">
-                                    {trans.submit_before}{' '}
-                                    {new Date(deadline).toLocaleDateString(currentLocale === 'id' ? 'id-ID' : 'en-GB', {
-                                        day: '2-digit',
-                                        month: '2-digit',
-                                        year: '2-digit',
-                                    })}
-                                </span>
-                            </div>
-                        )}
-                    </div>
-                );
-            },
-        },
-        {
             accessorKey: 'jalur',
             // 2. Gunakan trans
             header: () => <div className="text-sm font-medium md:px-2 md:py-2">{trans.channel}</div>,
@@ -224,6 +175,55 @@ export const columns = (
                 }
 
                 return <div className={`text-sm font-bold ${colorClass} md:min-w-[100px] md:px-2`}>{displayText}</div>;
+            },
+        },
+        {
+            accessorKey: 'keterangan_status',
+            accessorFn: (row) => {
+                return {
+                    sort: row.tanggal_status ? new Date(row.tanggal_status).getTime() : 0,
+                    label: row.status_label ?? null,
+                };
+            },
+            // 2. Gunakan trans
+            header: ({ column }) => <div className="cursor-pointer text-sm font-medium select-none md:px-2 md:py-2">{trans.status_description}</div>,
+            cell: ({ row }) => {
+                const tanggal = row.original.tanggal_status;
+                const label = row.original.status_label;
+                const nama_user = row.original.nama_user;
+
+                if (!tanggal) return <div className="text-sm">-</div>;
+
+                const dateObj = new Date(tanggal);
+
+                // Gunakan locale dari usePage jika ingin format tanggal ikut berubah (opsional)
+                // Tapi format 'id-ID' biasanya standar di Indonesia meski UI Inggris
+                const tanggalFormat = dateObj
+                    .toLocaleDateString('id-ID', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                    })
+                    .replace(/\./g, '/');
+
+                const jamMenit = dateObj
+                    .toLocaleTimeString('id-ID', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: false,
+                    })
+                    .replace('.', ':');
+
+                return (
+                    <div className="text-sm md:min-w-[200px] md:truncate md:px-2">
+                        <span>
+                            {label} {trans.last_updated || 'updated'} {` ${trans.at || 'at'} `}
+                            <strong>{`${tanggalFormat} ${jamMenit} WIB`}</strong>
+                            {nama_user ? ` ${trans.by || 'by'} ` : ''}
+                            {nama_user && <strong>{nama_user}</strong>}
+                        </span>
+                    </div>
+                );
             },
         },
         {

@@ -67,7 +67,7 @@ return [
     'rejected' => 'Rejected',
 
     // --- ADD SHIPMENT DIALOG ---
-    'add_shipment' => 'Add Shipment',
+    'add_shipment' => 'Create Data',
     'shipment_data' => 'Shipment Data',
     'shipment_type' => 'Shipment Type',
     'import' => 'Import',
