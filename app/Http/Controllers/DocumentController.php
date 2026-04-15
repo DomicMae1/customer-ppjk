@@ -61,6 +61,7 @@ class DocumentController extends Controller
                             'nama_file' => $item->nama_file,
                             'description_file' => $item->description_file,
                             'is_internal' => $item->is_internal,
+                            'is_confirmed' => $item->is_confirmed,
                             'attribute' => $item->attribute,
                             'kuota_revisi' => $item->kuota_revisi,
                             'link_path_example_file' => $item->link_path_example_file ? Storage::url($item->link_path_example_file) : null,
@@ -97,6 +98,7 @@ class DocumentController extends Controller
                         'nama_file' => $item->nama_file,
                         'description_file' => $item->description_file,
                         'is_internal' => $item->is_internal,
+                        'is_confirmed' => $item->is_confirmed,
                         'attribute' => $item->attribute,
                         'kuota_revisi' => $item->kuota_revisi,
                         'link_path_example_file' => $item->link_path_example_file,
@@ -143,11 +145,13 @@ class DocumentController extends Controller
             'link_path_template_file' => 'nullable|string',
             
             'is_internal' => 'boolean',
+            'is_confirmed' => 'boolean',
             'attribute' => 'boolean',
         ]);
 
         // Default value boolean
         $validated['is_internal'] = $request->boolean('is_internal', false);
+        $validated['is_confirmed'] = $request->boolean('is_confirmed', false);
         $validated['attribute'] = $request->boolean('attribute', false);
 
         $validated['kuota_revisi'] = $request->filled('kuota_revisi')
@@ -238,6 +242,7 @@ class DocumentController extends Controller
             'nama_file' => 'required|string|max:255',
             'description_file' => 'nullable|string',
             'is_internal' => 'boolean',
+            'is_confirmed' => 'boolean',
             'attribute' => 'boolean',
             'link_url_video_file' => 'nullable|url',
 
@@ -247,6 +252,7 @@ class DocumentController extends Controller
         ]);
 
         $validated['is_internal'] = $request->boolean('is_internal', false);
+        $validated['is_confirmed'] = $request->boolean('is_confirmed', false);
         $validated['attribute'] = $request->boolean('attribute', false);
 
         $document = null;
@@ -297,6 +303,7 @@ class DocumentController extends Controller
             'nama_file' => $validated['nama_file'],
             'description_file' => $validated['description_file'] ?? null,
             'is_internal' => $validated['is_internal'],
+            'is_confirmed' => $validated['is_confirmed'],
             'attribute' => $validated['attribute'],
             'link_url_video_file' => $validated['link_url_video_file'] ?? null,
         ];

@@ -11,6 +11,7 @@ export type MasterDocument = {
     id_section: number;
     nama_file: string;
     is_internal: boolean;
+    is_confirmed: boolean;
     attribute: boolean;
     link_path_example_file: string | null;
     link_path_template_file: string | null;
@@ -59,6 +60,18 @@ export const columns = (
             return (
                 <Badge variant={isInternal ? 'default' : 'secondary'}>
                     {isInternal ? trans.btn_internal || 'Internal' : trans.btn_external || 'Public'}
+                </Badge>
+            );
+        },
+    },
+    {
+        accessorKey: 'is_confirmed',
+        header: trans.label_need_confirm || 'Need Confirm',
+        cell: ({ row }) => {
+            const isConfirmed = row.original.is_confirmed;
+            return (
+                <Badge variant={isConfirmed ? 'destructive' : 'outline'}>
+                    {isConfirmed ? (trans.btn_yes || 'Ya') : (trans.btn_no || 'Tidak')}
                 </Badge>
             );
         },
