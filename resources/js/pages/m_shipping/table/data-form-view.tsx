@@ -35,8 +35,8 @@ interface ShipmentData {
     siNumber: string;
     status: string;
     penjaluran: string | null;
-    register_number?: string;
     register_date?: string;
+    eta_date?: string;
     hsCodes: HsCodeItem[];
     updated_by_name?: string | null;
 }
@@ -60,6 +60,7 @@ interface DocumentTrans {
         link_path_example_file?: string;
         link_path_template_file?: string;
         link_url_video_file?: string;
+        is_confirmed?: boolean; // Added
     };
     verify?: boolean | null;
     kuota_revisi?: number;
@@ -218,6 +219,14 @@ export default function ViewCustomerForm({
     const [sectionToRemove, setSectionToRemove] = useState<any>(null);
     const [isRemovingSection, setIsRemovingSection] = useState(false);
 
+    // New State for Verification Confirmation
+    const [confirmVerifyModalOpen, setConfirmVerifyModalOpen] = useState(false);
+    const [docToVerify, setDocToVerify] = useState<DocumentTrans | null>(null);
+
+    // ETA Date State
+    const [etaDate, setEtaDate] = useState(shipmentDataProp?.eta_date ? shipmentDataProp.eta_date.split('T')[0].split(' ')[0] : '');
+    const [isSavingEtaDate, setIsSavingEtaDate] = useState(false);
+
     useEffect(() => {
         if (helpModalOpen) {
             setIsVideoPlaying(false);
@@ -312,6 +321,13 @@ export default function ViewCustomerForm({
         }
     }, [sectionsTransProp, additionalSection]);
 
+    // NEW: Sync ETA Date for real-time updates
+    useEffect(() => {
+        if (shipmentDataProp?.eta_date) {
+            setEtaDate(shipmentDataProp.eta_date.split('T')[0].split(' ')[0]);
+        }
+    }, [shipmentDataProp?.eta_date]);
+
     const [processingSectionId, setProcessingSectionId] = useState<number | null>(null);
 
     const [selectedAdditionalDocs, setSelectedAdditionalDocs] = useState<{ id: string; label: string }[]>([
@@ -400,8 +416,7 @@ export default function ViewCustomerForm({
     };
 
     // Verification Handlers
-    const handleVerify = (documentId: number) => {
-        // Toggle pending verification logic
+    const toggleVerificationState = (documentId: number) => {
         setPendingVerifications((prev) => {
             if (prev.includes(documentId)) {
                 return prev.filter((id) => id !== documentId);
@@ -409,6 +424,18 @@ export default function ViewCustomerForm({
                 return [...prev, documentId];
             }
         });
+    };
+
+    const handleVerify = (doc: DocumentTrans) => {
+        const isCurrentlyPending = pendingVerifications.includes(doc.id);
+
+        // Jika mau mencentang (accept) dan dokumen butuh konfirmasi
+        if (!isCurrentlyPending && doc.master_document?.is_confirmed) {
+            setDocToVerify(doc);
+            setConfirmVerifyModalOpen(true);
+        } else {
+            toggleVerificationState(doc.id);
+        }
     };
 
     const handleOpenReject = (documentId: number) => {
@@ -894,17 +921,17 @@ export default function ViewCustomerForm({
                             {!canVerify && doc.url_path_file && (
                                 <div className="flex gap-1">
                                     {isVerified && (
-                                        <span className="rounded-full border border-green-200 bg-green-100 px-2.5 py-0.5 text-[10px] font-bold tracking-tight uppercase text-green-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-400">
+                                        <span className="rounded-full border border-green-200 bg-green-100 px-2.5 py-0.5 text-[10px] font-bold tracking-tight text-green-700 uppercase dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-400">
                                             {trans.verified}
                                         </span>
                                     )}
                                     {isRejected && (
-                                        <span className="rounded-full border border-red-200 bg-red-100 px-2.5 py-0.5 text-[10px] font-bold tracking-tight uppercase text-red-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-400">
+                                        <span className="rounded-full border border-red-200 bg-red-100 px-2.5 py-0.5 text-[10px] font-bold tracking-tight text-red-700 uppercase dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-400">
                                             {trans.rejected}
                                         </span>
                                     )}
                                     {isPending && (
-                                        <span className="rounded-full border border-yellow-200 bg-yellow-100 px-2.5 py-0.5 text-[10px] font-bold tracking-tight uppercase text-yellow-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-400">
+                                        <span className="rounded-full border border-yellow-200 bg-yellow-100 px-2.5 py-0.5 text-[10px] font-bold tracking-tight text-yellow-700 uppercase dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-400">
                                             {trans.pending}
                                         </span>
                                     )}
@@ -966,7 +993,7 @@ export default function ViewCustomerForm({
                                 </span>
                                 <Checkbox
                                     checked={isVerified || isPendingVerification}
-                                    onCheckedChange={() => handleVerify(doc.id)}
+                                    onCheckedChange={() => handleVerify(doc)}
                                     className="border-gray-300 data-[state=checked]:border-green-600 data-[state=checked]:bg-green-600 dark:border-zinc-700 dark:data-[state=checked]:border-green-500 dark:data-[state=checked]:bg-green-500"
                                     disabled={!isPending}
                                 />
@@ -1185,6 +1212,25 @@ export default function ViewCustomerForm({
         }
     };
 
+    const handleSaveEtaDate = async () => {
+        setIsSavingEtaDate(true);
+        try {
+            const response = await axios.post(`/shipping/${shipmentData.id_spk}/update-eta-date`, {
+                eta_date: etaDate,
+            });
+            if (response.data.success) {
+                toast.success('ETA Date berhasil diperbarui');
+            } else {
+                toast.error(response.data.message || 'Gagal memperbarui ETA Date');
+            }
+        } catch (error: any) {
+            console.error('Error updating eta date:', error);
+            toast.error(error.response?.data?.message || 'Gagal memperbarui ETA Date');
+        } finally {
+            setIsSavingEtaDate(false);
+        }
+    };
+
     // Calculate overall progress across all sections
     const calculateProgress = () => {
         let totalDocs = 0;
@@ -1236,7 +1282,8 @@ export default function ViewCustomerForm({
 
                 <div className="flex items-center gap-1 text-xs font-medium text-slate-500 italic">
                     <span className="h-1.5 w-1.5 rounded-full bg-slate-300"></span>
-                    {trans.last_updated || 'Last updated'}: {shipmentData.spkDate} {shipmentData.updated_by_name ? `by ${shipmentData.updated_by_name}` : ''}
+                    {trans.last_updated || 'Last updated'}: {shipmentData.spkDate}{' '}
+                    {shipmentData.updated_by_name ? `by ${shipmentData.updated_by_name}` : ''}
                 </div>
 
                 {/* SUPERVISOR: Assign Staff */}
@@ -1253,7 +1300,11 @@ export default function ViewCustomerForm({
                                     <SelectContent className="rounded-xl border-slate-200 shadow-xl">
                                         {internalStaff.length > 0 ? (
                                             internalStaff.map((staff: any) => (
-                                                <SelectItem key={staff.id_user} value={String(staff.id_user)} className="text-xs cursor-pointer focus:bg-blue-50 hover:bg-blue-50 dark:focus:bg-zinc-800 dark:hover:bg-zinc-800 dark:text-zinc-200">
+                                                <SelectItem
+                                                    key={staff.id_user}
+                                                    value={String(staff.id_user)}
+                                                    className="cursor-pointer text-xs hover:bg-blue-50 focus:bg-blue-50 dark:text-zinc-200 dark:hover:bg-zinc-800 dark:focus:bg-zinc-800"
+                                                >
                                                     {staff.name}
                                                 </SelectItem>
                                             ))
@@ -1279,16 +1330,18 @@ export default function ViewCustomerForm({
                                 <button
                                     onClick={() => !isUpdatingUploadMode && handleToggleInternalCanUpload(true)}
                                     disabled={isUpdatingUploadMode}
-                                    className={`flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition-all duration-200 ${internalCanUpload ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                                        } disabled:opacity-50`}
+                                    className={`flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition-all duration-200 ${
+                                        internalCanUpload ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                                    } disabled:opacity-50`}
                                 >
                                     {trans.staff_upload}
                                 </button>
                                 <button
                                     onClick={() => !isUpdatingUploadMode && handleToggleInternalCanUpload(false)}
                                     disabled={isUpdatingUploadMode}
-                                    className={`flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition-all duration-200 ${!internalCanUpload ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                                        } disabled:opacity-50`}
+                                    className={`flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition-all duration-200 ${
+                                        !internalCanUpload ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                                    } disabled:opacity-50`}
                                 >
                                     {trans.dual_upload}
                                 </button>
@@ -1316,10 +1369,11 @@ export default function ViewCustomerForm({
                             <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.channel}</div>
                             <div>
                                 <span
-                                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold tracking-tight uppercase ring-1 ring-inset ${shipmentData.penjaluran === 'merah'
-                                        ? 'bg-rose-50 text-rose-700 ring-rose-600/20'
-                                        : 'bg-green-50 text-green-700 ring-green-600/20'
-                                        }`}
+                                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold tracking-tight uppercase ring-1 ring-inset ${
+                                        shipmentData.penjaluran === 'merah'
+                                            ? 'bg-rose-50 text-rose-700 ring-rose-600/20'
+                                            : 'bg-green-50 text-green-700 ring-green-600/20'
+                                    }`}
                                 >
                                     {trans[shipmentData.penjaluran] || shipmentData.penjaluran}
                                 </span>
@@ -1359,11 +1413,39 @@ export default function ViewCustomerForm({
                             {shipmentData.type === 'Export'
                                 ? trans.si || 'SI'
                                 : shipmentData.type === 'Import'
-                                    ? trans.bl || 'B'
-                                    : trans.spk || 'SPK'}{' '}
+                                  ? trans.bl || 'B'
+                                  : trans.spk || 'SPK'}{' '}
                         </div>
                         <div className="text-sm font-bold tracking-tight break-all text-slate-900 dark:text-white">{shipmentData.spkNumber}</div>
                     </div>
+
+                    {/* Conditional ETA Date Field (id_section === 7) */}
+                    {sectionsTransProp?.some((s) => s.id_section === 7) && (
+                        <div className="col-span-2 mt-2 space-y-1.5 border-t border-slate-200/60 pt-3 dark:border-zinc-800">
+                            <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
+                                {trans.eta_date}
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Input
+                                    type="date"
+                                    value={etaDate}
+                                    onChange={(e) => setEtaDate(e.target.value)}
+                                    className="date-input-dark h-9 rounded-lg border-slate-200 bg-white text-xs text-slate-700 focus:ring-blue-500/20 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300"
+                                    disabled={!isInternalUser || isSavingEtaDate}
+                                />
+                                {isInternalUser && (
+                                    <Button
+                                        size="sm"
+                                        onClick={handleSaveEtaDate}
+                                        disabled={isSavingEtaDate}
+                                        className="h-9 bg-slate-900 px-4 text-[10px] font-bold text-white hover:bg-slate-800"
+                                    >
+                                        {isSavingEtaDate ? '...' : trans.save || 'Save'}
+                                    </Button>
+                                )}
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
             {/* HS Code Section */}
@@ -1421,9 +1503,9 @@ export default function ViewCustomerForm({
                                                             existingFile={
                                                                 !item.file && item.link
                                                                     ? {
-                                                                        nama_file: item.link,
-                                                                        path: `/file/view/${item.link}`,
-                                                                    }
+                                                                          nama_file: item.link,
+                                                                          path: `/file/view/${item.link}`,
+                                                                      }
                                                                     : undefined
                                                             }
                                                             onFileChange={(file) => {
@@ -1504,7 +1586,9 @@ export default function ViewCustomerForm({
                             <label className="text-sm font-semibold whitespace-nowrap text-slate-700 dark:text-zinc-300">{trans.set_deadline}:</label>
                             <Input
                                 type="date"
-                                className={`h-9 flex-1 rounded-lg border-slate-300 transition-all duration-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 ${!useUnifiedDeadline ? 'cursor-not-allowed bg-slate-100 opacity-50 dark:bg-zinc-800' : 'bg-white dark:bg-zinc-950'} dark:border-zinc-800`}
+                                className={`date-input-dark h-9 flex-1 rounded-lg border-slate-300 transition-all duration-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 ${
+                                    !useUnifiedDeadline ? 'cursor-not-allowed bg-slate-100 opacity-50 dark:bg-zinc-800' : 'bg-white dark:bg-zinc-950'
+                                } dark:border-zinc-800 dark:text-white`}
                                 value={globalDeadlineDate}
                                 onChange={(e) => setGlobalDeadlineDate(e.target.value)}
                                 disabled={!useUnifiedDeadline}
@@ -1674,7 +1758,11 @@ export default function ViewCustomerForm({
                                                     </label>
                                                     <Input
                                                         type="date"
-                                                        className={`h-9 flex-1 rounded-lg border-slate-300 text-sm transition-all duration-200 dark:text-slate-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 ${useUnifiedDeadline ? 'cursor-not-allowed bg-slate-50 opacity-50' : 'bg-white'}`}
+                                                        className={`date-input-light h-9 flex-1 rounded-lg border-slate-300 text-sm transition-all duration-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 ${
+                                                            useUnifiedDeadline
+                                                                ? 'cursor-not-allowed bg-slate-50 text-slate-900 opacity-50'
+                                                                : 'bg-white text-slate-900'
+                                                        } dark:border-zinc-700`}
                                                         value={useUnifiedDeadline ? globalDeadlineDate : sectionDeadlines[section.id] || ''}
                                                         onChange={(e) => {
                                                             if (!useUnifiedDeadline) {
@@ -1747,7 +1835,7 @@ export default function ViewCustomerForm({
                 <div className="mt-4 flex justify-center">
                     <Button
                         onClick={handleOpenAddSectionModal}
-                        className="w-full rounded-lg bg-black px-6 py-2 text-sm font-semibold text-white hover:bg-gray-800 dark:bg-white dark:hover:bg-gray-200 dark:text-slate-900"
+                        className="w-full rounded-lg bg-black px-6 py-2 text-sm font-semibold text-white hover:bg-gray-800 dark:bg-white dark:text-slate-900 dark:hover:bg-gray-200"
                     >
                         <Plus className="mr-2 h-4 w-4" />
                         {trans.add_section || 'Add Section'}
@@ -1832,8 +1920,9 @@ export default function ViewCustomerForm({
                         <Button
                             onClick={handleUpdatePenjaluran}
                             disabled={isUpdatingPenjaluran || !registerNumber || !registerDate}
-                            className={`flex-1 text-white ${pendingJalur === 'merah' ? 'bg-rose-500 hover:bg-rose-600' : 'bg-green-500 hover:bg-green-600'
-                                }`}
+                            className={`flex-1 text-white ${
+                                pendingJalur === 'merah' ? 'bg-rose-500 hover:bg-rose-600' : 'bg-green-500 hover:bg-green-600'
+                            }`}
                         >
                             {isUpdatingPenjaluran ? trans.saving : trans.save}
                         </Button>
@@ -1933,23 +2022,21 @@ export default function ViewCustomerForm({
             </Dialog>
 
             <Dialog open={helpModalOpen} onOpenChange={setHelpModalOpen}>
-                <DialogContent className="max-w-85 rounded-xl p-5 sm:max-w-100">
+                <DialogContent className="bg-background text-foreground max-w-85 rounded-xl border border-slate-200 p-5 shadow-lg sm:max-w-100 dark:border-zinc-800">
                     <div className="mb-2">
-                        {/* Judul Dokumen dari DB */}
-                        <h2 className="text-xl leading-tight font-bold text-black">{selectedHelpData?.nama_file}</h2>
+                        <h2 className="text-foreground text-xl leading-tight font-bold">{selectedHelpData?.nama_file}</h2>
                     </div>
 
-                    {/* Deskripsi dari DB */}
-                    <div className="mb-4 text-sm leading-relaxed text-gray-700">
+                    <div className="text-muted-foreground mb-4 text-sm leading-relaxed">
                         {selectedHelpData?.description_file || 'Tidak ada deskripsi tersedia untuk dokumen ini.'}
                     </div>
 
                     {selectedHelpData?.link_path_example_file && (
-                        <div className="space-y-3">
+                        <div className="mb-3 space-y-3">
                             <a href={selectedHelpData.link_path_example_file} target="_blank" rel="noreferrer" className="block w-full">
                                 <Button
                                     variant="outline"
-                                    className="w-full justify-center rounded-xl border-slate-200 text-xs font-semibold text-blue-600 shadow-sm transition-all hover:bg-blue-50"
+                                    className="border-border text-primary hover:bg-accent hover:text-primary w-full justify-center rounded-xl text-xs font-semibold shadow-sm transition-all"
                                 >
                                     {trans.download_example} {selectedHelpData.nama_file}
                                 </Button>
@@ -1957,13 +2044,12 @@ export default function ViewCustomerForm({
                         </div>
                     )}
 
-                    {/* Action Buttons (Download Template) */}
                     {selectedHelpData?.link_path_template_file && (
                         <div className="mb-5 space-y-3">
                             <a href={selectedHelpData.link_path_template_file} target="_blank" rel="noreferrer" className="block w-full">
                                 <Button
                                     variant="outline"
-                                    className="w-full justify-center rounded-xl border-slate-200 text-xs font-semibold text-blue-600 shadow-sm transition-all hover:bg-blue-50"
+                                    className="border-border text-primary hover:bg-accent hover:text-primary w-full justify-center rounded-xl text-xs font-semibold shadow-sm transition-all"
                                 >
                                     {trans.download_template} {selectedHelpData.nama_file}
                                 </Button>
@@ -1971,11 +2057,11 @@ export default function ViewCustomerForm({
                         </div>
                     )}
 
-                    {/* Video Section */}
                     {videoUrl && videoId && (
                         <div>
-                            <h3 className="mb-2 text-sm font-bold text-black">{trans.video_tutorial}</h3>
-                            <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-gray-200 bg-black">
+                            <h3 className="text-foreground mb-2 text-sm font-bold">{trans.video_tutorial}</h3>
+
+                            <div className="bg-muted relative aspect-video w-full overflow-hidden rounded-xl border border-slate-200 dark:border-zinc-800">
                                 {isVideoPlaying ? (
                                     <iframe
                                         src={`https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`}
@@ -1997,8 +2083,9 @@ export default function ViewCustomerForm({
                                                 className="absolute inset-0 h-full w-full object-cover opacity-80 transition-opacity group-hover:opacity-100"
                                             />
                                         )}
-                                        <div className="relative z-10 flex h-14 w-14 items-center justify-center rounded-full bg-white shadow-md transition-transform group-hover:scale-110">
-                                            <Play className="ml-1 h-6 w-6 fill-black text-black" />
+
+                                        <div className="bg-background/95 text-foreground relative z-10 flex h-14 w-14 items-center justify-center rounded-full shadow-md transition-transform group-hover:scale-110">
+                                            <Play className="ml-1 h-6 w-6 fill-current" />
                                         </div>
                                     </button>
                                 )}
@@ -2179,6 +2266,48 @@ export default function ViewCustomerForm({
                             disabled={isRemovingSection}
                         >
                             {isRemovingSection ? trans.removing || 'Menghapus...' : trans.confirm_delete || 'Hapus Sekarang'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={confirmVerifyModalOpen} onOpenChange={setConfirmVerifyModalOpen}>
+                <DialogContent className="max-w-md rounded-2xl p-6 dark:border-zinc-800 dark:bg-zinc-900">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-xl font-bold dark:text-white">
+                            <CircleHelp className="h-6 w-6 text-blue-500" />
+                            Konfirmasi Verifikasi
+                        </DialogTitle>
+                    </DialogHeader>
+
+                    <div className="py-4">
+                        <p className="text-slate-600 dark:text-zinc-400">
+                            Apakah Anda sudah yakin dengan isi dokumen <span className="font-bold text-slate-900 dark:text-white">"{docToVerify?.master_document?.nama_dokumen || docToVerify?.nama_file}"</span>?
+                        </p>
+                    </div>
+
+                    <DialogFooter className="flex gap-3 sm:justify-end">
+                        <Button
+                            variant="outline"
+                            className="rounded-xl border-slate-200 px-6 dark:border-zinc-700 dark:text-zinc-300"
+                            onClick={() => {
+                                setConfirmVerifyModalOpen(false);
+                                setDocToVerify(null);
+                            }}
+                        >
+                            {trans.cancel || 'Batal'}
+                        </Button>
+                        <Button
+                            className="rounded-xl bg-black px-6 text-white hover:bg-gray-800 dark:bg-zinc-100 dark:text-black dark:hover:bg-zinc-300"
+                            onClick={() => {
+                                if (docToVerify) {
+                                    toggleVerificationState(docToVerify.id);
+                                }
+                                setConfirmVerifyModalOpen(false);
+                                setDocToVerify(null);
+                            }}
+                        >
+                            {trans.confirm || 'Ya, Saya Yakin'}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

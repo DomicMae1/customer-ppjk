@@ -33,11 +33,6 @@ return new class extends Migration
                   ->references('id')->on('spk')
                   ->onDelete('cascade');
 
-            $table->foreign('id_section')
-                  ->references('id')
-                  ->on('section_trans')
-                  ->onDelete('cascade');
-
         });
     }
 

@@ -25,6 +25,7 @@ interface DocumentData {
     nama_file: string;
     description_file: string;
     is_internal: boolean;
+    is_confirmed: boolean;
     attribute: boolean;
     link_path_example_file?: string;
     link_path_template_file?: string;
@@ -64,6 +65,7 @@ export default function ManageDocuments() {
         id_section: '',
         description_file: '',
         is_internal: false,
+        is_confirmed: false,
         attribute: false,
         link_url_video_file: '',
         kuota_revisi: '',
@@ -110,6 +112,7 @@ export default function ManageDocuments() {
                 id_section: String(doc.id_section),
                 description_file: doc.description_file || '',
                 is_internal: Boolean(doc.is_internal),
+                is_confirmed: Boolean(doc.is_confirmed),
                 attribute: Boolean(doc.attribute),
                 link_url_video_file: doc.link_url_video_file || '',
                 kuota_revisi: doc.kuota_revisi != null ? String(doc.kuota_revisi) : '',
@@ -129,7 +132,7 @@ export default function ManageDocuments() {
         }
     };
 
-    const handleEditBooleanChange = (field: 'is_internal' | 'attribute', value: boolean) => {
+    const handleEditBooleanChange = (field: 'is_internal' | 'attribute' | 'is_confirmed', value: boolean) => {
         setEditForm((prev) => ({ ...prev, [field]: value }));
     };
 
@@ -279,6 +282,28 @@ export default function ManageDocuments() {
                                     </div>
                                 </div>
                             )}
+
+                            <div>
+                                <Label className="mb-2 block text-xs font-semibold text-gray-500 uppercase">{trans_doc.label_need_confirm || 'Need Confirm'}</Label>
+                                <div className="flex w-full gap-2">
+                                    <Button
+                                        type="button"
+                                        variant={editForm.is_confirmed ? 'default' : 'outline'}
+                                        onClick={() => handleEditBooleanChange('is_confirmed', true)}
+                                        className="flex-1"
+                                    >
+                                        {trans_doc.btn_yes || 'Ya'}
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant={!editForm.is_confirmed ? 'default' : 'outline'}
+                                        onClick={() => handleEditBooleanChange('is_confirmed', false)}
+                                        className="flex-1"
+                                    >
+                                        {trans_doc.btn_no || 'Tidak'}
+                                    </Button>
+                                </div>
+                            </div>
                         </div>
 
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

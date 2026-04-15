@@ -66,7 +66,7 @@ return [
     'rejected' => 'Bermasalah',
 
     // --- ADD SHIPMENT DIALOG ---
-    'add_shipment' => 'Tambah Shipment',
+    'add_shipment' => 'Tambah Data',
     'shipment_data' => 'Data Shipment', // Judul Dialog
     'shipment_type' => 'Jenis Pengiriman',
     'import' => 'Impor',
@@ -284,4 +284,5 @@ return [
     'clipboard_not_supported' => 'Browser ini tidak mendukung fitur paste otomatis.',
     'clipboard_permission_denied' => 'Izin baca clipboard ditolak. Silakan izinkan di browser.',
     'select_staff_placeholder' => 'Pilih Staff',
+    'eta_date' => 'Tanggal ETA',
 ];

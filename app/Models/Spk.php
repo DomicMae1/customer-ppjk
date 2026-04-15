@@ -26,6 +26,7 @@ class Spk extends Model
         'internal_can_upload',       // Boolean
         'register_number',
         'register_date',
+        'eta_date',
     ];
 
     protected $appends = ['is_created_by_internal'];
@@ -37,6 +38,7 @@ class Spk extends Model
     protected $casts = [
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
+        'eta_date' => 'datetime',
     ];
 
     /**

@@ -1,7 +1,7 @@
 <?php
 
 return [
-    'shipment' => 'Pengiriman',
+    'shipment' => 'Homepage',
     'manage_users' => 'Kelola Pengguna',
     'manage_role' => 'Kelola Role',
     'manage_company' => 'Kelola Perusahaan',

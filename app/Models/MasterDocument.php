@@ -29,6 +29,7 @@ class MasterDocument extends Model
         'link_path_example_file',
         'link_path_template_file',
         'link_url_video_file',
+        'is_confirmed',
         'description_file',
         'updated_by',
         // created_at dan updated_at otomatis dihandle
@@ -38,6 +39,7 @@ class MasterDocument extends Model
     protected $casts = [
         'is_internal' => 'boolean', // Added
         'is_verification' => 'boolean', // New
+        'is_confirmed' => 'boolean',
         'attribute' => 'boolean',
         'deadline_document' => 'boolean',
         'created_at' => 'datetime',
