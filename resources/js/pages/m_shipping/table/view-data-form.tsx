@@ -112,7 +112,7 @@ interface PageProps {
 
 export default function PaymentsEdit() {
     const { props } = usePage();
-    const { customer, shipmentDataProp, masterSecProp, sectionsTransProp, masterDocProp, docsTransProp, auth, internalStaff } = props as unknown as PageProps;
+    const { customer, shipmentDataProp, masterSecProp, sectionsTransProp, masterDocProp, auth, internalStaff } = props as unknown as PageProps;
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>

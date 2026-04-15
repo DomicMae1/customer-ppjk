@@ -269,19 +269,81 @@ class ShippingController extends Controller
     /**
      * Share the form to customer
      */
-    public function share()
+    public function share($id)
     {
         $user = auth('web')->user();
 
-        if (!$user->hasPermissionTo('create-master-shipping')) {
-            throw UnauthorizedException::forPermissions(['create-master-shipping']);
+        $tenant = null;
+
+        if ($user->id_perusahaan) {
+            $tenant = \App\Models\Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
+        } elseif ($user->id_customer) {
+            $customer = \App\Models\Customer::find($user->id_customer);
+            if ($customer && $customer->ownership) {
+                $tenant = \App\Models\Tenant::where('perusahaan_id', $customer->ownership)->first();
+            }
         }
 
-        return Inertia::render('m_shipping/table/generate-data-form', [
+        if (!$tenant) {
+            abort(404, 'Tenant tidak ditemukan');
+        }
+
+        tenancy()->initialize($tenant);
+
+        $spk = \App\Models\Spk::findOrFail($id);
+
+        $documents = \App\Models\DocumentTrans::query()
+            ->leftJoin('section_trans', function ($join) {
+                $join->on('document_trans.id_section', '=', 'section_trans.id_section')
+                    ->on('document_trans.id_spk', '=', 'section_trans.id_spk');
+            })
+            ->where('document_trans.id_spk', $id)
+            ->select([
+                'document_trans.id',
+                'document_trans.id_spk',
+                'document_trans.id_section',
+                'document_trans.nama_file',
+                'document_trans.url_path_file',
+                'document_trans.updated_at',
+                'document_trans.verify',
+                'section_trans.section_name',
+            ])
+            ->orderBy('document_trans.id_section', 'asc')
+            ->orderByRaw("
+                CASE 
+                    WHEN document_trans.url_path_file IS NOT NULL AND document_trans.url_path_file <> '' THEN 0
+                    ELSE 1
+                END ASC
+            ")
+            ->orderBy('document_trans.updated_at', 'desc')
+            ->orderBy('document_trans.nama_file', 'asc')
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'id' => $item->id,
+                    'id_spk' => $item->id_spk,
+                    'id_section' => $item->id_section,
+                    'section_name' => $item->section_name,
+                    'nama_file' => $item->nama_file,
+                    'url_path_file' => $item->url_path_file,
+                    'verify' => $item->verify,
+                    'is_updated' => !empty($item->url_path_file),
+                    'updated_at' => optional($item->updated_at)->format('d-m-Y'),
+                    'updated_at_full' => optional($item->updated_at)->format('d-m-Y H:i:s'),
+                ];
+            });
+
+        return Inertia::render('m_shipping/table/view-data-shipping', [
+            'spk' => [
+                'id' => $spk->id,
+                'spk_code' => $spk->spk_code,
+                'shipment_type' => $spk->shipment_type,
+            ],
+            'documents' => $documents,
             'flash' => [
                 'success' => session('success'),
-                'error' => session('error')
-            ]
+                'error' => session('error'),
+            ],
         ]);
     }
 
