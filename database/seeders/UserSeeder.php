@@ -40,7 +40,7 @@ class UserSeeder extends Seeder
 
             //Amin Trans
             ['name' => 'Anna Supervisor', 'email' => 'ppjk@amintrans.co.id', 'password' => '96NwHVqWU688nOA8', 'role_internal' => 'supervisor','id_perusahaan' => 3],
-            ['name' => 'Nana Supervisor', 'email' => 'nana@amintrans.co.id', 'password' => 'JIJsFPppA3DDIpmE', 'role_internal' => 'supervisor','id_perusahaan' => 3],
+            ['name' => 'Nana Marketing', 'email' => 'nana@amintrans.co.id', 'password' => 'JIJsFPppA3DDIpmE', 'role_internal' => 'marketing','id_perusahaan' => 3],
             
             ['name' => 'Amelia Marketing', 'email' => 'amelia@amintrans.co.id', 'password' => '8gKsK6ZrRVBfuQNw', 'role_internal' => 'marketing', 'id_perusahaan' => 3],
             ['name' => 'Neni Marketing', 'email' => 'neni@amintrans.co.id', 'password' => 'XAxoOlBhOU6gN9UI', 'role_internal' => 'marketing', 'id_perusahaan' => 3],
