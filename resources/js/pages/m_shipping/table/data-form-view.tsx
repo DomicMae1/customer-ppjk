@@ -35,8 +35,8 @@ interface ShipmentData {
     siNumber: string;
     status: string;
     penjaluran: string | null;
-    register_number?: string;
     register_date?: string;
+    eta_date?: string;
     hsCodes: HsCodeItem[];
     updated_by_name?: string | null;
 }
@@ -223,6 +223,10 @@ export default function ViewCustomerForm({
     const [confirmVerifyModalOpen, setConfirmVerifyModalOpen] = useState(false);
     const [docToVerify, setDocToVerify] = useState<DocumentTrans | null>(null);
 
+    // ETA Date State
+    const [etaDate, setEtaDate] = useState(shipmentDataProp?.eta_date ? shipmentDataProp.eta_date.split('T')[0].split(' ')[0] : '');
+    const [isSavingEtaDate, setIsSavingEtaDate] = useState(false);
+
     useEffect(() => {
         if (helpModalOpen) {
             setIsVideoPlaying(false);
@@ -316,6 +320,13 @@ export default function ViewCustomerForm({
             }
         }
     }, [sectionsTransProp, additionalSection]);
+
+    // NEW: Sync ETA Date for real-time updates
+    useEffect(() => {
+        if (shipmentDataProp?.eta_date) {
+            setEtaDate(shipmentDataProp.eta_date.split('T')[0].split(' ')[0]);
+        }
+    }, [shipmentDataProp?.eta_date]);
 
     const [processingSectionId, setProcessingSectionId] = useState<number | null>(null);
 
@@ -1201,6 +1212,25 @@ export default function ViewCustomerForm({
         }
     };
 
+    const handleSaveEtaDate = async () => {
+        setIsSavingEtaDate(true);
+        try {
+            const response = await axios.post(`/shipping/${shipmentData.id_spk}/update-eta-date`, {
+                eta_date: etaDate,
+            });
+            if (response.data.success) {
+                toast.success('ETA Date berhasil diperbarui');
+            } else {
+                toast.error(response.data.message || 'Gagal memperbarui ETA Date');
+            }
+        } catch (error: any) {
+            console.error('Error updating eta date:', error);
+            toast.error(error.response?.data?.message || 'Gagal memperbarui ETA Date');
+        } finally {
+            setIsSavingEtaDate(false);
+        }
+    };
+
     // Calculate overall progress across all sections
     const calculateProgress = () => {
         let totalDocs = 0;
@@ -1388,6 +1418,34 @@ export default function ViewCustomerForm({
                         </div>
                         <div className="text-sm font-bold tracking-tight break-all text-slate-900 dark:text-white">{shipmentData.spkNumber}</div>
                     </div>
+
+                    {/* Conditional ETA Date Field (id_section === 7) */}
+                    {sectionsTransProp?.some((s) => s.id_section === 7) && (
+                        <div className="col-span-2 mt-2 space-y-1.5 border-t border-slate-200/60 pt-3 dark:border-zinc-800">
+                            <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
+                                {trans.eta_date}
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Input
+                                    type="date"
+                                    value={etaDate}
+                                    onChange={(e) => setEtaDate(e.target.value)}
+                                    className="date-input-dark h-9 rounded-lg border-slate-200 bg-white text-xs text-slate-700 focus:ring-blue-500/20 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300"
+                                    disabled={!isInternalUser || isSavingEtaDate}
+                                />
+                                {isInternalUser && (
+                                    <Button
+                                        size="sm"
+                                        onClick={handleSaveEtaDate}
+                                        disabled={isSavingEtaDate}
+                                        className="h-9 bg-slate-900 px-4 text-[10px] font-bold text-white hover:bg-slate-800"
+                                    >
+                                        {isSavingEtaDate ? '...' : trans.save || 'Save'}
+                                    </Button>
+                                )}
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
             {/* HS Code Section */}

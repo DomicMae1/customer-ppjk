@@ -1005,6 +1005,7 @@ class ShippingController extends Controller
             'validated_by' => $spk->validated_by, // Send to frontend
             'register_number' => $spk->register_number,
             'register_date' => $spk->register_date,
+            'eta_date' => $spk->eta_date ? $spk->eta_date->toDateString() : null,
         ];
 
         // 3. Mapping HS Code
@@ -2473,6 +2474,13 @@ class ShippingController extends Controller
 
             \Illuminate\Support\Facades\DB::commit();
 
+            // REALTIME UPDATE
+            try {
+                \App\Events\ShippingDataUpdated::dispatch($idSpk, 'update');
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error('Realtime update failed in addSectionsToSpk: ' . $e->getMessage());
+            }
+
             // NOTIFICATION & EMAIL TO CUSTOMER
             try {
                 if ($spk && $spk->id_customer) {
@@ -2596,6 +2604,54 @@ class ShippingController extends Controller
             DB::connection('tenant-transaction')->rollBack();
             DB::rollBack();
             return response()->json(['success' => false, 'message' => 'Failed to remove section.', 'error' => $th->getMessage()], 500);
+        }
+    }
+
+     public function updateEtaDate(Request $request, $idSpk)
+    {
+        $user = auth('web')->user();
+        if ($user->role === 'eksternal') {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'eta_date' => 'required|date',
+        ]);
+
+        $tenant = null;
+        if ($user->id_perusahaan) {
+            $tenant = Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
+        }
+
+        if (!$tenant) {
+            abort(404, 'Tenant not found');
+        }
+
+        tenancy()->initialize($tenant);
+
+        try {
+            $spk = Spk::findOrFail($idSpk);
+            
+            // Format to start of day to avoid timezone shifting during storage
+            $date = \Carbon\Carbon::parse($validated['eta_date'])->startOfDay();
+            
+            $spk->update([
+                'eta_date' => $date,
+            ]);
+
+            // Dispatch event for real-time updates across browsers
+            try {
+                \App\Events\ShippingDataUpdated::dispatch($spk->id, 'update');
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error('Realtime update failed: ' . $e->getMessage());
+            }
+
+            return response()->json([
+                'success' => true,
+                'eta_date' => $date->toDateString() // Send back YYYY-MM-DD
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }
     }
 }
