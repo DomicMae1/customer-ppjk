@@ -31,6 +31,29 @@ class UserSeeder extends Seeder
 
             // Admin Global (Tanpa Perusahaan)
             ['name' => 'Admin PPJK', 'email' => 'admin@gmail.com', 'password' => 'Ppjk_tako@2026', 'role_internal' => 'admin', 'id_perusahaan' => null],
+<<<<<<< Updated upstream
+=======
+
+            //AML
+            ['name' => 'Supervisor AML', 'email' => 'spv@amlogistik.com', 'password' => 'djLmzR1d3d835rWX', 'role_internal' => 'supervisor','id_perusahaan' => 2],
+            ['name' => 'Manager AML', 'email' => 'manager@amlogistik.com', 'password' => 'D2jW1Lluwr8K8ppK', 'role_internal' => 'manager','id_perusahaan' => 2],
+            ['name' => 'Staff AML', 'email' => 'documentamlogistik@gmail.com', 'password' => 'Q2DtSj8o0PBilZbA', 'role_internal' => 'staff', 'id_perusahaan' => 2],
+            ['name' => 'Marketing AML', 'email' => 'deboraamlogistik@gmail.com', 'password' => 'WV5jcrfJVlUIc815', 'role_internal' => 'marketing', 'id_perusahaan' => 2],
+
+            //Amin Trans
+            ['name' => 'Anna Supervisor', 'email' => 'ppjk@amintrans.co.id', 'password' => '96NwHVqWU688nOA8', 'role_internal' => 'supervisor','id_perusahaan' => 3],
+            ['name' => 'Nana Marketing', 'email' => 'nana@amintrans.co.id', 'password' => 'JIJsFPppA3DDIpmE', 'role_internal' => 'marketing','id_perusahaan' => 3],
+            
+            ['name' => 'Amelia Marketing', 'email' => 'amelia@amintrans.co.id', 'password' => '8gKsK6ZrRVBfuQNw', 'role_internal' => 'marketing', 'id_perusahaan' => 3],
+            ['name' => 'Neni Marketing', 'email' => 'neni@amintrans.co.id', 'password' => 'XAxoOlBhOU6gN9UI', 'role_internal' => 'marketing', 'id_perusahaan' => 3],
+            ['name' => 'Cristina Marketing', 'email' => 'christina@amintrans.co.id', 'password' => '7Nk1MTozA51r3keS', 'role_internal' => 'marketing', 'id_perusahaan' => 3],
+            ['name' => 'Yhani Marketing', 'email' => 'suryanih@amintrans.co.id', 'password' => 'lOn4lk2A2ojAHwGR', 'role_internal' => 'marketing', 'id_perusahaan' => 3],
+
+            ['name' => 'Lissa Staff', 'email' => 'lissa@amintrans.co.id', 'password' => 'EaTZVxS6R9bQzhXZ', 'role_internal' => 'staff', 'id_perusahaan' => 3],
+            ['name' => 'Amandha Staff', 'email' => 'amandha@amintrans.co.id', 'password' => 'aWYI0X6MoWH2xlzQ', 'role_internal' => 'staff', 'id_perusahaan' => 3],
+            ['name' => 'Sella Staff', 'email' => 'docimport@amintrans.co.id', 'password' => '6ffMNDDH7VB8Js4O', 'role_internal' => 'staff', 'id_perusahaan' => 3],
+            ['name' => 'Efita Staff', 'email' => 'docexport@amintrans.co.id', 'password' => 'aXUYAE5lih1Er8bl', 'role_internal' => 'staff', 'id_perusahaan' => 3],
+>>>>>>> Stashed changes
         ];
 
         foreach ($internalUsers as $data) {
