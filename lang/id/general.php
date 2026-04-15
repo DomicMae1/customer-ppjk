@@ -284,4 +284,5 @@ return [
     'clipboard_not_supported' => 'Browser ini tidak mendukung fitur paste otomatis.',
     'clipboard_permission_denied' => 'Izin baca clipboard ditolak. Silakan izinkan di browser.',
     'select_staff_placeholder' => 'Pilih Staff',
+    'eta_date' => 'Tanggal ETA',
 ];

@@ -285,4 +285,5 @@ return [
     'clipboard_not_supported' => 'This browser does not support automatic paste.',
     'clipboard_permission_denied' => 'Clipboard read permission was denied. Please allow it in your browser.',
     'select_staff_placeholder' => 'Select Staff',
+    'eta_date' => 'ETA Date',
 ];
