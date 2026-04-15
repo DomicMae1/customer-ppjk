@@ -32,6 +32,7 @@ interface DocumentData {
     nama_file: string;
     description_file: string;
     is_internal: boolean;
+    is_confirmed: boolean;
     attribute: boolean;
     link_path_example_file?: string;
     link_path_template_file?: string;
@@ -92,6 +93,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
         id_section: '',
         description_file: '',
         is_internal: false,
+        is_confirmed: false,
         attribute: false,
         link_url_video_file: '',
         kuota_revisi: '',
@@ -163,7 +165,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
     };
 
     // Helper Boolean
-    const handleBooleanChange = (field: 'is_internal' | 'attribute', value: boolean) => {
+    const handleBooleanChange = (field: 'is_internal' | 'attribute' | 'is_confirmed', value: boolean) => {
         setForm((prev) => ({ ...prev, [field]: value }));
     };
 
@@ -178,6 +180,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
                     id_section: '',
                     description_file: '',
                     is_internal: false,
+                    is_confirmed: false,
                     attribute: false,
                     link_url_video_file: '',
                     kuota_revisi: '',
@@ -290,6 +293,11 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
                                         {original.attribute && (
                                             <span className="rounded bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-700 dark:bg-red-900/30 dark:text-red-400">
                                                 MANDATORY
+                                            </span>
+                                        )}
+                                        {original.is_confirmed && (
+                                            <span className="rounded bg-destructive/10 px-2 py-0.5 text-[10px] font-bold text-destructive">
+                                                NEED CONFIRM
                                             </span>
                                         )}
                                     </div>
@@ -442,7 +450,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
                                             onClick={() => handleBooleanChange('attribute', true)}
                                             className="h-11 flex-1 sm:h-9"
                                         >
-                                            {trans_doc.btn_yes}
+                                            {trans_doc.btn_yes || 'Ya'}
                                         </Button>
                                         <Button
                                             type="button"
@@ -450,11 +458,35 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
                                             onClick={() => handleBooleanChange('attribute', false)}
                                             className="h-11 flex-1 sm:h-9"
                                         >
-                                            {trans_doc.btn_no}
+                                            {trans_doc.btn_no || 'Tidak'}
                                         </Button>
                                     </div>
                                 </div>
                             )}
+
+                            <div>
+                                <Label className="text-muted-foreground mb-2 block text-xs font-bold uppercase">
+                                    {trans_doc.label_need_confirm || 'Need Confirm'}
+                                </Label>
+                                <div className="flex gap-2">
+                                    <Button
+                                        type="button"
+                                        variant={form.is_confirmed ? 'default' : 'outline'}
+                                        onClick={() => handleBooleanChange('is_confirmed', true)}
+                                        className="h-11 flex-1 sm:h-9"
+                                    >
+                                        {trans_doc.btn_yes || 'Ya'}
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant={!form.is_confirmed ? 'default' : 'outline'}
+                                        onClick={() => handleBooleanChange('is_confirmed', false)}
+                                        className="h-11 flex-1 sm:h-9"
+                                    >
+                                        {trans_doc.btn_no || 'Tidak'}
+                                    </Button>
+                                </div>
+                            </div>
                         </div>
 
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

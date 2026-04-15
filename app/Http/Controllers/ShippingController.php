@@ -428,10 +428,10 @@ class ShippingController extends Controller
             // Move here to prevent Race Condition (Queue Worker checking DB before Commit)
             try {
                 if ($user->role === 'eksternal') {
-                    // Find all Internal Users (Staff & Supervisor)
                     $internalUsers = \App\Models\User::on('tako-user')
                         ->where('role', 'internal')
                         ->whereIn('role_internal', ['staff', 'marketing', 'supervisor'])
+                        ->where('id_perusahaan', $user->id_perusahaan)
                         ->distinct()
                         ->get();
 

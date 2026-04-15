@@ -54,21 +54,12 @@ class DocumentSeeder extends Seeder
             ],
             [
                 'id_section' => 1,
-<<<<<<< Updated upstream
                 'nama_file' => 'Polis Asuransi',
                 'attribute' => 1,
                 'link_path_example_file' => 'documents/examples/polis_asuransi.pdf',
                 'link_path_template_file' => 'documents/templates/polis_asuransi.pdf',
                 'link_url_video_file' => 'https://www.youtube.com/watch?v=28whxoWAzA0',
                 'description_file' => 'Polis asuransi shipment adalah dokumen yang berisi jaminan perlindungan finansial terhadap barang yang dikirim melalui jalur darat, laut, atau udara.',
-=======
-                'nama_file' => 'Asuransi',
-                'attribute' => 0,
-                'link_path_example_file' => 'documents/examples/asuransi.pdf',
-                'link_path_template_file' => 'documents/templates/asuransi.pdf',
-                'link_url_video_file' => 'https://www.youtube.com/watch?v=28whxoWAzA0',
-                'description_file' => 'Asuransi adalah dokumen perjanjian antara dua pihak, di mana satu pihak (perusahaan asuransi) memberikan perlindungan finansial kepada pihak lain (tertanggung) terhadap risiko tertentu, dengan imbalan premi (biaya yang dibayar secara berkala). asuransi digunakan untuk melindungi barang selama pengiriman dari risiko seperti: Kerusakan, Kehilangan, Kecelakaan saat transportasi',
->>>>>>> Stashed changes
                 'updated_by' => 1,
                 'is_internal' => false,
                 'created_at' => $now,

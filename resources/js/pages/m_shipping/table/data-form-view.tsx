@@ -60,6 +60,7 @@ interface DocumentTrans {
         link_path_example_file?: string;
         link_path_template_file?: string;
         link_url_video_file?: string;
+        is_confirmed?: boolean; // Added
     };
     verify?: boolean | null;
     kuota_revisi?: number;
@@ -217,6 +218,10 @@ export default function ViewCustomerForm({
     const [isRemoveSectionModalOpen, setIsRemoveSectionModalOpen] = useState(false);
     const [sectionToRemove, setSectionToRemove] = useState<any>(null);
     const [isRemovingSection, setIsRemovingSection] = useState(false);
+
+    // New State for Verification Confirmation
+    const [confirmVerifyModalOpen, setConfirmVerifyModalOpen] = useState(false);
+    const [docToVerify, setDocToVerify] = useState<DocumentTrans | null>(null);
 
     useEffect(() => {
         if (helpModalOpen) {
@@ -400,8 +405,7 @@ export default function ViewCustomerForm({
     };
 
     // Verification Handlers
-    const handleVerify = (documentId: number) => {
-        // Toggle pending verification logic
+    const toggleVerificationState = (documentId: number) => {
         setPendingVerifications((prev) => {
             if (prev.includes(documentId)) {
                 return prev.filter((id) => id !== documentId);
@@ -409,6 +413,18 @@ export default function ViewCustomerForm({
                 return [...prev, documentId];
             }
         });
+    };
+
+    const handleVerify = (doc: DocumentTrans) => {
+        const isCurrentlyPending = pendingVerifications.includes(doc.id);
+
+        // Jika mau mencentang (accept) dan dokumen butuh konfirmasi
+        if (!isCurrentlyPending && doc.master_document?.is_confirmed) {
+            setDocToVerify(doc);
+            setConfirmVerifyModalOpen(true);
+        } else {
+            toggleVerificationState(doc.id);
+        }
     };
 
     const handleOpenReject = (documentId: number) => {
@@ -966,7 +982,7 @@ export default function ViewCustomerForm({
                                 </span>
                                 <Checkbox
                                     checked={isVerified || isPendingVerification}
-                                    onCheckedChange={() => handleVerify(doc.id)}
+                                    onCheckedChange={() => handleVerify(doc)}
                                     className="border-gray-300 data-[state=checked]:border-green-600 data-[state=checked]:bg-green-600 dark:border-zinc-700 dark:data-[state=checked]:border-green-500 dark:data-[state=checked]:bg-green-500"
                                     disabled={!isPending}
                                 />
@@ -2192,6 +2208,48 @@ export default function ViewCustomerForm({
                             disabled={isRemovingSection}
                         >
                             {isRemovingSection ? trans.removing || 'Menghapus...' : trans.confirm_delete || 'Hapus Sekarang'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={confirmVerifyModalOpen} onOpenChange={setConfirmVerifyModalOpen}>
+                <DialogContent className="max-w-md rounded-2xl p-6 dark:border-zinc-800 dark:bg-zinc-900">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-xl font-bold dark:text-white">
+                            <CircleHelp className="h-6 w-6 text-blue-500" />
+                            Konfirmasi Verifikasi
+                        </DialogTitle>
+                    </DialogHeader>
+
+                    <div className="py-4">
+                        <p className="text-slate-600 dark:text-zinc-400">
+                            Apakah Anda sudah yakin dengan isi dokumen <span className="font-bold text-slate-900 dark:text-white">"{docToVerify?.master_document?.nama_dokumen || docToVerify?.nama_file}"</span>?
+                        </p>
+                    </div>
+
+                    <DialogFooter className="flex gap-3 sm:justify-end">
+                        <Button
+                            variant="outline"
+                            className="rounded-xl border-slate-200 px-6 dark:border-zinc-700 dark:text-zinc-300"
+                            onClick={() => {
+                                setConfirmVerifyModalOpen(false);
+                                setDocToVerify(null);
+                            }}
+                        >
+                            {trans.cancel || 'Batal'}
+                        </Button>
+                        <Button
+                            className="rounded-xl bg-black px-6 text-white hover:bg-gray-800 dark:bg-zinc-100 dark:text-black dark:hover:bg-zinc-300"
+                            onClick={() => {
+                                if (docToVerify) {
+                                    toggleVerificationState(docToVerify.id);
+                                }
+                                setConfirmVerifyModalOpen(false);
+                                setDocToVerify(null);
+                            }}
+                        >
+                            {trans.confirm || 'Ya, Saya Yakin'}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
