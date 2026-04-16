@@ -546,7 +546,7 @@ class ShippingController extends Controller
                     $internalUsers = \App\Models\User::on('tako-user')
                         ->where('role', 'internal')
                         ->whereIn('role_internal', ['staff', 'marketing', 'supervisor'])
-                        ->where('id_perusahaan', $user->id_perusahaan)
+                        ->where('id_perusahaan', $tenant->perusahaan_id)
                         ->distinct()
                         ->get();
 
@@ -623,6 +623,7 @@ class ShippingController extends Controller
                         $supervisors = \App\Models\User::on('tako-user')
                             ->where('role', 'internal')
                             ->where('role_internal', 'supervisor')
+                            ->where('id_perusahaan', $user->id_perusahaan ?? (tenancy()->tenant->perusahaan_id ?? null))
                             ->get();
 
                         foreach ($supervisors as $supervisor) {
@@ -959,8 +960,11 @@ class ShippingController extends Controller
                     // We exclude Supervisors from this deletion so they keep their history.
                     $staffIdsToCleanup = \App\Models\User::on('tako-user')
                         ->where('role', 'internal')
-                        ->where('role_internal', 'staff')
-                        ->orWhere('role_internal', 'marketing')
+                        ->where('id_perusahaan', $user->id_perusahaan ?? $tenant->perusahaan_id)
+                        ->where(function ($q) {
+                            $q->where('role_internal', 'staff')
+                                ->orWhere('role_internal', 'marketing');
+                        })
                         ->where('id_user', '!=', $user->id_user)
                         ->pluck('id_user');
 
@@ -1145,6 +1149,7 @@ class ShippingController extends Controller
 
                 // 2. Send notification to newly assigned staff
                 try {
+                    // Internal Database Notification
                     NotificationService::send([
                         'send_to'    => $assignedUser->id_user,
                         'created_by' => $user->id_user,
@@ -1158,6 +1163,9 @@ class ShippingController extends Controller
                             'spk_code' => $spk->spk_code,
                         ]
                     ]);
+
+                    // Email Notification
+                    SectionReminderService::sendStaffAssigned($spk, $user, $assignedUser);
                 } catch (\Exception $e) {
                     Log::error("Failed to send assignment notification: " . $e->getMessage());
                 }
@@ -1234,6 +1242,8 @@ class ShippingController extends Controller
         $supervisors = \App\Models\User::on('tako-user')
             ->where('role', 'internal')
             ->where('role_internal', 'supervisor')
+            ->where('id_perusahaan', tenancy()->tenant->perusahaan_id ?? null)
+
             ->get();
 
         foreach ($supervisors as $supervisor) {
@@ -1331,6 +1341,8 @@ class ShippingController extends Controller
         $supervisors = \App\Models\User::on('tako-user')
             ->where('role', 'internal')
             ->where('role_internal', 'supervisor')
+            ->where('id_perusahaan', tenancy()->tenant->perusahaan_id ?? null)
+
             ->get();
 
         foreach ($supervisors as $supervisor) {
@@ -1425,6 +1437,8 @@ class ShippingController extends Controller
         $supervisors = \App\Models\User::on('tako-user')
             ->where('role', 'internal')
             ->where('role_internal', 'supervisor')
+            ->where('id_perusahaan', tenancy()->tenant->perusahaan_id ?? null)
+
             ->get();
 
         foreach ($supervisors as $supervisor) {
