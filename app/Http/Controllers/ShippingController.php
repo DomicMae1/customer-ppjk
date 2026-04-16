@@ -469,13 +469,8 @@ class ShippingController extends Controller
             }
 
             // --- 4. GENERATE DOKUMEN TRANSAKSI (MANDATORY ONLY) ---
-            // Hanya dokumen dengan attribute = true yang otomatis ditambahkan saat SPK dibuat.
-            // Dokumen lain (attribute = false) ditambahkan secara manual melalui modal di frontend.
-            $allowedSectionIds = MasterSectionTrans::where('attribute_section', true)
-                ->where('is_checklist', false)
-                ->where('id_section', '!=', 6)
-                ->pluck('id_section')
-                ->toArray();
+            // Hanya dokumen dengan attribute = true yang otomatis ditambahkan saat SPK/Section dibuat.
+            $allowedSectionIds = $masterSections->pluck('id_section')->toArray();
 
             $finalDocs = MasterDocumentTrans::where('is_active', true)
                 ->where('attribute', true)
