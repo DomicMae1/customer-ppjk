@@ -30,6 +30,7 @@ class TenantDocumentSeeder extends Seeder
                 'is_verification' => true,
                 'created_at' => $now,
                 'updated_at' => $now,
+                'is_confirmed' => 0, 
             ],
             [
                 'id_section' => 1,
@@ -44,6 +45,7 @@ class TenantDocumentSeeder extends Seeder
                 'is_verification' => true,
                 'created_at' => $now,
                 'updated_at' => $now,
+                'is_confirmed' => 0, 
             ],
             [
                 'id_section' => 1,
@@ -58,6 +60,7 @@ class TenantDocumentSeeder extends Seeder
                 'is_verification' => true,
                 'created_at' => $now,
                 'updated_at' => $now,
+                'is_confirmed' => 0, 
             ],
             [
                 'id_section' => 1,
@@ -72,6 +75,7 @@ class TenantDocumentSeeder extends Seeder
                 'is_verification' => true,
                 'created_at' => $now,
                 'updated_at' => $now,
+                'is_confirmed' => 0, 
             ],
             [
                 'id_section' => 1,
@@ -86,6 +90,7 @@ class TenantDocumentSeeder extends Seeder
                 'is_verification' => true,
                 'created_at' => $now,
                 'updated_at' => $now,
+                'is_confirmed' => 0, 
             ],
             [
                 'id_section' => 1,
@@ -100,6 +105,7 @@ class TenantDocumentSeeder extends Seeder
                 'is_verification' => true,
                 'created_at' => $now,
                 'updated_at' => $now,
+                'is_confirmed' => 0, 
             ],
             [
                 'id_section' => 1,
@@ -114,6 +120,7 @@ class TenantDocumentSeeder extends Seeder
                 'is_verification' => true,
                 'created_at' => $now,
                 'updated_at' => $now,
+                'is_confirmed' => 0, 
             ],
             [
                 'id_section' => 2,
@@ -128,6 +135,7 @@ class TenantDocumentSeeder extends Seeder
                 'is_verification' => true,
                 'created_at' => $now,
                 'updated_at' => $now,
+                'is_confirmed' => 0, 
             ],
             [
                 'id_section' => 2,
@@ -142,6 +150,7 @@ class TenantDocumentSeeder extends Seeder
                 'is_verification' => true,
                 'created_at' => $now,
                 'updated_at' => $now,
+                'is_confirmed' => 0, 
             ],
             [
                 'id_section' => 2,
@@ -156,6 +165,7 @@ class TenantDocumentSeeder extends Seeder
                 'is_verification' => true,
                 'created_at' => $now,
                 'updated_at' => $now,
+                'is_confirmed' => 0, 
             ],
             [
                 'id_section' => 3,
@@ -169,8 +179,8 @@ class TenantDocumentSeeder extends Seeder
                 'is_internal' => true,
                 'is_verification' => true,
                 'created_at' => $now,
-                'updated_at' => $now,
-                'is_confitmed' => 1,
+                'updated_at' => $now, 
+                'is_confirmed' => 1,
             ],
             [
                 'id_section' => 3,
@@ -185,6 +195,7 @@ class TenantDocumentSeeder extends Seeder
                 'is_verification' => true,
                 'created_at' => $now,
                 'updated_at' => $now,
+                'is_confirmed' => 0, 
             ],
             [
                 'id_section' => 4,
@@ -199,7 +210,7 @@ class TenantDocumentSeeder extends Seeder
                 'is_verification' => true,
                 'created_at' => $now,
                 'updated_at' => $now,
-                'is_confitmed' => 1,
+                'is_confirmed' => 1,
             ],
             [
                 'id_section' => 4,
@@ -214,6 +225,7 @@ class TenantDocumentSeeder extends Seeder
                 'is_verification' => true,
                 'created_at' => $now,
                 'updated_at' => $now,
+                'is_confirmed' => 0, 
             ],
             [
                 'id_section' => 4,
@@ -228,6 +240,7 @@ class TenantDocumentSeeder extends Seeder
                 'is_verification' => true,
                 'created_at' => $now,
                 'updated_at' => $now,
+                'is_confirmed' => 0, 
             ],
             [
                 'id_section' => 5,
@@ -242,6 +255,7 @@ class TenantDocumentSeeder extends Seeder
                 'is_verification' => true,
                 'created_at' => $now,
                 'updated_at' => $now,
+                'is_confirmed' => 0, 
             ],
             [
                 'id_section' => 5,
@@ -256,6 +270,7 @@ class TenantDocumentSeeder extends Seeder
                 'is_verification' => true,
                 'created_at' => $now,
                 'updated_at' => $now,
+                'is_confirmed' => 0, 
             ],
             [
                 'id_section' => 5,
@@ -270,6 +285,7 @@ class TenantDocumentSeeder extends Seeder
                 'is_verification' => true,
                 'created_at' => $now,
                 'updated_at' => $now,
+                'is_confirmed' => 0, 
             ],
             [
                 'id_section' => 6,
@@ -284,6 +300,7 @@ class TenantDocumentSeeder extends Seeder
                 'is_verification' => true,
                 'created_at' => $now,
                 'updated_at' => $now,
+                'is_confirmed' => 0, 
             ],
             [
                 'id_section' => 7,
@@ -298,6 +315,7 @@ class TenantDocumentSeeder extends Seeder
                 'is_verification' => true,
                 'created_at' => $now,
                 'updated_at' => $now,
+                'is_confirmed' => 0, 
             ],
             [
                 'id_section' => 7,
@@ -312,6 +330,7 @@ class TenantDocumentSeeder extends Seeder
                 'is_verification' => true,
                 'created_at' => $now,
                 'updated_at' => $now,
+                'is_confirmed' => 0, 
             ],
             [
                 'id_section' => 7,
@@ -326,6 +345,7 @@ class TenantDocumentSeeder extends Seeder
                 'is_verification' => true,
                 'created_at' => $now,
                 'updated_at' => $now,
+                'is_confirmed' => 0, 
             ],
             [
                 'id_section' => 7,
@@ -340,6 +360,7 @@ class TenantDocumentSeeder extends Seeder
                 'is_verification' => true,
                 'created_at' => $now,
                 'updated_at' => $now,
+                'is_confirmed' => 0, 
             ],
             [
                 'id_section' => 7,
@@ -354,6 +375,7 @@ class TenantDocumentSeeder extends Seeder
                 'is_verification' => true,
                 'created_at' => $now,
                 'updated_at' => $now,
+                'is_confirmed' => 0, 
             ],
             [
                 'id_section' => 7,
@@ -368,6 +390,7 @@ class TenantDocumentSeeder extends Seeder
                 'is_verification' => true,
                 'created_at' => $now,
                 'updated_at' => $now,
+                'is_confirmed' => 0, 
             ],
             [
                 'id_section' => 7,
@@ -382,6 +405,7 @@ class TenantDocumentSeeder extends Seeder
                 'is_verification' => true,
                 'created_at' => $now,
                 'updated_at' => $now,
+                'is_confirmed' => 0, 
             ],
             [
                 'id_section' => 7,
@@ -396,6 +420,7 @@ class TenantDocumentSeeder extends Seeder
                 'is_verification' => true,
                 'created_at' => $now,
                 'updated_at' => $now,
+                'is_confirmed' => 0, 
             ],
             [
                 'id_section' => 7,
@@ -410,6 +435,7 @@ class TenantDocumentSeeder extends Seeder
                 'is_verification' => true,
                 'created_at' => $now,
                 'updated_at' => $now,
+                'is_confirmed' => 0, 
             ],
             [
                 'id_section' => 7,
@@ -424,6 +450,7 @@ class TenantDocumentSeeder extends Seeder
                 'is_verification' => true,
                 'created_at' => $now,
                 'updated_at' => $now,
+                'is_confirmed' => 0, 
             ],
             [
                 'id_section' => 7,
@@ -438,6 +465,7 @@ class TenantDocumentSeeder extends Seeder
                 'is_verification' => true,
                 'created_at' => $now,
                 'updated_at' => $now,
+                'is_confirmed' => 0, 
             ],
             [
                 'id_section' => 7,
@@ -452,6 +480,7 @@ class TenantDocumentSeeder extends Seeder
                 'is_verification' => true,
                 'created_at' => $now,
                 'updated_at' => $now,
+                'is_confirmed' => 0, 
             ],
             [
                 'id_section' => 7,
@@ -466,6 +495,7 @@ class TenantDocumentSeeder extends Seeder
                 'is_verification' => true,
                 'created_at' => $now,
                 'updated_at' => $now,
+                'is_confirmed' => 0, 
             ],
             [
                 'id_section' => 7,
@@ -480,6 +510,7 @@ class TenantDocumentSeeder extends Seeder
                 'is_verification' => true,
                 'created_at' => $now,
                 'updated_at' => $now,
+                'is_confirmed' => 0, 
             ],
             [
                 'id_section' => 7,
@@ -494,6 +525,7 @@ class TenantDocumentSeeder extends Seeder
                 'is_verification' => true,
                 'created_at' => $now,
                 'updated_at' => $now,
+                'is_confirmed' => 0, 
             ],
             [
                 'id_section' => 7,
@@ -508,6 +540,7 @@ class TenantDocumentSeeder extends Seeder
                 'is_verification' => true,
                 'created_at' => $now,
                 'updated_at' => $now,
+                'is_confirmed' => 0, 
             ],
             [
                 'id_section' => 7,
@@ -522,6 +555,7 @@ class TenantDocumentSeeder extends Seeder
                 'is_verification' => true,
                 'created_at' => $now,
                 'updated_at' => $now,
+                'is_confirmed' => 0, 
             ],
             [
                 'id_section' => 7,
@@ -536,6 +570,7 @@ class TenantDocumentSeeder extends Seeder
                 'is_verification' => true,
                 'created_at' => $now,
                 'updated_at' => $now,
+                'is_confirmed' => 0, 
             ],
         ];
 
