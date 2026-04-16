@@ -2282,7 +2282,8 @@ export default function ViewCustomerForm({
 
                     <div className="py-4">
                         <p className="text-slate-600 dark:text-zinc-400">
-                            Apakah Anda sudah yakin dengan isi dokumen <span className="font-bold text-slate-900 dark:text-white">"{docToVerify?.master_document?.nama_dokumen || docToVerify?.nama_file}"</span>?
+                            Mohon Konfirmasi Ulang
+                            Setelah anda menyatakan yakin pada data <span className="font-bold text-slate-900 dark:text-white">"{docToVerify?.master_document?.nama_dokumen || docToVerify?.nama_file}"</span> maka segala bentuk konsekuensi akan menjadi tanggung jawab pihak importir/eksportir
                         </p>
                     </div>
 
