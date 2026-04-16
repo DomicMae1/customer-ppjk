@@ -908,18 +908,18 @@ export default function ViewCustomerForm({
                 <div className="flex items-start justify-between gap-4">
                     {/* Left: Name & History */}
                     <div className="flex flex-1 flex-col gap-1">
-                        <div className="flex items-center gap-2 text-gray-800 dark:text-slate-900">
-                            <span className="text-sm font-medium">
+                        <div className="flex items-start gap-2 text-gray-800 dark:text-slate-900">
+                            <span className="min-w-0 flex-1 text-sm font-medium">
                                 {idx + 1}. {doc.master_document?.nama_dokumen || doc.nama_file}
                             </span>
+
                             <CircleHelp
-                                className="h-4 w-4 cursor-pointer text-gray-500 hover:text-gray-700 dark:text-zinc-500 dark:hover:text-zinc-300"
+                                className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer text-gray-500 hover:text-gray-700 dark:text-zinc-500 dark:hover:text-zinc-300"
                                 onClick={() => handleOpenHelp(doc)}
                             />
 
-                            {/* Badge Status */}
                             {!canVerify && doc.url_path_file && (
-                                <div className="flex gap-1">
+                                <div className="flex shrink-0 gap-1">
                                     {isVerified && (
                                         <span className="rounded-full border border-green-200 bg-green-100 px-2.5 py-0.5 text-[10px] font-bold tracking-tight text-green-700 uppercase dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-400">
                                             {trans.verified}
@@ -1422,9 +1422,7 @@ export default function ViewCustomerForm({
                     {/* Conditional ETA Date Field (id_section === 7) */}
                     {sectionsTransProp?.some((s) => s.id_section === 7) && (
                         <div className="col-span-2 mt-2 space-y-1.5 border-t border-slate-200/60 pt-3 dark:border-zinc-800">
-                            <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
-                                {trans.eta_date}
-                            </div>
+                            <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.eta_date}</div>
                             <div className="flex items-center gap-2">
                                 <Input
                                     type="date"
@@ -2282,7 +2280,11 @@ export default function ViewCustomerForm({
 
                     <div className="py-4">
                         <p className="text-slate-600 dark:text-zinc-400">
-                            Apakah Anda sudah yakin dengan isi dokumen <span className="font-bold text-slate-900 dark:text-white">"{docToVerify?.master_document?.nama_dokumen || docToVerify?.nama_file}"</span>?
+                            Apakah Anda sudah yakin dengan isi dokumen{' '}
+                            <span className="font-bold text-slate-900 dark:text-white">
+                                "{docToVerify?.master_document?.nama_dokumen || docToVerify?.nama_file}"
+                            </span>
+                            ?
                         </p>
                     </div>
 

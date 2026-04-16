@@ -1,12 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { router, usePage } from '@inertiajs/react';
+import { Link, router, usePage } from '@inertiajs/react';
 import {
     ColumnDef,
     ColumnFiltersState,
@@ -19,7 +19,7 @@ import {
     useReactTable,
     VisibilityState,
 } from '@tanstack/react-table';
-import { Clipboard, CopyPlus, Image as ImageIcon, Plus, Trash2, X } from 'lucide-react'; // Import Icon Plus & Upload
+import { AlertCircle, Clipboard, CopyPlus, Eye, Image as ImageIcon, Pencil, Trash2, X } from 'lucide-react'; // Import Icon Plus & Upload
 import { nanoid } from 'nanoid';
 import * as React from 'react';
 import { useEffect, useState } from 'react';
@@ -471,7 +471,10 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                             </Label>
                                             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                                                 {(props.checklistSections as any[]).map((sec) => (
-                                                    <div key={sec.id_section} className="flex items-center space-x-2 rounded-md border p-2 transition-colors hover:bg-muted/50">
+                                                    <div
+                                                        key={sec.id_section}
+                                                        className="hover:bg-muted/50 flex items-center space-x-2 rounded-md border p-2 transition-colors"
+                                                    >
                                                         <Checkbox
                                                             id={`sec-${sec.id_section}`}
                                                             checked={selectedSections.includes(sec.id_section)}
@@ -485,7 +488,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                                         />
                                                         <Label
                                                             htmlFor={`sec-${sec.id_section}`}
-                                                            className="text-foreground cursor-pointer text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                                            className="text-foreground cursor-pointer text-sm leading-none font-medium peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                                                         >
                                                             {sec.section_name}
                                                         </Label>
@@ -676,200 +679,168 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
             </div>
 
             {/* --- MOBILE VIEW: CARD LAYOUT --- */}
-            <div className="px-4 py-4 md:hidden">
-                {/* Row 1: pilih kolom + tombol tambah */}
-                <div className="mb-3 flex w-full items-center gap-2">
-                    <div className="min-w-0 flex-1">
-                        <Select value={filterColumn} onValueChange={(val) => setFilterColumn(val as any)}>
-                            <SelectTrigger className="w-full">
-                                <SelectValue placeholder={trans.select_column} />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="spk_code">{trans.spk_number}</SelectItem>
-                                <SelectItem value="nama_customer">{trans.customer_name}</SelectItem>
-                                <SelectItem value="keterangan_status">{trans.status_description}</SelectItem>
-                                <SelectItem value="jalur">{trans.channel}</SelectItem>
-                                <SelectItem value="handler_name">{trans.handled_by || 'Handled By'}</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
+            <div className="flex flex-col gap-4 md:hidden">
+                {table.getRowModel().rows.length > 0 ? (
+                    table.getRowModel().rows.map((row) => {
+                        const original = row.original as any;
 
-                    {userRole && (
-                        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                            <DialogTrigger asChild>
-                                <Button size="icon" className="h-10 w-10 shrink-0">
-                                    <Plus className="h-4 w-4" />
-                                </Button>
-                            </DialogTrigger>
-                        </Dialog>
-                    )}
-                </div>
+                        const dateObj = original.tanggal_status ? new Date(original.tanggal_status) : null;
 
-                {/* Row 2: filter dinamis */}
-                <div className="mb-3">
-                    {filterColumn === 'jalur' ? (
-                        <Select value={routeFilter} onValueChange={setRouteFilter}>
-                            <SelectTrigger className="w-full">
-                                <SelectValue placeholder={trans.select_channel || 'Pilih Penjaluran'} />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">{trans.all || 'Semua'}</SelectItem>
-                                <SelectItem value="belum_selesai">{trans.not_finished || 'Belum Selesai'}</SelectItem>
-                                <SelectItem value="merah">{trans.red || 'Merah'}</SelectItem>
-                                <SelectItem value="hijau">{trans.green || 'Hijau'}</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    ) : filterColumn === 'keterangan_status' ? (
-                        <Select value={statusLabelFilter} onValueChange={setStatusLabelFilter}>
-                            <SelectTrigger className="w-full">
-                                <SelectValue placeholder={trans.select_status || 'Pilih Status'} />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">{trans.all || 'Semua'}</SelectItem>
-                                {uniqueStatusOptions.map((status) => (
-                                    <SelectItem key={status} value={status}>
-                                        {status}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    ) : filterColumn === 'handler_name' ? (
-                        <Select value={handlerFilter} onValueChange={setHandlerFilter}>
-                            <SelectTrigger className="w-full">
-                                <SelectValue placeholder={trans.select_handler || 'Pilih Handler'} />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">{trans.all || 'Semua'}</SelectItem>
-                                {uniqueHandlerOptions.map((handler) => (
-                                    <SelectItem key={handler} value={handler}>
-                                        {handler}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    ) : (
-                        <Input
-                            placeholder={trans.typing_keyword}
-                            value={filterValue}
-                            onChange={(event) => setFilterValue(event.target.value)}
-                            className="w-full"
-                        />
-                    )}
-                </div>
+                        const tanggalFormat = dateObj
+                            ? dateObj
+                                  .toLocaleDateString('id-ID', {
+                                      day: '2-digit',
+                                      month: '2-digit',
+                                      year: 'numeric',
+                                  })
+                                  .replace(/\./g, '/')
+                            : '-';
 
-                {/* Row 3: reset */}
-                <div className="mb-4">
-                    <Button variant="outline" className="w-full" onClick={handleReset}>
-                        {trans.reset}
-                    </Button>
-                </div>
+                        const jamMenit = dateObj
+                            ? dateObj
+                                  .toLocaleTimeString('id-ID', {
+                                      hour: '2-digit',
+                                      minute: '2-digit',
+                                      hour12: false,
+                                  })
+                                  .replace('.', ':')
+                            : '';
 
-                <div className="flex flex-col gap-4">
-                    {table.getRowModel().rows.length > 0 ? (
-                        table.getRowModel().rows.map((row) => {
-                            const original = row.original as any;
+                        const deadlineFormatted = original.deadline_date
+                            ? new Date(original.deadline_date).toLocaleDateString('en-GB', {
+                                  day: 'numeric',
+                                  month: 'short',
+                                  year: 'numeric',
+                              })
+                            : null;
 
-                            const dateObj = original.tanggal_status ? new Date(original.tanggal_status) : null;
-                            const dateStr = dateObj
-                                ? dateObj.toLocaleDateString(currentLocale === 'id' ? 'id-ID' : 'en-GB', {
-                                    day: '2-digit',
-                                    month: '2-digit',
-                                    year: '2-digit',
-                                })
-                                : '-';
-                            const timeStr = dateObj
-                                ? dateObj.toLocaleTimeString(currentLocale === 'id' ? 'id-ID' : 'en-GB', {
-                                    hour: '2-digit',
-                                    minute: '2-digit',
-                                    hour12: false,
-                                })
-                                : '';
+                        const etaFormatted = original.eta_date
+                            ? new Date(original.eta_date).toLocaleDateString('en-GB', {
+                                  day: 'numeric',
+                                  month: 'short',
+                                  year: 'numeric',
+                              })
+                            : null;
 
-                            return (
-                                <div
-                                    key={row.id}
-                                    className="border-border bg-card active:bg-accent cursor-pointer rounded-lg border p-4 shadow-sm transition-colors"
-                                    onClick={() => router.visit(`/shipping/${original.id}`)}
-                                >
-                                    <div className="border-border mb-2 flex items-center justify-between border-b pb-2">
-                                        <span className="text-foreground font-mono text-base font-medium">{original.spk_code || '-'}</span>
-                                        <span
-                                            className={`text-sm font-bold ${original.jalur?.toLowerCase() === 'hijau'
-                                                ? 'text-emerald-500'
-                                                : original.jalur?.toLowerCase() === 'merah'
-                                                    ? 'text-rose-500'
-                                                    : 'text-amber-500'
-                                                }`}
-                                        >
-                                            {original.jalur || '-'}
-                                        </span>
+                        const progress = original.progress || 0;
+
+                        let statusText = trans.progress_not_started;
+                        let colorClass = 'bg-slate-200';
+                        let textClass = 'text-slate-500';
+
+                        if (progress === 100) {
+                            statusText = trans.progress_completed;
+                            colorClass = 'bg-emerald-500';
+                            textClass = 'text-emerald-600';
+                        } else if (progress >= 80) {
+                            statusText = trans.progress_almost_done;
+                            colorClass = 'bg-indigo-500';
+                            textClass = 'text-indigo-600';
+                        } else if (progress >= 40) {
+                            statusText = trans.progress_in_process;
+                            colorClass = 'bg-blue-500';
+                            textClass = 'text-blue-600';
+                        } else if (progress > 0) {
+                            statusText = trans.progress_started;
+                            colorClass = 'bg-sky-400';
+                            textClass = 'text-sky-600';
+                        }
+
+                        let jalurColorClass = 'text-gray-500';
+                        let jalurDisplayText = '-';
+                        const jalurLower = original.jalur ? original.jalur.toLowerCase() : '';
+
+                        if (jalurLower === 'hijau') {
+                            jalurColorClass = 'text-green-600';
+                            jalurDisplayText = trans.green || 'Hijau';
+                        } else if (jalurLower === 'merah') {
+                            jalurColorClass = 'text-red-600';
+                            jalurDisplayText = trans.red || 'Merah';
+                        } else if (jalurLower === 'kuning') {
+                            jalurColorClass = 'text-yellow-600';
+                            jalurDisplayText = trans.yellow || 'Kuning';
+                        } else if (original.jalur) {
+                            jalurDisplayText = original.jalur;
+                        }
+
+                        return (
+                            <div key={row.id} className="border-border bg-card rounded-lg border p-4 shadow-sm transition-colors">
+                                <div className="border-border mb-3 flex items-start justify-between border-b pb-3">
+                                    <div className="min-w-0">
+                                        <p className="text-foreground font-mono text-base font-bold">{original.spk_code || '-'}</p>
+                                        <p className="text-foreground mt-1 font-semibold">{original.nama_customer || '-'}</p>
                                     </div>
 
-                                    <div className="space-y-3">
-                                        <div>
-                                            <p className="text-muted-foreground text-[10px] font-bold uppercase">{trans.customer_name}</p>
-                                            <p className="text-foreground font-bold">{original.nama_customer || '-'}</p>
-                                        </div>
+                                    <div className="ml-3 flex items-center gap-2">
+                                        <Link
+                                            href={`/shipping/documents/${original.id}`}
+                                            className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-slate-300 hover:bg-slate-100 hover:text-slate-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:border-zinc-500 dark:hover:bg-zinc-800 dark:hover:text-white"
+                                            title="View Documents"
+                                        >
+                                            <Eye className="h-4 w-4" />
+                                        </Link>
 
-                                        <div>
-                                            <p className="text-muted-foreground text-[10px] font-bold uppercase">{trans.status_description}</p>
-                                            <div className="text-foreground/90 text-sm">
-                                                <span className="text-primary font-medium">{original.status_label || '-'}</span>
-                                                {original.nama_user && (
-                                                    <span className="text-muted-foreground">
-                                                        {' '}
-                                                        {trans.by} <strong className="text-foreground">{original.nama_user}</strong>
-                                                    </span>
-                                                )}
-                                                {dateObj && (
-                                                    <span className="text-muted-foreground mt-1 block text-xs">
-                                                        {trans.at}{' '}
-                                                        <strong className="text-foreground">
-                                                            {dateStr} {timeStr} WIB
-                                                        </strong>
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </div>
-
-                                        <div className="pt-1">
-                                            <div className="mb-1 flex items-center justify-between gap-2">
-                                                <span className="text-muted-foreground text-[10px] font-bold tracking-wider uppercase">
-                                                    {trans.progress}
-                                                </span>
-                                                <span className="text-foreground text-[11px] font-extrabold">{original.progress || 0}%</span>
-                                            </div>
-                                            <div className="bg-muted h-1.5 w-full overflow-hidden rounded-full shadow-inner">
-                                                <div
-                                                    className={`h-full transition-all duration-1000 ease-out ${original.progress === 100
-                                                        ? 'bg-emerald-500'
-                                                        : (original.progress || 0) >= 80
-                                                            ? 'bg-indigo-500'
-                                                            : (original.progress || 0) >= 40
-                                                                ? 'bg-blue-500'
-                                                                : 'bg-sky-400'
-                                                        }`}
-                                                    style={{ width: `${original.progress || 0}%` }}
-                                                />
-                                            </div>
-                                        </div>
-
-                                        {original.deadline_date && (
-                                            <div className="mt-1 flex items-center gap-1 rounded border border-rose-500/20 bg-rose-500/10 p-1.5">
-                                                <span className="text-sm font-bold text-rose-500">ⓘ</span>
-                                                <span className="text-[10px] font-bold tracking-tight text-rose-500 uppercase">
-                                                    {trans.submit_before} {new Date(original.deadline_date).toLocaleDateString(dateLocale)}
-                                                </span>
-                                            </div>
-                                        )}
+                                        <Link
+                                            href={`/shipping/${original.id}`}
+                                            className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-slate-300 hover:bg-slate-100 hover:text-slate-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:border-blue-500/50 dark:hover:bg-zinc-800 dark:hover:text-blue-400"
+                                            title="View Customer"
+                                        >
+                                            <Pencil className="h-4 w-4" />
+                                        </Link>
                                     </div>
                                 </div>
-                            );
-                        })
-                    ) : (
-                        <div className="py-8 text-center text-gray-500">No results found.</div>
-                    )}
-                </div>
+
+                                <div className="space-y-3">
+                                    <div className="flex items-center justify-between gap-3">
+                                        <div>
+                                            <p className="text-muted-foreground text-[10px] font-bold uppercase">{trans.channel}</p>
+                                            <p className={`text-sm font-bold ${jalurColorClass}`}>{jalurDisplayText}</p>
+                                        </div>
+
+                                        <div className="text-right">
+                                            <p className="text-muted-foreground text-[10px] font-bold uppercase">ETA</p>
+                                            <p className="text-foreground text-sm font-semibold">{etaFormatted || '-'}</p>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <p className="text-muted-foreground text-[10px] font-bold uppercase">{trans.status_description}</p>
+                                        <div className="text-foreground/90 text-sm">
+                                            <span>
+                                                {original.status_label || '-'} {trans.last_updated || 'updated'} {` ${trans.at || 'at'} `}
+                                                <strong>{dateObj ? `${tanggalFormat} ${jamMenit} WIB` : '-'}</strong>
+                                                {original.nama_user ? ` ${trans.by || 'by'} ` : ''}
+                                                {original.nama_user && <strong>{original.nama_user}</strong>}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div className="pt-1">
+                                        <div className="mb-1 flex items-center justify-between gap-2">
+                                            <span className={`text-[10px] font-bold tracking-wider uppercase ${textClass}`}>{statusText}</span>
+                                            <span className="text-foreground text-[11px] font-extrabold">{progress}%</span>
+                                        </div>
+                                        <div className="bg-muted h-2 w-full overflow-hidden rounded-full shadow-inner">
+                                            <div
+                                                className={`h-full transition-all duration-1000 ease-out ${colorClass}`}
+                                                style={{ width: `${progress}%` }}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {deadlineFormatted && (
+                                        <div className="mt-1 flex items-center gap-1 text-red-600">
+                                            <AlertCircle className="h-3 w-3 shrink-0" />
+                                            <span className="text-sm leading-none font-bold">{deadlineFormatted}</span>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    })
+                ) : (
+                    <div className="py-8 text-center text-gray-500">No results found.</div>
+                )}
             </div>
 
             <div className="hidden rounded-md border md:block">
@@ -886,8 +857,8 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                                     (header.column.getIsSorted() === 'asc'
                                                         ? '⬆️'
                                                         : header.column.getIsSorted() === 'desc'
-                                                            ? '⬇️'
-                                                            : '')}
+                                                          ? '⬇️'
+                                                          : '')}
                                             </button>
                                         ) : (
                                             flexRender(header.column.columnDef.header, header.getContext())
