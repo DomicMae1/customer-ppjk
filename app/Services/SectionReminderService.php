@@ -135,4 +135,18 @@ class SectionReminderService
             \Illuminate\Support\Facades\Log::error("Failed to queue BatchDocumentRejectedMail: " . $e->getMessage());
         }
     }
+
+    /**
+     * Kirim email saat PIC ditunjuk untuk SPK.
+     */
+    public static function sendStaffAssigned(Spk $spk, User $supervisor, User $staff)
+    {
+        if (!$staff || empty($staff->email)) return;
+
+        try {
+            \Illuminate\Support\Facades\Mail::to($staff->email)->queue(new \App\Mail\SpkAssignedMail($spk, $supervisor, $staff));
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error("Failed to queue SpkAssignedMail: " . $e->getMessage());
+        }
+    }
 }

@@ -469,13 +469,8 @@ class ShippingController extends Controller
             }
 
             // --- 4. GENERATE DOKUMEN TRANSAKSI (MANDATORY ONLY) ---
-            // Hanya dokumen dengan attribute = true yang otomatis ditambahkan saat SPK dibuat.
-            // Dokumen lain (attribute = false) ditambahkan secara manual melalui modal di frontend.
-            $allowedSectionIds = MasterSectionTrans::where('attribute_section', true)
-                ->where('is_checklist', false)
-                ->where('id_section', '!=', 6)
-                ->pluck('id_section')
-                ->toArray();
+            // Hanya dokumen dengan attribute = true yang otomatis ditambahkan saat SPK/Section dibuat.
+            $allowedSectionIds = $masterSections->pluck('id_section')->toArray();
 
             $finalDocs = MasterDocumentTrans::where('is_active', true)
                 ->where('attribute', true)
@@ -546,7 +541,7 @@ class ShippingController extends Controller
                     $internalUsers = \App\Models\User::on('tako-user')
                         ->where('role', 'internal')
                         ->whereIn('role_internal', ['staff', 'marketing', 'supervisor'])
-                        ->where('id_perusahaan', $user->id_perusahaan)
+                        ->where('id_perusahaan', $tenant->perusahaan_id)
                         ->distinct()
                         ->get();
 
@@ -623,6 +618,7 @@ class ShippingController extends Controller
                         $supervisors = \App\Models\User::on('tako-user')
                             ->where('role', 'internal')
                             ->where('role_internal', 'supervisor')
+                            ->where('id_perusahaan', $user->id_perusahaan ?? (tenancy()->tenant->perusahaan_id ?? null))
                             ->get();
 
                         foreach ($supervisors as $supervisor) {
@@ -959,8 +955,11 @@ class ShippingController extends Controller
                     // We exclude Supervisors from this deletion so they keep their history.
                     $staffIdsToCleanup = \App\Models\User::on('tako-user')
                         ->where('role', 'internal')
-                        ->where('role_internal', 'staff')
-                        ->orWhere('role_internal', 'marketing')
+                        ->where('id_perusahaan', $user->id_perusahaan ?? $tenant->perusahaan_id)
+                        ->where(function ($q) {
+                            $q->where('role_internal', 'staff')
+                                ->orWhere('role_internal', 'marketing');
+                        })
                         ->where('id_user', '!=', $user->id_user)
                         ->pluck('id_user');
 
@@ -1145,6 +1144,7 @@ class ShippingController extends Controller
 
                 // 2. Send notification to newly assigned staff
                 try {
+                    // Internal Database Notification
                     NotificationService::send([
                         'send_to'    => $assignedUser->id_user,
                         'created_by' => $user->id_user,
@@ -1158,6 +1158,9 @@ class ShippingController extends Controller
                             'spk_code' => $spk->spk_code,
                         ]
                     ]);
+
+                    // Email Notification
+                    SectionReminderService::sendStaffAssigned($spk, $user, $assignedUser);
                 } catch (\Exception $e) {
                     Log::error("Failed to send assignment notification: " . $e->getMessage());
                 }
@@ -1234,6 +1237,8 @@ class ShippingController extends Controller
         $supervisors = \App\Models\User::on('tako-user')
             ->where('role', 'internal')
             ->where('role_internal', 'supervisor')
+            ->where('id_perusahaan', tenancy()->tenant->perusahaan_id ?? null)
+
             ->get();
 
         foreach ($supervisors as $supervisor) {
@@ -1331,6 +1336,8 @@ class ShippingController extends Controller
         $supervisors = \App\Models\User::on('tako-user')
             ->where('role', 'internal')
             ->where('role_internal', 'supervisor')
+            ->where('id_perusahaan', tenancy()->tenant->perusahaan_id ?? null)
+
             ->get();
 
         foreach ($supervisors as $supervisor) {
@@ -1425,6 +1432,8 @@ class ShippingController extends Controller
         $supervisors = \App\Models\User::on('tako-user')
             ->where('role', 'internal')
             ->where('role_internal', 'supervisor')
+            ->where('id_perusahaan', tenancy()->tenant->perusahaan_id ?? null)
+
             ->get();
 
         foreach ($supervisors as $supervisor) {

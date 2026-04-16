@@ -5,12 +5,13 @@ namespace App\Mail;
 use App\Models\Spk;
 use App\Models\User;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
-class DocumentAddedMail extends Mailable
+class SpkAssignedMail extends Mailable implements ShouldQueue
 {
     use Queueable, SerializesModels;
 
@@ -29,21 +30,17 @@ class DocumentAddedMail extends Mailable
     public $backoff = 30; // Wait 30 seconds before retrying
 
     public $spk;
-    public $sectionName;
-    public $adminUser;
-    public $recipient;
-    public $count;
+    public $supervisor;
+    public $staff;
 
     /**
      * Create a new message instance.
      */
-    public function __construct(Spk $spk, $sectionName, User $adminUser, User $recipient, $count)
+    public function __construct(Spk $spk, User $supervisor, User $staff)
     {
         $this->spk = $spk;
-        $this->sectionName = $sectionName;
-        $this->adminUser = $adminUser;
-        $this->recipient = $recipient;
-        $this->count = $count;
+        $this->supervisor = $supervisor;
+        $this->staff = $staff;
     }
 
     /**
@@ -51,15 +48,16 @@ class DocumentAddedMail extends Mailable
      */
     public function envelope(): Envelope
     {
+
         $type = $this->spk->shipment_type;
         $code = $this->spk->spk_code;
 
         if ($type === 'Import') {
-            $subject = 'Dokumen Tambahan (B/L ' . $code . ') - ' . $this->sectionName;
+            $subject = 'Penunjukan PIC Nomor B/L ' . $code;
         } elseif ($type === 'Export') {
-            $subject = 'Dokumen Tambahan (S/I ' . $code . ') - ' . $this->sectionName;
+            $subject = 'Penunjukan PIC Nomor S/I ' . $code;
         } else {
-            $subject = 'Dokumen Tambahan (' . $code . ') - ' . $this->sectionName;
+            $subject = 'Penunjukan PIC ' . $code;
         }
 
         return new Envelope(
@@ -73,12 +71,14 @@ class DocumentAddedMail extends Mailable
     public function content(): Content
     {
         return new Content(
-            view: 'emails.document_added',
+            view: 'emails.spk_assigned',
         );
     }
 
     /**
      * Get the attachments for the message.
+     *
+     * @return array<int, \Illuminate\Mail\Mailables\Attachment>
      */
     public function attachments(): array
     {
