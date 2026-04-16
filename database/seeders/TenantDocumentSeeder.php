@@ -170,6 +170,7 @@ class TenantDocumentSeeder extends Seeder
                 'is_verification' => true,
                 'created_at' => $now,
                 'updated_at' => $now,
+                'is_confitmed' => 1,
             ],
             [
                 'id_section' => 3,
@@ -198,6 +199,7 @@ class TenantDocumentSeeder extends Seeder
                 'is_verification' => true,
                 'created_at' => $now,
                 'updated_at' => $now,
+                'is_confitmed' => 1,
             ],
             [
                 'id_section' => 4,
