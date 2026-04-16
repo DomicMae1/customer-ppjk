@@ -3,7 +3,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { Link, usePage } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
-import { AlertCircle, MoreHorizontal } from 'lucide-react';
+import { AlertCircle, Eye, MoreHorizontal, Pencil } from 'lucide-react';
 
 // const downloadPdf = (id: number) => {
 //     const link = document.createElement('a');
@@ -25,6 +25,7 @@ export type Shipping = {
     deadline_date?: string | null;
     progress: number;
     nama_cust?: string;
+    eta_date?: string | null;
 };
 
 export const columns = (
@@ -41,6 +42,33 @@ export const columns = (
     }
 
     return [
+        {
+            id: 'view_documents',
+            header: () => <div className="w-[50px] md:px-2 md:py-2"></div>,
+            cell: ({ row }) => {
+                const shipping = row.original;
+
+                return (
+                    <div className="flex items-center justify-center gap-2 md:px-2">
+                        <Link
+                            href={`/shipping/documents/${shipping.id}`}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-slate-300 hover:bg-slate-100 hover:text-slate-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:border-zinc-500 dark:hover:bg-zinc-800 dark:hover:text-white"
+                            title="View Documents"
+                        >
+                            <Eye className="h-4 w-4" />
+                        </Link>
+
+                        <Link
+                            href={`/shipping/${shipping.id}`}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-slate-300 hover:bg-slate-100 hover:text-slate-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:border-blue-500/50 dark:hover:bg-zinc-800 dark:hover:text-blue-400"
+                            title="View Customer"
+                        >
+                            <Pencil className="h-4 w-4" />
+                        </Link>
+                    </div>
+                );
+            },
+        },
         {
             accessorKey: 'nama_customer',
             header: ({ column }) => (
@@ -82,20 +110,21 @@ export const columns = (
                     return <div className="text-sm md:px-2">-</div>;
                 }
 
+                const date = new Date(deadline);
+
+                const formatted = date.toLocaleDateString('en-GB', {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric',
+                });
+
                 return (
                     <div className="flex flex-col justify-center md:min-w-[200px] md:px-2">
                         {/* Tampilkan Warning Merah (Khusus External) */}
                         {
                             <div className="flex items-center gap-1 text-red-600">
-                                <AlertCircle className="h-3 w-3" />
-                                <span className="mt-0.5 flex text-xs font-bold">
-                                    {trans.submit_before}{' '}
-                                    {new Date(deadline).toLocaleDateString(currentLocale === 'id' ? 'id-ID' : 'en-GB', {
-                                        day: '2-digit',
-                                        month: '2-digit',
-                                        year: '2-digit',
-                                    })}
-                                </span>
+                                <AlertCircle className="h-3 w-3 shrink-0" />
+                                <span className="text-sm leading-none font-bold">{formatted}</span>
                             </div>
                         }
                     </div>
@@ -148,6 +177,34 @@ export const columns = (
                         </div>
                     </div>
                 );
+            },
+        },
+        {
+            accessorKey: 'eta_date',
+            header: ({ column }) => (
+                <div
+                    className="cursor-pointer text-sm font-medium select-none md:px-2 md:py-2"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+                >
+                    ETA
+                </div>
+            ),
+            cell: ({ row }) => {
+                const eta = row.original.eta_date;
+
+                if (!eta) {
+                    return <div className="text-sm md:px-2">-</div>;
+                }
+
+                const date = new Date(eta);
+
+                const formatted = date.toLocaleDateString('en-GB', {
+                    day: 'numeric', // tanpa leading zero
+                    month: 'short', // Mar, Apr, dll
+                    year: 'numeric',
+                });
+
+                return <div className="text-sm md:min-w-[150px] md:px-2">{formatted}</div>;
             },
         },
         {
@@ -231,11 +288,10 @@ export const columns = (
             header: () => <div className="text-right text-sm font-medium md:px-2 md:py-2"></div>,
             cell: ({ row }) => {
                 const shipping = row.original;
-                const { auth } = usePage().props as any; // Cast any agar tidak merah
-                const currentUser = auth.user;
+                const { auth } = usePage().props as any;
+                const isAdmin = auth.user?.roles?.[0]?.name === 'admin';
 
-                const currentUserRole = currentUser.roles?.[0]?.name;
-                const isAdmin = currentUserRole === 'admin';
+                if (!isAdmin) return null;
 
                 const isDesktop = useMediaQuery('(min-width: 768px)');
 
@@ -250,11 +306,6 @@ export const columns = (
                                 </DropdownMenuTrigger>
 
                                 <DropdownMenuContent align="end">
-                                    <Link href={`/shipping/${shipping.id}`} className="w-full cursor-pointer">
-                                        {/* 2. Gunakan trans */}
-                                        <DropdownMenuItem>{trans.view_customer}</DropdownMenuItem>
-                                    </Link>
-
                                     {isAdmin && (
                                         <DropdownMenuItem
                                             className="cursor-pointer text-red-600"
@@ -284,12 +335,6 @@ export const columns = (
 
                 return (
                     <div className="flex flex-col gap-2 pt-2">
-                        <Link href={`/shipping/${shipping.id}`}>
-                            <Button size="sm" variant="outline" className="w-full justify-center dark:border-white">
-                                {trans.view_customer}
-                            </Button>
-                        </Link>
-
                         {isAdmin && (
                             <Button
                                 className="cursor-pointer bg-red-500 text-white"

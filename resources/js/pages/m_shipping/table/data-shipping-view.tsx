@@ -237,15 +237,6 @@ export default function DataShippingFormView({ spk, documents = [], flash }: Pro
                         </table>
                     </div>
                 </div>
-
-                <div className="rounded-2xl border bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-                    <div className="mb-3 text-sm font-bold tracking-wide text-slate-700 uppercase dark:text-zinc-200">Catatan</div>
-                    <div className="space-y-3">
-                        <div className="h-6 border-b border-dashed border-slate-300 dark:border-zinc-700"></div>
-                        <div className="h-6 border-b border-dashed border-slate-300 dark:border-zinc-700"></div>
-                        <div className="h-6 border-b border-dashed border-slate-300 dark:border-zinc-700"></div>
-                    </div>
-                </div>
             </div>
         </div>
     );
