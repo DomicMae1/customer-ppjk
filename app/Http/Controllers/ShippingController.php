@@ -199,6 +199,7 @@ class ShippingController extends Controller
                     'handler_role_internal' => $handlerUser->role_internal ?? null,
                     'validated_by'          => $item->validated_by ?? null,
                     'created_by'            => $item->created_by ?? null,
+                    'eta_date'              => $item->eta_date ?? null,
 
                     'jalur'                 => $item->penjaluran,
                     'jalur_filter'          => $item->penjaluran,
