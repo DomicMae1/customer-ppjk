@@ -348,6 +348,78 @@ class ShippingController extends Controller
         ]);
     }
 
+    public function downloadPdf($id)
+    {
+        $user = auth('web')->user();
+
+        $tenant = null;
+
+        if ($user->id_perusahaan) {
+            $tenant = \App\Models\Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
+        } elseif ($user->id_customer) {
+            $customer = \App\Models\Customer::find($user->id_customer);
+            if ($customer && $customer->ownership) {
+                $tenant = \App\Models\Tenant::where('perusahaan_id', $customer->ownership)->first();
+            }
+        }
+
+        if (!$tenant) {
+            abort(404, 'Tenant tidak ditemukan');
+        }
+
+        tenancy()->initialize($tenant);
+
+        Log::info("📄 Mulai generate PDF report shipping untuk SPK ID: {$id}");
+
+        $spk = Spk::findOrFail($id);
+
+        $documents = \App\Models\DocumentTrans::query()
+            ->where('id_spk', $spk->id)
+            ->orderBy('id_section', 'asc')
+            ->orderBy('id', 'asc')
+            ->get()
+            ->map(function ($doc) {
+                $updatedAt = $doc->updated_at ? \Carbon\Carbon::parse($doc->updated_at) : null;
+
+                return (object) [
+                    'id' => $doc->id,
+                    'id_spk' => $doc->id_spk,
+                    'id_section' => $doc->id_section,
+                    'section_name' => $doc->section_name ?? ('Section ' . $doc->id_section),
+                    'nama_file' => $doc->nama_file ?? '-',
+                    'url_path_file' => $doc->url_path_file,
+                    'verify' => $doc->verify,
+                    'is_updated' => !empty($doc->url_path_file),
+                    'updated_at' => $updatedAt ? $updatedAt->format('d-m-Y') : '-',
+                    'updated_at_full' => $updatedAt ? $updatedAt->format('d-m-Y H:i') . ' WIB' : null,
+                ];
+            });
+
+        $totalDocs = $documents->count();
+        $verifiedCount = $documents->where('verify', true)->count();
+        $pendingCount = $documents->where('verify', '!=', true)->count();
+        $updatedCount = $documents->where('is_updated', true)->count();
+        $progressPercentage = $totalDocs === 0 ? 0 : round(($verifiedCount / $totalDocs) * 100);
+
+        $generatedAt = now()->format('d-m-Y H:i');
+
+        $pdf = Pdf::loadView('pdf.shipping-report', [
+            'spk' => $spk,
+            'documents' => $documents,
+            'generated_by' => $user?->name ?? 'Guest',
+            'generated_at' => $generatedAt,
+            'totalDocs' => $totalDocs,
+            'verifiedCount' => $verifiedCount,
+            'pendingCount' => $pendingCount,
+            'updatedCount' => $updatedCount,
+            'progressPercentage' => $progressPercentage,
+        ])->setPaper('a4', 'portrait');
+
+        Log::info("✅ Generate PDF report shipping selesai untuk SPK: {$spk->spk_code}");
+
+        return $pdf->download("Report-SPK-{$spk->spk_code}.pdf");
+    }
+
     /**
      * Store a newly created resource in storage.
      */
