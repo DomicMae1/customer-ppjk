@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { usePage } from '@inertiajs/react';
+import { FileDown } from 'lucide-react';
 
 type FlashMessage = {
     success?: string | null;
@@ -46,37 +47,58 @@ export default function DataShippingFormView({ spk, documents = [], flash }: Pro
     return (
         <div className="animate-in fade-in w-full bg-slate-50 p-3 font-sans text-sm text-slate-900 duration-500 dark:bg-zinc-950 dark:text-zinc-100">
             <div className="mx-auto w-full max-w-7xl space-y-5">
+                <div className="flex justify-end">
+                    <a
+                        href={`/shipping/${spk?.id}/pdf`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700"
+                    >
+                        <FileDown className="h-4 w-4" />
+                        {trans.download_pdf || 'Download PDF'}
+                    </a>
+                </div>
+
                 <div className="rounded-2xl border bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
                     <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                         <div>
                             <div className="text-[11px] font-bold tracking-[0.18em] text-slate-400 uppercase">
-                                {trans.status || 'Shipment Document View'}
+                                {trans.shipment_document_view || 'Shipment Document View'}
                             </div>
-                            <h1 className="mt-2 text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">Data Dokumen Shipment</h1>
+
+                            <h1 className="mt-2 text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+                                {trans.shipment_document_data || 'Data Dokumen Shipment'}
+                            </h1>
+
                             <p className="mt-2 text-sm text-slate-500">
-                                SPK: <span className="font-semibold text-slate-800 dark:text-zinc-200">{spk?.spk_code ?? '-'}</span>
+                                {trans.spk_label || 'SPK'}:{' '}
+                                <span className="font-semibold text-slate-800 dark:text-zinc-200">{spk?.spk_code ?? '-'}</span>
                             </p>
+
                             {spk?.shipment_type && (
                                 <p className="mt-1 text-sm text-slate-500">
-                                    Shipment Type: <span className="font-semibold text-slate-800 dark:text-zinc-200">{spk.shipment_type}</span>
+                                    {trans.shipment_type_label || 'Shipment Type'}:{' '}
+                                    <span className="font-semibold text-slate-800 dark:text-zinc-200">{spk.shipment_type}</span>
                                 </p>
                             )}
                         </div>
 
-                        <div
-                            className={`flex h-16 w-16 items-center justify-center rounded-2xl text-lg font-bold ${
-                                progressPercentage === 100
-                                    ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400'
-                                    : 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'
-                            }`}
-                        >
-                            {progressPercentage}%
+                        <div className="flex items-center gap-2">
+                            <div
+                                className={`flex h-16 w-16 items-center justify-center rounded-2xl text-lg font-bold ${
+                                    progressPercentage === 100
+                                        ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400'
+                                        : 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'
+                                }`}
+                            >
+                                {progressPercentage}%
+                            </div>
                         </div>
                     </div>
 
                     <div className="mt-5">
                         <div className="mb-2 flex items-center justify-between text-[11px] font-semibold text-slate-500">
-                            <span>{trans.document_completion || 'Document Progress'}</span>
+                            <span>{trans.document_progress || 'Document Progress'}</span>
                             <span>{progressPercentage}%</span>
                         </div>
                         <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-zinc-800">
@@ -88,7 +110,8 @@ export default function DataShippingFormView({ spk, documents = [], flash }: Pro
                             />
                         </div>
                         <div className="mt-2 text-xs text-slate-500">
-                            Verified {verifiedCount} dari {totalDocs} dokumen
+                            {trans.verified || 'Verified'} {verifiedCount} {trans.of || 'of'} {totalDocs}{' '}
+                            {trans.document.toLowerCase?.() || 'dokumen'}
                         </div>
                     </div>
                 </div>
@@ -107,32 +130,29 @@ export default function DataShippingFormView({ spk, documents = [], flash }: Pro
 
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
                     <div className="rounded-2xl border bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-                        <div className="text-sm font-medium text-slate-500">Total Dokumen</div>
+                        <div className="text-sm font-medium text-slate-500">{trans.total_documents || 'Total Dokumen'}</div>
                         <div className="mt-3 text-5xl font-extrabold tracking-tight text-slate-900 dark:text-white">{totalDocs}</div>
                     </div>
 
                     <div className="rounded-2xl border bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-                        <div className="text-sm font-medium text-slate-500">Sudah Diupdate</div>
+                        <div className="text-sm font-medium text-slate-500">{trans.updated_documents || 'Sudah Diupdate'}</div>
                         <div className="mt-3 text-5xl font-extrabold tracking-tight text-blue-600 dark:text-blue-400">{updatedCount}</div>
                     </div>
 
                     <div className="rounded-2xl border bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-                        <div className="text-sm font-medium text-slate-500">Verified</div>
+                        <div className="text-sm font-medium text-slate-500">{trans.verified || 'Verified'}</div>
                         <div className="mt-3 text-5xl font-extrabold tracking-tight text-emerald-600 dark:text-emerald-400">{verifiedCount}</div>
                     </div>
 
                     <div className="rounded-2xl border bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-                        <div className="text-sm font-medium text-slate-500">Pending</div>
+                        <div className="text-sm font-medium text-slate-500">{trans.pending || 'Pending'}</div>
                         <div className="mt-3 text-5xl font-extrabold tracking-tight text-amber-600 dark:text-amber-400">{pendingCount}</div>
                     </div>
                 </div>
 
                 <div className="overflow-hidden rounded-2xl border bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
                     <div className="border-b px-5 py-4 dark:border-zinc-800">
-                        <h2 className="text-lg font-bold text-slate-900 dark:text-white">List Dokumen SPK</h2>
-                        <p className="mt-1 text-sm text-slate-500">
-                            Menampilkan dokumen dari table <b>document_trans</b>
-                        </p>
+                        <h2 className="text-lg font-bold text-slate-900 dark:text-white">{trans.spk_document_list || 'List Dokumen SPK'}</h2>
                     </div>
 
                     <div className="overflow-x-auto">
@@ -140,22 +160,19 @@ export default function DataShippingFormView({ spk, documents = [], flash }: Pro
                             <thead>
                                 <tr className="bg-slate-50 dark:bg-zinc-800/50">
                                     <th className="border-b px-4 py-3 text-center text-xs font-bold tracking-wide text-slate-500 uppercase dark:border-zinc-800">
-                                        No
+                                        {trans.no || 'No'}
                                     </th>
                                     <th className="border-b px-4 py-3 text-left text-xs font-bold tracking-wide text-slate-500 uppercase dark:border-zinc-800">
-                                        Nama File
+                                        {trans.file_name || 'Nama File'}
                                     </th>
                                     <th className="border-b px-4 py-3 text-center text-xs font-bold tracking-wide text-slate-500 uppercase dark:border-zinc-800">
-                                        Tanggal
+                                        {trans.date || 'Tanggal'}
                                     </th>
                                     <th className="border-b px-4 py-3 text-center text-xs font-bold tracking-wide text-slate-500 uppercase dark:border-zinc-800">
-                                        Updated
+                                        {trans.updated || 'Updated'}
                                     </th>
-                                    {/* <th className="border-b px-4 py-3 text-center text-xs font-bold tracking-wide text-slate-500 uppercase dark:border-zinc-800">
-                                        Status
-                                    </th> */}
                                     <th className="border-b px-4 py-3 text-center text-xs font-bold tracking-wide text-slate-500 uppercase dark:border-zinc-800">
-                                        Aksi
+                                        {trans.action || 'Aksi'}
                                     </th>
                                 </tr>
                             </thead>
@@ -175,7 +192,9 @@ export default function DataShippingFormView({ spk, documents = [], flash }: Pro
                                                     </div>
                                                     <div>
                                                         <div className="font-semibold text-slate-900 dark:text-white">{doc.nama_file ?? '-'}</div>
-                                                        <div className="text-xs text-slate-400">Section: {doc.section_name ?? '-'}</div>
+                                                        <div className="text-xs text-slate-400">
+                                                            {trans.section || 'Section'}: {doc.section_name ?? '-'}
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </td>
@@ -193,21 +212,9 @@ export default function DataShippingFormView({ spk, documents = [], flash }: Pro
                                                             : 'border-slate-200 bg-slate-50 text-slate-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300'
                                                     }`}
                                                 >
-                                                    {doc.is_updated ? 'Sudah' : 'Belum'}
+                                                    {doc.is_updated ? trans.already_updated || 'Sudah' : trans.not_updated || 'Belum'}
                                                 </span>
                                             </td>
-
-                                            {/* <td className="border-b px-4 py-4 text-center dark:border-zinc-800">
-                                                <span
-                                                    className={`inline-flex min-w-[88px] items-center justify-center rounded-full border px-3 py-1 text-xs font-bold ${
-                                                        doc.verify
-                                                            ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-300'
-                                                            : 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300'
-                                                    }`}
-                                                >
-                                                    {doc.verify ? 'Verified' : 'Pending'}
-                                                </span>
-                                            </td> */}
 
                                             <td className="border-b px-4 py-4 text-center dark:border-zinc-800">
                                                 {doc.url_path_file ? (
@@ -217,7 +224,7 @@ export default function DataShippingFormView({ spk, documents = [], flash }: Pro
                                                         rel="noreferrer"
                                                         className="inline-flex items-center justify-center rounded-xl bg-blue-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-700"
                                                     >
-                                                        Lihat
+                                                        {trans.view || 'Lihat'}
                                                     </a>
                                                 ) : (
                                                     <span className="text-sm text-slate-400">-</span>
@@ -228,8 +235,12 @@ export default function DataShippingFormView({ spk, documents = [], flash }: Pro
                                 ) : (
                                     <tr>
                                         <td colSpan={6} className="px-4 py-10 text-center dark:border-zinc-800">
-                                            <div className="text-base font-semibold text-slate-700 dark:text-zinc-200">Belum ada data dokumen</div>
-                                            <div className="mt-1 text-sm text-slate-400">Dokumen untuk SPK ini belum tersedia.</div>
+                                            <div className="text-base font-semibold text-slate-700 dark:text-zinc-200">
+                                                {trans.no_document_data || 'Belum ada data dokumen'}
+                                            </div>
+                                            <div className="mt-1 text-sm text-slate-400">
+                                                {trans.no_document_for_spk || 'Dokumen untuk SPK ini belum tersedia.'}
+                                            </div>
                                         </td>
                                     </tr>
                                 )}
