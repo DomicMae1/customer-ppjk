@@ -167,22 +167,22 @@ class ShippingController extends Controller
 
                 // Ambil log terbaru dari document_statuses untuk kumpulan dokumen SPK ini (Cara yang sama seperti di show)
                 $latestDocLog = null;
-            if ($allDocs->isNotEmpty()) {
-                $latestDocLog = \App\Models\DocumentStatus::whereIn('id_dokumen_trans', $allDocs->pluck('id'))
-                    ->latest()
-                    ->first();
-            }
+                if ($allDocs->isNotEmpty()) {
+                    $latestDocLog = \App\Models\DocumentStatus::whereIn('id_dokumen_trans', $allDocs->pluck('id'))
+                        ->latest()
+                        ->first();
+                }
 
-            // Tentukan handler internal:
-            // 1. validated_by (kalau supervisor assign ke staff, ini yang dipakai)
-            // 2. created_by (fallback)
-            $handlerUser = null;
+                // Tentukan handler internal:
+                // 1. validated_by (kalau supervisor assign ke staff, ini yang dipakai)
+                // 2. created_by (fallback)
+                $handlerUser = null;
 
-            if (!empty($item->validated_by) && $internalUsers->has($item->validated_by)) {
-                $handlerUser = $internalUsers->get($item->validated_by);
-            } elseif (!empty($item->created_by) && $internalUsers->has($item->created_by)) {
-                $handlerUser = $internalUsers->get($item->created_by);
-            }
+                if (!empty($item->validated_by) && $internalUsers->has($item->validated_by)) {
+                    $handlerUser = $internalUsers->get($item->validated_by);
+                } elseif (!empty($item->created_by) && $internalUsers->has($item->created_by)) {
+                    $handlerUser = $internalUsers->get($item->created_by);
+                }
 
                 return [
                     'id'                    => $item->id,
@@ -225,7 +225,7 @@ class ShippingController extends Controller
                 ->where('id_perusahaan', $user->id_perusahaan)
                 ->where(function ($q) {
                     $q->where('role_internal', 'staff')
-                    ->orWhere('role_internal', 'marketing');
+                        ->orWhere('role_internal', 'marketing');
                 })
                 ->select('id_user', 'name')
                 ->get();
@@ -976,7 +976,7 @@ class ShippingController extends Controller
                 ->where('id_perusahaan', $user->id_perusahaan)
                 ->where(function ($q) {
                     $q->where('role_internal', 'staff')
-                    ->orWhere('role_internal', 'marketing');
+                        ->orWhere('role_internal', 'marketing');
                 })
                 ->select('id_user', 'name', 'role_internal', 'id_perusahaan')
                 ->get();
@@ -1140,6 +1140,13 @@ class ShippingController extends Controller
             'register_number' => $spk->register_number,
             'register_date' => $spk->register_date,
             'eta_date' => $spk->eta_date ? $spk->eta_date->toDateString() : null,
+            'shipper' => $spk->shipper,
+            'consignee' => $spk->consignee,
+            'vessel' => $spk->vessel,
+            'party_qty' => $spk->party_qty,
+            'party_size' => $spk->party_size,
+            'aju' => $spk->aju,
+            'j_o' => $spk->j_o,
         ];
 
         // 3. Mapping HS Code
@@ -2751,7 +2758,7 @@ class ShippingController extends Controller
         }
     }
 
-     public function updateEtaDate(Request $request, $idSpk)
+    public function updateEtaDate(Request $request, $idSpk)
     {
         $user = auth('web')->user();
         if ($user->role === 'eksternal') {
@@ -2775,10 +2782,10 @@ class ShippingController extends Controller
 
         try {
             $spk = Spk::findOrFail($idSpk);
-            
+
             // Format to start of day to avoid timezone shifting during storage
             $date = \Carbon\Carbon::parse($validated['eta_date'])->startOfDay();
-            
+
             $spk->update([
                 'eta_date' => $date,
             ]);
@@ -2796,6 +2803,51 @@ class ShippingController extends Controller
             ]);
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Auto save form fields for SPK
+     */
+    public function updateFormFields(Request $request, $idSpk)
+    {
+        $user = auth('web')->user();
+
+        $tenant = null;
+        if ($user->id_perusahaan) {
+            $tenant = Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
+        } elseif ($user->id_customer) {
+            $customer = Customer::find($user->id_customer);
+            if ($customer && $customer->ownership) {
+                $tenant = Tenant::where('perusahaan_id', $customer->ownership)->first();
+            }
+        }
+
+        if (!$tenant) {
+            return response()->json(['success' => false, 'message' => 'Tenant not found'], 404);
+        }
+
+        tenancy()->initialize($tenant);
+
+        try {
+            $spk = Spk::findOrFail($idSpk);
+
+            $data = $request->only([
+                'shipper',
+                'consignee',
+                'vessel',
+                'party_qty',
+                'party_size',
+                'aju',
+                'j_o'
+            ]);
+
+            $spk->update($data);
+
+            return response()->json(['success' => true, 'message' => 'Form fields auto-saved successfully']);
+        } catch (\Throwable $th) {
+            Log::error("Failed to update form fields: " . $th->getMessage());
+            return response()->json(['success' => false, 'error' => $th->getMessage()], 500);
         }
     }
 }

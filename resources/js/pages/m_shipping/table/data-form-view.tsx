@@ -200,14 +200,43 @@ export default function ViewCustomerForm({
     const [rejectingDocId, setRejectingDocId] = useState<number | null>(null);
 
     // New State for formulir penerimaan dokumen
-    const [shipperForm, setShipperForm] = useState('');
-    const [consigneeForm, setConsigneeForm] = useState(customer?.nama_perusahaan || '');
-    const [blNumForm, setBlNumForm] = useState(shipmentDataProp?.spkNumber || '');
-    const [vesselForm, setVesselForm] = useState('');
-    const [partyQtyForm, setPartyQtyForm] = useState('');
-    const [partyLclForm, setPartyLclForm] = useState('20 ft');
-    const [ajuForm, setAjuForm] = useState('');
-    const [joForm, setJoForm] = useState('');
+    const [shipperForm, setShipperForm] = useState<string>((shipmentDataProp as any)?.shipper || '');
+    const [consigneeForm, setConsigneeForm] = useState<string>((shipmentDataProp as any)?.consignee || customer?.nama_perusahaan || '');
+    const [blNumForm, setBlNumForm] = useState<string>(shipmentDataProp?.spkNumber || '');
+    const [vesselForm, setVesselForm] = useState<string>((shipmentDataProp as any)?.vessel || '');
+    const [partyQtyForm, setPartyQtyForm] = useState<string>((shipmentDataProp as any)?.party_qty || '');
+    const [partyLclForm, setPartyLclForm] = useState<string>((shipmentDataProp as any)?.party_size || '20 ft');
+    const [ajuForm, setAjuForm] = useState<string>((shipmentDataProp as any)?.aju || '');
+    const [joForm, setJoForm] = useState<string>((shipmentDataProp as any)?.j_o || '');
+
+    // Auto save effect
+    const isFormFieldsInitialMount = useRef(true);
+    useEffect(() => {
+        if (isFormFieldsInitialMount.current) {
+            isFormFieldsInitialMount.current = false;
+            return;
+        }
+
+        const timeoutId = setTimeout(() => {
+            axios.post(`/shipping/${shipmentDataProp.id_spk}/update-form-fields`, {
+                shipper: shipperForm,
+                consignee: consigneeForm,
+                vessel: vesselForm,
+                party_qty: partyQtyForm,
+                party_size: partyLclForm,
+                aju: ajuForm,
+                j_o: joForm
+            })
+                .then(response => {
+                    // Background save success - silent
+                })
+                .catch(error => {
+                    console.error("Auto-save formulir penerimaan dokumen gagal", error);
+                });
+        }, 3000);
+
+        return () => clearTimeout(timeoutId);
+    }, [shipperForm, consigneeForm, vesselForm, partyQtyForm, partyLclForm, ajuForm, joForm]);
 
     // Batch Verification State
     const [pendingVerifications, setPendingVerifications] = useState<number[]>([]);
@@ -1266,782 +1295,774 @@ export default function ViewCustomerForm({
                     {/* --- SPK Header Card --- */}
                     <div className="rounded-2xl border border-slate-200/60 bg-white/80 p-5 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] backdrop-blur-xl transition-all duration-300 hover:shadow-[0_8px_30px_-4px_rgba(0,0,0,0.1)] sm:p-6 dark:border-zinc-800/80 dark:bg-zinc-900/80">
                         <div className="mb-4 flex items-center justify-between">
-                    <div className="space-y-1">
-                        <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.status || 'Shipment Status'}</div>
-                        <div className="text-xl font-extrabold tracking-tight text-slate-900 dark:text-white">
-                            {shipmentData.status ? shipmentData.status.toUpperCase() : 'UNKNOWN'}
-                        </div>
-                    </div>
-                    <div
-                        className={`flex h-12 w-12 items-center justify-center rounded-2xl ${progressPercentage === 100 ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'}`}
-                    >
-                        <span className="text-lg font-bold">{progressPercentage}%</span>
-                    </div>
-                </div>
-
-                {/* Progress Bar */}
-                <div className="mb-4 space-y-2">
-                    <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500">
-                        <span>{trans.document_completion || 'Document Progress'}</span>
-                        <span>{progressPercentage}%</span>
-                    </div>
-                    <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-zinc-800">
-                        <div
-                            className={`h-full transition-all duration-1000 ease-out ${progressPercentage === 100 ? 'bg-emerald-500' : 'bg-blue-500'}`}
-                            style={{ width: `${progressPercentage}%` }}
-                        />
-                    </div>
-                </div>
-
-                <div className="flex items-center gap-1 text-xs font-medium text-slate-500 italic">
-                    <span className="h-1.5 w-1.5 rounded-full bg-slate-300"></span>
-                    {trans.last_updated || 'Last updated'}: {shipmentData.spkDate}{' '}
-                    {shipmentData.updated_by_name ? `by ${shipmentData.updated_by_name}` : ''}
-                </div>
-
-                {/* SUPERVISOR: Assign Staff */}
-                {isSupervisor && (
-                    <div className="mt-5 space-y-4 border-t border-slate-100 pt-4">
-                        {/* Assign Staff */}
-                        <div>
-                            <Label className="mb-2 block text-[11px] font-bold tracking-wider text-slate-500 uppercase">{trans.assign_staff}</Label>
-                            <div className="flex items-center gap-2">
-                                <Select value={selectedStaff} onValueChange={setSelectedStaff}>
-                                    <SelectTrigger className="h-9 flex-1 rounded-lg border-slate-200 text-xs focus:ring-blue-500/20">
-                                        <SelectValue placeholder={trans.select_staff_placeholder || 'Select Staff'} />
-                                    </SelectTrigger>
-                                    <SelectContent className="rounded-xl border-slate-200 shadow-xl">
-                                        {internalStaff.length > 0 ? (
-                                            internalStaff.map((staff: any) => (
-                                                <SelectItem
-                                                    key={staff.id_user}
-                                                    value={String(staff.id_user)}
-                                                    className="cursor-pointer text-xs hover:bg-blue-50 focus:bg-blue-50 dark:text-zinc-200 dark:hover:bg-zinc-800 dark:focus:bg-zinc-800"
-                                                >
-                                                    {staff.name}
-                                                </SelectItem>
-                                            ))
-                                        ) : (
-                                            <div className="p-2 text-center text-xs text-slate-500">{trans.data_not_found || 'No staff found'}</div>
-                                        )}
-                                    </SelectContent>
-                                </Select>
-                                <Button
-                                    onClick={handleAssignStaff}
-                                    className="h-9 rounded-lg bg-slate-900 px-3 text-xs font-bold text-white shadow-sm transition-colors hover:bg-slate-800"
-                                    title={trans.assign || 'Assign'}
-                                >
-                                    <Save className="h-3.5 w-3.5" />
-                                </Button>
-                            </div>
-                        </div>
-
-                        {/* Upload Mode Toggle */}
-                        <div>
-                            <Label className="mb-2 block text-[11px] font-bold tracking-wider text-slate-500 uppercase">{trans.upload_mode}</Label>
-                            <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 p-1">
-                                <button
-                                    onClick={() => !isUpdatingUploadMode && handleToggleInternalCanUpload(true)}
-                                    disabled={isUpdatingUploadMode}
-                                    className={`flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition-all duration-200 ${
-                                        internalCanUpload ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                                    } disabled:opacity-50`}
-                                >
-                                    {trans.staff_upload}
-                                </button>
-                                <button
-                                    onClick={() => !isUpdatingUploadMode && handleToggleInternalCanUpload(false)}
-                                    disabled={isUpdatingUploadMode}
-                                    className={`flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition-all duration-200 ${
-                                        !internalCanUpload ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                                    } disabled:opacity-50`}
-                                >
-                                    {trans.dual_upload}
-                                </button>
-                            </div>
-                            <p className="mt-1.5 text-[10px] text-slate-400">
-                                {internalCanUpload ? trans.staff_upload_desc : trans.dual_upload_desc}
-                            </p>
-                        </div>
-                    </div>
-                )}
-                <div className="mt-5 space-y-1.5 border-t border-slate-200/60 pt-4 dark:border-zinc-800 pt-4 grid grid-cols-2 gap-x-1 gap-y-2">
-                    {/* Shipment Type */}
-                    <div className="space-y-1">
-                        <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.shipment_type}</div>
-                        <div className="text-sm font-semibold text-slate-700 dark:text-zinc-300">{shipmentData.type}</div>
-                    </div>
-
-                    {/* Penjaluran */}
-                    {shipmentData.penjaluran && (
-                        <div className="space-y-1 text-right sm:text-left">
-                            <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.channel}</div>
-                            <div>
-                                <span
-                                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold tracking-tight uppercase ring-1 ring-inset ${
-                                        shipmentData.penjaluran === 'merah'
-                                            ? 'bg-rose-50 text-rose-700 ring-rose-600/20'
-                                            : 'bg-green-50 text-green-700 ring-green-600/20'
-                                    }`}
-                                >
-                                    {trans[shipmentData.penjaluran] || shipmentData.penjaluran}
-                                </span>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Registration No */}
-                    {shipmentData.register_number && (
-                        <div className="space-y-1">
-                            <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
-                                {trans.register_number || 'Nomor Pendaftaran'}
-                            </div>
-                            <div className="text-sm font-semibold text-slate-700 dark:text-zinc-300">{shipmentData.register_number}</div>
-                        </div>
-                    )}
-
-                    {/* Registration Date */}
-                    {shipmentData.register_date && (
-                        <div className="space-y-1 text-right sm:text-left">
-                            <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
-                                {trans.register_date || 'Tanggal Pendaftaran'}
-                            </div>
-                            <div className="text-sm font-semibold text-slate-700 dark:text-zinc-300">
-                                {new Date(shipmentData.register_date).toLocaleDateString(`${trans.locale}`, {
-                                    day: 'numeric',
-                                    month: 'long',
-                                    year: 'numeric',
-                                })}
-                            </div>
-                        </div>
-                    )}
-
-
-                    {/* Conditional ETA Date Field (id_section === 7) */}
-                    {sectionsTransProp?.some((s) => s.id_section === 7) && (
-                        <div className="col-span-2 mt-2 space-y-1.5 border-t border-slate-200/60 pt-3 dark:border-zinc-800">
-                            <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.eta_date}</div>
-                            <div className="flex items-center gap-2">
-                                <Input
-                                    type="date"
-                                    value={etaDate}
-                                    onChange={(e) => setEtaDate(e.target.value)}
-                                    className="date-input-dark h-9 rounded-lg border-slate-200 bg-white text-xs text-slate-700 focus:ring-blue-500/20 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300"
-                                    disabled={!isInternalUser || isSavingEtaDate}
-                                />
-                                {isInternalUser && (
-                                    <Button
-                                        size="sm"
-                                        onClick={handleSaveEtaDate}
-                                        disabled={isSavingEtaDate}
-                                        className="h-9 bg-slate-900 px-4 text-[10px] font-bold text-white hover:bg-slate-800"
-                                    >
-                                        {isSavingEtaDate ? '...' : trans.save || 'Save'}
-                                    </Button>
-                                )}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* HS Code Section */}
-                    <div className="col-span-2 mt-2 space-y-2 border-t border-slate-200/60 pt-4 dark:border-zinc-800">
-                        <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.hs_code || 'HS Code'}</div>
-                        <div className="flex w-full flex-col">
-                            <div className="flex flex-col">
-                        {shipmentData.hsCodes.length > 0 ? (
-                            shipmentData.hsCodes.map((item: any, index: number) => (
-                                <div key={index} className="flex items-center gap-2">
-                                    <span>{item.code}</span>
-                                    {item.link ? (
-                                        <a
-                                            href={`/file/view/${item.link}`}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="font-bold text-blue-600 hover:underline"
-                                        >
-                                            [INSW]
-                                        </a>
-                                    ) : (
-                                        <button type="button" className="cursor-not-allowed font-bold text-gray-400">
-                                            [INSW]
-                                        </button>
-                                    )}
-                                    <button onClick={enableEditMode} className="text-gray-500 hover:text-black hover:underline">
-                                        {trans.edit || '[edit]'}
-                                    </button>
+                            <div className="space-y-1">
+                                <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.status || 'Shipment Status'}</div>
+                                <div className="text-xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+                                    {shipmentData.status ? shipmentData.status.toUpperCase() : 'UNKNOWN'}
                                 </div>
-                            ))
-                        ) : (
-                            <div className="flex items-center gap-2">
-                                <span className="text-gray-400 italic">-</span>
-                                <button onClick={enableEditMode} className="text-xs text-blue-500 hover:underline">
-                                    + {trans.add_another_hs}
-                                </button>
                             </div>
-                        )}
+                            <div
+                                className={`flex h-12 w-12 items-center justify-center rounded-2xl ${progressPercentage === 100 ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'}`}
+                            >
+                                <span className="text-lg font-bold">{progressPercentage}%</span>
                             </div>
                         </div>
-                    </div>
-                </div>
-            </div>
 
-            {/* Modal Dialog for Edit HS Codes */}
-            <Dialog open={isEditingHsCodes} onOpenChange={(open) => !open && cancelEditMode()}>
-                <DialogContent className="max-w-md rounded-2xl p-0 dark:border-zinc-800 dark:bg-zinc-900">
-                    <DialogHeader className="border-b px-6 py-4 dark:border-zinc-800">
-                        <DialogTitle className="text-lg font-bold text-gray-900 dark:text-white">{trans.edit_hs_data}</DialogTitle>
-                    </DialogHeader>
-                    
-                    <div className="max-h-[60vh] space-y-4 overflow-y-auto px-6 py-4">
-                        <div className="flex flex-col gap-4">
-                            {hsCodes.map((item, index) => (
+                        {/* Progress Bar */}
+                        <div className="mb-4 space-y-2">
+                            <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500">
+                                <span>{trans.document_completion || 'Document Progress'}</span>
+                                <span>{progressPercentage}%</span>
+                            </div>
+                            <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-zinc-800">
                                 <div
-                                    key={item.id}
-                                    className="relative rounded-lg border border-gray-200 bg-slate-50 p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
-                                >
-                                    {/* TOMBOL DELETE ITEM */}
-                                    {hsCodes.length > 1 && (
-                                        <button
-                                            type="button"
-                                            onClick={() => removeHsCodeField(item.id)}
-                                            className="absolute top-3 right-3 text-red-500 transition-colors hover:text-red-700"
-                                            title={trans.delete_hs || 'Hapus HS Code'}
+                                    className={`h-full transition-all duration-1000 ease-out ${progressPercentage === 100 ? 'bg-emerald-500' : 'bg-blue-500'}`}
+                                    style={{ width: `${progressPercentage}%` }}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-1 text-xs font-medium text-slate-500 italic">
+                            <span className="h-1.5 w-1.5 rounded-full bg-slate-300"></span>
+                            {trans.last_updated || 'Last updated'}: {shipmentData.spkDate}{' '}
+                            {shipmentData.updated_by_name ? `by ${shipmentData.updated_by_name}` : ''}
+                        </div>
+
+                        {/* SUPERVISOR: Assign Staff */}
+                        {isSupervisor && (
+                            <div className="mt-5 space-y-4 border-t border-slate-100 pt-4">
+                                {/* Assign Staff */}
+                                <div>
+                                    <Label className="mb-2 block text-[11px] font-bold tracking-wider text-slate-500 uppercase">{trans.assign_staff}</Label>
+                                    <div className="flex items-center gap-2">
+                                        <Select value={selectedStaff} onValueChange={setSelectedStaff}>
+                                            <SelectTrigger className="h-9 flex-1 rounded-lg border-slate-200 text-xs focus:ring-blue-500/20">
+                                                <SelectValue placeholder={trans.select_staff_placeholder || 'Select Staff'} />
+                                            </SelectTrigger>
+                                            <SelectContent className="rounded-xl border-slate-200 shadow-xl">
+                                                {internalStaff.length > 0 ? (
+                                                    internalStaff.map((staff: any) => (
+                                                        <SelectItem
+                                                            key={staff.id_user}
+                                                            value={String(staff.id_user)}
+                                                            className="cursor-pointer text-xs hover:bg-blue-50 focus:bg-blue-50 dark:text-zinc-200 dark:hover:bg-zinc-800 dark:focus:bg-zinc-800"
+                                                        >
+                                                            {staff.name}
+                                                        </SelectItem>
+                                                    ))
+                                                ) : (
+                                                    <div className="p-2 text-center text-xs text-slate-500">{trans.data_not_found || 'No staff found'}</div>
+                                                )}
+                                            </SelectContent>
+                                        </Select>
+                                        <Button
+                                            onClick={handleAssignStaff}
+                                            className="h-9 rounded-lg bg-slate-900 px-3 text-xs font-bold text-white shadow-sm transition-colors hover:bg-slate-800"
+                                            title={trans.assign || 'Assign'}
                                         >
-                                            <Trash2 className="h-4 w-4" />
-                                        </button>
-                                    )}
-
-                                    <div className="grid gap-3 pt-1">
-                                        {/* Input HS Code */}
-                                        <div className="space-y-1">
-                                            <Label className="text-xs font-semibold dark:text-zinc-400">{trans.input_hs_code}</Label>
-                                            <Input
-                                                className="h-9 rounded-md border-slate-300 text-sm dark:border-zinc-800 dark:bg-zinc-900 dark:text-white"
-                                                placeholder={trans.input_hs_code}
-                                                value={item.code}
-                                                onChange={(e) => updateHsCode(item.id, 'code', e.target.value)}
-                                            />
-                                        </div>
-
-                                        {/* File Upload */}
-                                        <div className="space-y-2">
-                                            <ResettableDropzoneImage
-                                                label={trans.insw_link_ref}
-                                                isRequired={false}
-                                                existingFile={
-                                                    !item.file && item.link
-                                                        ? {
-                                                              nama_file: item.link,
-                                                              path: `/file/view/${item.link}`,
-                                                          }
-                                                        : undefined
-                                                }
-                                                onFileChange={(file) => {
-                                                    updateHsCode(item.id, 'file', file);
-                                                }}
-                                            />
-                                        </div>
+                                            <Save className="h-3.5 w-3.5" />
+                                        </Button>
                                     </div>
                                 </div>
-                            ))}
 
-                            {/* Tombol Tambah Item Baru */}
-                            <Button variant="outline" onClick={addHsCodeField} className="w-full border-dashed border-slate-300 dark:border-zinc-700">
-                                <Plus className="mr-2 h-4 w-4" /> {trans.add_another_hs}
-                            </Button>
+                                {/* Upload Mode Toggle */}
+                                <div>
+                                    <Label className="mb-2 block text-[11px] font-bold tracking-wider text-slate-500 uppercase">{trans.upload_mode}</Label>
+                                    <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 p-1">
+                                        <button
+                                            onClick={() => !isUpdatingUploadMode && handleToggleInternalCanUpload(true)}
+                                            disabled={isUpdatingUploadMode}
+                                            className={`flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition-all duration-200 ${internalCanUpload ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                                                } disabled:opacity-50`}
+                                        >
+                                            {trans.staff_upload}
+                                        </button>
+                                        <button
+                                            onClick={() => !isUpdatingUploadMode && handleToggleInternalCanUpload(false)}
+                                            disabled={isUpdatingUploadMode}
+                                            className={`flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition-all duration-200 ${!internalCanUpload ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                                                } disabled:opacity-50`}
+                                        >
+                                            {trans.dual_upload}
+                                        </button>
+                                    </div>
+                                    <p className="mt-1.5 text-[10px] text-slate-400">
+                                        {internalCanUpload ? trans.staff_upload_desc : trans.dual_upload_desc}
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+                        <div className="mt-5 space-y-1.5 border-t border-slate-200/60 pt-4 dark:border-zinc-800 pt-4 grid grid-cols-2 gap-x-1 gap-y-2">
+                            {/* Shipment Type */}
+                            <div className="space-y-1">
+                                <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.shipment_type}</div>
+                                <div className="text-sm font-semibold text-slate-700 dark:text-zinc-300">{shipmentData.type}</div>
+                            </div>
+                            
+                            {/* Penjaluran */}
+                            {shipmentData.penjaluran && (
+                                <div className="space-y-1 text-right sm:text-left">
+                                    <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.channel}</div>
+                                    <div>
+                                        <span
+                                            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold tracking-tight uppercase ring-1 ring-inset ${shipmentData.penjaluran === 'merah'
+                                                ? 'bg-rose-50 text-rose-700 ring-rose-600/20'
+                                                : 'bg-green-50 text-green-700 ring-green-600/20'
+                                                }`}
+                                        >
+                                            {trans[shipmentData.penjaluran] || shipmentData.penjaluran}
+                                        </span>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Registration No */}
+                            {shipmentData.register_number && (
+                                <div className="space-y-1">
+                                    <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
+                                        {trans.register_number || 'Nomor Pendaftaran'}
+                                    </div>
+                                    <div className="text-sm font-semibold text-slate-700 dark:text-zinc-300">{shipmentData.register_number}</div>
+                                </div>
+                            )}
+
+                            {/* Registration Date */}
+                            {shipmentData.register_date && (
+                                <div className="space-y-1 text-right sm:text-left">
+                                    <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
+                                        {trans.register_date || 'Tanggal Pendaftaran'}
+                                    </div>
+                                    <div className="text-sm font-semibold text-slate-700 dark:text-zinc-300">
+                                        {new Date(shipmentData.register_date).toLocaleDateString(`${trans.locale}`, {
+                                            day: 'numeric',
+                                            month: 'long',
+                                            year: 'numeric',
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+                            
+                            <div className="col-span-2 mt-2 space-y-2 border-t border-slate-200/60 pt-4 dark:border-zinc-800">
+                                <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.hs_code || 'HS Code'}</div>
+                                <div className="flex w-full flex-col">
+                                    <div className="flex flex-col">
+                                        {shipmentData.hsCodes.length > 0 ? (
+                                            shipmentData.hsCodes.map((item: any, index: number) => (
+                                                <div key={index} className="flex items-center gap-2">
+                                                    <span>{item.code}</span>
+                                                    {item.link ? (
+                                                        <a
+                                                            href={`/file/view/${item.link}`}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="font-bold text-blue-600 hover:underline"
+                                                        >
+                                                            [INSW]
+                                                        </a>
+                                                    ) : (
+                                                        <button type="button" className="cursor-not-allowed font-bold text-gray-400">
+                                                            [INSW]
+                                                        </button>
+                                                    )}
+                                                    <button onClick={enableEditMode} className="text-gray-500 hover:text-black hover:underline">
+                                                        {trans.edit || '[edit]'}
+                                                    </button>
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-gray-400 italic">-</span>
+                                                <button onClick={enableEditMode} className="text-xs text-blue-500 hover:underline">
+                                                    + {trans.add_another_hs}
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Conditional ETA Date Field (id_section === 7) */}
+                            {sectionsTransProp?.some((s) => s.id_section === 7) && (
+                                <div className="col-span-2 mt-2 space-y-1.5 border-t border-slate-200/60 pt-3 dark:border-zinc-800">
+                                    <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.eta_date}</div>
+                                    <div className="flex items-center gap-2">
+                                        <Input
+                                            type="date"
+                                            value={etaDate}
+                                            onChange={(e) => setEtaDate(e.target.value)}
+                                            className="date-input-dark h-9 rounded-lg border-slate-200 bg-white text-xs text-slate-700 focus:ring-blue-500/20 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300"
+                                            disabled={!isInternalUser || isSavingEtaDate}
+                                        />
+                                        {isInternalUser && (
+                                            <Button
+                                                size="sm"
+                                                onClick={handleSaveEtaDate}
+                                                disabled={isSavingEtaDate}
+                                                className="h-9 bg-slate-900 px-4 text-[10px] font-bold text-white hover:bg-slate-800"
+                                            >
+                                                {isSavingEtaDate ? '...' : trans.save || 'Save'}
+                                            </Button>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
 
-                    <DialogFooter className="flex gap-2 rounded-b-2xl border-t bg-slate-50/50 px-6 py-4 dark:border-zinc-800 dark:bg-zinc-900/80">
-                        <Button
-                            onClick={cancelEditMode}
-                            variant="outline"
-                            className="flex-1"
-                        >
-                            {trans.cancel}
-                        </Button>
-                        <Button onClick={handleSaveEdit} className="flex-1 bg-black text-white hover:bg-gray-800 dark:bg-zinc-100 dark:text-black dark:hover:bg-zinc-300">
-                            {trans.save_changes}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+                    {/* Modal Dialog for Edit HS Codes */}
+                    <Dialog open={isEditingHsCodes} onOpenChange={(open) => !open && cancelEditMode()}>
+                        <DialogContent className="max-w-md rounded-2xl p-0 dark:border-zinc-800 dark:bg-zinc-900">
+                            <DialogHeader className="border-b px-6 py-4 dark:border-zinc-800">
+                                <DialogTitle className="text-lg font-bold text-gray-900 dark:text-white">{trans.edit_hs_data}</DialogTitle>
+                            </DialogHeader>
 
-            {/* --- Formulir Penerimaan Dokumen --- */}
-            <div className="rounded-2xl border border-slate-200/60 bg-white/80 p-5 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] backdrop-blur-xl sm:p-6 dark:border-zinc-800/80 dark:bg-zinc-900/80">
-                <div className="mb-5 text-xs font-bold tracking-wider text-slate-500 uppercase">{trans.document_receipt_form || 'Formulir Penerimaan Dokumen'}</div>
-                <div className="flex flex-col gap-4">
-                    {/* Shipper */}
-                    <div className="space-y-1.5">
-                        <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">Shipper</Label>
-                        <Input
-                            placeholder="Input Shipper"
-                            value={shipperForm}
-                            onChange={(e) => setShipperForm(e.target.value)}
-                            className="h-9 rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-900"
-                        />
-                    </div>
-                    {/* Consignee */}
-                    <div className="space-y-1.5">
-                        <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">Consignee (C'NEE)</Label>
-                        <Input
-                            placeholder="Input Consignee"
-                            value={consigneeForm}
-                            disabled
-                            onChange={(e) => setConsigneeForm(e.target.value)}
-                            className="h-9 rounded-lg border-slate-300 bg-slate-100 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-800 dark:text-slate-50"
-                        />
-                    </div>
-                    {/* B/L NUM / S/I NUM / SPK NUM */}
-                    <div className="space-y-1.5">
-                        <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
-                            {shipmentDataProp?.type === 'Export' ? 'S/I NUM' : shipmentDataProp?.type === 'Import' ? 'B/L NUM' : 'SPK NUM'}
-                        </Label>
-                        <Input
-                            placeholder="Input B/L / S/I NUM"
-                            value={blNumForm}
-                            disabled
-                            className="h-9 rounded-lg border-slate-300 bg-slate-100 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-800 dark:text-slate-50"
-                        />
-                    </div>
-                    {/* Vessel */}
-                    <div className="space-y-1.5">
-                        <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">Vessel</Label>
-                        <Input
-                            placeholder="Input Vessel"
-                            value={vesselForm}
-                            onChange={(e) => setVesselForm(e.target.value)}
-                            className="h-9 rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-900"
-                        />
-                    </div>
-                    {/* Party */}
-                    <div className="space-y-1.5">
-                        <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">Party</Label>
-                        <div className="flex items-center gap-2">
-                            <Input
-                                placeholder="Qty"
-                                value={partyQtyForm}
-                                onChange={(e) => setPartyQtyForm(e.target.value)}
-                                className="h-9 w-20 shrink-0 rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-900"
-                            />
-                            <span className="text-sm font-semibold text-slate-400">x</span>
-                            <Select value={partyLclForm} onValueChange={setPartyLclForm}>
-                                <SelectTrigger className="h-9 flex-1 rounded-lg border-slate-300 text-xs focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-900">
-                                    <SelectValue placeholder="Size" />
-                                </SelectTrigger>
-                                <SelectContent className="rounded-xl border-slate-200 shadow-xl dark:border-zinc-700 dark:bg-zinc-900">
-                                    <SelectItem value="20 ft" className="cursor-pointer text-xs dark:text-zinc-200">20 ft</SelectItem>
-                                    <SelectItem value="40 ft" className="cursor-pointer text-xs dark:text-zinc-200">40 ft</SelectItem>
-                                </SelectContent>
-                            </Select>
+                            <div className="max-h-[60vh] space-y-4 overflow-y-auto px-6 py-4">
+                                <div className="flex flex-col gap-4">
+                                    {hsCodes.map((item, index) => (
+                                        <div
+                                            key={item.id}
+                                            className="relative rounded-lg border border-gray-200 bg-slate-50 p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
+                                        >
+                                            {/* TOMBOL DELETE ITEM */}
+                                            {hsCodes.length > 1 && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => removeHsCodeField(item.id)}
+                                                    className="absolute top-3 right-3 text-red-500 transition-colors hover:text-red-700"
+                                                    title={trans.delete_hs || 'Hapus HS Code'}
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </button>
+                                            )}
+
+                                            <div className="grid gap-3 pt-1">
+                                                {/* Input HS Code */}
+                                                <div className="space-y-1">
+                                                    <Label className="text-xs font-semibold dark:text-zinc-400">{trans.input_hs_code}</Label>
+                                                    <Input
+                                                        className="h-9 rounded-md border-slate-300 text-sm dark:border-zinc-800 dark:bg-zinc-900 dark:text-white"
+                                                        placeholder={trans.input_hs_code}
+                                                        value={item.code}
+                                                        onChange={(e) => updateHsCode(item.id, 'code', e.target.value)}
+                                                    />
+                                                </div>
+
+                                                {/* File Upload */}
+                                                <div className="space-y-2">
+                                                    <ResettableDropzoneImage
+                                                        label={trans.insw_link_ref}
+                                                        isRequired={false}
+                                                        existingFile={
+                                                            !item.file && item.link
+                                                                ? {
+                                                                    nama_file: item.link,
+                                                                    path: `/file/view/${item.link}`,
+                                                                }
+                                                                : undefined
+                                                        }
+                                                        onFileChange={(file) => {
+                                                            updateHsCode(item.id, 'file', file);
+                                                        }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+
+                                    {/* Tombol Tambah Item Baru */}
+                                    <Button variant="outline" onClick={addHsCodeField} className="w-full border-dashed border-slate-300 dark:border-zinc-700">
+                                        <Plus className="mr-2 h-4 w-4" /> {trans.add_another_hs}
+                                    </Button>
+                                </div>
+                            </div>
+
+                            <DialogFooter className="flex gap-2 rounded-b-2xl border-t bg-slate-50/50 px-6 py-4 dark:border-zinc-800 dark:bg-zinc-900/80">
+                                <Button
+                                    onClick={cancelEditMode}
+                                    variant="outline"
+                                    className="flex-1"
+                                >
+                                    {trans.cancel}
+                                </Button>
+                                <Button onClick={handleSaveEdit} className="flex-1 bg-black text-white hover:bg-gray-800 dark:bg-zinc-100 dark:text-black dark:hover:bg-zinc-300">
+                                    {trans.save_changes}
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+
+                    {/* --- Formulir Penerimaan Dokumen --- */}
+                    <div className="rounded-2xl border border-slate-200/60 bg-white/80 p-5 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] backdrop-blur-xl sm:p-6 dark:border-zinc-800/80 dark:bg-zinc-900/80">
+                        <div className="mb-5 text-xs font-bold tracking-wider text-slate-500 uppercase">{trans.document_receipt_form || 'Formulir Penerimaan Dokumen'}</div>
+                        <div className="flex flex-col gap-4">
+                            {/* Shipper */}
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">Shipper</Label>
+                                <Input
+                                    placeholder="Input Shipper"
+                                    value={shipperForm}
+                                    onChange={(e) => setShipperForm(e.target.value)}
+                                    className="h-9 rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-900"
+                                />
+                            </div>
+                            {/* Consignee */}
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">Consignee (C'NEE)</Label>
+                                <Input
+                                    placeholder="Input Consignee"
+                                    value={consigneeForm}
+                                    disabled
+                                    onChange={(e) => setConsigneeForm(e.target.value)}
+                                    className="h-9 rounded-lg border-slate-300 bg-slate-100 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-800 dark:text-slate-50"
+                                />
+                            </div>
+                            {/* B/L NUM / S/I NUM / SPK NUM */}
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
+                                    {shipmentDataProp?.type === 'Export' ? 'S/I NUM' : shipmentDataProp?.type === 'Import' ? 'B/L NUM' : 'SPK NUM'}
+                                </Label>
+                                <Input
+                                    placeholder="Input B/L / S/I NUM"
+                                    value={blNumForm}
+                                    disabled
+                                    className="h-9 rounded-lg border-slate-300 bg-slate-100 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-800 dark:text-slate-50"
+                                />
+                            </div>
+                            {/* Vessel */}
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">Vessel</Label>
+                                <Input
+                                    placeholder="Input Vessel"
+                                    value={vesselForm}
+                                    onChange={(e) => setVesselForm(e.target.value)}
+                                    className="h-9 rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-900"
+                                />
+                            </div>
+                            {/* Party */}
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">Party</Label>
+                                <div className="flex items-center gap-2">
+                                    <Input
+                                        placeholder="Qty"
+                                        value={partyQtyForm}
+                                        onChange={(e) => setPartyQtyForm(e.target.value)}
+                                        className="h-9 w-20 shrink-0 rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-900"
+                                    />
+                                    <span className="text-sm font-semibold text-slate-400">x</span>
+                                    <Select value={partyLclForm} onValueChange={setPartyLclForm}>
+                                        <SelectTrigger className="h-9 flex-1 rounded-lg border-slate-300 text-xs focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-900">
+                                            <SelectValue placeholder="Size" />
+                                        </SelectTrigger>
+                                        <SelectContent className="rounded-xl border-slate-200 shadow-xl dark:border-zinc-700 dark:bg-zinc-900">
+                                            <SelectItem value="20 ft" className="cursor-pointer text-xs dark:text-zinc-200">20 ft</SelectItem>
+                                            <SelectItem value="40 ft" className="cursor-pointer text-xs dark:text-zinc-200">40 ft</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+                            {/* AJU */}
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">AJU</Label>
+                                <Input
+                                    placeholder="Input AJU"
+                                    value={ajuForm}
+                                    onChange={(e) => setAjuForm(e.target.value)}
+                                    className="h-9 rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-900"
+                                />
+                            </div>
+                            {/* J.O */}
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">J.O</Label>
+                                <Input
+                                    placeholder="Input J.O"
+                                    value={joForm}
+                                    onChange={(e) => setJoForm(e.target.value)}
+                                    className="h-9 rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-900"
+                                />
+                            </div>
                         </div>
-                    </div>
-                    {/* AJU */}
-                    <div className="space-y-1.5">
-                        <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">AJU</Label>
-                        <Input
-                            placeholder="Input AJU"
-                            value={ajuForm}
-                            onChange={(e) => setAjuForm(e.target.value)}
-                            className="h-9 rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-900"
-                        />
-                    </div>
-                    {/* J.O */}
-                    <div className="space-y-1.5">
-                        <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">J.O</Label>
-                        <Input
-                            placeholder="Input J.O"
-                            value={joForm}
-                            onChange={(e) => setJoForm(e.target.value)}
-                            className="h-9 rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-900"
-                        />
                     </div>
                 </div>
-            </div>
-            </div>
 
                 {/* --- RIGHT DESKTOP COLUMN --- */}
                 <div className="flex w-full flex-1 flex-col gap-6">
 
-            {/* NEW: Global Deadline Section - ONLY for Internal Users */}
-            {isSupervisor && (
-                <div className="mb-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:mb-5 sm:p-5 dark:border-zinc-800 dark:bg-zinc-900">
-                    <div className="flex flex-col gap-3">
-                        {/* Garis Kuning: Global Deadline Field */}
-                        <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:gap-3">
-                            <label className="text-sm font-semibold whitespace-nowrap text-slate-700 dark:text-zinc-300">{trans.set_deadline}:</label>
-                            <Input
-                                type="date"
-                                className={`date-input-dark h-9 flex-1 rounded-lg border-slate-300 transition-all duration-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 ${
-                                    !useUnifiedDeadline ? 'cursor-not-allowed bg-slate-100 opacity-50 dark:bg-zinc-800' : 'bg-white dark:bg-zinc-950'
-                                } dark:border-zinc-800 dark:text-white`}
-                                value={globalDeadlineDate}
-                                onChange={(e) => setGlobalDeadlineDate(e.target.value)}
-                                disabled={!useUnifiedDeadline}
-                            />
-                        </div>
+                    {/* NEW: Global Deadline Section - ONLY for Internal Users */}
+                    {isSupervisor && (
+                        <div className="mb-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:mb-5 sm:p-5 dark:border-zinc-800 dark:bg-zinc-900">
+                            <div className="flex flex-col gap-3">
+                                {/* Garis Kuning: Global Deadline Field */}
+                                <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:gap-3">
+                                    <label className="text-sm font-semibold whitespace-nowrap text-slate-700 dark:text-zinc-300">{trans.set_deadline}:</label>
+                                    <Input
+                                        type="date"
+                                        className={`date-input-dark h-9 flex-1 rounded-lg border-slate-300 transition-all duration-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 ${!useUnifiedDeadline ? 'cursor-not-allowed bg-slate-100 opacity-50 dark:bg-zinc-800' : 'bg-white dark:bg-zinc-950'
+                                            } dark:border-zinc-800 dark:text-white`}
+                                        value={globalDeadlineDate}
+                                        onChange={(e) => setGlobalDeadlineDate(e.target.value)}
+                                        disabled={!useUnifiedDeadline}
+                                    />
+                                </div>
 
-                        {/* Garis Hijau: Checkbox Apply to All */}
-                        <div className="flex items-center gap-2">
-                            <Checkbox
-                                id="unified_deadline"
-                                className="h-4 w-4 rounded border-2 border-gray-400 data-[state=checked]:bg-black data-[state=checked]:text-white"
-                                checked={useUnifiedDeadline}
-                                onCheckedChange={(checked) => {
-                                    const isUnified = checked === true;
-                                    setUseUnifiedDeadline(isUnified);
-                                    // When switching to per-section mode, pre-populate all sections with the global date
-                                    // so inputs are not blank and user can individually adjust from there
-                                    if (!isUnified && globalDeadlineDate) {
-                                        const prefilled: Record<number, string> = {};
-                                        sectionsTransProp.forEach((s: SectionTrans) => {
-                                            prefilled[s.id] = sectionDeadlines[s.id] || globalDeadlineDate;
-                                        });
-                                        setSectionDeadlines(prefilled);
-                                    }
-                                }}
-                            />
-                            <label htmlFor="unified_deadline" className="cursor-pointer text-sm text-gray-600">
-                                {trans.apply_deadline_all}
-                            </label>
-                        </div>
+                                {/* Garis Hijau: Checkbox Apply to All */}
+                                <div className="flex items-center gap-2">
+                                    <Checkbox
+                                        id="unified_deadline"
+                                        className="h-4 w-4 rounded border-2 border-gray-400 data-[state=checked]:bg-black data-[state=checked]:text-white"
+                                        checked={useUnifiedDeadline}
+                                        onCheckedChange={(checked) => {
+                                            const isUnified = checked === true;
+                                            setUseUnifiedDeadline(isUnified);
+                                            // When switching to per-section mode, pre-populate all sections with the global date
+                                            // so inputs are not blank and user can individually adjust from there
+                                            if (!isUnified && globalDeadlineDate) {
+                                                const prefilled: Record<number, string> = {};
+                                                sectionsTransProp.forEach((s: SectionTrans) => {
+                                                    prefilled[s.id] = sectionDeadlines[s.id] || globalDeadlineDate;
+                                                });
+                                                setSectionDeadlines(prefilled);
+                                            }
+                                        }}
+                                    />
+                                    <label htmlFor="unified_deadline" className="cursor-pointer text-sm text-gray-600">
+                                        {trans.apply_deadline_all}
+                                    </label>
+                                </div>
 
-                        {/* Button Save Global Deadline */}
-                        <div className="mt-2 flex justify-end">
-                            <Button
-                                onClick={handleSaveGlobalDeadline}
-                                className="h-8 rounded bg-black px-4 text-xs font-bold text-white hover:bg-gray-800"
-                            >
-                                <Save className="mr-2 h-3 w-3" />
-                                {trans.save_changes || 'Save Settings'}
-                            </Button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            <div className="w-full space-y-3">
-                {sectionsTransProp && sectionsTransProp.length > 0 ? (
-                    sectionsTransProp
-                        // --- LOGIC TAMBAHAN: FILTER SECTION ---
-                        // Kita filter dulu supaya 'Additional Document' TIDAK MUNCUL di sini
-                        .filter((section: any) => {
-                            const name = section.section_name.toLowerCase();
-                            // Kembalikan true jika namanya TIDAK mengandung kata 'additional' atau 'tambahan'
-                            return !name.includes('additional') && !name.includes('tambahan');
-                        })
-                        // ---------------------------------------
-                        .map((section: any) => {
-                            const isOpen = activeSection === section.id; // Gunakan ID transaksi
-
-                            // --- Status Logic ---
-                            // --- Status Logic ---
-                            const docs = section.documents || [];
-
-                            // FIX: Use latest documents only for status calculation
-                            // This prevents 'Rejected' status from persisting if a new version exists (which is Pending or Verified)
-                            const latestDocsGroups = processDocumentsForRender(docs);
-                            const latestDocs = latestDocsGroups.map((g) => g.current);
-
-                            const validDocs = latestDocs.filter((d: any) => d.verify === true); // Verified (Latest only)
-
-                            // Fix: verify defaults to false, so ONLY check correction_attachment for Rejection
-                            const hasRejection = latestDocs.some((d: any) => d.correction_attachment);
-
-                            const allVerified = latestDocs.length > 0 && latestDocs.every((d: any) => d.verify === true);
-
-                            // Pending: Uploaded (url_path_file exists) but not Verified (verified IS NOT TRUE) AND not Rejected
-                            const hasPending = latestDocs.some((d: any) => d.url_path_file && d.verify !== true && !d.correction_attachment);
-
-                            // --- Styling Variables ---
-                            let containerClass = 'rounded-xl border transition-all duration-200 bg-white ';
-                            let headerClass = 'transition-all duration-200 ';
-                            let titleClass = 'text-sm tracking-tight transition-colors ';
-                            let chevronClass = 'h-4 w-4 transition-colors ';
-                            let deadlineIconClass = 'text-lg font-bold transition-colors ';
-                            let deadlineTextClass = 'text-xs font-bold transition-colors ';
-
-                            if (hasRejection) {
-                                // ROSE (Rejected) - Soft left-border accent + Header Highlight
-                                containerClass += 'bg-rose-50 border-l-4 border-rose-500 border-slate-200';
-                                headerClass += 'bg-rose-100 hover:bg-rose-200';
-                                titleClass += 'text-rose-900 font-bold';
-                                chevronClass += 'text-rose-700';
-                                deadlineIconClass += 'text-rose-700';
-                                deadlineTextClass += 'text-rose-700';
-                            } else if (allVerified) {
-                                // EMERALD (Verified) - Soft left-border accent + Header Highlight
-                                containerClass += 'bg-emerald-50 border-l-4 border-emerald-500 border-slate-200';
-                                headerClass += 'bg-emerald-100 hover:bg-emerald-200';
-                                titleClass += 'text-emerald-900 font-bold';
-                                chevronClass += 'text-emerald-700';
-                                deadlineIconClass += 'text-emerald-700';
-                                deadlineTextClass += 'text-emerald-700';
-                            } else if (hasPending) {
-                                // AMBER (Pending) - Soft left-border accent + Header Highlight
-                                containerClass += 'bg-amber-50 border-l-4 border-amber-500 border-slate-200';
-                                headerClass += 'bg-amber-100/50 hover:bg-amber-200/50';
-                                titleClass += 'text-amber-900 font-bold';
-                                chevronClass += 'text-amber-700';
-                                deadlineIconClass += 'text-amber-700';
-                                deadlineTextClass += 'text-amber-700';
-                            } else {
-                                // DEFAULT (Idle/None) - Clean white
-                                containerClass += 'border-slate-200 hover:border-slate-300 hover:shadow-sm';
-                                headerClass += 'hover:bg-slate-50';
-                                titleClass += 'text-slate-900 font-semibold';
-                                chevronClass += 'text-slate-500';
-                                deadlineIconClass += 'text-rose-500';
-                                deadlineTextClass += 'text-rose-500';
-                            }
-
-                            return (
-                                <div key={section.id_section} className={containerClass}>
-                                    <div
-                                        className={`flex min-h-[44px] cursor-pointer items-center gap-2 rounded-t-xl px-2 py-2.5 sm:rounded-t-[0.65rem] sm:px-3 sm:py-3 ${headerClass}`}
-                                        onClick={() => handleEditSection(section.id)}
+                                {/* Button Save Global Deadline */}
+                                <div className="mt-2 flex justify-end">
+                                    <Button
+                                        onClick={handleSaveGlobalDeadline}
+                                        className="h-8 rounded bg-black px-4 text-xs font-bold text-white hover:bg-gray-800"
                                     >
-                                        {isOpen ? <ChevronUp className={chevronClass} /> : <ChevronDown className={chevronClass} />}
-                                        <div className="flex flex-1 flex-col">
-                                            <span className={titleClass}>{section.section_name}</span>
-                                            {!isInternalUser && section.deadline && section.deadline_date && (
-                                                <div className="mt-1 flex items-center gap-1">
-                                                    <span className={deadlineIconClass}>ⓘ</span>
-                                                    <span className={deadlineTextClass}>
-                                                        {trans.submit_before}{' '}
-                                                        {new Date(section.deadline_date).toLocaleDateString(
-                                                            currentLocale === 'id' ? 'id-ID' : 'en-GB',
-                                                            {
-                                                                day: '2-digit',
-                                                                month: '2-digit',
-                                                                year: 'numeric',
-                                                            },
-                                                        )}{' '}
-                                                    </span>
-                                                </div>
-                                            )}
-                                        </div>
-                                        {isSupervisor && section.id_section > 6 && (
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleRemoveSection(section);
-                                                }}
-                                                className="ml-2 rounded-lg p-1.5 text-slate-400 transition-all hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-900/20"
-                                                title={trans.remove_section || 'Hapus Section'}
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </button>
-                                        )}
-                                    </div>
+                                        <Save className="mr-2 h-3 w-3" />
+                                        {trans.save_changes || 'Save Settings'}
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
-                                    {isOpen && (
-                                        <div className="animate-in fade-in slide-in-from-top-2 mt-1 rounded-xl border-t border-slate-100 bg-white px-4 pt-3 pb-5 shadow-sm duration-300">
-                                            {isSupervisor && (
-                                                <div className="mb-4 flex items-center gap-3">
-                                                    <label className="text-sm font-semibold whitespace-nowrap text-slate-700 dark:text-slate-900">
-                                                        {trans.deadline}:
-                                                    </label>
-                                                    <Input
-                                                        type="date"
-                                                        className={`date-input-light h-9 flex-1 rounded-lg border-slate-300 text-sm transition-all duration-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 ${
-                                                            useUnifiedDeadline
-                                                                ? 'cursor-not-allowed bg-slate-50 text-slate-900 opacity-50'
-                                                                : 'bg-white text-slate-900'
-                                                        } dark:border-zinc-700`}
-                                                        value={useUnifiedDeadline ? globalDeadlineDate : sectionDeadlines[section.id] || ''}
-                                                        onChange={(e) => {
-                                                            if (!useUnifiedDeadline) {
-                                                                setSectionDeadlines((prev) => ({
-                                                                    ...prev,
-                                                                    [section.id]: e.target.value,
-                                                                }));
-                                                            }
-                                                        }}
-                                                        disabled={useUnifiedDeadline}
-                                                    />
-                                                </div>
-                                            )}
+                    <div className="w-full space-y-3">
+                        {sectionsTransProp && sectionsTransProp.length > 0 ? (
+                            sectionsTransProp
+                                // --- LOGIC TAMBAHAN: FILTER SECTION ---
+                                // Kita filter dulu supaya 'Additional Document' TIDAK MUNCUL di sini
+                                .filter((section: any) => {
+                                    const name = section.section_name.toLowerCase();
+                                    // Kembalikan true jika namanya TIDAK mengandung kata 'additional' atau 'tambahan'
+                                    return !name.includes('additional') && !name.includes('tambahan');
+                                })
+                                // ---------------------------------------
+                                .map((section: any) => {
+                                    const isOpen = activeSection === section.id; // Gunakan ID transaksi
 
-                                            <div className="space-y-4">
-                                                {section.documents && section.documents.length > 0 ? (
-                                                    processDocumentsForRender(section.documents).map((item, idx: number) => {
-                                                        const doc = item.current;
-                                                        const allVersions = [doc, ...item.history];
-                                                        return renderDocumentRow(
-                                                            doc,
-                                                            idx,
-                                                            section.id,
-                                                            allVersions.filter((v) => !!v.url_path_file).length > 1,
-                                                            allVersions,
-                                                        );
-                                                    })
-                                                ) : (
-                                                    <div className="py-4 text-center text-xs text-gray-400 italic">{trans.section_empty}</div>
-                                                )}
-                                            </div>
+                                    // --- Status Logic ---
+                                    // --- Status Logic ---
+                                    const docs = section.documents || [];
 
+                                    // FIX: Use latest documents only for status calculation
+                                    // This prevents 'Rejected' status from persisting if a new version exists (which is Pending or Verified)
+                                    const latestDocsGroups = processDocumentsForRender(docs);
+                                    const latestDocs = latestDocsGroups.map((g) => g.current);
+
+                                    const validDocs = latestDocs.filter((d: any) => d.verify === true); // Verified (Latest only)
+
+                                    // Fix: verify defaults to false, so ONLY check correction_attachment for Rejection
+                                    const hasRejection = latestDocs.some((d: any) => d.correction_attachment);
+
+                                    const allVerified = latestDocs.length > 0 && latestDocs.every((d: any) => d.verify === true);
+
+                                    // Pending: Uploaded (url_path_file exists) but not Verified (verified IS NOT TRUE) AND not Rejected
+                                    const hasPending = latestDocs.some((d: any) => d.url_path_file && d.verify !== true && !d.correction_attachment);
+
+                                    // --- Styling Variables ---
+                                    let containerClass = 'rounded-xl border transition-all duration-200 bg-white ';
+                                    let headerClass = 'transition-all duration-200 ';
+                                    let titleClass = 'text-sm tracking-tight transition-colors ';
+                                    let chevronClass = 'h-4 w-4 transition-colors ';
+                                    let deadlineIconClass = 'text-lg font-bold transition-colors ';
+                                    let deadlineTextClass = 'text-xs font-bold transition-colors ';
+
+                                    if (hasRejection) {
+                                        // ROSE (Rejected) - Soft left-border accent + Header Highlight
+                                        containerClass += 'bg-rose-50 border-l-4 border-rose-500 border-slate-200';
+                                        headerClass += 'bg-rose-100 hover:bg-rose-200';
+                                        titleClass += 'text-rose-900 font-bold';
+                                        chevronClass += 'text-rose-700';
+                                        deadlineIconClass += 'text-rose-700';
+                                        deadlineTextClass += 'text-rose-700';
+                                    } else if (allVerified) {
+                                        // EMERALD (Verified) - Soft left-border accent + Header Highlight
+                                        containerClass += 'bg-emerald-50 border-l-4 border-emerald-500 border-slate-200';
+                                        headerClass += 'bg-emerald-100 hover:bg-emerald-200';
+                                        titleClass += 'text-emerald-900 font-bold';
+                                        chevronClass += 'text-emerald-700';
+                                        deadlineIconClass += 'text-emerald-700';
+                                        deadlineTextClass += 'text-emerald-700';
+                                    } else if (hasPending) {
+                                        // AMBER (Pending) - Soft left-border accent + Header Highlight
+                                        containerClass += 'bg-amber-50 border-l-4 border-amber-500 border-slate-200';
+                                        headerClass += 'bg-amber-100/50 hover:bg-amber-200/50';
+                                        titleClass += 'text-amber-900 font-bold';
+                                        chevronClass += 'text-amber-700';
+                                        deadlineIconClass += 'text-amber-700';
+                                        deadlineTextClass += 'text-amber-700';
+                                    } else {
+                                        // DEFAULT (Idle/None) - Clean white
+                                        containerClass += 'border-slate-200 hover:border-slate-300 hover:shadow-sm';
+                                        headerClass += 'hover:bg-slate-50';
+                                        titleClass += 'text-slate-900 font-semibold';
+                                        chevronClass += 'text-slate-500';
+                                        deadlineIconClass += 'text-rose-500';
+                                        deadlineTextClass += 'text-rose-500';
+                                    }
+
+                                    return (
+                                        <div key={section.id_section} className={containerClass}>
                                             <div
-                                                className={`mt-4 flex flex-col items-stretch gap-3 sm:mt-8 sm:flex-row sm:items-center sm:gap-0 ${isInternalUser ? 'sm:justify-between' : 'sm:justify-end'}`}
+                                                className={`flex min-h-[44px] cursor-pointer items-center gap-2 rounded-t-xl px-2 py-2.5 sm:rounded-t-[0.65rem] sm:px-3 sm:py-3 ${headerClass}`}
+                                                onClick={() => handleEditSection(section.id)}
                                             >
-                                                {isInternalUser && (
-                                                    <button
-                                                        onClick={() => handleOpenModal(section.id_section)}
-                                                        className="flex items-center gap-2 text-sm font-semibold text-slate-700 transition-colors duration-200 hover:text-slate-900"
-                                                    >
-                                                        <div className="rounded border-2 border-slate-400 p-0.5 transition-colors duration-200 hover:border-slate-600">
-                                                            <Plus className="h-4 w-4" />
+                                                {isOpen ? <ChevronUp className={chevronClass} /> : <ChevronDown className={chevronClass} />}
+                                                <div className="flex flex-1 flex-col">
+                                                    <span className={titleClass}>{section.section_name}</span>
+                                                    {!isInternalUser && section.deadline && section.deadline_date && (
+                                                        <div className="mt-1 flex items-center gap-1">
+                                                            <span className={deadlineIconClass}>ⓘ</span>
+                                                            <span className={deadlineTextClass}>
+                                                                {trans.submit_before}{' '}
+                                                                {new Date(section.deadline_date).toLocaleDateString(
+                                                                    currentLocale === 'id' ? 'id-ID' : 'en-GB',
+                                                                    {
+                                                                        day: '2-digit',
+                                                                        month: '2-digit',
+                                                                        year: 'numeric',
+                                                                    },
+                                                                )}{' '}
+                                                            </span>
                                                         </div>
-                                                        {trans.add_document}
+                                                    )}
+                                                </div>
+                                                {isSupervisor && section.id_section > 6 && (
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleRemoveSection(section);
+                                                        }}
+                                                        className="ml-2 rounded-lg p-1.5 text-slate-400 transition-all hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-900/20"
+                                                        title={trans.remove_section || 'Hapus Section'}
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
                                                     </button>
                                                 )}
-
-                                                <Button
-                                                    onClick={() => handleSaveSection(section.id)}
-                                                    disabled={processingSectionId === section.id}
-                                                    className="h-9 rounded-lg bg-blue-600 px-8 text-xs font-semibold text-white shadow-sm transition-all duration-200 hover:bg-blue-700 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50"
-                                                >
-                                                    {processingSectionId === section.id ? trans.saving || 'Saving...' : trans.save_changes}
-                                                </Button>
                                             </div>
+
+                                            {isOpen && (
+                                                <div className="animate-in fade-in slide-in-from-top-2 mt-1 rounded-xl border-t border-slate-100 bg-white px-4 pt-3 pb-5 shadow-sm duration-300">
+                                                    {isSupervisor && (
+                                                        <div className="mb-4 flex items-center gap-3">
+                                                            <label className="text-sm font-semibold whitespace-nowrap text-slate-700 dark:text-slate-900">
+                                                                {trans.deadline}:
+                                                            </label>
+                                                            <Input
+                                                                type="date"
+                                                                className={`date-input-light h-9 flex-1 rounded-lg border-slate-300 text-sm transition-all duration-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 ${useUnifiedDeadline
+                                                                    ? 'cursor-not-allowed bg-slate-50 text-slate-900 opacity-50'
+                                                                    : 'bg-white text-slate-900'
+                                                                    } dark:border-zinc-700`}
+                                                                value={useUnifiedDeadline ? globalDeadlineDate : sectionDeadlines[section.id] || ''}
+                                                                onChange={(e) => {
+                                                                    if (!useUnifiedDeadline) {
+                                                                        setSectionDeadlines((prev) => ({
+                                                                            ...prev,
+                                                                            [section.id]: e.target.value,
+                                                                        }));
+                                                                    }
+                                                                }}
+                                                                disabled={useUnifiedDeadline}
+                                                            />
+                                                        </div>
+                                                    )}
+
+                                                    <div className="space-y-4">
+                                                        {section.documents && section.documents.length > 0 ? (
+                                                            processDocumentsForRender(section.documents).map((item, idx: number) => {
+                                                                const doc = item.current;
+                                                                const allVersions = [doc, ...item.history];
+                                                                return renderDocumentRow(
+                                                                    doc,
+                                                                    idx,
+                                                                    section.id,
+                                                                    allVersions.filter((v) => !!v.url_path_file).length > 1,
+                                                                    allVersions,
+                                                                );
+                                                            })
+                                                        ) : (
+                                                            <div className="py-4 text-center text-xs text-gray-400 italic">{trans.section_empty}</div>
+                                                        )}
+                                                    </div>
+
+                                                    <div
+                                                        className={`mt-4 flex flex-col items-stretch gap-3 sm:mt-8 sm:flex-row sm:items-center sm:gap-0 ${isInternalUser ? 'sm:justify-between' : 'sm:justify-end'}`}
+                                                    >
+                                                        {isInternalUser && (
+                                                            <button
+                                                                onClick={() => handleOpenModal(section.id_section)}
+                                                                className="flex items-center gap-2 text-sm font-semibold text-slate-700 transition-colors duration-200 hover:text-slate-900"
+                                                            >
+                                                                <div className="rounded border-2 border-slate-400 p-0.5 transition-colors duration-200 hover:border-slate-600">
+                                                                    <Plus className="h-4 w-4" />
+                                                                </div>
+                                                                {trans.add_document}
+                                                            </button>
+                                                        )}
+
+                                                        <Button
+                                                            onClick={() => handleSaveSection(section.id)}
+                                                            disabled={processingSectionId === section.id}
+                                                            className="h-9 rounded-lg bg-blue-600 px-8 text-xs font-semibold text-white shadow-sm transition-all duration-200 hover:bg-blue-700 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50"
+                                                        >
+                                                            {processingSectionId === section.id ? trans.saving || 'Saving...' : trans.save_changes}
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
-                                    )}
+                                    );
+                                })
+                        ) : (
+                            <div className="py-4 text-center text-gray-500">
+                                <p>{trans.loading_docs}</p>
+                                <p className="text-xs text-gray-400">{trans.ensure_spk}</p>
+                            </div>
+                        )}
+                    </div>
+
+                    {isInternalUser && (
+                        <div className="mt-4 flex justify-center">
+                            <Button
+                                onClick={handleOpenAddSectionModal}
+                                className="w-full rounded-lg bg-black px-6 py-2 text-sm font-semibold text-white hover:bg-gray-800 dark:bg-white dark:text-slate-900 dark:hover:bg-gray-200"
+                            >
+                                <Plus className="mr-2 h-4 w-4" />
+                                {trans.add_section || 'Add Section'}
+                            </Button>
+                        </div>
+                    )}
+
+                    {/* Penjaluran Buttons */}
+                    {(() => {
+                        // Cek apakah semua dokumen di id_section === 4 sudah verified
+                        const section4 = sectionsTransProp?.find((s: any) => s.id_section === 4);
+                        const section4AllVerified = (() => {
+                            if (!section4) return false;
+                            const docs = section4.documents || [];
+                            const latestDocs = processDocumentsForRender(docs).map((g) => g.current);
+                            if (latestDocs.length === 0) return false;
+                            return latestDocs.every((d: any) => d.verify === true);
+                        })();
+
+                        if (!isInternalUser || !section4AllVerified) return null;
+
+                        return (
+                            <div className="mt-2 flex flex-col justify-center gap-3 sm:flex-row sm:gap-4">
+                                <Button
+                                    onClick={() => openPenjaluranModal('merah')}
+                                    disabled={isUpdatingPenjaluran}
+                                    className="rounded-lg bg-gradient-to-r from-rose-500 to-rose-600 px-6 py-3 text-center text-sm font-medium text-white shadow-md transition-all duration-300 hover:from-rose-600 hover:to-rose-700 hover:shadow-lg focus:ring-4 focus:ring-rose-300 focus:outline-none"
+                                >
+                                    {trans.red_line}
+                                </Button>
+                                <Button
+                                    onClick={() => openPenjaluranModal('hijau')}
+                                    disabled={isUpdatingPenjaluran}
+                                    className="rounded-lg bg-gradient-to-r from-green-500 to-green-600 px-6 py-3 text-center text-sm font-medium text-white shadow-md transition-all duration-300 hover:from-green-600 hover:to-green-700 hover:shadow-lg focus:ring-4 focus:ring-green-300 focus:outline-none"
+                                >
+                                    {trans.green_line}
+                                </Button>
+                            </div>
+                        );
+                    })()}
+
+                    {/* Modal Konfirmasi Penjaluran */}
+                    <Dialog open={penjaluranModalOpen} onOpenChange={setPenjaluranModalOpen}>
+                        <DialogContent className="max-w-sm rounded-2xl p-0">
+                            <DialogHeader className="px-6 pt-6 pb-2">
+                                <DialogTitle className="flex items-center gap-2 text-base font-bold">
+                                    <span className={`inline-block h-3 w-3 rounded-full ${pendingJalur === 'merah' ? 'bg-rose-500' : 'bg-green-500'}`} />
+                                    {pendingJalur === 'merah' ? trans.red_line : trans.green_line}
+                                </DialogTitle>
+                            </DialogHeader>
+
+                            <div className="space-y-4 px-6 pb-2">
+                                <p className="text-sm text-slate-500">{trans.complete_registration_data}</p>
+
+                                {/* No. Pendaftaran */}
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs font-semibold tracking-wide text-slate-500 uppercase">{trans.register_number}</Label>
+                                    <Input
+                                        placeholder={trans.placeholder_register_number}
+                                        value={registerNumber}
+                                        onChange={(e) => setRegisterNumber(e.target.value)}
+                                        className="h-9 rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                                    />
                                 </div>
-                            );
-                        })
-                ) : (
-                    <div className="py-4 text-center text-gray-500">
-                        <p>{trans.loading_docs}</p>
-                        <p className="text-xs text-gray-400">{trans.ensure_spk}</p>
-                    </div>
-                )}
-            </div>
 
-            {isInternalUser && (
-                <div className="mt-4 flex justify-center">
-                    <Button
-                        onClick={handleOpenAddSectionModal}
-                        className="w-full rounded-lg bg-black px-6 py-2 text-sm font-semibold text-white hover:bg-gray-800 dark:bg-white dark:text-slate-900 dark:hover:bg-gray-200"
-                    >
-                        <Plus className="mr-2 h-4 w-4" />
-                        {trans.add_section || 'Add Section'}
-                    </Button>
-                </div>
-            )}
+                                {/* Tanggal Pendaftaran */}
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs font-semibold tracking-wide text-slate-500 uppercase">{trans.register_date}</Label>
+                                    <Input
+                                        type="date"
+                                        value={registerDate}
+                                        onChange={(e) => setRegisterDate(e.target.value)}
+                                        className="h-9 rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                                    />
+                                </div>
+                            </div>
 
-            {/* Penjaluran Buttons */}
-            {(() => {
-                // Cek apakah semua dokumen di id_section === 4 sudah verified
-                const section4 = sectionsTransProp?.find((s: any) => s.id_section === 4);
-                const section4AllVerified = (() => {
-                    if (!section4) return false;
-                    const docs = section4.documents || [];
-                    const latestDocs = processDocumentsForRender(docs).map((g) => g.current);
-                    if (latestDocs.length === 0) return false;
-                    return latestDocs.every((d: any) => d.verify === true);
-                })();
+                            <DialogFooter className="flex gap-2 rounded-b-2xl border-t bg-slate-50 px-6 py-4">
+                                <Button variant="outline" onClick={() => setPenjaluranModalOpen(false)} className="flex-1" disabled={isUpdatingPenjaluran}>
+                                    {trans.cancel}
+                                </Button>
+                                <Button
+                                    onClick={handleUpdatePenjaluran}
+                                    disabled={isUpdatingPenjaluran || !registerNumber || !registerDate}
+                                    className={`flex-1 text-white ${pendingJalur === 'merah' ? 'bg-rose-500 hover:bg-rose-600' : 'bg-green-500 hover:bg-green-600'
+                                        }`}
+                                >
+                                    {isUpdatingPenjaluran ? trans.saving : trans.save}
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
 
-                if (!isInternalUser || !section4AllVerified) return null;
+                    {/* Download All Documents as ZIP */}
+                    {(() => {
+                        // Cek apakah semua dokumen di id_section 1 DAN id_section 2 sudah verified
+                        const isSectionAllVerified = (idSection: number) => {
+                            const sec = sectionsTransProp?.find((s: any) => s.id_section === idSection);
+                            if (!sec) return false;
+                            const latestDocs = processDocumentsForRender(sec.documents || []).map((g) => g.current);
+                            if (latestDocs.length === 0) return false;
+                            return latestDocs.every((d: any) => d.verify === true);
+                        };
 
-                return (
-                    <div className="mt-2 flex flex-col justify-center gap-3 sm:flex-row sm:gap-4">
-                        <Button
-                            onClick={() => openPenjaluranModal('merah')}
-                            disabled={isUpdatingPenjaluran}
-                            className="rounded-lg bg-gradient-to-r from-rose-500 to-rose-600 px-6 py-3 text-center text-sm font-medium text-white shadow-md transition-all duration-300 hover:from-rose-600 hover:to-rose-700 hover:shadow-lg focus:ring-4 focus:ring-rose-300 focus:outline-none"
-                        >
-                            {trans.red_line}
-                        </Button>
-                        <Button
-                            onClick={() => openPenjaluranModal('hijau')}
-                            disabled={isUpdatingPenjaluran}
-                            className="rounded-lg bg-gradient-to-r from-green-500 to-green-600 px-6 py-3 text-center text-sm font-medium text-white shadow-md transition-all duration-300 hover:from-green-600 hover:to-green-700 hover:shadow-lg focus:ring-4 focus:ring-green-300 focus:outline-none"
-                        >
-                            {trans.green_line}
-                        </Button>
-                    </div>
-                );
-            })()}
+                        if (!isInternalUser || !isSectionAllVerified(1) || !isSectionAllVerified(2)) return null;
 
-            {/* Modal Konfirmasi Penjaluran */}
-            <Dialog open={penjaluranModalOpen} onOpenChange={setPenjaluranModalOpen}>
-                <DialogContent className="max-w-sm rounded-2xl p-0">
-                    <DialogHeader className="px-6 pt-6 pb-2">
-                        <DialogTitle className="flex items-center gap-2 text-base font-bold">
-                            <span className={`inline-block h-3 w-3 rounded-full ${pendingJalur === 'merah' ? 'bg-rose-500' : 'bg-green-500'}`} />
-                            {pendingJalur === 'merah' ? trans.red_line : trans.green_line}
-                        </DialogTitle>
-                    </DialogHeader>
-
-                    <div className="space-y-4 px-6 pb-2">
-                        <p className="text-sm text-slate-500">{trans.complete_registration_data}</p>
-
-                        {/* No. Pendaftaran */}
-                        <div className="space-y-1.5">
-                            <Label className="text-xs font-semibold tracking-wide text-slate-500 uppercase">{trans.register_number}</Label>
-                            <Input
-                                placeholder={trans.placeholder_register_number}
-                                value={registerNumber}
-                                onChange={(e) => setRegisterNumber(e.target.value)}
-                                className="h-9 rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-                            />
-                        </div>
-
-                        {/* Tanggal Pendaftaran */}
-                        <div className="space-y-1.5">
-                            <Label className="text-xs font-semibold tracking-wide text-slate-500 uppercase">{trans.register_date}</Label>
-                            <Input
-                                type="date"
-                                value={registerDate}
-                                onChange={(e) => setRegisterDate(e.target.value)}
-                                className="h-9 rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-                            />
-                        </div>
-                    </div>
-
-                    <DialogFooter className="flex gap-2 rounded-b-2xl border-t bg-slate-50 px-6 py-4">
-                        <Button variant="outline" onClick={() => setPenjaluranModalOpen(false)} className="flex-1" disabled={isUpdatingPenjaluran}>
-                            {trans.cancel}
-                        </Button>
-                        <Button
-                            onClick={handleUpdatePenjaluran}
-                            disabled={isUpdatingPenjaluran || !registerNumber || !registerDate}
-                            className={`flex-1 text-white ${
-                                pendingJalur === 'merah' ? 'bg-rose-500 hover:bg-rose-600' : 'bg-green-500 hover:bg-green-600'
-                            }`}
-                        >
-                            {isUpdatingPenjaluran ? trans.saving : trans.save}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
-            {/* Download All Documents as ZIP */}
-            {(() => {
-                // Cek apakah semua dokumen di id_section 1 DAN id_section 2 sudah verified
-                const isSectionAllVerified = (idSection: number) => {
-                    const sec = sectionsTransProp?.find((s: any) => s.id_section === idSection);
-                    if (!sec) return false;
-                    const latestDocs = processDocumentsForRender(sec.documents || []).map((g) => g.current);
-                    if (latestDocs.length === 0) return false;
-                    return latestDocs.every((d: any) => d.verify === true);
-                };
-
-                if (!isInternalUser || !isSectionAllVerified(1) || !isSectionAllVerified(2)) return null;
-
-                return (
-                    <div className="mt-2 flex justify-center">
-                        <button
-                            onClick={handleDownloadZip}
-                            disabled={isDownloadingZip}
-                            className="group flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-600 shadow-sm transition-all duration-200 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:border-blue-500 dark:hover:bg-blue-950 dark:hover:text-blue-400"
-                        >
-                            <Archive className="h-4 w-4 transition-transform duration-200 group-hover:scale-110" />
-                            {isDownloadingZip ? 'Mengunduh...' : 'Unduh Semua Dokumen (.zip)'}
-                        </button>
-                    </div>
-                );
-            })()}
+                        return (
+                            <div className="mt-2 flex justify-center">
+                                <button
+                                    onClick={handleDownloadZip}
+                                    disabled={isDownloadingZip}
+                                    className="group flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-600 shadow-sm transition-all duration-200 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:border-blue-500 dark:hover:bg-blue-950 dark:hover:text-blue-400"
+                                >
+                                    <Archive className="h-4 w-4 transition-transform duration-200 group-hover:scale-110" />
+                                    {isDownloadingZip ? 'Mengunduh...' : 'Unduh Semua Dokumen (.zip)'}
+                                </button>
+                            </div>
+                        );
+                    })()}
 
                 </div>
             </div>

@@ -27,6 +27,13 @@ class Spk extends Model
         'register_number',
         'register_date',
         'eta_date',
+        'shipper',
+        'consignee',
+        'vessel',
+        'party_qty',
+        'party_size',
+        'aju',
+        'j_o',
     ];
 
     protected $appends = ['is_created_by_internal'];
@@ -70,9 +77,9 @@ class Spk extends Model
         // Pastikan relasi creator ada datanya
         if ($this->creator) {
             // Memanggil fungsi isInternal() dari model User
-            return $this->creator->isInternal(); 
+            return $this->creator->isInternal();
         }
-        
+
         return false;
     }
 
