@@ -303,10 +303,14 @@ class ShippingController extends Controller
                 'document_trans.id',
                 'document_trans.id_spk',
                 'document_trans.id_section',
+                'document_trans.id_dokumen',
                 'document_trans.nama_file',
                 'document_trans.url_path_file',
                 'document_trans.updated_at',
                 'document_trans.verify',
+                'document_trans.upload_date',
+                'document_trans.verified_date',
+                'document_trans.ori_date',
                 'section_trans.section_name',
             ])
             ->orderBy('document_trans.id_section', 'asc')
@@ -322,6 +326,7 @@ class ShippingController extends Controller
             ->map(function ($item) {
                 return [
                     'id' => $item->id,
+                    'id_dokumen' => $item->id_dokumen,
                     'id_spk' => $item->id_spk,
                     'id_section' => $item->id_section,
                     'section_name' => $item->section_name,
@@ -329,8 +334,18 @@ class ShippingController extends Controller
                     'url_path_file' => $item->url_path_file,
                     'verify' => $item->verify,
                     'is_updated' => !empty($item->url_path_file),
-                    'updated_at' => optional($item->updated_at)->format('d-m-Y'),
+
+                    'updated_at' => optional($item->updated_at)->format('d M Y'),
                     'updated_at_full' => optional($item->updated_at)->format('d-m-Y H:i:s'),
+
+                    'upload_date' => optional($item->upload_date)->format('d M Y'),
+                    'upload_date_full' => optional($item->upload_date)->format('d-m-Y H:i:s'),
+
+                    'verified_date' => optional($item->verified_date)->format('d M Y'),
+                    'verified_date_full' => optional($item->verified_date)->format('d-m-Y H:i:s'),
+
+                    'ori_date' => optional($item->ori_date)->format('d M Y'),
+                    'ori_date_full' => optional($item->ori_date)->format('d-m-Y H:i:s'),
                 ];
             });
 
@@ -339,6 +354,19 @@ class ShippingController extends Controller
                 'id' => $spk->id,
                 'spk_code' => $spk->spk_code,
                 'shipment_type' => $spk->shipment_type,
+                'internal_can_upload' => $spk->internal_can_upload,
+                'penjaluran' => $spk->penjaluran,
+                'register_number' => $spk->register_number,
+                'register_date' => $spk->register_date,
+
+                // field tambahan baru
+                'shipper' => $spk->shipper,
+                'consignee' => $spk->consignee,
+                'vessel' => $spk->vessel,
+                'party_qty' => $spk->party_qty,
+                'party_size' => $spk->party_size,
+                'aju' => $spk->aju,
+                'j_o' => $spk->j_o,
             ],
             'documents' => $documents,
             'flash' => [

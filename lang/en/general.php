@@ -325,4 +325,19 @@ return [
     'view' => 'View',
     'no_document_data' => 'No document data yet',
     'no_document_for_spk' => 'Documents for this SPK are not available yet.',
+
+    // --- DOCUMENT RECEIPT FORM (NEW) ---
+    'document_receipt_form' => 'Document Receipt Form',
+
+    'shipper_label' => 'SHIPPER',
+    'consignee_label' => 'C\'NEE',
+    'bl_number_label' => 'B/L Number',
+    'vessel_label' => 'Vessel',
+    'part_label' => 'Party',
+    'aju_label' => 'AJU',
+    'jo_label' => 'J.O',
+
+    'upload_date' => 'Upload Date',
+    'verified_date' => 'Verified Date',
+    'ori_date' => 'ORI Date',
 ];

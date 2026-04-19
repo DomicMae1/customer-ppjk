@@ -324,4 +324,19 @@ return [
     'view' => 'Lihat',
     'no_document_data' => 'Belum ada data dokumen',
     'no_document_for_spk' => 'Dokumen untuk SPK ini belum tersedia.',
+
+    // --- FORM PENERIMAAN DOKUMEN (BARU) ---
+    'document_receipt_form' => 'Formulir Penerimaan Dokumen',
+
+    'shipper_label' => 'SHIPPER',
+    'consignee_label' => 'C\'NEE',
+    'bl_number_label' => 'No B/L',
+    'vessel_label' => 'Kapal',
+    'part_label' => 'Party',
+    'aju_label' => 'AJU',
+    'jo_label' => 'J.O',
+
+    'upload_date' => 'Tanggal Upload',
+    'verified_date' => 'Tanggal Verifikasi',
+    'ori_date' => 'Tanggal ORI',
 ];
