@@ -293,6 +293,15 @@ return [
     'party' => 'Party',
     'aju' => 'AJU',
     'jo' => 'J.O',
+    'add_ori_date' => 'Add ORI Date',
+    'manage_ori_date' => 'Manage Document ORI Date',
+    'ori_date_saved' => 'ORI dates saved successfully',
+    'ori_date_save_failed' => 'Failed to save ORI dates',
+    'no_documents' => 'No documents found',
+    'bulk_apply_ori_date' => 'Bulk Apply Date',
+    'apply_to_all' => 'Apply All',
+    'apply_to_selected' => 'Apply Selected',
+    'select_all' => 'Select All',
 
     //view shipment report
     'download_pdf' => 'Download PDF',

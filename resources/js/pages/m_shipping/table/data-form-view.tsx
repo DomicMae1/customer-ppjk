@@ -69,6 +69,9 @@ interface DocumentTrans {
     correction_attachment_file?: string;
     is_internal?: boolean; // Added
     is_verification?: boolean; // Added
+    ori_date?: string | null;
+    upload_date?: string | null;
+    verified_date?: string | null;
 }
 
 // Interface untuk Section Transaksional (dari DB Tenant)
@@ -265,6 +268,78 @@ export default function ViewCustomerForm({
     // ETA Date State
     const [etaDate, setEtaDate] = useState(shipmentDataProp?.eta_date ? shipmentDataProp.eta_date.split('T')[0].split(' ')[0] : '');
     const [isSavingEtaDate, setIsSavingEtaDate] = useState(false);
+
+    // Ori Date Modal State
+    const [isOriDateModalOpen, setIsOriDateModalOpen] = useState(false);
+    const [oriDateValues, setOriDateValues] = useState<Record<number, string>>({});
+    const [isSavingOriDates, setIsSavingOriDates] = useState(false);
+    const [bulkOriDate, setBulkOriDate] = useState('');
+    const [selectedOriDocIds, setSelectedOriDocIds] = useState<number[]>([]);
+
+    // Gather all documents from all sections for the ori date modal
+    const allDocumentsForOriDate = (sectionsTransProp || []).flatMap((section) =>
+        (section.documents || []).map((doc) => ({
+            ...doc,
+            sectionName: section.section_name,
+        }))
+    );
+
+    // Initialize ori date values when modal opens
+    const openOriDateModal = () => {
+        const initialValues: Record<number, string> = {};
+        allDocumentsForOriDate.forEach((doc) => {
+            initialValues[doc.id] = doc.ori_date ? doc.ori_date.split('T')[0].split(' ')[0] : '';
+        });
+        setOriDateValues(initialValues);
+        setBulkOriDate('');
+        setSelectedOriDocIds([]);
+        setIsOriDateModalOpen(true);
+    };
+
+    const toggleOriDocSelection = (docId: number) => {
+        setSelectedOriDocIds((prev) =>
+            prev.includes(docId) ? prev.filter((id) => id !== docId) : [...prev, docId]
+        );
+    };
+
+    const toggleSelectAllOriDocs = () => {
+        if (selectedOriDocIds.length === allDocumentsForOriDate.length) {
+            setSelectedOriDocIds([]);
+        } else {
+            setSelectedOriDocIds(allDocumentsForOriDate.map((d) => d.id));
+        }
+    };
+
+    const applyBulkOriDate = (mode: 'all' | 'selected') => {
+        if (!bulkOriDate) return;
+        setOriDateValues((prev) => {
+            const updated = { ...prev };
+            const targetIds = mode === 'all' ? allDocumentsForOriDate.map((d) => d.id) : selectedOriDocIds;
+            targetIds.forEach((id) => {
+                updated[id] = bulkOriDate;
+            });
+            return updated;
+        });
+    };
+
+    const handleSaveOriDates = async () => {
+        setIsSavingOriDates(true);
+        try {
+            const payload = Object.entries(oriDateValues)
+                .filter(([, value]) => value !== '')
+                .map(([docId, date]) => ({ doc_id: parseInt(docId), ori_date: date }));
+
+            await axios.post(`/shipping/${shipmentDataProp.id_spk}/update-ori-dates`, { documents: payload });
+            toast.success(trans.ori_date_saved || 'Tanggal ORI berhasil disimpan');
+            setIsOriDateModalOpen(false);
+            router.reload({ only: ['sectionsTransProp'] });
+        } catch (error) {
+            console.error('Failed to save ori dates', error);
+            toast.error(trans.ori_date_save_failed || 'Gagal menyimpan tanggal ORI');
+        } finally {
+            setIsSavingOriDates(false);
+        }
+    };
 
     useEffect(() => {
         if (helpModalOpen) {
@@ -1510,8 +1585,148 @@ export default function ViewCustomerForm({
                                     </div>
                                 </div>
                             )}
+
+                            {/* Ori Date Button */}
+                            {isInternalUser && (
+                                <div className="col-span-2 mt-2 border-t border-slate-200/60 pt-3 dark:border-zinc-800">
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={openOriDateModal}
+                                        className="h-9 w-full gap-2 rounded-lg border-dashed border-slate-300 text-[10px] font-bold tracking-wider text-slate-500 uppercase hover:border-blue-400 hover:text-blue-600 dark:border-zinc-700 dark:text-zinc-400 dark:hover:border-blue-500 dark:hover:text-blue-400"
+                                    >
+                                        <FileText className="h-3.5 w-3.5" />
+                                        {trans.add_ori_date || 'Tambah ORI Date'}
+                                    </Button>
+                                </div>
+                            )}
                         </div>
                     </div>
+
+                    {/* Ori Date Modal */}
+                    <Dialog open={isOriDateModalOpen} onOpenChange={setIsOriDateModalOpen}>
+                        <DialogContent className="max-w-2xl rounded-2xl p-0 dark:border-zinc-800 dark:bg-zinc-900">
+                            <DialogHeader className="border-b px-6 py-4 dark:border-zinc-800">
+                                <DialogTitle className="text-lg font-bold text-gray-900 dark:text-white">
+                                    {trans.manage_ori_date || 'Kelola Tanggal ORI Dokumen'}
+                                </DialogTitle>
+                            </DialogHeader>
+
+                            {/* Bulk Apply Section */}
+                            {allDocumentsForOriDate.length > 0 && (
+                                <div className="border-b border-slate-200/60 bg-slate-50/80 px-6 py-3 dark:border-zinc-800 dark:bg-zinc-950/50">
+                                    <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-2">
+                                        {trans.bulk_apply_ori_date || 'Terapkan Tanggal Sekaligus'}
+                                    </div>
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        <Input
+                                            type="date"
+                                            value={bulkOriDate}
+                                            onChange={(e) => setBulkOriDate(e.target.value)}
+                                            className="date-input-dark h-9 w-44 rounded-lg border-slate-200 bg-white text-xs text-slate-700 focus:ring-blue-500/20 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300"
+                                        />
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => applyBulkOriDate('all')}
+                                            disabled={!bulkOriDate}
+                                            className="h-9 rounded-lg text-[10px] font-bold uppercase tracking-wide dark:border-zinc-700 dark:text-zinc-300"
+                                        >
+                                            {trans.apply_to_all || 'Terapkan Semua'}
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => applyBulkOriDate('selected')}
+                                            disabled={!bulkOriDate || selectedOriDocIds.length === 0}
+                                            className="h-9 rounded-lg text-[10px] font-bold uppercase tracking-wide dark:border-zinc-700 dark:text-zinc-300"
+                                        >
+                                            {trans.apply_to_selected || 'Terapkan Terpilih'}
+                                            {selectedOriDocIds.length > 0 && (
+                                                <span className="ml-1 rounded-full bg-blue-500 px-1.5 py-0.5 text-[9px] text-white">
+                                                    {selectedOriDocIds.length}
+                                                </span>
+                                            )}
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="max-h-[55vh] space-y-2 overflow-y-auto px-6 py-4">
+                                {allDocumentsForOriDate.length === 0 ? (
+                                    <div className="py-8 text-center text-sm text-slate-400 dark:text-zinc-500">
+                                        {trans.no_documents || 'Tidak ada dokumen'}
+                                    </div>
+                                ) : (
+                                    <>
+                                        {/* Select All Checkbox */}
+                                        <div className="flex items-center gap-2 rounded-lg bg-slate-100/50 px-3 py-2 dark:bg-zinc-900/50">
+                                            <Checkbox
+                                                id="select-all-ori"
+                                                checked={selectedOriDocIds.length === allDocumentsForOriDate.length && allDocumentsForOriDate.length > 0}
+                                                onCheckedChange={toggleSelectAllOriDocs}
+                                            />
+                                            <label htmlFor="select-all-ori" className="cursor-pointer text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
+                                                {trans.select_all || 'Pilih Semua'} ({selectedOriDocIds.length}/{allDocumentsForOriDate.length})
+                                            </label>
+                                        </div>
+
+                                        {allDocumentsForOriDate.map((doc) => (
+                                            <div
+                                                key={doc.id}
+                                                className={`flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors ${selectedOriDocIds.includes(doc.id)
+                                                        ? 'border-blue-300 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-950/20'
+                                                        : 'border-slate-200/60 bg-slate-50/50 dark:border-zinc-800 dark:bg-zinc-950/50'
+                                                    }`}
+                                            >
+                                                <Checkbox
+                                                    id={`ori-doc-${doc.id}`}
+                                                    checked={selectedOriDocIds.includes(doc.id)}
+                                                    onCheckedChange={() => toggleOriDocSelection(doc.id)}
+                                                />
+                                                <div className="min-w-0 flex-1">
+                                                    <div className="truncate text-sm font-semibold text-slate-700 dark:text-zinc-200">
+                                                        {doc.master_document?.nama_dokumen || doc.nama_file}
+                                                    </div>
+                                                    <div className="mt-0.5 text-[10px] font-medium tracking-wide text-slate-400 uppercase dark:text-zinc-500">
+                                                        {doc.sectionName}
+                                                    </div>
+                                                </div>
+                                                <Input
+                                                    type="date"
+                                                    value={oriDateValues[doc.id] || ''}
+                                                    onChange={(e) =>
+                                                        setOriDateValues((prev) => ({
+                                                            ...prev,
+                                                            [doc.id]: e.target.value,
+                                                        }))
+                                                    }
+                                                    className="date-input-dark h-9 w-44 shrink-0 rounded-lg border-slate-200 bg-white text-xs text-slate-700 focus:ring-blue-500/20 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300"
+                                                />
+                                            </div>
+                                        ))}
+                                    </>
+                                )}
+                            </div>
+
+                            <DialogFooter className="border-t px-6 py-4 dark:border-zinc-800">
+                                <Button
+                                    variant="outline"
+                                    onClick={() => setIsOriDateModalOpen(false)}
+                                    className="rounded-lg dark:border-zinc-700 dark:text-zinc-300"
+                                >
+                                    {trans.cancel || 'Batal'}
+                                </Button>
+                                <Button
+                                    onClick={handleSaveOriDates}
+                                    disabled={isSavingOriDates}
+                                    className="rounded-lg bg-slate-900 text-white hover:bg-slate-800 dark:bg-blue-600 dark:hover:bg-blue-700"
+                                >
+                                    {isSavingOriDates ? '...' : trans.save || 'Simpan'}
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
 
                     {/* Modal Dialog for Edit HS Codes */}
                     <Dialog open={isEditingHsCodes} onOpenChange={(open) => !open && cancelEditMode()}>

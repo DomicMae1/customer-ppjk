@@ -292,6 +292,15 @@ return [
     'party' => 'Party',
     'aju' => 'AJU',
     'jo' => 'J.O',
+    'add_ori_date' => 'Tambah ORI Date',
+    'manage_ori_date' => 'Kelola Tanggal ORI Dokumen',
+    'ori_date_saved' => 'Tanggal ORI berhasil disimpan',
+    'ori_date_save_failed' => 'Gagal menyimpan tanggal ORI',
+    'no_documents' => 'Tidak ada dokumen',
+    'bulk_apply_ori_date' => 'Terapkan Tanggal Sekaligus',
+    'apply_to_all' => 'Terapkan Semua',
+    'apply_to_selected' => 'Terapkan Terpilih',
+    'select_all' => 'Pilih Semua',
 
     //view shipment report
     'download_pdf' => 'Download PDF',

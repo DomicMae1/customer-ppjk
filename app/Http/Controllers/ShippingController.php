@@ -1147,6 +1147,7 @@ class ShippingController extends Controller
             'party_size' => $spk->party_size,
             'aju' => $spk->aju,
             'j_o' => $spk->j_o,
+
         ];
 
         // 3. Mapping HS Code
@@ -2858,6 +2859,52 @@ class ShippingController extends Controller
             return response()->json(['success' => true, 'message' => 'Form fields auto-saved successfully']);
         } catch (\Throwable $th) {
             Log::error("Failed to update form fields: " . $th->getMessage());
+            return response()->json(['success' => false, 'error' => $th->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Update ori_date for multiple documents
+     */
+    public function updateOriDates(Request $request, $idSpk)
+    {
+        $user = auth('web')->user();
+
+        $tenant = null;
+        if ($user->id_perusahaan) {
+            $tenant = Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
+        } elseif ($user->id_customer) {
+            $customer = Customer::find($user->id_customer);
+            if ($customer && $customer->ownership) {
+                $tenant = Tenant::where('perusahaan_id', $customer->ownership)->first();
+            }
+        }
+
+        if (!$tenant) {
+            return response()->json(['success' => false, 'message' => 'Tenant not found'], 404);
+        }
+
+        tenancy()->initialize($tenant);
+
+        try {
+            $spk = Spk::findOrFail($idSpk);
+            $documents = $request->input('documents', []);
+
+            foreach ($documents as $item) {
+                $doc = DocumentTrans::where('id', $item['doc_id'])
+                    ->where('id_spk', $spk->id)
+                    ->first();
+
+                if ($doc) {
+                    $doc->update([
+                        'ori_date' => $item['ori_date'] ?? null,
+                    ]);
+                }
+            }
+
+            return response()->json(['success' => true, 'message' => 'ORI dates updated successfully']);
+        } catch (\Throwable $th) {
+            Log::error("Failed to update ORI dates: " . $th->getMessage());
             return response()->json(['success' => false, 'error' => $th->getMessage()], 500);
         }
     }
