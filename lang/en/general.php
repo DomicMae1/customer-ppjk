@@ -286,6 +286,13 @@ return [
     'clipboard_permission_denied' => 'Clipboard read permission was denied. Please allow it in your browser.',
     'select_staff_placeholder' => 'Select Staff',
     'eta_date' => 'ETA Date',
+    'document_receipt_form' => 'Document Receipt Form',
+    'shipper' => 'Shipper',
+    'consignee' => 'Consignee (C\'NEE)',
+    'vessel' => 'Vessel',
+    'party' => 'Party',
+    'aju' => 'AJU',
+    'jo' => 'J.O',
 
     //view shipment report
     'download_pdf' => 'Download PDF',

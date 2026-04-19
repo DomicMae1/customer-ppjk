@@ -21,7 +21,7 @@ return [
     'merah' => 'Merah',
     'hijau' => 'Hijau',
     'kuning' => 'Kuning',
-    
+
     // Teks dalam Cell Status
     'by' => 'oleh',
     'at' => 'pada',
@@ -31,7 +31,7 @@ return [
     'progress_almost_done' => 'Hampir selesai',
     'progress_in_process' => 'Sedang diproses',
     'progress_started' => 'Baru dimulai',
-    
+
     // Actions
     'view_customer' => 'Lihat Customer',
     'delete_customer' => 'Hapus Customer',
@@ -55,7 +55,7 @@ return [
     'all' => 'Semua',
     'already_know' => 'Sudah Mengetahui',
     'not_yet_know' => 'Belum Mengetahui',
-    
+
     // Status Options
     'inputted' => 'Diinput',
     'submitted' => 'Disubmit',
@@ -153,7 +153,7 @@ return [
     'unassessed_docs_alert' => 'Terdapat dokumen yang belum dinilai',
     'verify_before_save' => 'Harap verifikasi semua dokumen yang telah diupload sebelum menyimpan.',
     'document' => 'Dokumen',
-    
+
     // HS Code Section
     'hs_code_data' => 'Data HS Code',
     'input_hs_code' => 'Masukkan HS Code',
@@ -163,7 +163,7 @@ return [
     'paste_clipboard' => 'Tempel Screenshot (Clipboard)',
     'add_another_hs' => 'Tambah HS Code Lain',
     'save' => 'Simpan',
-    
+
     // Alerts/Errors (Javascript)
     'alert_complete_data' => 'Harap lengkapi BL Number dan Customer',
     'alert_hs_code' => 'Harap isi nomor HS Code',
@@ -192,7 +192,7 @@ return [
     'save_changes' => 'Simpan Perubahan',
     'cancel' => 'Batal',
     'close' => 'Tutup',
-    
+
     // Additional Document Section
     'req_additional_doc' => 'Minta Dokumen Tambahan',
     'additional_doc' => 'Dokumen Tambahan',
@@ -209,7 +209,7 @@ return [
     'deadline' => 'Tenggat Waktu',
     'submit_before' => 'Harap kumpulkan sebelum',
     'wib' => 'WIB',
-    
+
     // Help Modal
     'no_description' => 'Tidak ada deskripsi tersedia untuk dokumen ini.',
     'download_example' => 'Unduh Contoh Dokumen',
@@ -242,7 +242,7 @@ return [
     // --- APPEARANCE SETTINGS ---
     'appearance_settings' => 'Pengaturan Tampilan',
     'appearance_desc' => 'Perbarui pengaturan tampilan akun Anda',
-    
+
     // (Opsional) Untuk tab Light/Dark/System nanti
     'light' => 'Terang',
     'dark' => 'Gelap',
@@ -285,6 +285,13 @@ return [
     'clipboard_permission_denied' => 'Izin baca clipboard ditolak. Silakan izinkan di browser.',
     'select_staff_placeholder' => 'Pilih Staff',
     'eta_date' => 'Tanggal ETA',
+    'document_receipt_form' => 'Formulir Penerimaan Dokumen',
+    'shipper' => 'Shipper',
+    'consignee' => 'Consignee (C\'NEE)',
+    'vessel' => 'Vessel',
+    'party' => 'Party',
+    'aju' => 'AJU',
+    'jo' => 'J.O',
 
     //view shipment report
     'download_pdf' => 'Download PDF',

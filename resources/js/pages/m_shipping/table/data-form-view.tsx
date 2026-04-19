@@ -1398,7 +1398,7 @@ export default function ViewCustomerForm({
                                 <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.shipment_type}</div>
                                 <div className="text-sm font-semibold text-slate-700 dark:text-zinc-300">{shipmentData.type}</div>
                             </div>
-                            
+
                             {/* Penjaluran */}
                             {shipmentData.penjaluran && (
                                 <div className="space-y-1 text-right sm:text-left">
@@ -1441,9 +1441,16 @@ export default function ViewCustomerForm({
                                     </div>
                                 </div>
                             )}
-                            
+
                             <div className="col-span-2 mt-2 space-y-2 border-t border-slate-200/60 pt-4 dark:border-zinc-800">
-                                <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.hs_code || 'HS Code'}</div>
+                                <div className="flex items-center justify-between">
+                                    <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.hs_code || 'HS Code'}</div>
+                                    {shipmentData.hsCodes.length > 0 && (
+                                        <button onClick={enableEditMode} className="text-xs font-semibold text-blue-500 hover:text-blue-600 hover:underline dark:text-blue-400 dark:hover:text-blue-300">
+                                            {trans.edit || 'Edit'}
+                                        </button>
+                                    )}
+                                </div>
                                 <div className="flex w-full flex-col">
                                     <div className="flex flex-col">
                                         {shipmentData.hsCodes.length > 0 ? (
@@ -1455,24 +1462,21 @@ export default function ViewCustomerForm({
                                                             href={`/file/view/${item.link}`}
                                                             target="_blank"
                                                             rel="noopener noreferrer"
-                                                            className="font-bold text-blue-600 hover:underline"
+                                                            className="font-bold text-blue-600 hover:underline dark:text-blue-400"
                                                         >
                                                             [INSW]
                                                         </a>
                                                     ) : (
-                                                        <button type="button" className="cursor-not-allowed font-bold text-gray-400">
+                                                        <span className="cursor-not-allowed font-bold text-gray-400">
                                                             [INSW]
-                                                        </button>
+                                                        </span>
                                                     )}
-                                                    <button onClick={enableEditMode} className="text-gray-500 hover:text-black hover:underline">
-                                                        {trans.edit || '[edit]'}
-                                                    </button>
                                                 </div>
                                             ))
                                         ) : (
                                             <div className="flex items-center gap-2">
                                                 <span className="text-gray-400 italic">-</span>
-                                                <button onClick={enableEditMode} className="text-xs text-blue-500 hover:underline">
+                                                <button onClick={enableEditMode} className="text-xs text-blue-500 hover:underline dark:text-blue-400">
                                                     + {trans.add_another_hs}
                                                 </button>
                                             </div>

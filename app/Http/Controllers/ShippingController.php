@@ -2060,20 +2060,31 @@ class ShippingController extends Controller
                     Storage::disk('customers_external')->delete($tempPath);
 
                     if ($isReupload) {
+                        $isAutoVerified = $spk->internal_can_upload || ($targetDoc->is_verification === false);
                         $newDoc = $targetDoc->replicate();
                         $newDoc->url_path_file = $finalRelPath;
-                        $newDoc->verify = ($spk->internal_can_upload || ($targetDoc->is_verification === false)) ? true : null;
+                        $newDoc->verify = $isAutoVerified ? true : null;
                         $newDoc->correction_attachment = false;
                         $newDoc->kuota_revisi = max(0, $targetDoc->kuota_revisi - 1);
+                        $newDoc->upload_date = now();
+                        if ($isAutoVerified) {
+                            $newDoc->verified_date = now();
+                        }
                         $newDoc->save();
                         $logId = $newDoc->id;
                     } else {
-                        $targetDoc->update([
+                        $isAutoVerified = $spk->internal_can_upload || ($targetDoc->is_verification === false);
+                        $updateData = [
                             'url_path_file' => $finalRelPath,
-                            'verify' => ($spk->internal_can_upload || ($targetDoc->is_verification === false)) ? true : null,
+                            'verify' => $isAutoVerified ? true : null,
                             'correction_attachment' => false,
                             'kuota_revisi' => max(0, $targetDoc->kuota_revisi - 1),
-                        ]);
+                            'upload_date' => now(),
+                        ];
+                        if ($isAutoVerified) {
+                            $updateData['verified_date'] = now();
+                        }
+                        $targetDoc->update($updateData);
                         $logId = $targetDoc->id;
                     }
 
@@ -2095,7 +2106,7 @@ class ShippingController extends Controller
             // --- B. VERIFICATIONS ---
             if ($request->has('verified_ids') && is_array($request->verified_ids)) {
                 $ids = $request->verified_ids;
-                DocumentTrans::whereIn('id', $ids)->update(['verify' => true, 'correction_attachment' => false, 'updated_at' => now()]);
+                DocumentTrans::whereIn('id', $ids)->update(['verify' => true, 'correction_attachment' => false, 'verified_date' => now(), 'updated_at' => now()]);
                 foreach ($ids as $id) {
                     DocumentStatus::create(['id_dokumen_trans' => $id, 'status' => 'Verified', 'by' => $user->name]);
                 }

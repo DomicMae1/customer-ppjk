@@ -33,6 +33,9 @@ class DocumentTrans extends Model
         'sla_document',
         'is_internal',
         'is_verification', // Added
+        'upload_date',
+        'verified_date',
+        'ori_date',
     ];
 
     protected $casts = [
@@ -43,6 +46,9 @@ class DocumentTrans extends Model
         'count_revisi' => 'integer',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
+        'upload_date' => 'datetime',
+        'verified_date' => 'datetime',
+        'ori_date' => 'datetime',
     ];
 
     /*
