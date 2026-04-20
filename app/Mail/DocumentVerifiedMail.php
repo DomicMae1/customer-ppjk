@@ -30,7 +30,7 @@ class DocumentVerifiedMail extends Mailable implements ShouldQueue
     public $backoff = 30; // Wait 30 seconds before retrying
 
     public $spk;
-    public $sectionName;~
+    public $sectionName;
     public $verifier;
     public $recipient;
 
