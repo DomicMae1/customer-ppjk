@@ -26,6 +26,10 @@ export type Shipping = {
     progress: number;
     nama_cust?: string;
     eta_date?: string | null;
+    vessel?: string | null;
+    origin?: string | null;
+    port?: string | null;
+    comodity?: string | null;
 };
 
 export const columns = (
@@ -199,13 +203,61 @@ export const columns = (
                 const date = new Date(eta);
 
                 const formatted = date.toLocaleDateString('en-GB', {
-                    day: 'numeric', // tanpa leading zero
-                    month: 'short', // Mar, Apr, dll
+                    day: 'numeric',
+                    month: 'short',
                     year: 'numeric',
                 });
 
                 return <div className="text-sm md:min-w-[150px] md:px-2">{formatted}</div>;
             },
+        },
+        {
+            accessorKey: 'vessel',
+            header: ({ column }) => (
+                <div
+                    className="cursor-pointer text-sm font-medium select-none md:px-2 md:py-2"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+                >
+                    {trans.vessel?.toUpperCase() || 'VESSEL'}
+                </div>
+            ),
+            cell: ({ row }) => <div className="text-sm md:px-2 text-center">{row.original.vessel || '-'}</div>,
+        },
+        {
+            accessorKey: 'origin',
+            header: ({ column }) => (
+                <div
+                    className="cursor-pointer text-sm font-medium select-none md:px-2 md:py-2"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+                >
+                    {trans.origin?.toUpperCase() || 'ORIGIN'}
+                </div>
+            ),
+            cell: ({ row }) => <div className="text-sm md:px-2 text-center">{row.original.origin || '-'}</div>,
+        },
+        {
+            accessorKey: 'port',
+            header: ({ column }) => (
+                <div
+                    className="cursor-pointer text-sm font-medium select-none md:px-2 md:py-2"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+                >
+                    {trans.port?.toUpperCase() || 'PORT'}
+                </div>
+            ),
+            cell: ({ row }) => <div className="text-sm md:px-2 text-center">{row.original.port || '-'}</div>,
+        },
+        {
+            accessorKey: 'comodity',
+            header: ({ column }) => (
+                <div
+                    className="cursor-pointer text-sm font-medium select-none md:px-2 md:py-2"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+                >
+                    {trans.comodity?.toUpperCase() || 'COMODITY'}
+                </div>
+            ),
+            cell: ({ row }) => <div className="text-sm md:px-2 text-center">{row.original.comodity || '-'}</div>,
         },
         {
             accessorKey: 'jalur',

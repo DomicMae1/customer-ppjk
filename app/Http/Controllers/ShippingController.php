@@ -205,6 +205,10 @@ class ShippingController extends Controller
                     'jalur_filter'          => $item->penjaluran,
                     'deadline_date'         => $minDeadline,
                     'progress'              => $progress,
+                    'vessel'                => $item->vessel,
+                    'origin'                => $item->origin,
+                    'port'                  => $item->port,
+                    'comodity'              => $item->comodity,
                 ];
             });
 
@@ -363,6 +367,9 @@ class ShippingController extends Controller
                 'shipper' => $spk->shipper,
                 'consignee' => $spk->consignee,
                 'vessel' => $spk->vessel,
+                'origin' => $spk->origin,
+                'port' => $spk->port,
+                'comodity' => $spk->comodity,
                 'party_qty' => $spk->party_qty,
                 'party_size' => $spk->party_size,
                 'aju' => $spk->aju,
@@ -526,6 +533,10 @@ class ShippingController extends Controller
             'hs_codes.*.link' => 'nullable|string',
             'hs_codes.*.file' => 'nullable|file|image|mimes:jpeg,png,jpg|max:5120',
             'assigned_pic'    => 'nullable|integer|exists:users,id_user', // Validasi Assigned PIC
+            'vessel'          => 'nullable|string',
+            'origin'          => 'nullable|string',
+            'port'            => 'nullable|string',
+            'comodity'        => 'nullable|string',
         ]);
 
         // --- Logic Tenant ---
@@ -556,6 +567,10 @@ class ShippingController extends Controller
                 'id_customer'       => $validated['id_customer'],
                 'created_by'        => $userId,
                 'penjaluran'        => null,
+                'vessel'            => $validated['vessel'] ?? null,
+                'origin'            => $validated['origin'] ?? null,
+                'port'              => $validated['port'] ?? null,
+                'comodity'          => $validated['comodity'] ?? null,
             ]);
 
             $statusId = 6;
@@ -1226,6 +1241,9 @@ class ShippingController extends Controller
             'shipper' => $spk->shipper,
             'consignee' => $spk->consignee,
             'vessel' => $spk->vessel,
+            'origin' => $spk->origin,
+            'port' => $spk->port,
+            'comodity' => $spk->comodity,
             'party_qty' => $spk->party_qty,
             'party_size' => $spk->party_size,
             'aju' => $spk->aju,
@@ -2931,6 +2949,9 @@ class ShippingController extends Controller
                 'shipper',
                 'consignee',
                 'vessel',
+                'origin',
+                'port',
+                'comodity',
                 'party_qty',
                 'party_size',
                 'aju',

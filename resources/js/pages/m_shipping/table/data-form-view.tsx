@@ -37,6 +37,16 @@ interface ShipmentData {
     penjaluran: string | null;
     register_date?: string;
     eta_date?: string;
+    shipper?: string;
+    consignee?: string;
+    vessel?: string;
+    origin?: string;
+    port?: string;
+    comodity?: string;
+    party_qty?: string;
+    party_size?: string;
+    aju?: string;
+    j_o?: string;
     hsCodes: HsCodeItem[];
     updated_by_name?: string | null;
 }
@@ -207,6 +217,9 @@ export default function ViewCustomerForm({
     const [consigneeForm, setConsigneeForm] = useState<string>((shipmentDataProp as any)?.consignee || customer?.nama_perusahaan || '');
     const [blNumForm, setBlNumForm] = useState<string>(shipmentDataProp?.spkNumber || '');
     const [vesselForm, setVesselForm] = useState<string>((shipmentDataProp as any)?.vessel || '');
+    const [originForm, setOriginForm] = useState<string>((shipmentDataProp as any)?.origin || '');
+    const [portForm, setPortForm] = useState<string>((shipmentDataProp as any)?.port || '');
+    const [comodityForm, setComodityForm] = useState<string>((shipmentDataProp as any)?.comodity || '');
     const [partyQtyForm, setPartyQtyForm] = useState<string>((shipmentDataProp as any)?.party_qty || '');
     const [partyLclForm, setPartyLclForm] = useState<string>((shipmentDataProp as any)?.party_size || '20 ft');
     const [ajuForm, setAjuForm] = useState<string>((shipmentDataProp as any)?.aju || '');
@@ -225,6 +238,9 @@ export default function ViewCustomerForm({
                 shipper: shipperForm,
                 consignee: consigneeForm,
                 vessel: vesselForm,
+                origin: originForm,
+                port: portForm,
+                comodity: comodityForm,
                 party_qty: partyQtyForm,
                 party_size: partyLclForm,
                 aju: ajuForm,
@@ -239,7 +255,7 @@ export default function ViewCustomerForm({
         }, 3000);
 
         return () => clearTimeout(timeoutId);
-    }, [shipperForm, consigneeForm, vesselForm, partyQtyForm, partyLclForm, ajuForm, joForm]);
+    }, [shipperForm, consigneeForm, vesselForm, originForm, portForm, comodityForm, partyQtyForm, partyLclForm, ajuForm, joForm]);
 
     // Batch Verification State
     const [pendingVerifications, setPendingVerifications] = useState<number[]>([]);
@@ -1849,11 +1865,41 @@ export default function ViewCustomerForm({
                             </div>
                             {/* Vessel */}
                             <div className="space-y-1.5">
-                                <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">Vessel</Label>
+                                <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.vessel}</Label>
                                 <Input
                                     placeholder="Input Vessel"
                                     value={vesselForm}
                                     onChange={(e) => setVesselForm(e.target.value)}
+                                    className="h-9 rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-900"
+                                />
+                            </div>
+                            {/* Origin */}
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.origin}</Label>
+                                <Input
+                                    placeholder="Input Origin"
+                                    value={originForm}
+                                    onChange={(e) => setOriginForm(e.target.value)}
+                                    className="h-9 rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-900"
+                                />
+                            </div>
+                            {/* Port */}
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.port}</Label>
+                                <Input
+                                    placeholder="Input Port"
+                                    value={portForm}
+                                    onChange={(e) => setPortForm(e.target.value)}
+                                    className="h-9 rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-900"
+                                />
+                            </div>
+                            {/* Comodity */}
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.comodity}</Label>
+                                <Input
+                                    placeholder="Input Comodity"
+                                    value={comodityForm}
+                                    onChange={(e) => setComodityForm(e.target.value)}
                                     className="h-9 rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-900"
                                 />
                             </div>
