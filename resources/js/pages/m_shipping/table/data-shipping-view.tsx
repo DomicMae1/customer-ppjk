@@ -141,6 +141,10 @@ export default function DataShippingFormView({ spk, documents = [], flash }: Pro
                     {(() => {
                         const leftItems = [
                             {
+                                label: trans.spk_number || 'SPK Number',
+                                value: spk?.spk_code,
+                            },
+                            {
                                 label: trans.shipper_label || 'SHIPPER',
                                 value: spk?.shipper,
                             },
@@ -177,7 +181,7 @@ export default function DataShippingFormView({ spk, documents = [], flash }: Pro
                         ].filter((item) => item.value && item.value !== '-');
 
                         return (
-                            <div className="mx-auto max-w-5xl px-2 sm:px-4">
+                            <div className="max-w-8xl mx-auto px-2 sm:px-0">
                                 <div className="flex flex-col gap-6 md:flex-row md:justify-between md:gap-16">
                                     <div className="space-y-3">
                                         {leftItems.map((item) => (

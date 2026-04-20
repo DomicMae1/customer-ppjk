@@ -401,16 +401,20 @@ class ShippingController extends Controller
 
         $spk = Spk::findOrFail($id);
 
-        $documents = \App\Models\DocumentTrans::query()
+        $rawDocuments = \App\Models\DocumentTrans::query()
             ->where('id_spk', $spk->id)
             ->orderBy('id_section', 'asc')
-            ->orderBy('id', 'asc')
+            ->orderBy('id', 'desc')
             ->get()
             ->map(function ($doc) {
                 $updatedAt = $doc->updated_at ? \Carbon\Carbon::parse($doc->updated_at) : null;
+                $uploadDate = !empty($doc->upload_date) ? \Carbon\Carbon::parse($doc->upload_date) : null;
+                $verifiedDate = !empty($doc->verified_date) ? \Carbon\Carbon::parse($doc->verified_date) : null;
+                $oriDate = !empty($doc->ori_date) ? \Carbon\Carbon::parse($doc->ori_date) : null;
 
                 return (object) [
                     'id' => $doc->id,
+                    'id_dokumen' => $doc->id_dokumen ?? null,
                     'id_spk' => $doc->id_spk,
                     'id_section' => $doc->id_section,
                     'section_name' => $doc->section_name ?? ('Section ' . $doc->id_section),
@@ -418,22 +422,72 @@ class ShippingController extends Controller
                     'url_path_file' => $doc->url_path_file,
                     'verify' => $doc->verify,
                     'is_updated' => !empty($doc->url_path_file),
+
                     'updated_at' => $updatedAt ? $updatedAt->format('d-m-Y') : '-',
                     'updated_at_full' => $updatedAt ? $updatedAt->format('d-m-Y H:i') . ' WIB' : null,
+                    'updated_at_timestamp' => $updatedAt ? $updatedAt->timestamp : 0,
+
+                    'upload_date' => $uploadDate ? $uploadDate->format('d-m-Y') : '-',
+                    'upload_date_full' => $uploadDate ? $uploadDate->format('d-m-Y H:i') . ' WIB' : null,
+
+                    'verified_date' => $verifiedDate ? $verifiedDate->format('d-m-Y') : '-',
+                    'verified_date_full' => $verifiedDate ? $verifiedDate->format('d-m-Y H:i') . ' WIB' : null,
+
+                    'ori_date' => $oriDate ? $oriDate->format('d-m-Y') : '-',
+                    'ori_date_full' => $oriDate ? $oriDate->format('d-m-Y H:i') . ' WIB' : null,
                 ];
             });
 
-        $totalDocs = $documents->count();
-        $verifiedCount = $documents->where('verify', true)->count();
-        $pendingCount = $documents->where('verify', '!=', true)->count();
-        $updatedCount = $documents->where('is_updated', true)->count();
+        // Samakan logic dengan React: group per id_dokumen, fallback section + nama_file
+        $groupedDocuments = collect($rawDocuments)
+            ->groupBy(function ($doc) {
+                return $doc->id_dokumen !== null
+                    ? (string) $doc->id_dokumen
+                    : ($doc->section_name . '|' . $doc->nama_file);
+            })
+            ->map(function ($group) {
+                $sorted = collect($group)->sortByDesc(function ($item) {
+                    return $item->updated_at_timestamp ?? 0;
+                })->values();
+
+                return (object) [
+                    'current' => $sorted->first(),
+                    'history' => $sorted,
+                ];
+            })
+            ->values();
+
+        // Dokumen yang dipakai untuk PDF = versi terbaru per grup
+        $documents = $groupedDocuments->map(function ($item) {
+            return $item->current;
+        })->values();
+
+        $totalDocs = $groupedDocuments->count();
+        $verifiedCount = $groupedDocuments->filter(function ($item) {
+            return $item->current && $item->current->verify === true;
+        })->count();
+
+        $pendingCount = $groupedDocuments->filter(function ($item) {
+            return !$item->current || $item->current->verify !== true;
+        })->count();
+
+        $updatedCount = $groupedDocuments->filter(function ($item) {
+            return $item->current && $item->current->is_updated === true;
+        })->count();
+
         $progressPercentage = $totalDocs === 0 ? 0 : round(($verifiedCount / $totalDocs) * 100);
 
         $generatedAt = now()->format('d-m-Y H:i');
 
+        $party = null;
+        if (!empty($spk->party_qty) || !empty($spk->party_size)) {
+            $party = trim(($spk->party_qty ?? '') . (!empty($spk->party_size) ? ' x ' . $spk->party_size : ''));
+        }
+
         $pdf = Pdf::loadView('pdf.shipping-report', [
             'spk' => $spk,
             'documents' => $documents,
+            'groupedDocuments' => $groupedDocuments,
             'generated_by' => $user?->name ?? 'Guest',
             'generated_at' => $generatedAt,
             'totalDocs' => $totalDocs,
@@ -441,6 +495,7 @@ class ShippingController extends Controller
             'pendingCount' => $pendingCount,
             'updatedCount' => $updatedCount,
             'progressPercentage' => $progressPercentage,
+            'party' => $party,
         ])->setPaper('a4', 'portrait');
 
         Log::info("✅ Generate PDF report shipping selesai untuk SPK: {$spk->spk_code}");
