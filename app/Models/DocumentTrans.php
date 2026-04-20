@@ -48,7 +48,7 @@ class DocumentTrans extends Model
         'updated_at' => 'datetime',
         'upload_date' => 'datetime',
         'verified_date' => 'datetime',
-        'ori_date' => 'datetime',
+        'ori_date' => 'date:Y-m-d',
     ];
 
     /*
