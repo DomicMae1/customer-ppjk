@@ -570,6 +570,7 @@ class ShippingController extends Controller
         }
 
         $validated = $request->validate([
+            'tanggal_dokumen' => 'required|date',
             'shipment_type'   => 'required|in:Import,Export',
             'bl_number'       => 'required|string',
             'id_customer'     => 'required|exists:customers,id_customer',
@@ -609,6 +610,7 @@ class ShippingController extends Controller
             $spk = Spk::create([
                 'spk_code'          => $validated['bl_number'],
                 'shipment_type'     => $validated['shipment_type'],
+                'tanggal_dokumen'   => $validated['tanggal_dokumen'],
                 'id_perusahaan_int' => $tenant->perusahaan_id ?? $user->id_perusahaan,
                 'id_customer'       => $validated['id_customer'],
                 'created_by'        => $userId,

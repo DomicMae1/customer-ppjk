@@ -26,6 +26,7 @@ class Spk extends Model
         'internal_can_upload',       // Boolean
         'register_number',
         'register_date',
+        'tanggal_dokumen',
         'eta_date',
         'shipper',
         'consignee',
@@ -52,6 +53,7 @@ class Spk extends Model
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
         'eta_date' => 'date:Y-m-d',
+        'tanggal_dokumen' => 'date:Y-m-d',
         'job_date' => 'date:Y-m-d',
         'inspection_date' => 'date:Y-m-d',
         'spk_date' => 'date:Y-m-d',

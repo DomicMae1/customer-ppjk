@@ -58,6 +58,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
 
     const [statusFilter, setStatusFilter] = useState<'sudah' | 'belum' | ''>('');
     const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [tanggalDokumen, setTanggalDokumen] = useState('');
     const [shipmentType, setShipmentType] = useState<'Import' | 'Export'>('Import');
     const [blNumber, setBlNumber] = useState('');
     const [selectedCustomer, setSelectedCustomer] = useState('');
@@ -244,6 +245,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
         const formData = new FormData();
 
         // Append data tunggal
+        formData.append('tanggal_dokumen', tanggalDokumen);
         formData.append('shipment_type', shipmentType);
         formData.append('bl_number', blNumber);
         formData.append('id_customer', selectedCustomer);
@@ -281,6 +283,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
             onSuccess: () => {
                 // Reset form jika sukses
                 setIsDialogOpen(false);
+                setTanggalDokumen('');
                 setBlNumber('');
                 setSpkDate('');
                 setHsCodes([{ id: nanoid(), code: '', link: '', file: null }]);

@@ -12,6 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('spk', function (Blueprint $table) {
+            $table->date('tanggal_dokumen')->nullable();
             $table->string('shipper')->nullable();
             $table->string('consignee')->nullable();
             $table->string('vessel')->nullable();
@@ -29,6 +30,7 @@ return new class extends Migration
     {
         Schema::table('spk', function (Blueprint $table) {
             $table->dropColumn([
+                'tanggal_dokumen', 
                 'shipper',
                 'consignee',
                 'vessel',
