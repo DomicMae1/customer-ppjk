@@ -63,6 +63,7 @@ class DocumentController extends Controller
                             'is_internal' => $item->is_internal,
                             'is_confirmed' => $item->is_confirmed,
                             'attribute' => $item->attribute,
+                            'is_ori' => $item->is_ori,
                             'kuota_revisi' => $item->kuota_revisi,
                             'link_path_example_file' => $item->link_path_example_file ? Storage::url($item->link_path_example_file) : null,
                             'link_path_template_file' => $item->link_path_template_file ? Storage::url($item->link_path_template_file) : null,
@@ -100,6 +101,7 @@ class DocumentController extends Controller
                         'is_internal' => $item->is_internal,
                         'is_confirmed' => $item->is_confirmed,
                         'attribute' => $item->attribute,
+                        'is_ori' => $item->is_ori ?? false,
                         'kuota_revisi' => $item->kuota_revisi,
                         'link_path_example_file' => $item->link_path_example_file,
                         'link_path_template_file' => $item->link_path_template_file,
@@ -147,12 +149,14 @@ class DocumentController extends Controller
             'is_internal' => 'boolean',
             'is_confirmed' => 'boolean',
             'attribute' => 'boolean',
+            'is_ori' => 'boolean',
         ]);
 
         // Default value boolean
         $validated['is_internal'] = $request->boolean('is_internal', false);
         $validated['is_confirmed'] = $request->boolean('is_confirmed', false);
         $validated['attribute'] = $request->boolean('attribute', false);
+        $validated['is_ori'] = $request->boolean('is_ori', false);
 
         $validated['kuota_revisi'] = $request->filled('kuota_revisi')
         ? (int) $request->kuota_revisi
@@ -244,6 +248,7 @@ class DocumentController extends Controller
             'is_internal' => 'boolean',
             'is_confirmed' => 'boolean',
             'attribute' => 'boolean',
+            'is_ori' => 'boolean',
             'link_url_video_file' => 'nullable|url',
 
             // path file sementara
@@ -254,6 +259,7 @@ class DocumentController extends Controller
         $validated['is_internal'] = $request->boolean('is_internal', false);
         $validated['is_confirmed'] = $request->boolean('is_confirmed', false);
         $validated['attribute'] = $request->boolean('attribute', false);
+        $validated['is_ori'] = $request->boolean('is_ori', false);
 
         $document = null;
 
@@ -305,6 +311,7 @@ class DocumentController extends Controller
             'is_internal' => $validated['is_internal'],
             'is_confirmed' => $validated['is_confirmed'],
             'attribute' => $validated['attribute'],
+            'is_ori' => $validated['is_ori'],
             'link_url_video_file' => $validated['link_url_video_file'] ?? null,
         ];
 

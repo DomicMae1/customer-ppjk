@@ -27,6 +27,7 @@ interface DocumentData {
     is_internal: boolean;
     is_confirmed: boolean;
     attribute: boolean;
+    is_ori: boolean;
     link_path_example_file?: string;
     link_path_template_file?: string;
     link_url_video_file?: string;
@@ -67,6 +68,7 @@ export default function ManageDocuments() {
         is_internal: false,
         is_confirmed: false,
         attribute: false,
+        is_ori: false,
         link_url_video_file: '',
         kuota_revisi: '',
 
@@ -114,6 +116,7 @@ export default function ManageDocuments() {
                 is_internal: Boolean(doc.is_internal),
                 is_confirmed: Boolean(doc.is_confirmed),
                 attribute: Boolean(doc.attribute),
+                is_ori: Boolean(doc.is_ori),
                 link_url_video_file: doc.link_url_video_file || '',
                 kuota_revisi: doc.kuota_revisi != null ? String(doc.kuota_revisi) : '',
 
@@ -132,7 +135,7 @@ export default function ManageDocuments() {
         }
     };
 
-    const handleEditBooleanChange = (field: 'is_internal' | 'attribute' | 'is_confirmed', value: boolean) => {
+    const handleEditBooleanChange = (field: 'is_internal' | 'attribute' | 'is_confirmed' | 'is_ori', value: boolean) => {
         setEditForm((prev) => ({ ...prev, [field]: value }));
     };
 
@@ -298,6 +301,28 @@ export default function ManageDocuments() {
                                         type="button"
                                         variant={!editForm.is_confirmed ? 'default' : 'outline'}
                                         onClick={() => handleEditBooleanChange('is_confirmed', false)}
+                                        className="flex-1"
+                                    >
+                                        {trans_doc.btn_no || 'Tidak'}
+                                    </Button>
+                                </div>
+                            </div>
+
+                            <div>
+                                <Label className="mb-2 block text-xs font-semibold text-gray-500 uppercase">{trans_doc.label_is_ori || 'Is Original'}</Label>
+                                <div className="flex w-full gap-2">
+                                    <Button
+                                        type="button"
+                                        variant={editForm.is_ori ? 'default' : 'outline'}
+                                        onClick={() => handleEditBooleanChange('is_ori', true)}
+                                        className="flex-1"
+                                    >
+                                        {trans_doc.btn_yes || 'Ya'}
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant={!editForm.is_ori ? 'default' : 'outline'}
+                                        onClick={() => handleEditBooleanChange('is_ori', false)}
                                         className="flex-1"
                                     >
                                         {trans_doc.btn_no || 'Tidak'}

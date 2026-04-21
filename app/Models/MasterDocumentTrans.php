@@ -30,7 +30,8 @@ class MasterDocumentTrans extends Model
         'is_confirmed',
         'description_file',
         'updated_by',
-        'kuota_revisi'
+        'kuota_revisi',
+        'is_ori'
         // created_at dan updated_at otomatis dihandle
     ];
 
@@ -40,6 +41,7 @@ class MasterDocumentTrans extends Model
         'is_verification' => 'boolean', // New
         'is_confirmed' => 'boolean',
         'attribute' => 'boolean',
+        'is_ori' => 'boolean',
         'deadline_document' => 'boolean',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
