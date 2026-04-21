@@ -58,6 +58,16 @@ export default function ManageDocuments() {
     const isManager = ['manager', 'supervisor'].includes(userRole);
     const isAdmin = userRole === 'admin';
 
+    const toTitleCase = (text: string) => {
+        return text
+            .trim()
+            .toLowerCase()
+            .split(' ')
+            .filter(Boolean)
+            .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ');
+    };
+
     // --- STATE EDIT ---
     const [openEdit, setOpenEdit] = useState(false);
     const [docIdToEdit, setDocIdToEdit] = useState<number | null>(null);
@@ -97,6 +107,13 @@ export default function ManageDocuments() {
         }
     };
 
+    const handleEditNamaFileBlur = () => {
+        setEditForm((prev) => ({
+            ...prev,
+            nama_file: toTitleCase(prev.nama_file),
+        }));
+    };
+
     // --- HANDLER EDIT ---
     const onEditClick = (id: number) => {
         const doc = documents.find((d) => d.id_dokumen === id) as any;
@@ -110,7 +127,7 @@ export default function ManageDocuments() {
 
             setDocIdToEdit(id);
             setEditForm({
-                nama_file: doc.nama_file,
+                nama_file: toTitleCase(doc.nama_file || ''),
                 id_section: String(doc.id_section),
                 description_file: doc.description_file || '',
                 is_internal: Boolean(doc.is_internal),
@@ -148,6 +165,7 @@ export default function ManageDocuments() {
                 {
                     _method: 'put',
                     ...payload,
+                    nama_file: toTitleCase(payload.nama_file),
                 },
                 {
                     onSuccess: () => {
@@ -209,6 +227,7 @@ export default function ManageDocuments() {
                                 id="edit_nama_file"
                                 value={editForm.nama_file}
                                 onChange={(e) => setEditForm({ ...editForm, nama_file: e.target.value })}
+                                onBlur={handleEditNamaFileBlur}
                                 className="mt-1"
                             />
                         </div>
@@ -287,7 +306,9 @@ export default function ManageDocuments() {
                             )}
 
                             <div>
-                                <Label className="mb-2 block text-xs font-semibold text-gray-500 uppercase">{trans_doc.label_need_confirm || 'Need Confirm'}</Label>
+                                <Label className="mb-2 block text-xs font-semibold text-gray-500 uppercase">
+                                    {trans_doc.label_need_confirm || 'Need Confirm'}
+                                </Label>
                                 <div className="flex w-full gap-2">
                                     <Button
                                         type="button"

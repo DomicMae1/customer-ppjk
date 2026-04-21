@@ -124,7 +124,7 @@ class TenantDocumentSeeder extends Seeder
             ],
             [
                 'id_section' => 2,
-                'nama_file' => 'Surat Kuasa release DO',
+                'nama_file' => 'Surat Kuasa Release DO',
                 'attribute' => 1,
                 'link_path_example_file' => 'documents/examples/dokumen_1.pdf',
                 'link_path_template_file' => 'documents/templates/dokumen_1.pdf',
@@ -484,7 +484,7 @@ class TenantDocumentSeeder extends Seeder
             ],
             [
                 'id_section' => 7,
-                'nama_file' => 'COO (Certificate of Origin)',
+                'nama_file' => 'Certificate of Origin (COO)',
                 'attribute' => 1,
                 'link_path_example_file' => 'documents/examples/coo.pdf',
                 'link_path_template_file' => 'documents/templates/coo.pdf',
@@ -499,7 +499,7 @@ class TenantDocumentSeeder extends Seeder
             ],
             [
                 'id_section' => 7,
-                'nama_file' => 'COA (Certificate of Analysis)',
+                'nama_file' => 'Certificate of Analysis (COA)',
                 'attribute' => 1,
                 'link_path_example_file' => 'documents/examples/coa.pdf',
                 'link_path_template_file' => 'documents/templates/coa.pdf',
@@ -514,7 +514,7 @@ class TenantDocumentSeeder extends Seeder
             ],
             [
                 'id_section' => 7,
-                'nama_file' => 'Phyto (Phytosanitary Certificate)',
+                'nama_file' => 'Phytosanitary Certificate (Phyto)',
                 'attribute' => 1,
                 'link_path_example_file' => 'documents/examples/Phyto.pdf',
                 'link_path_template_file' => 'documents/templates/Phyto.pdf',
@@ -529,7 +529,7 @@ class TenantDocumentSeeder extends Seeder
             ],
             [
                 'id_section' => 7,
-                'nama_file' => 'HC (Health Certificate)',
+                'nama_file' => 'Health Certificate (HC)',
                 'attribute' => 1,
                 'link_path_example_file' => 'documents/examples/HC.pdf',
                 'link_path_template_file' => 'documents/templates/HC.pdf',

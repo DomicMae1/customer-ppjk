@@ -88,6 +88,23 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
     // State Form Create Document (Bukan Perusahaan lagi)
     const [openCreate, setOpenCreate] = React.useState(false);
 
+    const toTitleCase = (text: string) => {
+        return text
+            .trim()
+            .toLowerCase()
+            .split(' ')
+            .filter(Boolean)
+            .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ');
+    };
+
+    const handleNamaFileBlur = () => {
+        setForm((prev) => ({
+            ...prev,
+            nama_file: toTitleCase(prev.nama_file),
+        }));
+    };
+
     // Sesuaikan form state dengan kebutuhan Master Document
     const [form, setForm] = useState({
         nama_file: '',
@@ -172,8 +189,13 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
     };
 
     const handleSubmit = () => {
+        const payload = {
+            ...form,
+            nama_file: toTitleCase(form.nama_file),
+        };
+
         // Inertia otomatis menangani FormData jika ada file di dalam object payload
-        router.post('/document', form as any, {
+        router.post('/document', payload as any, {
             onSuccess: () => {
                 setOpenCreate(false);
                 // Reset Form
@@ -299,7 +321,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
                                             </span>
                                         )}
                                         {original.is_confirmed && (
-                                            <span className="rounded bg-destructive/10 px-2 py-0.5 text-[10px] font-bold text-destructive">
+                                            <span className="bg-destructive/10 text-destructive rounded px-2 py-0.5 text-[10px] font-bold">
                                                 NEED CONFIRM
                                             </span>
                                         )}
@@ -394,6 +416,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
                                 name="nama_file"
                                 value={form.nama_file}
                                 onChange={handleInputChange}
+                                onBlur={handleNamaFileBlur}
                                 placeholder={trans_doc.placeholder_doc_name}
                                 className="bg-background text-foreground h-11 sm:h-10"
                             />

@@ -106,7 +106,7 @@ class DocumentSeeder extends Seeder
             ],
             [
                 'id_section' => 2,
-                'nama_file' => 'Surat Kuasa release DO',
+                'nama_file' => 'Surat Kuasa Release DO',
                 'attribute' => 1,
                 'link_path_example_file' => 'documents/examples/dokumen_1.pdf',
                 'link_path_template_file' => 'documents/templates/dokumen_1.pdf',
