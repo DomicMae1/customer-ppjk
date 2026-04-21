@@ -50,6 +50,8 @@ interface ShipmentData {
     register_number?: string;
     hsCodes: HsCodeItem[];
     updated_by_name?: string | null;
+    job_date?: string;
+    inspection_date?: string;
 }
 
 interface DocumentTrans {
@@ -287,6 +289,12 @@ export default function ViewCustomerForm({
     // ETA Date State
     const [etaDate, setEtaDate] = useState(shipmentDataProp?.eta_date ? shipmentDataProp.eta_date.split('T')[0].split(' ')[0] : '');
     const [isSavingEtaDate, setIsSavingEtaDate] = useState(false);
+
+    // Job Date & Inspection Date States
+    const [jobDate, setJobDate] = useState(shipmentDataProp?.job_date ? shipmentDataProp.job_date.split('T')[0].split(' ')[0] : '');
+    const [isSavingJobDate, setIsSavingJobDate] = useState(false);
+    const [inspectionDate, setInspectionDate] = useState(shipmentDataProp?.inspection_date ? shipmentDataProp.inspection_date.split('T')[0].split(' ')[0] : '');
+    const [isSavingInspectionDate, setIsSavingInspectionDate] = useState(false);
 
     // Ori Date Modal State
     const [isOriDateModalOpen, setIsOriDateModalOpen] = useState(false);
@@ -1385,6 +1393,44 @@ export default function ViewCustomerForm({
         }
     };
 
+    const handleSaveJobDate = async () => {
+        setIsSavingJobDate(true);
+        try {
+            const response = await axios.post(`/shipping/${shipmentData.id_spk}/update-job-date`, {
+                job_date: jobDate,
+            });
+            if (response.data.success) {
+                toast.success('Job Date berhasil diperbarui');
+            } else {
+                toast.error(response.data.message || 'Gagal memperbarui Job Date');
+            }
+        } catch (error: any) {
+            console.error('Error updating job date:', error);
+            toast.error(error.response?.data?.message || 'Gagal memperbarui Job Date');
+        } finally {
+            setIsSavingJobDate(false);
+        }
+    };
+
+    const handleSaveInspectionDate = async () => {
+        setIsSavingInspectionDate(true);
+        try {
+            const response = await axios.post(`/shipping/${shipmentData.id_spk}/update-inspection-date`, {
+                inspection_date: inspectionDate,
+            });
+            if (response.data.success) {
+                toast.success('Inspection Date berhasil diperbarui');
+            } else {
+                toast.error(response.data.message || 'Gagal memperbarui Inspection Date');
+            }
+        } catch (error: any) {
+            console.error('Error updating inspection date:', error);
+            toast.error(error.response?.data?.message || 'Gagal memperbarui Inspection Date');
+        } finally {
+            setIsSavingInspectionDate(false);
+        }
+    };
+
     // Calculate overall progress across all sections
     const calculateProgress = () => {
         let totalDocs = 0;
@@ -1600,8 +1646,7 @@ export default function ViewCustomerForm({
                                 </div>
                             </div>
 
-                            {/* Conditional ETA Date Field (id_section === 7) */}
-                            {sectionsTransProp?.some((s) => s.id_section === 7) && (
+                            {/* ETA Date Field */}
                                 <div className="col-span-2 mt-2 space-y-1.5 border-t border-slate-200/60 pt-3 dark:border-zinc-800">
                                     <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.eta_date}</div>
                                     <div className="flex items-center gap-2">
@@ -1624,8 +1669,59 @@ export default function ViewCustomerForm({
                                         )}
                                     </div>
                                 </div>
+
+                            {/* Job date field */}
+                            {sectionsTransProp?.some((s) => s.id_section === 7) && (
+                                <div className="col-span-2 mt-2 space-y-1.5 border-t border-slate-200/60 pt-3 dark:border-zinc-800">
+                                    <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.job_date || 'Job Date'}</div>
+                                    <div className="flex items-center gap-2">
+                                        <Input
+                                            type="date"
+                                            value={jobDate}
+                                            onChange={(e) => setJobDate(e.target.value)}
+                                            className="date-input-dark h-9 rounded-lg border-slate-200 bg-white text-xs text-slate-700 focus:ring-blue-500/20 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300"
+                                            disabled={!isInternalUser || isSavingJobDate}
+                                        />
+                                        {isInternalUser && (
+                                            <Button
+                                                size="sm"
+                                                onClick={handleSaveJobDate}
+                                                disabled={isSavingJobDate}
+                                                className="h-9 bg-slate-900 px-4 text-[10px] font-bold text-white hover:bg-slate-800"
+                                            >
+                                                {isSavingJobDate ? '...' : trans.save || 'Save'}
+                                            </Button>
+                                        )}
+                                    </div>
+                                </div>
                             )}
 
+                            {/* inspection date field */}
+                            {sectionsTransProp?.some((s) => s.id_section === 7) && (
+                                <div className="col-span-2 mt-2 space-y-1.5 border-t border-slate-200/60 pt-3 dark:border-zinc-800">
+                                    <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.inspection_date || 'Inspection Date'}</div>
+                                    <div className="flex items-center gap-2">
+                                        <Input
+                                            type="date"
+                                            value={inspectionDate}
+                                            onChange={(e) => setInspectionDate(e.target.value)}
+                                            className="date-input-dark h-9 rounded-lg border-slate-200 bg-white text-xs text-slate-700 focus:ring-blue-500/20 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300"
+                                            disabled={!isInternalUser || isSavingInspectionDate}
+                                        />
+                                        {isInternalUser && (
+                                            <Button
+                                                size="sm"
+                                                onClick={handleSaveInspectionDate}
+                                                disabled={isSavingInspectionDate}
+                                                className="h-9 bg-slate-900 px-4 text-[10px] font-bold text-white hover:bg-slate-800"
+                                            >
+                                                {isSavingInspectionDate ? '...' : trans.save || 'Save'}
+                                            </Button>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                            
                             {/* Ori Date Button */}
                             {isInternalUser && (
                                 <div className="col-span-2 mt-2 border-t border-slate-200/60 pt-3 dark:border-zinc-800">
