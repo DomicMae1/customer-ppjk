@@ -384,12 +384,15 @@ class ShippingController extends Controller
         $user = auth('web')->user();
 
         $tenant = null;
+        $idPerusahaan = null;
 
         if ($user->id_perusahaan) {
+            $idPerusahaan = $user->id_perusahaan;
             $tenant = \App\Models\Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
         } elseif ($user->id_customer) {
             $customer = \App\Models\Customer::find($user->id_customer);
             if ($customer && $customer->ownership) {
+                $idPerusahaan = $customer->ownership;
                 $tenant = \App\Models\Tenant::where('perusahaan_id', $customer->ownership)->first();
             }
         }
@@ -403,6 +406,50 @@ class ShippingController extends Controller
         Log::info("📄 Mulai generate PDF report shipping untuk SPK ID: {$id}");
 
         $spk = Spk::findOrFail($id);
+
+        /*
+        |--------------------------------------------------------------------------
+        | Ambil nama perusahaan + logo
+        |--------------------------------------------------------------------------
+        */
+        $companyName = '-';
+        $companyLogoPath = null;
+        $logoPath = null;
+
+        if ($idPerusahaan) {
+            $perusahaan = \App\Models\Perusahaan::on('tako-user')
+                ->where('id_perusahaan', $idPerusahaan)
+                ->first();
+
+            if ($perusahaan) {
+                $companyName = $perusahaan->nama_perusahaan ?? '-';
+            }
+
+            $domainRecord = \Illuminate\Support\Facades\DB::connection('tako-user')
+                ->table('domains')
+                ->where('tenant_id', $tenant->id)
+                ->first();
+
+            $logoPath = $domainRecord->path_company_logo ?? null;
+
+            if ($logoPath) {
+                $cleanLogoPath = ltrim($logoPath, '/');
+
+                $possiblePaths = [
+                    public_path('storage/' . $cleanLogoPath),
+                    public_path($cleanLogoPath),
+                    base_path('public/storage/' . $cleanLogoPath),
+                    base_path('storage/app/public/' . $cleanLogoPath),
+                ];
+
+                foreach ($possiblePaths as $path) {
+                    if (file_exists($path)) {
+                        $companyLogoPath = $path;
+                        break;
+                    }
+                }
+            }
+        }
 
         $rawDocuments = \App\Models\DocumentTrans::query()
             ->where('id_spk', $spk->id)
@@ -441,7 +488,6 @@ class ShippingController extends Controller
                 ];
             });
 
-        // Samakan logic dengan React: group per id_dokumen, fallback section + nama_file
         $groupedDocuments = collect($rawDocuments)
             ->groupBy(function ($doc) {
                 return $doc->id_dokumen !== null
@@ -460,12 +506,12 @@ class ShippingController extends Controller
             })
             ->values();
 
-        // Dokumen yang dipakai untuk PDF = versi terbaru per grup
         $documents = $groupedDocuments->map(function ($item) {
             return $item->current;
         })->values();
 
         $totalDocs = $groupedDocuments->count();
+
         $verifiedCount = $groupedDocuments->filter(function ($item) {
             return $item->current && $item->current->verify === true;
         })->count();
@@ -479,7 +525,6 @@ class ShippingController extends Controller
         })->count();
 
         $progressPercentage = $totalDocs === 0 ? 0 : round(($verifiedCount / $totalDocs) * 100);
-
         $generatedAt = now()->format('d-m-Y H:i');
 
         $party = null;
@@ -499,6 +544,9 @@ class ShippingController extends Controller
             'updatedCount' => $updatedCount,
             'progressPercentage' => $progressPercentage,
             'party' => $party,
+
+            'companyName' => $companyName,
+            'companyLogoPath' => $companyLogoPath,
         ])->setPaper('a4', 'portrait');
 
         Log::info("✅ Generate PDF report shipping selesai untuk SPK: {$spk->spk_code}");

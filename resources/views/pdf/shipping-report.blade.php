@@ -17,6 +17,33 @@
             padding-bottom: 12px;
         }
 
+        .header-flex {
+            width: 100%;
+            display: table;
+        }
+
+        .header-left {
+            display: table-cell;
+            vertical-align: top;
+        }
+
+        .header-right {
+            display: table-cell;
+            text-align: right;
+            vertical-align: top;
+        }
+
+        .company-name {
+            margin-top: 4px;
+        }
+
+        .company-logo {
+            max-width: 90px;
+            max-height: 50px;
+            width: auto;
+            height: auto;
+        }
+
         .kicker {
             font-size: 10px;
             font-weight: bold;
@@ -190,7 +217,28 @@
 </head>
 <body>
     <div class="header">
-        <div class="title">Data Dokumen Shipment</div>
+
+    <!-- HEADER ATAS (LOGO + NAMA) -->
+    <div style="width:100%; text-align:right; margin-bottom:10px;">
+        <div style="display:inline-block; text-align:center;">
+            
+            @if(!empty($companyLogoPath))
+                <img src="{{ $companyLogoPath }}" class="company-logo">
+            @endif
+
+            @if(!empty($companyName))
+                <div class="company-name">
+                    {{ $companyName }}
+                </div>
+            @endif
+
+        </div>
+    </div>
+
+    <!-- JUDUL DI BAWAH -->
+    <div class="title">
+        Data Dokumen Shipment
+    </div>
 
         <table class="info-table">
             <tr>
