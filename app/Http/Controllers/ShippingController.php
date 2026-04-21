@@ -167,22 +167,22 @@ class ShippingController extends Controller
 
                 // Ambil log terbaru dari document_statuses untuk kumpulan dokumen SPK ini (Cara yang sama seperti di show)
                 $latestDocLog = null;
-            if ($allDocs->isNotEmpty()) {
-                $latestDocLog = \App\Models\DocumentStatus::whereIn('id_dokumen_trans', $allDocs->pluck('id'))
-                    ->latest()
-                    ->first();
-            }
+                if ($allDocs->isNotEmpty()) {
+                    $latestDocLog = \App\Models\DocumentStatus::whereIn('id_dokumen_trans', $allDocs->pluck('id'))
+                        ->latest()
+                        ->first();
+                }
 
-            // Tentukan handler internal:
-            // 1. validated_by (kalau supervisor assign ke staff, ini yang dipakai)
-            // 2. created_by (fallback)
-            $handlerUser = null;
+                // Tentukan handler internal:
+                // 1. validated_by (kalau supervisor assign ke staff, ini yang dipakai)
+                // 2. created_by (fallback)
+                $handlerUser = null;
 
-            if (!empty($item->validated_by) && $internalUsers->has($item->validated_by)) {
-                $handlerUser = $internalUsers->get($item->validated_by);
-            } elseif (!empty($item->created_by) && $internalUsers->has($item->created_by)) {
-                $handlerUser = $internalUsers->get($item->created_by);
-            }
+                if (!empty($item->validated_by) && $internalUsers->has($item->validated_by)) {
+                    $handlerUser = $internalUsers->get($item->validated_by);
+                } elseif (!empty($item->created_by) && $internalUsers->has($item->created_by)) {
+                    $handlerUser = $internalUsers->get($item->created_by);
+                }
 
                 return [
                     'id'                    => $item->id,
@@ -205,6 +205,10 @@ class ShippingController extends Controller
                     'jalur_filter'          => $item->penjaluran,
                     'deadline_date'         => $minDeadline,
                     'progress'              => $progress,
+                    'vessel'                => $item->vessel,
+                    'origin'                => $item->origin,
+                    'port'                  => $item->port,
+                    'comodity'              => $item->comodity,
                 ];
             });
 
@@ -225,7 +229,7 @@ class ShippingController extends Controller
                 ->where('id_perusahaan', $user->id_perusahaan)
                 ->where(function ($q) {
                     $q->where('role_internal', 'staff')
-                    ->orWhere('role_internal', 'marketing');
+                        ->orWhere('role_internal', 'marketing');
                 })
                 ->select('id_user', 'name')
                 ->get();
@@ -303,10 +307,14 @@ class ShippingController extends Controller
                 'document_trans.id',
                 'document_trans.id_spk',
                 'document_trans.id_section',
+                'document_trans.id_dokumen',
                 'document_trans.nama_file',
                 'document_trans.url_path_file',
                 'document_trans.updated_at',
                 'document_trans.verify',
+                'document_trans.upload_date',
+                'document_trans.verified_date',
+                'document_trans.ori_date',
                 'section_trans.section_name',
             ])
             ->orderBy('document_trans.id_section', 'asc')
@@ -322,6 +330,7 @@ class ShippingController extends Controller
             ->map(function ($item) {
                 return [
                     'id' => $item->id,
+                    'id_dokumen' => $item->id_dokumen,
                     'id_spk' => $item->id_spk,
                     'id_section' => $item->id_section,
                     'section_name' => $item->section_name,
@@ -329,8 +338,18 @@ class ShippingController extends Controller
                     'url_path_file' => $item->url_path_file,
                     'verify' => $item->verify,
                     'is_updated' => !empty($item->url_path_file),
-                    'updated_at' => optional($item->updated_at)->format('d-m-Y'),
+
+                    'updated_at' => optional($item->updated_at)->format('d M Y'),
                     'updated_at_full' => optional($item->updated_at)->format('d-m-Y H:i:s'),
+
+                    'upload_date' => optional($item->upload_date)->format('d M Y'),
+                    'upload_date_full' => optional($item->upload_date)->format('d-m-Y H:i:s'),
+
+                    'verified_date' => optional($item->verified_date)->format('d M Y'),
+                    'verified_date_full' => optional($item->verified_date)->format('d-m-Y H:i:s'),
+
+                    'ori_date' => optional($item->ori_date)->format('d M Y'),
+                    'ori_date_full' => optional($item->ori_date)->format('d-m-Y H:i:s'),
                 ];
             });
 
@@ -339,6 +358,22 @@ class ShippingController extends Controller
                 'id' => $spk->id,
                 'spk_code' => $spk->spk_code,
                 'shipment_type' => $spk->shipment_type,
+                'internal_can_upload' => $spk->internal_can_upload,
+                'penjaluran' => $spk->penjaluran,
+                'register_number' => $spk->register_number,
+                'register_date' => $spk->register_date,
+
+                // field tambahan baru
+                'shipper' => $spk->shipper,
+                'consignee' => $spk->consignee,
+                'vessel' => $spk->vessel,
+                'origin' => $spk->origin,
+                'port' => $spk->port,
+                'comodity' => $spk->comodity,
+                'party_qty' => $spk->party_qty,
+                'party_size' => $spk->party_size,
+                'aju' => $spk->aju,
+                'j_o' => $spk->j_o,
             ],
             'documents' => $documents,
             'flash' => [
@@ -373,16 +408,20 @@ class ShippingController extends Controller
 
         $spk = Spk::findOrFail($id);
 
-        $documents = \App\Models\DocumentTrans::query()
+        $rawDocuments = \App\Models\DocumentTrans::query()
             ->where('id_spk', $spk->id)
             ->orderBy('id_section', 'asc')
-            ->orderBy('id', 'asc')
+            ->orderBy('id', 'desc')
             ->get()
             ->map(function ($doc) {
                 $updatedAt = $doc->updated_at ? \Carbon\Carbon::parse($doc->updated_at) : null;
+                $uploadDate = !empty($doc->upload_date) ? \Carbon\Carbon::parse($doc->upload_date) : null;
+                $verifiedDate = !empty($doc->verified_date) ? \Carbon\Carbon::parse($doc->verified_date) : null;
+                $oriDate = !empty($doc->ori_date) ? \Carbon\Carbon::parse($doc->ori_date) : null;
 
                 return (object) [
                     'id' => $doc->id,
+                    'id_dokumen' => $doc->id_dokumen ?? null,
                     'id_spk' => $doc->id_spk,
                     'id_section' => $doc->id_section,
                     'section_name' => $doc->section_name ?? ('Section ' . $doc->id_section),
@@ -390,22 +429,72 @@ class ShippingController extends Controller
                     'url_path_file' => $doc->url_path_file,
                     'verify' => $doc->verify,
                     'is_updated' => !empty($doc->url_path_file),
+
                     'updated_at' => $updatedAt ? $updatedAt->format('d-m-Y') : '-',
                     'updated_at_full' => $updatedAt ? $updatedAt->format('d-m-Y H:i') . ' WIB' : null,
+                    'updated_at_timestamp' => $updatedAt ? $updatedAt->timestamp : 0,
+
+                    'upload_date' => $uploadDate ? $uploadDate->format('d-m-Y') : '-',
+                    'upload_date_full' => $uploadDate ? $uploadDate->format('d-m-Y H:i') . ' WIB' : null,
+
+                    'verified_date' => $verifiedDate ? $verifiedDate->format('d-m-Y') : '-',
+                    'verified_date_full' => $verifiedDate ? $verifiedDate->format('d-m-Y H:i') . ' WIB' : null,
+
+                    'ori_date' => $oriDate ? $oriDate->format('d-m-Y') : '-',
+                    'ori_date_full' => $oriDate ? $oriDate->format('d-m-Y H:i') . ' WIB' : null,
                 ];
             });
 
-        $totalDocs = $documents->count();
-        $verifiedCount = $documents->where('verify', true)->count();
-        $pendingCount = $documents->where('verify', '!=', true)->count();
-        $updatedCount = $documents->where('is_updated', true)->count();
+        // Samakan logic dengan React: group per id_dokumen, fallback section + nama_file
+        $groupedDocuments = collect($rawDocuments)
+            ->groupBy(function ($doc) {
+                return $doc->id_dokumen !== null
+                    ? (string) $doc->id_dokumen
+                    : ($doc->section_name . '|' . $doc->nama_file);
+            })
+            ->map(function ($group) {
+                $sorted = collect($group)->sortByDesc(function ($item) {
+                    return $item->updated_at_timestamp ?? 0;
+                })->values();
+
+                return (object) [
+                    'current' => $sorted->first(),
+                    'history' => $sorted,
+                ];
+            })
+            ->values();
+
+        // Dokumen yang dipakai untuk PDF = versi terbaru per grup
+        $documents = $groupedDocuments->map(function ($item) {
+            return $item->current;
+        })->values();
+
+        $totalDocs = $groupedDocuments->count();
+        $verifiedCount = $groupedDocuments->filter(function ($item) {
+            return $item->current && $item->current->verify === true;
+        })->count();
+
+        $pendingCount = $groupedDocuments->filter(function ($item) {
+            return !$item->current || $item->current->verify !== true;
+        })->count();
+
+        $updatedCount = $groupedDocuments->filter(function ($item) {
+            return $item->current && $item->current->is_updated === true;
+        })->count();
+
         $progressPercentage = $totalDocs === 0 ? 0 : round(($verifiedCount / $totalDocs) * 100);
 
         $generatedAt = now()->format('d-m-Y H:i');
 
+        $party = null;
+        if (!empty($spk->party_qty) || !empty($spk->party_size)) {
+            $party = trim(($spk->party_qty ?? '') . (!empty($spk->party_size) ? ' x ' . $spk->party_size : ''));
+        }
+
         $pdf = Pdf::loadView('pdf.shipping-report', [
             'spk' => $spk,
             'documents' => $documents,
+            'groupedDocuments' => $groupedDocuments,
             'generated_by' => $user?->name ?? 'Guest',
             'generated_at' => $generatedAt,
             'totalDocs' => $totalDocs,
@@ -413,6 +502,7 @@ class ShippingController extends Controller
             'pendingCount' => $pendingCount,
             'updatedCount' => $updatedCount,
             'progressPercentage' => $progressPercentage,
+            'party' => $party,
         ])->setPaper('a4', 'portrait');
 
         Log::info("✅ Generate PDF report shipping selesai untuk SPK: {$spk->spk_code}");
@@ -443,6 +533,10 @@ class ShippingController extends Controller
             'hs_codes.*.link' => 'nullable|string',
             'hs_codes.*.file' => 'nullable|file|image|mimes:jpeg,png,jpg|max:5120',
             'assigned_pic'    => 'nullable|integer|exists:users,id_user', // Validasi Assigned PIC
+            'vessel'          => 'nullable|string',
+            'origin'          => 'nullable|string',
+            'port'            => 'nullable|string',
+            'comodity'        => 'nullable|string',
         ]);
 
         // --- Logic Tenant ---
@@ -473,6 +567,10 @@ class ShippingController extends Controller
                 'id_customer'       => $validated['id_customer'],
                 'created_by'        => $userId,
                 'penjaluran'        => null,
+                'vessel'            => $validated['vessel'] ?? null,
+                'origin'            => $validated['origin'] ?? null,
+                'port'              => $validated['port'] ?? null,
+                'comodity'          => $validated['comodity'] ?? null,
             ]);
 
             $statusId = 6;
@@ -976,7 +1074,7 @@ class ShippingController extends Controller
                 ->where('id_perusahaan', $user->id_perusahaan)
                 ->where(function ($q) {
                     $q->where('role_internal', 'staff')
-                    ->orWhere('role_internal', 'marketing');
+                        ->orWhere('role_internal', 'marketing');
                 })
                 ->select('id_user', 'name', 'role_internal', 'id_perusahaan')
                 ->get();
@@ -1140,6 +1238,17 @@ class ShippingController extends Controller
             'register_number' => $spk->register_number,
             'register_date' => $spk->register_date,
             'eta_date' => $spk->eta_date ? $spk->eta_date->toDateString() : null,
+            'shipper' => $spk->shipper,
+            'consignee' => $spk->consignee,
+            'vessel' => $spk->vessel,
+            'origin' => $spk->origin,
+            'port' => $spk->port,
+            'comodity' => $spk->comodity,
+            'party_qty' => $spk->party_qty,
+            'party_size' => $spk->party_size,
+            'aju' => $spk->aju,
+            'j_o' => $spk->j_o,
+
         ];
 
         // 3. Mapping HS Code
@@ -2053,20 +2162,31 @@ class ShippingController extends Controller
                     Storage::disk('customers_external')->delete($tempPath);
 
                     if ($isReupload) {
+                        $isAutoVerified = $spk->internal_can_upload || ($targetDoc->is_verification === false);
                         $newDoc = $targetDoc->replicate();
                         $newDoc->url_path_file = $finalRelPath;
-                        $newDoc->verify = ($spk->internal_can_upload || ($targetDoc->is_verification === false)) ? true : null;
+                        $newDoc->verify = $isAutoVerified ? true : null;
                         $newDoc->correction_attachment = false;
                         $newDoc->kuota_revisi = max(0, $targetDoc->kuota_revisi - 1);
+                        $newDoc->upload_date = now();
+                        if ($isAutoVerified) {
+                            $newDoc->verified_date = now();
+                        }
                         $newDoc->save();
                         $logId = $newDoc->id;
                     } else {
-                        $targetDoc->update([
+                        $isAutoVerified = $spk->internal_can_upload || ($targetDoc->is_verification === false);
+                        $updateData = [
                             'url_path_file' => $finalRelPath,
-                            'verify' => ($spk->internal_can_upload || ($targetDoc->is_verification === false)) ? true : null,
+                            'verify' => $isAutoVerified ? true : null,
                             'correction_attachment' => false,
                             'kuota_revisi' => max(0, $targetDoc->kuota_revisi - 1),
-                        ]);
+                            'upload_date' => now(),
+                        ];
+                        if ($isAutoVerified) {
+                            $updateData['verified_date'] = now();
+                        }
+                        $targetDoc->update($updateData);
                         $logId = $targetDoc->id;
                     }
 
@@ -2088,7 +2208,7 @@ class ShippingController extends Controller
             // --- B. VERIFICATIONS ---
             if ($request->has('verified_ids') && is_array($request->verified_ids)) {
                 $ids = $request->verified_ids;
-                DocumentTrans::whereIn('id', $ids)->update(['verify' => true, 'correction_attachment' => false, 'updated_at' => now()]);
+                DocumentTrans::whereIn('id', $ids)->update(['verify' => true, 'correction_attachment' => false, 'verified_date' => now(), 'updated_at' => now()]);
                 foreach ($ids as $id) {
                     DocumentStatus::create(['id_dokumen_trans' => $id, 'status' => 'Verified', 'by' => $user->name]);
                 }
@@ -2751,7 +2871,7 @@ class ShippingController extends Controller
         }
     }
 
-     public function updateEtaDate(Request $request, $idSpk)
+    public function updateEtaDate(Request $request, $idSpk)
     {
         $user = auth('web')->user();
         if ($user->role === 'eksternal') {
@@ -2775,10 +2895,10 @@ class ShippingController extends Controller
 
         try {
             $spk = Spk::findOrFail($idSpk);
-            
+
             // Format to start of day to avoid timezone shifting during storage
             $date = \Carbon\Carbon::parse($validated['eta_date'])->startOfDay();
-            
+
             $spk->update([
                 'eta_date' => $date,
             ]);
@@ -2796,6 +2916,100 @@ class ShippingController extends Controller
             ]);
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Auto save form fields for SPK
+     */
+    public function updateFormFields(Request $request, $idSpk)
+    {
+        $user = auth('web')->user();
+
+        $tenant = null;
+        if ($user->id_perusahaan) {
+            $tenant = Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
+        } elseif ($user->id_customer) {
+            $customer = Customer::find($user->id_customer);
+            if ($customer && $customer->ownership) {
+                $tenant = Tenant::where('perusahaan_id', $customer->ownership)->first();
+            }
+        }
+
+        if (!$tenant) {
+            return response()->json(['success' => false, 'message' => 'Tenant not found'], 404);
+        }
+
+        tenancy()->initialize($tenant);
+
+        try {
+            $spk = Spk::findOrFail($idSpk);
+
+            $data = $request->only([
+                'shipper',
+                'consignee',
+                'vessel',
+                'origin',
+                'port',
+                'comodity',
+                'party_qty',
+                'party_size',
+                'aju',
+                'j_o'
+            ]);
+
+            $spk->update($data);
+
+            return response()->json(['success' => true, 'message' => 'Form fields auto-saved successfully']);
+        } catch (\Throwable $th) {
+            Log::error("Failed to update form fields: " . $th->getMessage());
+            return response()->json(['success' => false, 'error' => $th->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Update ori_date for multiple documents
+     */
+    public function updateOriDates(Request $request, $idSpk)
+    {
+        $user = auth('web')->user();
+
+        $tenant = null;
+        if ($user->id_perusahaan) {
+            $tenant = Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
+        } elseif ($user->id_customer) {
+            $customer = Customer::find($user->id_customer);
+            if ($customer && $customer->ownership) {
+                $tenant = Tenant::where('perusahaan_id', $customer->ownership)->first();
+            }
+        }
+
+        if (!$tenant) {
+            return response()->json(['success' => false, 'message' => 'Tenant not found'], 404);
+        }
+
+        tenancy()->initialize($tenant);
+
+        try {
+            $spk = Spk::findOrFail($idSpk);
+            $documents = $request->input('documents', []);
+
+            foreach ($documents as $item) {
+                $doc = DocumentTrans::where('id', $item['doc_id'])
+                    ->where('id_spk', $spk->id)
+                    ->first();
+
+                if ($doc) {
+                    $doc->update([
+                        'ori_date' => $item['ori_date'] ?? null,
+                    ]);
+                }
+            }
+
+            return response()->json(['success' => true, 'message' => 'ORI dates updated successfully']);
+        } catch (\Throwable $th) {
+            Log::error("Failed to update ORI dates: " . $th->getMessage());
+            return response()->json(['success' => false, 'error' => $th->getMessage()], 500);
         }
     }
 }

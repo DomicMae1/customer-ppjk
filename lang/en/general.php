@@ -286,6 +286,25 @@ return [
     'clipboard_permission_denied' => 'Clipboard read permission was denied. Please allow it in your browser.',
     'select_staff_placeholder' => 'Select Staff',
     'eta_date' => 'ETA Date',
+    'document_receipt_form' => 'Document Receipt Form',
+    'shipper' => 'Shipper',
+    'consignee' => 'Consignee (C\'NEE)',
+    'vessel' => 'Vessel',
+    'origin' => 'Origin',
+    'port' => 'Port',
+    'comodity' => 'Commodity',
+    'party' => 'Party',
+    'aju' => 'AJU',
+    'jo' => 'J.O',
+    'add_ori_date' => 'Add ORI Date',
+    'manage_ori_date' => 'Manage Document ORI Date',
+    'ori_date_saved' => 'ORI dates saved successfully',
+    'ori_date_save_failed' => 'Failed to save ORI dates',
+    'no_documents' => 'No documents found',
+    'bulk_apply_ori_date' => 'Bulk Apply Date',
+    'apply_to_all' => 'Apply All',
+    'apply_to_selected' => 'Apply Selected',
+    'select_all' => 'Select All',
 
     //view shipment report
     'download_pdf' => 'Download PDF',
@@ -309,4 +328,19 @@ return [
     'view' => 'View',
     'no_document_data' => 'No document data yet',
     'no_document_for_spk' => 'Documents for this SPK are not available yet.',
+
+    // --- DOCUMENT RECEIPT FORM (NEW) ---
+    'document_receipt_form' => 'Document Receipt Form',
+
+    'shipper_label' => 'SHIPPER',
+    'consignee_label' => 'C\'NEE',
+    'bl_number_label' => 'B/L Number',
+    'vessel_label' => 'Vessel',
+    'part_label' => 'Party',
+    'aju_label' => 'AJU',
+    'jo_label' => 'J.O',
+
+    'upload_date' => 'Upload Date',
+    'verified_date' => 'Verified Date',
+    'ori_date' => 'ORI Date',
 ];
