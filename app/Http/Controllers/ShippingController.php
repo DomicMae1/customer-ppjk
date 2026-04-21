@@ -227,10 +227,6 @@ class ShippingController extends Controller
                 ->where('role', 'internal')
                 ->where('role_internal', 'staff')
                 ->where('id_perusahaan', $user->id_perusahaan)
-                ->where(function ($q) {
-                    $q->where('role_internal', 'staff')
-                        ->orWhere('role_internal', 'marketing');
-                })
                 ->select('id_user', 'name')
                 ->get();
         }
@@ -1072,10 +1068,7 @@ class ShippingController extends Controller
             $internalStaff = \App\Models\User::on('tako-user')
                 ->where('role', 'internal')
                 ->where('id_perusahaan', $user->id_perusahaan)
-                ->where(function ($q) {
-                    $q->where('role_internal', 'staff')
-                        ->orWhere('role_internal', 'marketing');
-                })
+                ->where('role_internal', 'staff')
                 ->select('id_user', 'name', 'role_internal', 'id_perusahaan')
                 ->get();
         }
@@ -1248,6 +1241,8 @@ class ShippingController extends Controller
             'party_size' => $spk->party_size,
             'aju' => $spk->aju,
             'j_o' => $spk->j_o,
+            'job_date' => $spk->job_date ? $spk->job_date->toDateString() : null,
+            'inspection_date' => $spk->inspection_date ? $spk->inspection_date->toDateString() : null,
 
         ];
 
@@ -2913,6 +2908,96 @@ class ShippingController extends Controller
             return response()->json([
                 'success' => true,
                 'eta_date' => $date->toDateString() // Send back YYYY-MM-DD
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    public function updateJobDate(Request $request, $idSpk)
+    {
+        $user = auth('web')->user();
+        if ($user->role === 'eksternal') {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'job_date' => 'required|date',
+        ]);
+
+        $tenant = null;
+        if ($user->id_perusahaan) {
+            $tenant = Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
+        }
+
+        if (!$tenant) {
+            abort(404, 'Tenant not found');
+        }
+
+        tenancy()->initialize($tenant);
+
+        try {
+            $spk = Spk::findOrFail($idSpk);
+            $date = \Carbon\Carbon::parse($validated['job_date'])->startOfDay();
+
+            $spk->update([
+                'job_date' => $date,
+            ]);
+
+            try {
+                \App\Events\ShippingDataUpdated::dispatch($spk->id, 'update');
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error('Realtime update failed: ' . $e->getMessage());
+            }
+
+            return response()->json([
+                'success' => true,
+                'job_date' => $date->toDateString()
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    public function updateInspectionDate(Request $request, $idSpk)
+    {
+        $user = auth('web')->user();
+        if ($user->role === 'eksternal') {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'inspection_date' => 'required|date',
+        ]);
+
+        $tenant = null;
+        if ($user->id_perusahaan) {
+            $tenant = Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
+        }
+
+        if (!$tenant) {
+            abort(404, 'Tenant not found');
+        }
+
+        tenancy()->initialize($tenant);
+
+        try {
+            $spk = Spk::findOrFail($idSpk);
+            $date = \Carbon\Carbon::parse($validated['inspection_date'])->startOfDay();
+
+            $spk->update([
+                'inspection_date' => $date,
+            ]);
+
+            try {
+                \App\Events\ShippingDataUpdated::dispatch($spk->id, 'update');
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error('Realtime update failed: ' . $e->getMessage());
+            }
+
+            return response()->json([
+                'success' => true,
+                'inspection_date' => $date->toDateString()
             ]);
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 500);

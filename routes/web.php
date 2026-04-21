@@ -36,6 +36,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('shipping/{id}/update-hs-codes', [ShippingController::class, 'updateHsCodes'])
         ->name('shipping.update-hs-codes');
     Route::post('shipping/{id}/update-eta-date', [ShippingController::class, 'updateEtaDate'])->name('shipping.update-eta-date');
+    Route::post('shipping/{id}/update-job-date', [ShippingController::class, 'updateJobDate'])->name('shipping.update-job-date');
+    Route::post('shipping/{id}/update-inspection-date', [ShippingController::class, 'updateInspectionDate'])->name('shipping.update-inspection-date');
     Route::post('shipping/{id}/assign-staff', [ShippingController::class, 'assignStaff'])->name('shipping.assignStaff');
     Route::get('shipping/available-documents', [ShippingController::class, 'getAvailableDocuments'])->name('shipping.availableDocuments');
     Route::post('shipping/add-documents-to-section', [ShippingController::class, 'addDocumentsToSection'])->name('shipping.addDocumentsToSection');

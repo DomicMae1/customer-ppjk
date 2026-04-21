@@ -37,6 +37,8 @@ class Spk extends Model
         'party_size',
         'aju',
         'j_o',
+        'job_date',
+        'inspection_date',
     ];
 
     protected $appends = ['is_created_by_internal'];
@@ -48,7 +50,9 @@ class Spk extends Model
     protected $casts = [
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
-        'eta_date' => 'datetime',
+        'eta_date' => 'date:Y-m-d',
+        'job_date' => 'date:Y-m-d',
+        'inspection_date' => 'date:Y-m-d',
     ];
 
     /**
