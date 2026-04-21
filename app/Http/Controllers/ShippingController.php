@@ -200,6 +200,7 @@ class ShippingController extends Controller
                     'validated_by'          => $item->validated_by ?? null,
                     'created_by'            => $item->created_by ?? null,
                     'eta_date'              => $item->eta_date ?? null,
+                    'spk_date'              => $item->spk_date ? $item->spk_date->toDateString() : null,
 
                     'jalur'                 => $item->penjaluran,
                     'jalur_filter'          => $item->penjaluran,
@@ -581,6 +582,7 @@ class ShippingController extends Controller
             'origin'          => 'nullable|string',
             'port'            => 'nullable|string',
             'comodity'        => 'nullable|string',
+            'spk_date'        => 'required|date',
         ]);
 
         // --- Logic Tenant ---
@@ -615,6 +617,7 @@ class ShippingController extends Controller
                 'origin'            => $validated['origin'] ?? null,
                 'port'              => $validated['port'] ?? null,
                 'comodity'          => $validated['comodity'] ?? null,
+                'spk_date'          => $validated['spk_date'],
             ]);
 
             $statusId = 6;
@@ -1291,6 +1294,7 @@ class ShippingController extends Controller
             'j_o' => $spk->j_o,
             'job_date' => $spk->job_date ? $spk->job_date->toDateString() : null,
             'inspection_date' => $spk->inspection_date ? $spk->inspection_date->toDateString() : null,
+            'spk_date' => $spk->spk_date ? $spk->spk_date->toDateString() : null,
 
         ];
 
@@ -3088,7 +3092,8 @@ class ShippingController extends Controller
                 'party_qty',
                 'party_size',
                 'aju',
-                'j_o'
+                'j_o',
+                'spk_date'
             ]);
 
             $spk->update($data);

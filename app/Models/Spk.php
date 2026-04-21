@@ -39,6 +39,7 @@ class Spk extends Model
         'j_o',
         'job_date',
         'inspection_date',
+        'spk_date',
     ];
 
     protected $appends = ['is_created_by_internal'];
@@ -53,6 +54,7 @@ class Spk extends Model
         'eta_date' => 'date:Y-m-d',
         'job_date' => 'date:Y-m-d',
         'inspection_date' => 'date:Y-m-d',
+        'spk_date' => 'date:Y-m-d',
     ];
 
     /**

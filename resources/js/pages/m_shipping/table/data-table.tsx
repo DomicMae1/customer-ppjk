@@ -61,6 +61,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
     const [shipmentType, setShipmentType] = useState<'Import' | 'Export'>('Import');
     const [blNumber, setBlNumber] = useState('');
     const [selectedCustomer, setSelectedCustomer] = useState('');
+    const [spkDate, setSpkDate] = useState(''); // NEW: SPK Date State
     const [selectedStaff, setSelectedStaff] = useState(''); // NEW: Selected Staff State
     const [hsCodes, setHsCodes] = useState<HsCodeItem[]>([{ id: nanoid(), code: '', link: '', file: null }]);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -228,7 +229,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
 
     const handleSaveShipment = () => {
         // A. Validasi Sederhana
-        if (!blNumber || !selectedCustomer) {
+        if (!blNumber || !selectedCustomer || !spkDate) {
             alert(trans.alert_complete_data); // Translate Alert
             return;
         }
@@ -246,6 +247,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
         formData.append('shipment_type', shipmentType);
         formData.append('bl_number', blNumber);
         formData.append('id_customer', selectedCustomer);
+        formData.append('spk_date', spkDate);
 
         // NEW: Append Assigned PIC if selected
         if (selectedStaff) {
@@ -280,6 +282,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                 // Reset form jika sukses
                 setIsDialogOpen(false);
                 setBlNumber('');
+                setSpkDate('');
                 setHsCodes([{ id: nanoid(), code: '', link: '', file: null }]);
                 setSelectedSections([]); // Reset selected sections
                 // Opsional: toast.success('Data berhasil disimpan');
@@ -383,6 +386,19 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                 </DialogHeader>
 
                                 <div className="grid gap-4 py-4">
+                                    {/* Input SPK Date */}
+                                    <div className="space-y-2">
+                                        <Label className="text-foreground font-semibold">
+                                            {trans.spk_date || 'SPK Date'}
+                                        </Label>
+                                        <Input
+                                            type="date"
+                                            value={spkDate}
+                                            onChange={(e) => setSpkDate(e.target.value)}
+                                            className="date-input-dark h-9 rounded-lg border-slate-200 bg-white text-xs text-slate-700 focus:ring-blue-500/20 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300"
+                                        />
+                                    </div>
+
                                     {/* Shipment Type Toggle */}
                                     <div className="space-y-2">
                                         <Label className="text-foreground font-semibold">{trans.shipment_type}</Label>
@@ -688,38 +704,38 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
 
                         const tanggalFormat = dateObj
                             ? dateObj
-                                  .toLocaleDateString('id-ID', {
-                                      day: '2-digit',
-                                      month: '2-digit',
-                                      year: 'numeric',
-                                  })
-                                  .replace(/\./g, '/')
+                                .toLocaleDateString('id-ID', {
+                                    day: '2-digit',
+                                    month: '2-digit',
+                                    year: 'numeric',
+                                })
+                                .replace(/\./g, '/')
                             : '-';
 
                         const jamMenit = dateObj
                             ? dateObj
-                                  .toLocaleTimeString('id-ID', {
-                                      hour: '2-digit',
-                                      minute: '2-digit',
-                                      hour12: false,
-                                  })
-                                  .replace('.', ':')
+                                .toLocaleTimeString('id-ID', {
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    hour12: false,
+                                })
+                                .replace('.', ':')
                             : '';
 
                         const deadlineFormatted = original.deadline_date
                             ? new Date(original.deadline_date).toLocaleDateString('en-GB', {
-                                  day: 'numeric',
-                                  month: 'short',
-                                  year: 'numeric',
-                              })
+                                day: 'numeric',
+                                month: 'short',
+                                year: 'numeric',
+                            })
                             : null;
 
                         const etaFormatted = original.eta_date
                             ? new Date(original.eta_date).toLocaleDateString('en-GB', {
-                                  day: 'numeric',
-                                  month: 'short',
-                                  year: 'numeric',
-                              })
+                                day: 'numeric',
+                                month: 'short',
+                                year: 'numeric',
+                            })
                             : null;
 
                         const progress = original.progress || 0;
@@ -857,8 +873,8 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                                     (header.column.getIsSorted() === 'asc'
                                                         ? '⬆️'
                                                         : header.column.getIsSorted() === 'desc'
-                                                          ? '⬇️'
-                                                          : '')}
+                                                            ? '⬇️'
+                                                            : '')}
                                             </button>
                                         ) : (
                                             flexRender(header.column.columnDef.header, header.getContext())

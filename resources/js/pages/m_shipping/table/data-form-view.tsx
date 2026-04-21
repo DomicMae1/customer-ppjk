@@ -52,6 +52,7 @@ interface ShipmentData {
     updated_by_name?: string | null;
     job_date?: string;
     inspection_date?: string;
+    spk_date?: string;
 }
 
 interface DocumentTrans {
@@ -1603,6 +1604,20 @@ export default function ViewCustomerForm({
                                 </div>
                             )}
 
+                            {/* SPK Date (Historical Display) */}
+                            {shipmentData.spk_date && (
+                                <div className="space-y-1 mt-2">
+                                    <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.spk_date || 'Tanggal SPK'}</div>
+                                    <div className="text-sm font-semibold text-slate-700 dark:text-zinc-300">
+                                        {new Date(shipmentData.spk_date).toLocaleDateString(`${trans.locale}`, {
+                                            day: 'numeric',
+                                            month: 'long',
+                                            year: 'numeric',
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
                             <div className="col-span-2 mt-2 space-y-2 border-t border-slate-200/60 pt-4 dark:border-zinc-800">
                                 <div className="flex items-center justify-between">
                                     <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.hs_code || 'HS Code'}</div>
@@ -1647,28 +1662,28 @@ export default function ViewCustomerForm({
                             </div>
 
                             {/* ETA Date Field */}
-                                <div className="col-span-2 mt-2 space-y-1.5 border-t border-slate-200/60 pt-3 dark:border-zinc-800">
-                                    <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.eta_date}</div>
-                                    <div className="flex items-center gap-2">
-                                        <Input
-                                            type="date"
-                                            value={etaDate}
-                                            onChange={(e) => setEtaDate(e.target.value)}
-                                            className="date-input-dark h-9 rounded-lg border-slate-200 bg-white text-xs text-slate-700 focus:ring-blue-500/20 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300"
-                                            disabled={!isInternalUser || isSavingEtaDate}
-                                        />
-                                        {isInternalUser && (
-                                            <Button
-                                                size="sm"
-                                                onClick={handleSaveEtaDate}
-                                                disabled={isSavingEtaDate}
-                                                className="h-9 bg-slate-900 px-4 text-[10px] font-bold text-white hover:bg-slate-800"
-                                            >
-                                                {isSavingEtaDate ? '...' : trans.save || 'Save'}
-                                            </Button>
-                                        )}
-                                    </div>
+                            <div className="col-span-2 mt-2 space-y-1.5 border-t border-slate-200/60 pt-3 dark:border-zinc-800">
+                                <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.eta_date}</div>
+                                <div className="flex items-center gap-2">
+                                    <Input
+                                        type="date"
+                                        value={etaDate}
+                                        onChange={(e) => setEtaDate(e.target.value)}
+                                        className="date-input-dark h-9 rounded-lg border-slate-200 bg-white text-xs text-slate-700 focus:ring-blue-500/20 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300"
+                                        disabled={!isInternalUser || isSavingEtaDate}
+                                    />
+                                    {isInternalUser && (
+                                        <Button
+                                            size="sm"
+                                            onClick={handleSaveEtaDate}
+                                            disabled={isSavingEtaDate}
+                                            className="h-9 bg-slate-900 px-4 text-[10px] font-bold text-white hover:bg-slate-800"
+                                        >
+                                            {isSavingEtaDate ? '...' : trans.save || 'Save'}
+                                        </Button>
+                                    )}
                                 </div>
+                            </div>
 
                             {/* Job date field */}
                             {sectionsTransProp?.some((s) => s.id_section === 7) && (
@@ -1721,7 +1736,7 @@ export default function ViewCustomerForm({
                                     </div>
                                 </div>
                             )}
-                            
+
                             {/* Ori Date Button */}
                             {isInternalUser && (
                                 <div className="col-span-2 mt-2 border-t border-slate-200/60 pt-3 dark:border-zinc-800">
@@ -1811,8 +1826,8 @@ export default function ViewCustomerForm({
                                             <div
                                                 key={doc.id}
                                                 className={`flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors ${selectedOriDocIds.includes(doc.id)
-                                                        ? 'border-blue-300 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-950/20'
-                                                        : 'border-slate-200/60 bg-slate-50/50 dark:border-zinc-800 dark:bg-zinc-950/50'
+                                                    ? 'border-blue-300 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-950/20'
+                                                    : 'border-slate-200/60 bg-slate-50/50 dark:border-zinc-800 dark:bg-zinc-950/50'
                                                     }`}
                                             >
                                                 <Checkbox
