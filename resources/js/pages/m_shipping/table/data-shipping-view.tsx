@@ -337,6 +337,9 @@ export default function DataShippingFormView({ spk, documents = [], flash }: Pro
                                         {trans.updated || 'Updated'}
                                     </th>
                                     <th className="border-b px-4 py-3 text-center text-xs font-bold tracking-wide text-slate-500 uppercase dark:border-zinc-800">
+                                        {trans.status || 'Status'}
+                                    </th>
+                                    <th className="border-b px-4 py-3 text-center text-xs font-bold tracking-wide text-slate-500 uppercase dark:border-zinc-800">
                                         {trans.action || 'Aksi'}
                                     </th>
                                 </tr>
@@ -389,6 +392,19 @@ export default function DataShippingFormView({ spk, documents = [], flash }: Pro
                                                         }`}
                                                     >
                                                         {doc.is_updated ? trans.already_updated || 'Sudah' : trans.not_updated || 'Belum'}
+                                                    </span>
+                                                </td>
+
+                                                {/* ✅ KOLOM STATUS */}
+                                                <td className="border-b px-4 py-4 text-center dark:border-zinc-800">
+                                                    <span
+                                                        className={`inline-flex min-w-[88px] items-center justify-center rounded-full border px-3 py-1 text-xs font-bold ${
+                                                            doc.verify === true
+                                                                ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-300'
+                                                                : 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300'
+                                                        }`}
+                                                    >
+                                                        {doc.verify === true ? trans.verified || 'Verified' : trans.pending || 'Pending'}
                                                     </span>
                                                 </td>
 
