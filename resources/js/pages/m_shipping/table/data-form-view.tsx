@@ -13,7 +13,7 @@ import { router, usePage } from '@inertiajs/react';
 import axios from 'axios';
 import { AlertTriangle, Archive, ChevronDown, ChevronUp, CircleHelp, FileText, Play, Plus, Save, Search, Trash2, Undo2, X } from 'lucide-react';
 import { nanoid } from 'nanoid';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 interface HsCodeItem {
@@ -47,6 +47,7 @@ interface ShipmentData {
     party_size?: string;
     aju?: string;
     j_o?: string;
+    register_number?: string;
     hsCodes: HsCodeItem[];
     updated_by_name?: string | null;
 }
@@ -71,6 +72,7 @@ interface DocumentTrans {
         link_path_template_file?: string;
         link_url_video_file?: string;
         is_confirmed?: boolean; // Added
+        is_ori?: boolean; // Added
     };
     verify?: boolean | null;
     kuota_revisi?: number;
@@ -79,6 +81,7 @@ interface DocumentTrans {
     correction_attachment_file?: string;
     is_internal?: boolean; // Added
     is_verification?: boolean; // Added
+    is_ori?: boolean; // Added
     ori_date?: string | null;
     upload_date?: string | null;
     verified_date?: string | null;
@@ -293,12 +296,28 @@ export default function ViewCustomerForm({
     const [selectedOriDocIds, setSelectedOriDocIds] = useState<number[]>([]);
 
     // Gather all documents from all sections for the ori date modal
-    const allDocumentsForOriDate = (sectionsTransProp || []).flatMap((section) =>
-        (section.documents || []).map((doc) => ({
-            ...doc,
-            sectionName: section.section_name,
-        }))
-    );
+    // Filtered by is_ori and taking only the latest version per id_dokumen
+    const allDocumentsForOriDate = useMemo(() => {
+        const flatList = (sectionsTransProp || []).flatMap((section) =>
+            (section.documents || [])
+                .filter((doc) => !!doc.master_document?.is_ori)
+                .map((doc) => ({
+                    ...doc,
+                    sectionName: section.section_name,
+                }))
+        );
+
+        // Group by id_dokumen and take the newest one (highest ID)
+        const groups = new Map<number, any>();
+        flatList.forEach((doc) => {
+            const existing = groups.get(doc.id_dokumen);
+            if (!existing || doc.id > existing.id) {
+                groups.set(doc.id_dokumen, doc);
+            }
+        });
+
+        return Array.from(groups.values());
+    }, [sectionsTransProp]);
 
     // Initialize ori date values when modal opens
     const openOriDateModal = () => {
@@ -1063,6 +1082,11 @@ export default function ViewCustomerForm({
                                     {isPending && (
                                         <span className="rounded-full border border-yellow-200 bg-yellow-100 px-2.5 py-0.5 text-[10px] font-bold tracking-tight text-yellow-700 uppercase dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-400">
                                             {trans.pending}
+                                        </span>
+                                    )}
+                                    {doc.master_document?.is_ori && doc.ori_date && (
+                                        <span className="rounded-full border border-blue-200 bg-blue-100 px-2.5 py-0.5 text-[10px] font-bold tracking-tight text-blue-700 uppercase dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-400">
+                                            ORI: {new Date(doc.ori_date).toLocaleDateString(`${trans.locale}`, { day: 'numeric', month: 'short' })}
                                         </span>
                                     )}
                                 </div>
