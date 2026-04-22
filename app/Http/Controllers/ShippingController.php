@@ -1300,7 +1300,8 @@ class ShippingController extends Controller
             'j_o' => $spk->j_o,
             'job_date' => $spk->job_date ? $spk->job_date->toDateString() : null,
             'inspection_date' => $spk->inspection_date ? $spk->inspection_date->toDateString() : null,
-
+            'is_npd' => $spk->is_npd,
+            'npd_date' => $spk->npd_date ? \Carbon\Carbon::parse($spk->npd_date)->toDateString() : null,
         ];
 
         // 3. Mapping HS Code
@@ -3165,6 +3166,179 @@ class ShippingController extends Controller
             return response()->json(['success' => true, 'message' => 'ORI dates updated successfully']);
         } catch (\Throwable $th) {
             Log::error("Failed to update ORI dates: " . $th->getMessage());
+            return response()->json(['success' => false, 'error' => $th->getMessage()], 500);
+        }
+    }
+
+    public function getNpdInfo(Request $request, $idSpk)
+    {
+        $user = auth('web')->user();
+
+        $tenant = null;
+        if ($user->id_perusahaan) {
+            $tenant = Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
+        } elseif ($user->id_customer) {
+            $customer = Customer::find($user->id_customer);
+            if ($customer && $customer->ownership) {
+                $tenant = Tenant::where('perusahaan_id', $customer->ownership)->first();
+            }
+        }
+
+        if (!$tenant) {
+            return response()->json(['success' => false, 'message' => 'Tenant not found'], 404);
+        }
+
+        tenancy()->initialize($tenant);
+
+        // Find NPD section (contains 'npd' case insensitive)
+        $npdSection = MasterSectionTrans::whereRaw('LOWER(section_name) LIKE ?', ['%npd%'])->first();
+
+        if (!$npdSection) {
+            return response()->json(['success' => false, 'message' => 'NPD section not found in MasterSectionTrans'], 404);
+        }
+
+        // Get mandatory documents for this section
+        $mandatoryDocs = MasterDocumentTrans::where('id_section', $npdSection->id_section)
+            ->where('is_active', true)
+            ->where('attribute', true)
+            ->get();
+
+        $additionalDocs = MasterDocumentTrans::where('id_section', $npdSection->id_section)
+            ->where('is_active', true)
+            ->where('attribute', false)
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'id_section' => $npdSection->id_section,
+            'section_name' => $npdSection->section_name,
+            'mandatory_docs' => $mandatoryDocs,
+            'additional_docs' => $additionalDocs,
+        ]);
+    }
+
+    public function updateNpd(Request $request, $idSpk)
+    {
+        $user = auth('web')->user();
+
+        $request->validate([
+            'is_npd' => 'required|boolean',
+            'npd_date' => 'nullable|date',
+            'id_section' => 'nullable|integer',
+            'attachments' => 'nullable|array',
+            'additional_documents' => 'nullable|array',
+        ]);
+
+        $tenant = null;
+        if ($user->id_perusahaan) {
+            $tenant = Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
+        } elseif ($user->id_customer) {
+            $customer = Customer::find($user->id_customer);
+            if ($customer && $customer->ownership) {
+                $tenant = Tenant::where('perusahaan_id', $customer->ownership)->first();
+            }
+        }
+
+        if (!$tenant) {
+            return response()->json(['success' => false, 'message' => 'Tenant not found'], 404);
+        }
+
+        tenancy()->initialize($tenant);
+
+        \Illuminate\Support\Facades\DB::beginTransaction();
+        try {
+            $spk = Spk::findOrFail($idSpk);
+
+            // Format to start of day to avoid timezone shifting during storage
+            $npdDate = $request->npd_date ? \Carbon\Carbon::parse($request->npd_date)->startOfDay() : null;
+
+            $spk->update([
+                'is_npd' => $request->is_npd,
+                'npd_date' => $npdDate,
+            ]);
+
+            // If checked and section ID provided, automatically assign section and upload attachments
+            if ($request->is_npd && $request->id_section) {
+                $existingSection = SectionTrans::where('id_spk', $idSpk)->where('id_section', $request->id_section)->first();
+                if (!$existingSection) {
+                    $masterSec = MasterSectionTrans::where('id_section', $request->id_section)->first();
+                    if ($masterSec) {
+                        $existingSection = SectionTrans::create([
+                            'id_section' => $masterSec->id_section,
+                            'id_spk' => $idSpk,
+                            'section_name' => $masterSec->section_name,
+                            'section_order' => $masterSec->section_order,
+                            'deadline' => false,
+                            'deadline_date' => null,
+                        ]);
+                    }
+                }
+
+                if ($existingSection) {
+                    // Generate mandatory docs + selected additional docs
+                    $masterDocs = MasterDocumentTrans::where('id_section', $request->id_section)
+                        ->where('is_active', true)
+                        ->where(function ($query) use ($request) {
+                            $query->where('attribute', true);
+                            if (!empty($request->additional_documents) && is_array($request->additional_documents)) {
+                                $query->orWhereIn('id_dokumen', $request->additional_documents);
+                            }
+                        })
+                        ->get();
+
+                    $existingDocIds = DocumentTrans::where('id_spk', $idSpk)
+                        ->where('id_section', $request->id_section)
+                        ->pluck('id_dokumen')
+                        ->toArray();
+
+                    foreach ($masterDocs as $mDoc) {
+                        if (!in_array($mDoc->id_dokumen, $existingDocIds)) {
+                            $logMessage = "Document {$existingSection->section_name} requested " . now()->format('d-m-Y H:i') . " WIB";
+
+                            $newDoc = DocumentTrans::create([
+                                'id_spk'          => $idSpk,
+                                'id_dokumen'      => $mDoc->id_dokumen,
+                                'id_section'      => $mDoc->id_section,
+                                'nama_file'       => $mDoc->nama_file,
+                                'url_path_file'   => $request->attachments[$mDoc->id_dokumen] ?? null,
+                                'is_internal'     => $mDoc->is_internal ?? false,
+                                'is_verification' => $mDoc->is_verification ?? true,
+                                'verify'          => null,
+                                'kuota_revisi'    => $mDoc->kuota_revisi ?: 3,
+                                'updated_by'      => $user->id_user,
+                                'logs'            => (!empty($request->attachments) && isset($request->attachments[$mDoc->id_dokumen])) ? "Berhasil Mengubah data Document" : $logMessage,
+                            ]);
+
+                            DocumentStatus::create([
+                                'id_dokumen_trans' => $newDoc->id,
+                                'status'           => $logMessage,
+                                'by'               => $user->name,
+                            ]);
+
+                            if (!empty($request->attachments) && isset($request->attachments[$mDoc->id_dokumen])) {
+                                DocumentStatus::create([
+                                    'id_dokumen_trans' => $newDoc->id,
+                                    'status'           => 'File Uploaded',
+                                    'by'               => collect(explode(' ', trim($user->name)))->take(2)->implode(' '),
+                                ]);
+                            }
+                        }
+                    }
+                }
+            }
+
+            \Illuminate\Support\Facades\DB::commit();
+
+            try {
+                \App\Events\ShippingDataUpdated::dispatch($idSpk, 'update');
+            } catch (\Exception $e) {
+                // Ignore Event Error
+            }
+
+            return response()->json(['success' => true, 'message' => 'NPD info updated successfully']);
+        } catch (\Throwable $th) {
+            \Illuminate\Support\Facades\DB::rollBack();
+            Log::error("Failed to update NPD: " . $th->getMessage());
             return response()->json(['success' => false, 'error' => $th->getMessage()], 500);
         }
     }
