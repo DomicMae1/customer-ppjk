@@ -34,8 +34,6 @@ class Spk extends Model
         'origin',
         'port',
         'comodity',
-        'party_qty',
-        'party_size',
         'aju',
         'j_o',
         'job_date',
@@ -127,5 +125,13 @@ class Spk extends Model
     {
         // Relasi SPK ke Section Transaksi
         return $this->hasMany(SectionTrans::class, 'id_spk', 'id');
+    }
+
+    /**
+     * Relasi ke Party (FCL/LCL)
+     */
+    public function parties(): HasMany
+    {
+        return $this->hasMany(SpkParty::class, 'id_spk', 'id');
     }
 }

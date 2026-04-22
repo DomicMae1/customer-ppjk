@@ -291,7 +291,7 @@ class ShippingController extends Controller
 
         tenancy()->initialize($tenant);
 
-        $spk = \App\Models\Spk::findOrFail($id);
+        $spk = \App\Models\Spk::with('parties')->findOrFail($id);
 
         $documents = \App\Models\DocumentTrans::query()
             ->leftJoin('section_trans', function ($join) {
@@ -367,7 +367,8 @@ class ShippingController extends Controller
                 'port' => $spk->port,
                 'comodity' => $spk->comodity,
                 'party_qty' => $spk->party_qty,
-                'party_size' => $spk->party_size,
+                'party_size' => $spk->party_size, // To be removed later or kept for backwards compat but it's empty now
+                'parties' => $spk->parties,
                 'aju' => $spk->aju,
                 'j_o' => $spk->j_o,
             ],
@@ -527,10 +528,15 @@ class ShippingController extends Controller
         $progressPercentage = $totalDocs === 0 ? 0 : round(($verifiedCount / $totalDocs) * 100);
         $generatedAt = now()->format('d-m-Y H:i');
 
-        $party = null;
-        if (!empty($spk->party_qty) || !empty($spk->party_size)) {
-            $party = trim(($spk->party_qty ?? '') . (!empty($spk->party_size) ? ' x ' . $spk->party_size : ''));
+        $partyStrings = [];
+        foreach ($spk->parties as $p) {
+            $s = "{$p->party_qty} x {$p->party_size}";
+            if ($p->party_type === 'FCL' && $p->party_category) {
+                $s .= " ({$p->party_category})";
+            }
+            $partyStrings[] = $s;
         }
+        $party = implode('; ', $partyStrings);
 
         $pdf = Pdf::loadView('pdf.shipping-report', [
             'spk' => $spk,
@@ -1146,7 +1152,7 @@ class ShippingController extends Controller
 
         // 4. Baru sekarang aman untuk Query ke tabel SPK
         // Karena koneksi sudah pindah ke tenant
-        $spk = Spk::with(['creator', 'hsCodes', 'customer'])->findOrFail($id);
+        $spk = Spk::with(['creator', 'hsCodes', 'customer', 'parties'])->findOrFail($id);
 
         // --- FIRST CLICK VALIDATION ASSIGNMENT ---
         if ($user->role === 'internal' && ($user->role_internal === 'staff' || $user->role_internal === 'marketing')) {
@@ -1289,6 +1295,7 @@ class ShippingController extends Controller
             'comodity' => $spk->comodity,
             'party_qty' => $spk->party_qty,
             'party_size' => $spk->party_size,
+            'parties' => $spk->parties,
             'aju' => $spk->aju,
             'j_o' => $spk->j_o,
             'job_date' => $spk->job_date ? $spk->job_date->toDateString() : null,
@@ -3094,6 +3101,20 @@ class ShippingController extends Controller
             ]);
 
             $spk->update($data);
+
+            // Update Parties
+            if ($request->has('parties')) {
+                $parties = $request->input('parties', []);
+                $spk->parties()->delete();
+                foreach ($parties as $p) {
+                    $spk->parties()->create([
+                        'party_type' => $p['party_type'] ?? ($p['type'] ?? ''),
+                        'party_category' => $p['party_category'] ?? ($p['category'] ?? null),
+                        'party_qty' => $p['party_qty'] ?? ($p['qty'] ?? ''),
+                        'party_size' => $p['party_size'] ?? ($p['size'] ?? ''),
+                    ]);
+                }
+            }
 
             return response()->json(['success' => true, 'message' => 'Form fields auto-saved successfully']);
         } catch (\Throwable $th) {
