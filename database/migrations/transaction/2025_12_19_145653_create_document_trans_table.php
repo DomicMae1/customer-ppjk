@@ -29,7 +29,8 @@ return new class extends Migration
             $table->boolean('is_verification')->nullable();
             $table->string('nama_file');
             $table->string('url_path_file')->nullable(); // Lokasi file di storage
-
+            $table->string('upload_by')->nullable();
+            $table->string('verification_by')->nullable();
             // 6. Tracking Logs
             $table->timestamps(); // created_at, updated_at
 

@@ -725,6 +725,8 @@ class ShippingController extends Controller
                     'is_verification'       => $doc->is_verification ?? true,
                     'url_path_file'         => null,
                     'verify'                => false,
+                    'upload_by'             => null,
+                    'verification_by'       => null,
                     'correction_attachment' => false,
                     'kuota_revisi'          => $doc->kuota_revisi ?: 3,
                     'updated_by'            => $userId,
@@ -2030,6 +2032,8 @@ class ShippingController extends Controller
                             'nama_file' => $masterDocTrans->nama_file,
                             'url_path_file' => null,
                             'verify' => null,
+                            'upload_by' => null,
+                            'verification_by' => null,
                             'correction_attachment' => false,
                             'kuota_revisi' => 3, // Default quota
                             'is_internal' => $masterDocTrans->is_internal,
@@ -2220,9 +2224,11 @@ class ShippingController extends Controller
                         $newDoc->verify = $isAutoVerified ? true : null;
                         $newDoc->correction_attachment = false;
                         $newDoc->kuota_revisi = max(0, $targetDoc->kuota_revisi - 1);
+                        $newDoc->upload_by = $user->name;
                         $newDoc->upload_date = now();
                         if ($isAutoVerified) {
                             $newDoc->verified_date = now();
+                            $newDoc->verification_by = 'System (Auto)';
                         }
                         $newDoc->save();
                         $logId = $newDoc->id;
@@ -2233,10 +2239,12 @@ class ShippingController extends Controller
                             'verify' => $isAutoVerified ? true : null,
                             'correction_attachment' => false,
                             'kuota_revisi' => max(0, $targetDoc->kuota_revisi - 1),
+                            'upload_by' => $user->name,
                             'upload_date' => now(),
                         ];
                         if ($isAutoVerified) {
                             $updateData['verified_date'] = now();
+                            $updateData['verification_by'] = 'System (Auto)';
                         }
                         $targetDoc->update($updateData);
                         $logId = $targetDoc->id;
@@ -2260,7 +2268,13 @@ class ShippingController extends Controller
             // --- B. VERIFICATIONS ---
             if ($request->has('verified_ids') && is_array($request->verified_ids)) {
                 $ids = $request->verified_ids;
-                DocumentTrans::whereIn('id', $ids)->update(['verify' => true, 'correction_attachment' => false, 'verified_date' => now(), 'updated_at' => now()]);
+                DocumentTrans::whereIn('id', $ids)->update([
+                    'verify' => true, 
+                    'correction_attachment' => false, 
+                    'verified_date' => now(), 
+                    'verification_by' => $user->name,
+                    'updated_at' => now()
+                ]);
                 foreach ($ids as $id) {
                     DocumentStatus::create(['id_dokumen_trans' => $id, 'status' => 'Verified', 'by' => $user->name]);
                 }
@@ -2280,7 +2294,13 @@ class ShippingController extends Controller
                     $file = $request->file("rejections.$index.file");
                     if ($file) $rejPath = $file->store('corrections', 'customers_external');
 
-                    $doc->update(['verify' => false, 'correction_attachment' => true, 'correction_description' => $rej['note'], 'correction_attachment_file' => $rejPath]);
+                    $doc->update([
+                        'verify' => false, 
+                        'correction_attachment' => true, 
+                        'correction_description' => $rej['note'], 
+                        'correction_attachment_file' => $rejPath,
+                        'verification_by' => $user->name
+                    ]);
                     DocumentStatus::create(['id_dokumen_trans' => $doc->id, 'status' => 'Rejected', 'by' => $user->name]);
                     $metrics['rejections']++;
                 }
