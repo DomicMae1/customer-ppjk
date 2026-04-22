@@ -14,6 +14,7 @@ export type MasterDocument = {
     is_confirmed: boolean;
     attribute: boolean;
     is_ori: boolean;
+    is_print: boolean;
     link_path_example_file: string | null;
     link_path_template_file: string | null;
     link_url_video_file: string | null;
@@ -114,6 +115,26 @@ export const columns = (
                 >
                     <div className={`h-1.5 w-1.5 rounded-full ${isOri ? 'animate-pulse bg-emerald-500' : 'bg-slate-300'}`} />
                     {isOri ? trans.btn_yes || 'Ya' : trans.btn_no || 'Tidak'}
+                </Badge>
+            );
+        },
+    },
+    {
+        accessorKey: 'is_print',
+        header: trans.label_is_print || 'Is Print',
+        cell: ({ row }) => {
+            const isPrint = row.original.is_print;
+            return (
+                <Badge
+                    variant={isPrint ? 'default' : 'outline'}
+                    className={`gap-1.5 px-2.5 py-0.5 font-bold tracking-tight uppercase shadow-sm transition-all ${
+                        isPrint
+                            ? 'border-emerald-200 bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:border-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400'
+                            : 'border-slate-200 text-slate-500 hover:bg-slate-50 dark:border-zinc-800 dark:text-zinc-500'
+                    }`}
+                >
+                    <div className={`h-1.5 w-1.5 rounded-full ${isPrint ? 'animate-pulse bg-emerald-500' : 'bg-slate-300'}`} />
+                    {isPrint ? trans.btn_yes || 'Ya' : trans.btn_no || 'Tidak'}
                 </Badge>
             );
         },

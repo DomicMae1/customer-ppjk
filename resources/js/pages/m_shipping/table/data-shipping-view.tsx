@@ -141,10 +141,6 @@ export default function DataShippingFormView({ spk, documents = [], flash }: Pro
                     {(() => {
                         const leftItems = [
                             {
-                                label: trans.spk_number || 'SPK Number',
-                                value: spk?.spk_code,
-                            },
-                            {
                                 label: trans.shipper_label || 'SHIPPER',
                                 value: spk?.shipper,
                             },

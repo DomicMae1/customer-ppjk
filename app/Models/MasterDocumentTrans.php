@@ -31,7 +31,8 @@ class MasterDocumentTrans extends Model
         'description_file',
         'updated_by',
         'kuota_revisi',
-        'is_ori'
+        'is_ori',
+        'is_print'
         // created_at dan updated_at otomatis dihandle
     ];
 
@@ -42,6 +43,7 @@ class MasterDocumentTrans extends Model
         'is_confirmed' => 'boolean',
         'attribute' => 'boolean',
         'is_ori' => 'boolean',
+        'is_print' => 'boolean',
         'deadline_document' => 'boolean',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',

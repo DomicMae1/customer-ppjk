@@ -89,7 +89,7 @@ class TenantSectionSeeder extends Seeder
                 'section_order' => 7,
                 'is_penjaluran' => false,
                 'attribute_section' => true,
-                'is_checklist' => false,
+                'is_checklist' => true,
                 'source_master_section_id' => null,
                 'created_at'    => $now,
                 'updated_at'    => $now,
