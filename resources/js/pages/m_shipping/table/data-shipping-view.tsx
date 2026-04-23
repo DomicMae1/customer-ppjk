@@ -20,10 +20,9 @@ type SpkItem = {
     shipper?: string | null;
     consignee?: string | null;
     vessel?: string | null;
-    party_qty?: string | null;
-    party_size?: string | null;
     aju?: string | null;
     j_o?: string | null;
+    parties?: any[];
 };
 
 type DocumentItem = {
@@ -198,8 +197,8 @@ export default function DataShippingFormView({ spk, documents = [], flash }: Pro
                             {
                                 label: trans.part_label || 'PARTY',
                                 value:
-                                    spk?.party_qty || spk?.party_size
-                                        ? `${spk?.party_qty ?? ''}${spk?.party_size ? ` x ${spk.party_size}` : ''}`
+                                    spk?.parties && spk.parties.length > 0
+                                        ? spk.parties.map(p => `${p.party_qty} x ${p.party_size}${p.party_category ? ` (${p.party_category})` : ''}`).join('; ')
                                         : null,
                             },
                             {

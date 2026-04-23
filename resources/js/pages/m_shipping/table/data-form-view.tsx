@@ -43,10 +43,9 @@ interface ShipmentData {
     origin?: string;
     port?: string;
     comodity?: string;
-    party_qty?: string;
-    party_size?: string;
     aju?: string;
     j_o?: string;
+    parties?: any[];
     register_number?: string;
     hsCodes: HsCodeItem[];
     updated_by_name?: string | null;
@@ -225,8 +224,11 @@ export default function ViewCustomerForm({
     const [originForm, setOriginForm] = useState<string>((shipmentDataProp as any)?.origin || '');
     const [portForm, setPortForm] = useState<string>((shipmentDataProp as any)?.port || '');
     const [comodityForm, setComodityForm] = useState<string>((shipmentDataProp as any)?.comodity || '');
-    const [partyQtyForm, setPartyQtyForm] = useState<string>((shipmentDataProp as any)?.party_qty || '');
-    const [partyLclForm, setPartyLclForm] = useState<string>((shipmentDataProp as any)?.party_size || '20 ft');
+    const [parties, setParties] = useState<any[]>(
+        (shipmentDataProp as any)?.parties?.length > 0
+            ? (shipmentDataProp as any).parties
+            : [{ party_type: 'FCL', party_category: '1 - GENERAL / DRY CARGO', party_qty: '', party_size: '20 ft' }]
+    );
     const [ajuForm, setAjuForm] = useState<string>((shipmentDataProp as any)?.aju || '');
     const [joForm, setJoForm] = useState<string>((shipmentDataProp as any)?.j_o || '');
 
@@ -246,8 +248,7 @@ export default function ViewCustomerForm({
                 origin: originForm,
                 port: portForm,
                 comodity: comodityForm,
-                party_qty: partyQtyForm,
-                party_size: partyLclForm,
+                parties: parties,
                 aju: ajuForm,
                 j_o: joForm
             })
@@ -260,7 +261,7 @@ export default function ViewCustomerForm({
         }, 3000);
 
         return () => clearTimeout(timeoutId);
-    }, [shipperForm, consigneeForm, vesselForm, originForm, portForm, comodityForm, partyQtyForm, partyLclForm, ajuForm, joForm]);
+    }, [shipperForm, consigneeForm, vesselForm, originForm, portForm, comodityForm, parties, ajuForm, joForm]);
 
     // Batch Verification State
     const [pendingVerifications, setPendingVerifications] = useState<number[]>([]);
@@ -2023,26 +2024,139 @@ export default function ViewCustomerForm({
                                     className="h-9 rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-900"
                                 />
                             </div>
-                            {/* Party */}
-                            <div className="space-y-1.5">
-                                <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">Party</Label>
-                                <div className="flex items-center gap-2">
-                                    <Input
-                                        placeholder="Qty"
-                                        value={partyQtyForm}
-                                        onChange={(e) => setPartyQtyForm(e.target.value)}
-                                        className="h-9 w-20 shrink-0 rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-900"
-                                    />
-                                    <span className="text-sm font-semibold text-slate-400">x</span>
-                                    <Select value={partyLclForm} onValueChange={setPartyLclForm}>
-                                        <SelectTrigger className="h-9 flex-1 rounded-lg border-slate-300 text-xs focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-900">
-                                            <SelectValue placeholder="Size" />
-                                        </SelectTrigger>
-                                        <SelectContent className="rounded-xl border-slate-200 shadow-xl dark:border-zinc-700 dark:bg-zinc-900">
-                                            <SelectItem value="20 ft" className="cursor-pointer text-xs dark:text-zinc-200">20 ft</SelectItem>
-                                            <SelectItem value="40 ft" className="cursor-pointer text-xs dark:text-zinc-200">40 ft</SelectItem>
-                                        </SelectContent>
-                                    </Select>
+                            {/* Party Section */}
+                            <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">Party List</Label>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => setParties([...parties, { party_type: 'FCL', party_category: '1 - GENERAL / DRY CARGO', party_qty: '', party_size: '20 ft' }])}
+                                        className="h-6 px-2 text-[10px] font-bold text-blue-600 hover:bg-blue-50 hover:text-blue-700"
+                                    >
+                                        <Plus className="mr-1 h-3 w-3" /> Add Party
+                                    </Button>
+                                </div>
+
+                                <div className="space-y-3">
+                                    {parties.map((party, index) => (
+                                        <div key={index} className="relative space-y-2 rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-3 transition-colors hover:border-slate-300 dark:border-zinc-800 dark:bg-zinc-950/30">
+                                            {parties.length > 1 && (
+                                                <button
+                                                    onClick={() => setParties(parties.filter((_, i) => i !== index))}
+                                                    className="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-rose-100 text-rose-600 shadow-sm transition-transform hover:scale-110 dark:bg-rose-900/40"
+                                                >
+                                                    <Trash2 className="h-3 w-3" />
+                                                </button>
+                                            )}
+
+                                            <div className="grid grid-cols-2 gap-2">
+                                                {/* Type FCL/LCL */}
+                                                <div className="space-y-1">
+                                                    <Label className="text-[9px] font-bold text-slate-400 uppercase">Type</Label>
+                                                    <Select
+                                                        value={party.party_type}
+                                                        onValueChange={(val) => {
+                                                            const newParties = [...parties];
+                                                            newParties[index].party_type = val;
+                                                            if (val === 'LCL') {
+                                                                newParties[index].party_category = null;
+                                                                newParties[index].party_size = 'CBM';
+                                                            } else {
+                                                                newParties[index].party_category = '1 - GENERAL / DRY CARGO';
+                                                                newParties[index].party_size = '20 ft';
+                                                            }
+                                                            setParties(newParties);
+                                                        }}
+                                                    >
+                                                        <SelectTrigger className="h-8 rounded-lg border-slate-300 text-[10px] focus:ring-blue-500/20 dark:border-zinc-700">
+                                                            <SelectValue />
+                                                        </SelectTrigger>
+                                                        <SelectContent className="dark:bg-zinc-900">
+                                                            <SelectItem value="FCL" className="text-xs">FCL</SelectItem>
+                                                            <SelectItem value="LCL" className="text-xs">LCL</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+
+                                                {/* Size */}
+                                                <div className="space-y-1">
+                                                    <Label className="text-[9px] font-bold text-slate-400 uppercase">Size/Unit</Label>
+                                                    <Select
+                                                        value={party.party_size}
+                                                        onValueChange={(val) => {
+                                                            const newParties = [...parties];
+                                                            newParties[index].party_size = val;
+                                                            setParties(newParties);
+                                                        }}
+                                                    >
+                                                        <SelectTrigger className="h-8 rounded-lg border-slate-300 text-[10px] focus:ring-blue-500/20 dark:border-zinc-700">
+                                                            <SelectValue />
+                                                        </SelectTrigger>
+                                                        <SelectContent className="dark:bg-zinc-900">
+                                                            {party.party_type === 'FCL' ? (
+                                                                ['20 ft', '40 ft', '45 ft', '60 ft'].map(s => (
+                                                                    <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
+                                                                ))
+                                                            ) : (
+                                                                ['CBM', 'KG'].map(s => (
+                                                                    <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
+                                                                ))
+                                                            )}
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+                                            </div>
+
+                                            {/* Category (Only for FCL) */}
+                                            {party.party_type === 'FCL' && (
+                                                <div className="space-y-1">
+                                                    <Label className="text-[9px] font-bold text-slate-400 uppercase">Category (FCL)</Label>
+                                                    <Select
+                                                        value={party.party_category}
+                                                        onValueChange={(val) => {
+                                                            const newParties = [...parties];
+                                                            newParties[index].party_category = val;
+                                                            setParties(newParties);
+                                                        }}
+                                                    >
+                                                        <SelectTrigger className="h-8 w-full rounded-lg border-slate-300 text-[10px] focus:ring-blue-500/20 dark:border-zinc-700">
+                                                            <SelectValue />
+                                                        </SelectTrigger>
+                                                        <SelectContent className="dark:bg-zinc-900">
+                                                            {[
+                                                                "1 - GENERAL / DRY CARGO",
+                                                                "2 - TUNNE TYPE",
+                                                                "3 - OPEN TOP STEEL",
+                                                                "4 - FLAT RACK",
+                                                                "5 - REEFER/REFREGETE",
+                                                                "6 - BARGE CONTAINER",
+                                                                "7 - BULK CONTAINER",
+                                                                "8 - ISOTANK"
+                                                            ].map(cat => (
+                                                                <SelectItem key={cat} value={cat} className="text-xs">{cat}</SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+                                            )}
+
+                                            {/* Quantity */}
+                                            <div className="space-y-1">
+                                                <Label className="text-[9px] font-bold text-slate-400 uppercase">Quantity</Label>
+                                                <Input
+                                                    placeholder="Qty"
+                                                    value={party.party_qty}
+                                                    onChange={(e) => {
+                                                        const newParties = [...parties];
+                                                        newParties[index].party_qty = e.target.value;
+                                                        setParties(newParties);
+                                                    }}
+                                                    className="h-8 w-full rounded-lg border-slate-300 text-[10px] focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-900"
+                                                />
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                             {/* AJU */}
