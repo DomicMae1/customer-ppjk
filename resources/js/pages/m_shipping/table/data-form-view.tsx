@@ -1826,7 +1826,7 @@ export default function ViewCustomerForm({
                                             className="border-slate-300 data-[state=checked]:border-blue-600 data-[state=checked]:bg-blue-600 dark:border-zinc-700"
                                         />
                                         <Label htmlFor="is-npd" className="cursor-pointer text-[10px] font-bold tracking-wider text-slate-500 uppercase dark:text-zinc-400">
-                                            {trans.need_npd || 'Apakah Anda membutuhkan NPD?'}
+                                            {trans.need_npd || 'Apakah SPK Ini Memerlukan NPD?'}
                                         </Label>
                                     </div>
                                     {isNpd && npdDate && (
