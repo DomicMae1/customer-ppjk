@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('customers', function (Blueprint $table) {
+        Schema::connection('tako-user')->table('customers', function (Blueprint $table) {
             $table->json('email_to')->nullable();
             $table->json('email_cc')->nullable();
             $table->dropColumn('email');

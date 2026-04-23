@@ -20,7 +20,8 @@ export interface Customer {
     id?: number;
     nama_perusahaan: string;
     type: string;
-    email: string;
+    email_to?: string[];
+    email_cc?: string[];
     nama: string; // Nama PIC
     no_telp?: string;
     kota?: string;
@@ -45,6 +46,9 @@ interface CustomerPageProps extends PageProps {
 }
 
 export default function ManageCustomers() {
+
+    const { props } = usePage();
+    const trans = props.trans_general as Record<string, string>;
     // Ambil data dari Inertia Props
     const { customers, perusahaan_list, auth, trans_customer } = usePage<CustomerPageProps>().props;
     const isAdmin = auth.user.roles.some((role: any) => role.name === 'admin');
@@ -72,11 +76,33 @@ export default function ManageCustomers() {
     const initialFormState = {
         nama_perusahaan: '',
         type: '',
-        email: '',
         nama: '',
         no_npwp: '',
         no_npwp_16: '',
         id_perusahaan: '',
+    };
+    const [emailsTo, setEmailsTo] = useState<string[]>([]);
+    const [inputTo, setInputTo] = useState('');
+
+    const [emailsCc, setEmailsCc] = useState<string[]>([]);
+    const [inputCc, setInputCc] = useState('');
+
+    const isValidEmail = (email: string) => {
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    };
+
+    const addEmail = (value: string, emails: string[], setEmails: any) => {
+        const email = value.trim().toLowerCase();
+
+        if (!email) return;
+        if (!isValidEmail(email)) return;
+        if (emails.includes(email)) return;
+
+        setEmails([...emails, email]);
+    };
+
+    const removeEmail = (index: number, emails: string[], setEmails: any) => {
+        setEmails(emails.filter((_, i) => i !== index));
     };
 
     const [formData, setFormData] = useState({
@@ -97,7 +123,12 @@ export default function ManageCustomers() {
         e.preventDefault();
         setIsSubmitting(true);
 
-        router.post(route('customer.store'), formData, {
+        const payload = {
+            ...formData,
+            email_to: emailsTo,
+            email_cc: emailsCc,
+        }
+        router.post(route('customer.store'), payload, {
             onSuccess: () => {
                 setOpenCreate(false);
                 setIsSubmitting(false);
@@ -114,11 +145,12 @@ export default function ManageCustomers() {
 
     // 1. Edit Handler: Redirect ke halaman Edit
     const onEditClick = (customer: Customer) => {
+        setEmailsTo(customer.email_to || []);
+        setEmailsCc(customer.email_cc || []);
         setFormData({
             id_customer: customer.id_customer || customer.id || 0,
             nama_perusahaan: customer.nama_perusahaan || '',
             type: customer.type || 'external',
-            email: customer.email || '',
             nama: customer.nama || '',
             no_npwp: customer.no_npwp || '',
             no_npwp_16: customer.no_npwp_16 || '',
@@ -131,7 +163,12 @@ export default function ManageCustomers() {
         e.preventDefault();
         setIsSubmitting(true);
 
-        router.put(route('customer.update', formData.id_customer), formData, {
+        const payload = {
+            ...formData,
+            email_to: emailsTo,
+            email_cc: emailsCc,
+        }
+        router.put(route('customer.update', formData.id_customer), payload, {
             onSuccess: () => {
                 setOpenEdit(false);
                 setIsSubmitting(false);
@@ -237,36 +274,73 @@ export default function ManageCustomers() {
                             </div>
                         )}
 
-                        {/* Tipe & Email */}
-                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                            <div className="grid gap-2">
-                                <Label htmlFor="create_type" className="text-foreground font-semibold">
-                                    {trans_customer.label_type} <span className="text-destructive">*</span>
-                                </Label>
-                                <Select value={formData.type} onValueChange={(val) => handleInputChange('type', val)}>
-                                    <SelectTrigger className="border-input bg-background text-foreground h-11 sm:h-10">
-                                        <SelectValue placeholder={trans_customer.placeholder_type} />
-                                    </SelectTrigger>
-                                    <SelectContent className="bg-popover text-popover-foreground border-border">
-                                        <SelectItem value="external">External</SelectItem>
-                                        <SelectItem value="internal">Internal</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="grid gap-2">
-                                <Label htmlFor="create_email" className="text-foreground font-semibold">
-                                    {trans_customer.label_email} <span className="text-destructive">*</span>
-                                </Label>
-                                <Input
-                                    id="create_email"
-                                    type="email"
-                                    value={formData.email}
-                                    onChange={(e) => handleInputChange('email', e.target.value)}
-                                    required
-                                    placeholder="email@example.com"
-                                    className="border-input bg-background text-foreground h-11 sm:h-10"
+                        {/* Tipe */}
+                        <div className="grid gap-2">
+                            <Label htmlFor="create_type" className="text-foreground font-semibold">
+                                {trans_customer.label_type} <span className="text-destructive">*</span>
+                            </Label>
+                            <Select value={formData.type} onValueChange={(val) => handleInputChange('type', val)}>
+                                <SelectTrigger className="border-input bg-background text-foreground h-11 sm:h-10">
+                                    <SelectValue placeholder={trans_customer.placeholder_type} />
+                                </SelectTrigger>
+                                <SelectContent className="bg-popover text-popover-foreground border-border">
+                                    <SelectItem value="external">External</SelectItem>
+                                    <SelectItem value="internal">Internal</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="grid gap-2">
+                            <Label>Email To *</Label>
+
+                            <div className="border p-2 rounded flex flex-wrap gap-2">
+                                {emailsTo.map((email, index) => (
+                                    <div key={index} className=" dark:text-black bg-gray-200 px-2 py-1 rounded flex items-center gap-1">
+                                        <span>{email}</span>
+                                        <button type="button" onClick={() => removeEmail(index, emailsTo, setEmailsTo)}>x</button>
+                                    </div>
+                                ))}
+
+                                <input
+                                    value={inputTo}
+                                    onChange={(e) => setInputTo(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' || e.key === ',' || e.key === ' ') {
+                                            e.preventDefault();
+                                            addEmail(inputTo, emailsTo, setEmailsTo);
+                                            setInputTo('');
+                                        }
+                                    }}
+                                    className="outline-none flex-1"
                                 />
                             </div>
+                            <span className="text-xs text-muted-foreground">{trans.note_email}</span>
+                        </div>
+                        <div className="grid gap-2">
+                            <Label>Email CC</Label>
+
+                            <div className="border p-2 rounded flex flex-wrap gap-2">
+                                {emailsCc.map((email, index) => (
+                                    <div key={index} className="dark:text-black bg-gray-200 px-2 py-1 rounded flex items-center gap-1">
+                                        <span>{email}</span>
+                                        <button type="button" onClick={() => removeEmail(index, emailsCc, setEmailsCc)}>x</button>
+                                    </div>
+                                ))}
+
+                                <input
+                                    value={inputCc}
+                                    onChange={(e) => setInputCc(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' || e.key === ',' || e.key === ' ') {
+                                            e.preventDefault();
+                                            addEmail(inputCc, emailsCc, setEmailsCc);
+                                            setInputCc('');
+                                        }
+                                    }}
+                                    className="outline-none flex-1"
+                                />
+                            </div>
+                            <span className="text-xs text-muted-foreground">{trans.note_email}</span>
                         </div>
 
                         {/* PIC Name */}
@@ -381,35 +455,73 @@ export default function ManageCustomers() {
                             </div>
                         )}
 
-                        {/* Tipe & Email */}
-                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                            <div className="grid gap-2">
-                                <Label htmlFor="edit_type" className="text-foreground font-semibold">
-                                    {trans_customer.label_type}
-                                </Label>
-                                <Select value={formData.type} onValueChange={(val) => handleInputChange('type', val)}>
-                                    <SelectTrigger className="border-input bg-background text-foreground h-11 sm:h-10">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent className="bg-popover text-popover-foreground border-border">
-                                        <SelectItem value="internal">Internal</SelectItem>
-                                        <SelectItem value="external">External</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="grid gap-2">
-                                <Label htmlFor="edit_email" className="text-foreground font-semibold">
-                                    {trans_customer.label_email}
-                                </Label>
-                                <Input
-                                    id="edit_email"
-                                    type="email"
-                                    value={formData.email}
-                                    onChange={(e) => handleInputChange('email', e.target.value)}
-                                    required
-                                    className="border-input bg-background text-foreground h-11 sm:h-10"
+                        {/* Tipe */}
+                        <div className="grid gap-2">
+                            <Label htmlFor="edit_type" className="text-foreground font-semibold">
+                                {trans_customer.label_type}
+                            </Label>
+                            <Select value={formData.type} onValueChange={(val) => handleInputChange('type', val)}>
+                                <SelectTrigger className="border-input bg-background text-foreground h-11 sm:h-10">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="bg-popover text-popover-foreground border-border">
+                                    <SelectItem value="internal">Internal</SelectItem>
+                                    <SelectItem value="external">External</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="grid gap-2">
+                            <Label>Email To *</Label>
+
+                            <div className="border p-2 rounded flex flex-wrap gap-2">
+                                {emailsTo.map((email, index) => (
+                                    <div key={index} className="dark:text-black bg-gray-200 px-2 py-1 rounded flex items-center gap-1">
+                                        <span>{email}</span>
+                                        <button type="button" onClick={() => removeEmail(index, emailsTo, setEmailsTo)}>x</button>
+                                    </div>
+                                ))}
+
+                                <input
+                                    value={inputTo}
+                                    onChange={(e) => setInputTo(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' || e.key === ',' || e.key === ' ') {
+                                            e.preventDefault();
+                                            addEmail(inputTo, emailsTo, setEmailsTo);
+                                            setInputTo('');
+                                        }
+                                    }}
+                                    className="outline-none flex-1"
                                 />
                             </div>
+                            <span className="text-xs text-muted-foreground">{trans.note_email}</span>
+                        </div>
+                        <div className="grid gap-2">
+                            <Label>Email CC</Label>
+
+                            <div className="border p-2 rounded flex flex-wrap gap-2">
+                                {emailsCc.map((email, index) => (
+                                    <div key={index} className="dark:text-black bg-gray-200 px-2 py-1 rounded flex items-center gap-1">
+                                        <span>{email}</span>
+                                        <button type="button" onClick={() => removeEmail(index, emailsCc, setEmailsCc)}>x</button>
+                                    </div>
+                                ))}
+
+                                <input
+                                    value={inputCc}
+                                    onChange={(e) => setInputCc(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' || e.key === ',' || e.key === ' ') {
+                                            e.preventDefault();
+                                            addEmail(inputCc, emailsCc, setEmailsCc);
+                                            setInputCc('');
+                                        }
+                                    }}
+                                    className="outline-none flex-1"
+                                />
+                            </div>
+                            <span className="text-xs text-muted-foreground">{trans.note_email}</span>
                         </div>
 
                         {/* PIC Name */}

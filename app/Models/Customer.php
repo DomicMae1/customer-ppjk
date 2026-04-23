@@ -25,8 +25,14 @@ class Customer extends Model
         'created_by',
         'no_npwp',          // Baru
         'no_npwp_16',       // Baru
-        'email',
+        'email_to',
+        'email_cc',
         'nama',
+    ];
+
+    protected $casts = [
+        'email_to' => 'array',
+        'email_cc' => 'array',
     ];
 
     /**

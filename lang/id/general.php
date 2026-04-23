@@ -344,4 +344,5 @@ return [
     'upload_date' => 'Tanggal Upload',
     'verified_date' => 'Tanggal Verifikasi',
     'ori_date' => 'Tanggal ORI',
+    'note_email' => 'Tekan Enter atau Koma untuk menambahkan email',
 ];
