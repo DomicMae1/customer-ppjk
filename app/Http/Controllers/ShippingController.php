@@ -379,7 +379,7 @@ class ShippingController extends Controller
         ]);
     }
 
-    public function downloadPdf($id)
+    public function downloadPdf(Request $request, $id)
     {
         $user = auth('web')->user();
 
@@ -406,6 +406,8 @@ class ShippingController extends Controller
         Log::info("📄 Mulai generate PDF report shipping untuk SPK ID: {$id}");
 
         $spk = Spk::findOrFail($id);
+        $template = $request->boolean('template', false);
+        $karantina = $request->boolean('karantina', false);
 
         /*
         |--------------------------------------------------------------------------
@@ -451,16 +453,26 @@ class ShippingController extends Controller
             }
         }
 
+        $printableDocIds = \App\Models\MasterDocumentTrans::query()
+            ->where('is_print', true)
+            ->pluck('id_dokumen')
+            ->toArray();
+
+        $printableDocIds = array_map('intval', $printableDocIds);
+
         $rawDocuments = \App\Models\DocumentTrans::query()
             ->where('id_spk', $spk->id)
             ->orderBy('id_section', 'asc')
             ->orderBy('id', 'desc')
             ->get()
-            ->map(function ($doc) {
+            ->map(function ($doc) use ($printableDocIds) {
                 $updatedAt = $doc->updated_at ? \Carbon\Carbon::parse($doc->updated_at) : null;
                 $uploadDate = !empty($doc->upload_date) ? \Carbon\Carbon::parse($doc->upload_date) : null;
                 $verifiedDate = !empty($doc->verified_date) ? \Carbon\Carbon::parse($doc->verified_date) : null;
                 $oriDate = !empty($doc->ori_date) ? \Carbon\Carbon::parse($doc->ori_date) : null;
+
+                $docId = $doc->id_dokumen ? (int) $doc->id_dokumen : null;
+                $isPrint = $docId !== null && in_array($docId, $printableDocIds, true);
 
                 return (object) [
                     'id' => $doc->id,
@@ -472,6 +484,7 @@ class ShippingController extends Controller
                     'url_path_file' => $doc->url_path_file,
                     'verify' => $doc->verify,
                     'is_updated' => !empty($doc->url_path_file),
+                    'is_print' => $isPrint,
 
                     'updated_at' => $updatedAt ? $updatedAt->format('d-m-Y') : '-',
                     'updated_at_full' => $updatedAt ? $updatedAt->format('d-m-Y H:i') . ' WIB' : null,
@@ -503,8 +516,36 @@ class ShippingController extends Controller
                     'current' => $sorted->first(),
                     'history' => $sorted,
                 ];
-            })
-            ->values();
+            });
+
+        /*
+        |--------------------------------------------------------------------------
+        | FILTER DI BAGIAN groupedDocuments
+        |--------------------------------------------------------------------------
+        | 1. by spk -> tidak difilter
+        | 2. template karantina -> is_print && id_section = 7
+        | 3. template non karantina -> is_print
+        |--------------------------------------------------------------------------
+        */
+        if ($template && $karantina) {
+            // Template karantina:
+            // semua dokumen printable ikut, termasuk section 7
+            $groupedDocuments = $groupedDocuments->filter(function ($item) {
+                return $item->current
+                    && $item->current->is_print === true;
+            });
+        } elseif ($template && !$karantina) {
+            // Template non karantina:
+            // dokumen printable, tapi section 7 tidak ikut
+            $groupedDocuments = $groupedDocuments->filter(function ($item) {
+                return $item->current
+                    && $item->current->is_print === true
+                    && (int) $item->current->id_section !== 7;
+            });
+        }
+        // by spk -> tidak diapa-apakan
+
+        $groupedDocuments = $groupedDocuments->values();
 
         $documents = $groupedDocuments->map(function ($item) {
             return $item->current;
@@ -532,7 +573,16 @@ class ShippingController extends Controller
             $party = trim(($spk->party_qty ?? '') . (!empty($spk->party_size) ? ' x ' . $spk->party_size : ''));
         }
 
-        $pdf = Pdf::loadView('pdf.shipping-report', [
+        $view = 'pdf.shipping-report'; // default
+
+        if ($template && $karantina) {
+            $view = 'pdf.shipping-template';
+        } elseif ($template && !$karantina) {
+            $view = 'pdf.shipping-template';
+        }
+
+
+        $pdf = Pdf::loadView($view, [
             'spk' => $spk,
             'documents' => $documents,
             'groupedDocuments' => $groupedDocuments,
@@ -544,14 +594,23 @@ class ShippingController extends Controller
             'updatedCount' => $updatedCount,
             'progressPercentage' => $progressPercentage,
             'party' => $party,
-
             'companyName' => $companyName,
             'companyLogoPath' => $companyLogoPath,
+            'template' => $template,
+            'karantina' => $karantina,
         ])->setPaper('a4', 'portrait');
 
         Log::info("✅ Generate PDF report shipping selesai untuk SPK: {$spk->spk_code}");
 
-        return $pdf->download("Report-SPK-{$spk->spk_code}.pdf");
+        if (!$template) {
+            return $pdf->download("SPK-Overview-{$spk->spk_code}.pdf");
+        }
+
+        if ($template && $karantina) {
+            return $pdf->download("SPK-Karantina-{$spk->spk_code}.pdf");
+        }
+
+        return $pdf->download("SPK-Non-Karantina-{$spk->spk_code}.pdf");
     }
 
     /**
