@@ -38,6 +38,8 @@ class Spk extends Model
         'j_o',
         'job_date',
         'inspection_date',
+        'is_npd',
+        'npd_date',
     ];
 
     protected $appends = ['is_created_by_internal'];
@@ -53,6 +55,8 @@ class Spk extends Model
         'tanggal_dokumen' => 'date:Y-m-d',
         'job_date' => 'date:Y-m-d',
         'inspection_date' => 'date:Y-m-d',
+        'npd_date' => 'date:Y-m-d',
+        'is_npd' => 'boolean',
     ];
 
     /**

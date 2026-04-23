@@ -51,6 +51,8 @@ interface ShipmentData {
     updated_by_name?: string | null;
     job_date?: string;
     inspection_date?: string;
+    is_npd?: boolean;
+    npd_date?: string | null;
 }
 
 interface DocumentTrans {
@@ -151,7 +153,7 @@ export default function ViewCustomerForm({
     const auth = (props.auth as any) || {};
     const isInternalUser = userRole !== 'eksternal';
     const isSupervisor = auth.user?.role === 'internal' && auth.user?.role_internal === 'supervisor';
-
+    const isNpdSection = (section:any) => section.section_name.toLowerCase().includes('npd');
     const [tempFiles, setTempFiles] = useState<Record<number, string>>({});
     const [activeSection, setActiveSection] = useState<number | null>(null);
     const [isAdditionalDocsOpen, setIsAdditionalDocsOpen] = useState(true);
@@ -299,6 +301,95 @@ export default function ViewCustomerForm({
         shipmentDataProp?.inspection_date ? shipmentDataProp.inspection_date.split('T')[0].split(' ')[0] : '',
     );
     const [isSavingInspectionDate, setIsSavingInspectionDate] = useState(false);
+
+    // NPD States
+    const [isNpd, setIsNpd] = useState(shipmentDataProp?.is_npd || false);
+    const [npdDate, setNpdDate] = useState(shipmentDataProp?.npd_date ? shipmentDataProp.npd_date.split('T')[0].split(' ')[0] : '');
+    const [isNpdModalOpen, setIsNpdModalOpen] = useState(false);
+    const [isUpdatingNpd, setIsUpdatingNpd] = useState(false);
+    const [npdSectionId, setNpdSectionId] = useState<number | null>(null);
+    const [npdMandatoryDocs, setNpdMandatoryDocs] = useState<any[]>([]);
+    const [npdAdditionalDocs, setNpdAdditionalDocs] = useState<any[]>([]);
+    const [npdSelectedAdditionalDocs, setNpdSelectedAdditionalDocs] = useState<number[]>([]);
+    const [npdTempFiles, setNpdTempFiles] = useState<Record<number, string>>({});
+    const [isLoadingNpd, setIsLoadingNpd] = useState(false);
+
+    const handleNpdChange = async (checked: boolean) => {
+        if (!checked) {
+            setIsUpdatingNpd(true);
+            try {
+                const response = await axios.post(`/shipping/${shipmentDataProp.id_spk}/update-npd`, {
+                    is_npd: false,
+                    npd_date: null,
+                    id_section: null,
+                    attachments: {}
+                });
+                if (response.data.success) {
+                    setIsNpd(false);
+                    setNpdDate('');
+                    toast.success('NPD dinonaktifkan');
+                } else {
+                    toast.error(response.data.message || 'Gagal mengubah NPD');
+                }
+            } catch (error: any) {
+                toast.error(error.response?.data?.message || 'Gagal mengubah NPD');
+            } finally {
+                setIsUpdatingNpd(false);
+            }
+        } else {
+            setIsNpdModalOpen(true);
+            setIsLoadingNpd(true);
+            setNpdTempFiles({});
+            try {
+                const res = await axios.get(`/shipping/${shipmentDataProp.id_spk}/npd-info`);
+                if (res.data.success) {
+                    setNpdSectionId(res.data.id_section);
+                    setNpdMandatoryDocs(res.data.mandatory_docs || []);
+                    setNpdAdditionalDocs(res.data.additional_docs || []);
+                    setNpdSelectedAdditionalDocs([]);
+                } else {
+                    toast.error(res.data.message || 'Gagal memuat info NPD');
+                    setIsNpdModalOpen(false);
+                }
+            } catch (error: any) {
+                toast.error(error.response?.data?.message || 'Gagal memuat info NPD');
+                setIsNpdModalOpen(false);
+            } finally {
+                setIsLoadingNpd(false);
+            }
+        }
+    };
+
+    const handleSaveNpdModal = async () => {
+        if (!npdDate) {
+            toast.warning('Silakan isi tanggal NPD');
+            return;
+        }
+
+        setIsUpdatingNpd(true);
+        try {
+            const response = await axios.post(`/shipping/${shipmentDataProp.id_spk}/update-npd`, {
+                is_npd: true,
+                npd_date: npdDate,
+                id_section: npdSectionId,
+                attachments: npdTempFiles,
+                additional_documents: npdSelectedAdditionalDocs
+            });
+
+            if (response.data.success) {
+                toast.success('NPD berhasil disimpan');
+                setIsNpdModalOpen(false);
+                setIsNpd(true);
+                router.reload({ only: ['sectionsTransProp', 'shipmentDataProp', 'documents'] });
+            } else {
+                toast.error(response.data.message || 'Gagal menyimpan NPD');
+            }
+        } catch (error: any) {
+            toast.error(error.response?.data?.message || 'Gagal menyimpan NPD');
+        } finally {
+            setIsUpdatingNpd(false);
+        }
+    };
 
     // Ori Date Modal State
     const [isOriDateModalOpen, setIsOriDateModalOpen] = useState(false);
@@ -1744,6 +1835,33 @@ export default function ViewCustomerForm({
                                 </div>
                             )}
 
+                            {/* NPD Checkbox Section */}
+                            {isInternalUser && (
+                                <div className="col-span-2 mt-2 space-y-1.5 border-t border-slate-200/60 pt-3 dark:border-zinc-800">
+                                    <div className="flex items-center gap-2">
+                                        <Checkbox
+                                            id="is-npd"
+                                            checked={isNpd}
+                                            onCheckedChange={handleNpdChange}
+                                            disabled={!isInternalUser || isUpdatingNpd}
+                                            className="border-slate-300 data-[state=checked]:border-blue-600 data-[state=checked]:bg-blue-600 dark:border-zinc-700"
+                                        />
+                                        <Label htmlFor="is-npd" className="cursor-pointer text-[10px] font-bold tracking-wider text-slate-500 uppercase dark:text-zinc-400">
+                                            {trans.need_npd || 'Apakah SPK Ini Membutuhkan NPD?'}
+                                        </Label>
+                                    </div>
+                                    {isNpd && npdDate && (
+                                        <div className="mt-1 text-xs font-semibold text-slate-700 dark:text-zinc-300">
+                                            NPD Date: {new Date(npdDate).toLocaleDateString(`${trans.locale || 'id-ID'}`, {
+                                                day: 'numeric',
+                                                month: 'long',
+                                                year: 'numeric',
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
                             {/* Ori Date Button */}
                             {isInternalUser && (
                                 <div className="col-span-2 mt-2 border-t border-slate-200/60 pt-3 dark:border-zinc-800">
@@ -1837,11 +1955,10 @@ export default function ViewCustomerForm({
                                         {allDocumentsForOriDate.map((doc) => (
                                             <div
                                                 key={doc.id}
-                                                className={`flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors ${
-                                                    selectedOriDocIds.includes(doc.id)
-                                                        ? 'border-blue-300 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-950/20'
-                                                        : 'border-slate-200/60 bg-slate-50/50 dark:border-zinc-800 dark:bg-zinc-950/50'
-                                                }`}
+                                                className={`flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors ${selectedOriDocIds.includes(doc.id)
+                                                    ? 'border-blue-300 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-950/20'
+                                                    : 'border-slate-200/60 bg-slate-50/50 dark:border-zinc-800 dark:bg-zinc-950/50'
+                                                    }`}
                                             >
                                                 <Checkbox
                                                     id={`ori-doc-${doc.id}`}
@@ -1889,6 +2006,137 @@ export default function ViewCustomerForm({
                                     {isSavingOriDates ? '...' : trans.save || 'Simpan'}
                                 </Button>
                             </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+
+                    {/* NPD Modal */}
+                    <Dialog open={isNpdModalOpen} onOpenChange={(val) => {
+                        if (!val && !isUpdatingNpd) {
+                            setIsNpdModalOpen(false);
+                            if (!shipmentDataProp?.is_npd) {
+                                setIsNpd(false);
+                            }
+                        }
+                    }}>
+                        <DialogContent className="max-w-85 rounded-xl p-0 sm:max-w-100">
+                            <DialogHeader className="px-4 py-3">
+                                <DialogTitle className="text-left text-lg font-bold">{trans.npd_setup || 'Pengaturan NPD'}</DialogTitle>
+                            </DialogHeader>
+
+                            <div className="max-h-75 overflow-y-auto px-4 py-2">
+                                {isLoadingNpd ? (
+                                    <div className="py-8 text-center text-sm text-gray-500">{trans.loading_docs || 'Loading...'}</div>
+                                ) : (
+                                    <div className="space-y-6 pb-4">
+                                        <div className="space-y-1.5">
+                                            <Label className="font-semibold text-slate-700 dark:text-zinc-300">
+                                                {trans.npd_date || 'Tanggal NPD'} <span className="text-red-500">*</span>
+                                            </Label>
+                                            <Input
+                                                type="date"
+                                                value={npdDate}
+                                                onChange={(e) => setNpdDate(e.target.value)}
+                                                className="h-10 w-full rounded-md border-gray-400 focus-visible:border-black focus-visible:ring-0"
+                                            />
+                                        </div>
+
+                                        {npdMandatoryDocs.length > 0 && (
+                                            <div className="space-y-3">
+                                                <Label className="text-sm font-semibold text-slate-700 dark:text-zinc-300 mb-1">
+                                                    {trans.mandatory_npd_docs || 'Dokumen Wajib NPD'}
+                                                </Label>
+                                                <div className="flex flex-col gap-3">
+                                                    {npdMandatoryDocs.map((doc) => (
+                                                        <div key={doc.id_dokumen} className="flex flex-col sm:flex-row sm:items-center justify-between rounded-lg border border-gray-200 bg-slate-50/50 p-3 dark:border-zinc-700 dark:bg-zinc-800/30">
+                                                            <div className="flex-1 mb-2 sm:mb-0">
+                                                                <div className="text-sm font-semibold text-slate-800 dark:text-zinc-200 flex items-center gap-2">
+                                                                    <div className="h-1.5 w-1.5 rounded-full bg-blue-500 hidden sm:block" />
+                                                                    {doc.nama_file}
+                                                                </div>
+                                                            </div>
+                                                            <div className="w-full sm:w-[220px]">
+                                                                <ResettableDropzone
+                                                                    label=""
+                                                                    isRequired={false}
+                                                                    className="h-10 border-dashed border-gray-400 bg-white"
+                                                                    existingFile={
+                                                                        npdTempFiles[doc.id_dokumen]
+                                                                            ? { nama_file: doc.nama_file, path: npdTempFiles[doc.id_dokumen] }
+                                                                            : undefined
+                                                                    }
+                                                                    uploadConfig={{
+                                                                        url: '/shipping/upload-temp',
+                                                                        payload: { type: doc.nama_file, spk_code: shipmentData.spkNumber },
+                                                                    }}
+                                                                    onFileChange={(file, response) => {
+                                                                        if (response && (response.status === 'success' || response.path))
+                                                                            setNpdTempFiles((prev) => ({ ...prev, [doc.id_dokumen]: response.path }));
+                                                                        else if (file === null)
+                                                                            setNpdTempFiles((prev) => {
+                                                                                const n = { ...prev };
+                                                                                delete n[doc.id_dokumen];
+                                                                                return n;
+                                                                            });
+                                                                    }}
+                                                                    disabled={isUpdatingNpd}
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {npdAdditionalDocs.length > 0 && (
+                                            <div className="space-y-3">
+                                                <Label className="text-sm font-semibold text-slate-700 dark:text-zinc-300 mb-1">
+                                                    {trans.additional_npd_docs || 'Dokumen Tambahan'}
+                                                </Label>
+                                                <div className="space-y-4">
+                                                    {npdAdditionalDocs.map((doc) => (
+                                                        <div key={doc.id_dokumen} className="flex items-center space-x-3">
+                                                            <Checkbox
+                                                                id={`npd-doc-${doc.id_dokumen}`}
+                                                                checked={npdSelectedAdditionalDocs.includes(doc.id_dokumen)}
+                                                                onCheckedChange={(checked) => {
+                                                                    setNpdSelectedAdditionalDocs((prev) =>
+                                                                        checked
+                                                                            ? [...prev, doc.id_dokumen]
+                                                                            : prev.filter((id) => id !== doc.id_dokumen)
+                                                                    );
+                                                                }}
+                                                                disabled={isUpdatingNpd}
+                                                                className="h-5 w-5 rounded border-2 border-black data-[state=checked]:bg-black data-[state=checked]:text-white dark:border-zinc-500 dark:data-[state=checked]:bg-white dark:data-[state=checked]:text-black"
+                                                            />
+                                                            <label
+                                                                htmlFor={`npd-doc-${doc.id_dokumen}`}
+                                                                className="cursor-pointer text-base leading-none font-normal peer-disabled:cursor-not-allowed peer-disabled:opacity-70 dark:text-zinc-200"
+                                                            >
+                                                                {doc.nama_file}
+                                                            </label>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="flex flex-col items-center gap-3 border-t p-4 pt-2">
+                                {(npdSelectedAdditionalDocs.length > 0 || Object.keys(npdTempFiles).length > 0) && (
+                                    <div className="text-sm text-gray-600 dark:text-zinc-400">
+                                        {npdSelectedAdditionalDocs.length} additional document(s) selected
+                                    </div>
+                                )}
+                                <Button
+                                    className="h-10 w-full rounded-md bg-black text-sm font-bold text-white hover:bg-gray-800 disabled:opacity-50"
+                                    onClick={handleSaveNpdModal}
+                                    disabled={isUpdatingNpd || isLoadingNpd}
+                                >
+                                    {isUpdatingNpd ? 'Saving...' : trans.save_changes || 'Save Changes'}
+                                </Button>
+                            </div>
                         </DialogContent>
                     </Dialog>
 
@@ -1978,6 +2226,7 @@ export default function ViewCustomerForm({
                     </Dialog>
 
                     {/* --- Formulir Penerimaan Dokumen --- */}
+                    {isInternalUser && (
                     <div className="rounded-2xl border border-slate-200/60 bg-white/80 p-5 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] backdrop-blur-xl sm:p-6 dark:border-zinc-800/80 dark:bg-zinc-900/80">
                         <div className="mb-5 text-xs font-bold tracking-wider text-slate-500 uppercase">
                             {trans.document_receipt_form || 'Formulir Penerimaan Dokumen'}
@@ -2229,6 +2478,7 @@ export default function ViewCustomerForm({
                             </div>
                         </div>
                     </div>
+                    )}
                 </div>
 
                 {/* --- RIGHT DESKTOP COLUMN --- */}
@@ -2395,7 +2645,7 @@ export default function ViewCustomerForm({
                                                         </div>
                                                     )}
                                                 </div>
-                                                {isSupervisor && section.id_section > 6 && (
+                                                {isSupervisor && section.id_section > 6 && !isNpdSection(section) &&(
                                                     <button
                                                         onClick={(e) => {
                                                             e.stopPropagation();
