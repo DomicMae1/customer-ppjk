@@ -153,7 +153,7 @@ export default function ViewCustomerForm({
     const auth = (props.auth as any) || {};
     const isInternalUser = userRole !== 'eksternal';
     const isSupervisor = auth.user?.role === 'internal' && auth.user?.role_internal === 'supervisor';
-
+    const isNpdSection = (section:any) => section.section_name.toLowerCase().includes('npd');
     const [tempFiles, setTempFiles] = useState<Record<number, string>>({});
     const [activeSection, setActiveSection] = useState<number | null>(null);
     const [isAdditionalDocsOpen, setIsAdditionalDocsOpen] = useState(true);
@@ -2197,6 +2197,7 @@ export default function ViewCustomerForm({
                     </Dialog>
 
                     {/* --- Formulir Penerimaan Dokumen --- */}
+                    {isInternalUser && (
                     <div className="rounded-2xl border border-slate-200/60 bg-white/80 p-5 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] backdrop-blur-xl sm:p-6 dark:border-zinc-800/80 dark:bg-zinc-900/80">
                         <div className="mb-5 text-xs font-bold tracking-wider text-slate-500 uppercase">{trans.document_receipt_form || 'Formulir Penerimaan Dokumen'}</div>
                         <div className="flex flex-col gap-4">
@@ -2430,6 +2431,7 @@ export default function ViewCustomerForm({
                             </div>
                         </div>
                     </div>
+                    )}
                 </div>
 
                 {/* --- RIGHT DESKTOP COLUMN --- */}
@@ -2592,7 +2594,7 @@ export default function ViewCustomerForm({
                                                         </div>
                                                     )}
                                                 </div>
-                                                {isSupervisor && section.id_section > 6 && (
+                                                {isSupervisor && section.id_section > 6 && !isNpdSection(section) &&(
                                                     <button
                                                         onClick={(e) => {
                                                             e.stopPropagation();

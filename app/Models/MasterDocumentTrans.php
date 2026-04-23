@@ -60,4 +60,9 @@ class MasterDocumentTrans extends Model
         // Sesuaikan nama model User dan Foreign Key di tabel users
         return $this->belongsTo(User::class, 'updated_by', 'id'); 
     }
+
+    public function documentTrans()
+    {
+        return $this->hasMany(DocumentTrans::class, 'id_dokumen', 'id_dokumen');
+    }
 }

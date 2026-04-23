@@ -1930,35 +1930,43 @@ class ShippingController extends Controller
         ]);
 
         try {
-            // Get documents where id_section is null or 0 (unassigned documents) or 6 (Global)
-            // Or documents in current section that can be added (attribute 0/false)
+            $existingDocs = DocumentTrans::where('id_spk', $request->id_spk)
+                ->pluck('id_dokumen')
+                ->filter()
+                ->unique()
+                ->toArray();
             $availableDocuments = MasterDocumentTrans::where(function ($query) use ($request) {
+
                 // Global / Unassigned docs
                 $query->whereNull('id_section')
                     ->orWhere('id_section', 0)
                     ->orWhere('id_section', 6);
 
-                // Section-specific addable docs (only if attribute 0/false)
+                // Section-specific addable docs
                 if ($request->id_section) {
                     $query->orWhere(function ($sub) use ($request) {
                         $sub->where('id_section', $request->id_section)
-                            ->where('attribute', 0); // 0 = false/manually addable
+                            ->where('attribute', 0);
                     });
                 }
             })
-                ->select([
-                    'id_dokumen',
-                    'nama_file',
-                    'description_file',
-                    'is_internal',
-                    'is_verification',
-                    'attribute',
-                    'link_path_example_file',
-                    'link_path_template_file',
-                    'link_url_video_file'
-                ])
-                ->orderBy('nama_file', 'asc')
-                ->get();
+            ->where('is_active', 1) // jangan lupa ini kalau memang ada kolomnya
+            ->when(!empty($existingDocs), function ($q) use ($existingDocs) {
+                $q->whereNotIn('id_dokumen', $existingDocs);
+            })
+            ->select([
+                'id_dokumen',
+                'nama_file',
+                'description_file',
+                'is_internal',
+                'is_verification',
+                'attribute',
+                'link_path_example_file',
+                'link_path_template_file',
+                'link_url_video_file'
+            ])
+            ->orderBy('nama_file', 'asc')
+            ->get();
 
             return response()->json([
                 'success' => true,
@@ -3203,9 +3211,24 @@ class ShippingController extends Controller
             ->where('attribute', true)
             ->get();
 
-        $additionalDocs = MasterDocumentTrans::where('id_section', $npdSection->id_section)
-            ->where('is_active', true)
-            ->where('attribute', false)
+        $existingDocs = DocumentTrans::where('id_spk', $idSpk)
+            ->pluck('id_dokumen')
+            ->filter()
+            ->unique()
+            ->values()
+            ->toArray();
+
+        $sections = array_unique([
+            $npdSection->id_section,
+            6
+        ]);
+
+        $additionalDocs = MasterDocumentTrans::whereIn('id_section', $sections)
+            ->where('is_active', 1)
+            ->where('attribute', 0)
+            ->when(!empty($existingDocs), function ($q) use ($existingDocs) {
+                $q->whereNotIn('id_dokumen', $existingDocs);
+            })
             ->get();
 
         return response()->json([
@@ -3256,6 +3279,26 @@ class ShippingController extends Controller
                 'is_npd' => $request->is_npd,
                 'npd_date' => $npdDate,
             ]);
+
+            if (!$request->is_npd) {
+                // Ambil semua section yang mengandung 'npd'
+                $npdSections = MasterSectionTrans::whereRaw('LOWER(section_name) LIKE ?', ['%npd%'])
+                    ->pluck('id_section')
+                    ->toArray();
+
+                if (!empty($npdSections)) {
+
+                    // Hapus semua document_trans terkait NPD sections
+                    DocumentTrans::where('id_spk', $idSpk)
+                        ->whereIn('id_section', $npdSections)
+                        ->delete();
+
+                    // Hapus semua section_trans terkait NPD sections
+                    SectionTrans::where('id_spk', $idSpk)
+                        ->whereIn('id_section', $npdSections)
+                        ->delete();
+                }
+            }
 
             // If checked and section ID provided, automatically assign section and upload attachments
             if ($request->is_npd && $request->id_section) {
