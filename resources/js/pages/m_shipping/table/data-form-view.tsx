@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { router, usePage } from '@inertiajs/react';
 import axios from 'axios';
-import { AlertTriangle, Archive, ChevronDown, ChevronUp, CircleHelp, FileText, Play, Plus, Save, Search, Trash2, Undo2, X } from 'lucide-react';
+import { AlertTriangle, Archive, ChevronDown, ChevronUp, CircleHelp, FileText, Play, Plus, Save, Search, Trash2 } from 'lucide-react';
 import { nanoid } from 'nanoid';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -229,7 +229,7 @@ export default function ViewCustomerForm({
     const [parties, setParties] = useState<any[]>(
         (shipmentDataProp as any)?.parties?.length > 0
             ? (shipmentDataProp as any).parties
-            : [{ party_type: 'FCL', party_category: '1 - GENERAL / DRY CARGO', party_qty: '', party_size: '20 ft' }]
+            : [{ party_type: 'FCL', party_category: '1 - GENERAL / DRY CARGO', party_qty: '', party_size: '20 ft' }],
     );
     const [ajuForm, setAjuForm] = useState<string>((shipmentDataProp as any)?.aju || '');
     const [joForm, setJoForm] = useState<string>((shipmentDataProp as any)?.j_o || '');
@@ -243,22 +243,23 @@ export default function ViewCustomerForm({
         }
 
         const timeoutId = setTimeout(() => {
-            axios.post(`/shipping/${shipmentDataProp.id_spk}/update-form-fields`, {
-                shipper: shipperForm,
-                consignee: consigneeForm,
-                vessel: vesselForm,
-                origin: originForm,
-                port: portForm,
-                comodity: comodityForm,
-                parties: parties,
-                aju: ajuForm,
-                j_o: joForm
-            })
-                .then(response => {
+            axios
+                .post(`/shipping/${shipmentDataProp.id_spk}/update-form-fields`, {
+                    shipper: shipperForm,
+                    consignee: consigneeForm,
+                    vessel: vesselForm,
+                    origin: originForm,
+                    port: portForm,
+                    comodity: comodityForm,
+                    parties: parties,
+                    aju: ajuForm,
+                    j_o: joForm,
+                })
+                .then((response) => {
                     // Background save success - silent
                 })
-                .catch(error => {
-                    console.error("Auto-save formulir penerimaan dokumen gagal", error);
+                .catch((error) => {
+                    console.error('Auto-save formulir penerimaan dokumen gagal', error);
                 });
         }, 3000);
 
@@ -296,7 +297,9 @@ export default function ViewCustomerForm({
     // Job Date & Inspection Date States
     const [jobDate, setJobDate] = useState(shipmentDataProp?.job_date ? shipmentDataProp.job_date.split('T')[0].split(' ')[0] : '');
     const [isSavingJobDate, setIsSavingJobDate] = useState(false);
-    const [inspectionDate, setInspectionDate] = useState(shipmentDataProp?.inspection_date ? shipmentDataProp.inspection_date.split('T')[0].split(' ')[0] : '');
+    const [inspectionDate, setInspectionDate] = useState(
+        shipmentDataProp?.inspection_date ? shipmentDataProp.inspection_date.split('T')[0].split(' ')[0] : '',
+    );
     const [isSavingInspectionDate, setIsSavingInspectionDate] = useState(false);
 
     // NPD States
@@ -404,7 +407,7 @@ export default function ViewCustomerForm({
                 .map((doc) => ({
                     ...doc,
                     sectionName: section.section_name,
-                }))
+                })),
         );
 
         // Group by id_dokumen and take the newest one (highest ID)
@@ -432,9 +435,7 @@ export default function ViewCustomerForm({
     };
 
     const toggleOriDocSelection = (docId: number) => {
-        setSelectedOriDocIds((prev) =>
-            prev.includes(docId) ? prev.filter((id) => id !== docId) : [...prev, docId]
-        );
+        setSelectedOriDocIds((prev) => (prev.includes(docId) ? prev.filter((id) => id !== docId) : [...prev, docId]));
     };
 
     const toggleSelectAllOriDocs = () => {
@@ -1157,15 +1158,19 @@ export default function ViewCustomerForm({
                 <div className="flex items-start justify-between gap-4">
                     {/* Left: Name & History */}
                     <div className="flex flex-1 flex-col gap-1">
-                        <div className="flex items-start gap-2 text-gray-800 dark:text-slate-900">
-                            <span className="min-w-0 flex-1 text-sm font-medium">
-                                {idx + 1}. {doc.master_document?.nama_dokumen || doc.nama_file}
-                            </span>
+                        <div className="flex flex-col gap-2 text-gray-800 sm:flex-row sm:items-start sm:justify-between sm:gap-3 dark:text-slate-900">
+                            <div className="flex min-w-0 flex-1 items-start gap-2">
+                                <div className="flex min-w-0 flex-1 items-start gap-2">
+                                    <span className="min-w-0 text-sm font-medium">
+                                        {idx + 1}. {doc.master_document?.nama_dokumen || doc.nama_file}
+                                    </span>
 
-                            <CircleHelp
-                                className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer text-gray-500 hover:text-gray-700 dark:text-zinc-500 dark:hover:text-zinc-300"
-                                onClick={() => handleOpenHelp(doc)}
-                            />
+                                    <CircleHelp
+                                        className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer text-gray-500 hover:text-gray-700 dark:text-zinc-500 dark:hover:text-zinc-300"
+                                        onClick={() => handleOpenHelp(doc)}
+                                    />
+                                </div>
+                            </div>
 
                             {!canVerify && doc.url_path_file && (
                                 <div className="flex shrink-0 gap-1">
@@ -1549,7 +1554,9 @@ export default function ViewCustomerForm({
                     <div className="rounded-2xl border border-slate-200/60 bg-white/80 p-5 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] backdrop-blur-xl transition-all duration-300 hover:shadow-[0_8px_30px_-4px_rgba(0,0,0,0.1)] sm:p-6 dark:border-zinc-800/80 dark:bg-zinc-900/80">
                         <div className="mb-4 flex items-center justify-between">
                             <div className="space-y-1">
-                                <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.status || 'Shipment Status'}</div>
+                                <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
+                                    {trans.status || 'Shipment Status'}
+                                </div>
                                 <div className="text-xl font-extrabold tracking-tight text-slate-900 dark:text-white">
                                     {shipmentData.status ? shipmentData.status.toUpperCase() : 'UNKNOWN'}
                                 </div>
@@ -1586,7 +1593,9 @@ export default function ViewCustomerForm({
                             <div className="mt-5 space-y-4 border-t border-slate-100 pt-4">
                                 {/* Assign Staff */}
                                 <div>
-                                    <Label className="mb-2 block text-[11px] font-bold tracking-wider text-slate-500 uppercase">{trans.assign_staff}</Label>
+                                    <Label className="mb-2 block text-[11px] font-bold tracking-wider text-slate-500 uppercase">
+                                        {trans.assign_staff}
+                                    </Label>
                                     <div className="flex items-center gap-2">
                                         <Select value={selectedStaff} onValueChange={setSelectedStaff}>
                                             <SelectTrigger className="h-9 flex-1 rounded-lg border-slate-200 text-xs focus:ring-blue-500/20">
@@ -1604,7 +1613,9 @@ export default function ViewCustomerForm({
                                                         </SelectItem>
                                                     ))
                                                 ) : (
-                                                    <div className="p-2 text-center text-xs text-slate-500">{trans.data_not_found || 'No staff found'}</div>
+                                                    <div className="p-2 text-center text-xs text-slate-500">
+                                                        {trans.data_not_found || 'No staff found'}
+                                                    </div>
                                                 )}
                                             </SelectContent>
                                         </Select>
@@ -1620,21 +1631,25 @@ export default function ViewCustomerForm({
 
                                 {/* Upload Mode Toggle */}
                                 <div>
-                                    <Label className="mb-2 block text-[11px] font-bold tracking-wider text-slate-500 uppercase">{trans.upload_mode}</Label>
+                                    <Label className="mb-2 block text-[11px] font-bold tracking-wider text-slate-500 uppercase">
+                                        {trans.upload_mode}
+                                    </Label>
                                     <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 p-1">
                                         <button
                                             onClick={() => !isUpdatingUploadMode && handleToggleInternalCanUpload(true)}
                                             disabled={isUpdatingUploadMode}
-                                            className={`flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition-all duration-200 ${internalCanUpload ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                                                } disabled:opacity-50`}
+                                            className={`flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition-all duration-200 ${
+                                                internalCanUpload ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                                            } disabled:opacity-50`}
                                         >
                                             {trans.staff_upload}
                                         </button>
                                         <button
                                             onClick={() => !isUpdatingUploadMode && handleToggleInternalCanUpload(false)}
                                             disabled={isUpdatingUploadMode}
-                                            className={`flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition-all duration-200 ${!internalCanUpload ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                                                } disabled:opacity-50`}
+                                            className={`flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition-all duration-200 ${
+                                                !internalCanUpload ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                                            } disabled:opacity-50`}
                                         >
                                             {trans.dual_upload}
                                         </button>
@@ -1645,7 +1660,7 @@ export default function ViewCustomerForm({
                                 </div>
                             </div>
                         )}
-                        <div className="mt-5 space-y-1.5 border-t border-slate-200/60 pt-4 dark:border-zinc-800 pt-4 grid grid-cols-2 gap-x-1 gap-y-2">
+                        <div className="mt-5 grid grid-cols-2 space-y-1.5 gap-x-1 gap-y-2 border-t border-slate-200/60 pt-4 dark:border-zinc-800">
                             {/* Shipment Type */}
                             <div className="space-y-1">
                                 <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.shipment_type}</div>
@@ -1658,10 +1673,11 @@ export default function ViewCustomerForm({
                                     <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.channel}</div>
                                     <div>
                                         <span
-                                            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold tracking-tight uppercase ring-1 ring-inset ${shipmentData.penjaluran === 'merah'
-                                                ? 'bg-rose-50 text-rose-700 ring-rose-600/20'
-                                                : 'bg-green-50 text-green-700 ring-green-600/20'
-                                                }`}
+                                            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold tracking-tight uppercase ring-1 ring-inset ${
+                                                shipmentData.penjaluran === 'merah'
+                                                    ? 'bg-rose-50 text-rose-700 ring-rose-600/20'
+                                                    : 'bg-green-50 text-green-700 ring-green-600/20'
+                                            }`}
                                         >
                                             {trans[shipmentData.penjaluran] || shipmentData.penjaluran}
                                         </span>
@@ -1699,7 +1715,10 @@ export default function ViewCustomerForm({
                                 <div className="flex items-center justify-between">
                                     <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.hs_code || 'HS Code'}</div>
                                     {shipmentData.hsCodes.length > 0 && (
-                                        <button onClick={enableEditMode} className="text-xs font-semibold text-blue-500 hover:text-blue-600 hover:underline dark:text-blue-400 dark:hover:text-blue-300">
+                                        <button
+                                            onClick={enableEditMode}
+                                            className="text-xs font-semibold text-blue-500 hover:text-blue-600 hover:underline dark:text-blue-400 dark:hover:text-blue-300"
+                                        >
                                             {trans.edit || 'Edit'}
                                         </button>
                                     )}
@@ -1720,9 +1739,7 @@ export default function ViewCustomerForm({
                                                             [INSW]
                                                         </a>
                                                     ) : (
-                                                        <span className="cursor-not-allowed font-bold text-gray-400">
-                                                            [INSW]
-                                                        </span>
+                                                        <span className="cursor-not-allowed font-bold text-gray-400">[INSW]</span>
                                                     )}
                                                 </div>
                                             ))
@@ -1765,7 +1782,9 @@ export default function ViewCustomerForm({
                             {/* Job date field */}
                             {sectionsTransProp?.some((s) => s.id_section === 7) && (
                                 <div className="col-span-2 mt-2 space-y-1.5 border-t border-slate-200/60 pt-3 dark:border-zinc-800">
-                                    <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.job_date || 'Job Date'}</div>
+                                    <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
+                                        {trans.job_date || 'Job Date'}
+                                    </div>
                                     <div className="flex items-center gap-2">
                                         <Input
                                             type="date"
@@ -1791,7 +1810,9 @@ export default function ViewCustomerForm({
                             {/* inspection date field */}
                             {sectionsTransProp?.some((s) => s.id_section === 7) && (
                                 <div className="col-span-2 mt-2 space-y-1.5 border-t border-slate-200/60 pt-3 dark:border-zinc-800">
-                                    <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.inspection_date || 'Inspection Date'}</div>
+                                    <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
+                                        {trans.inspection_date || 'Inspection Date'}
+                                    </div>
                                     <div className="flex items-center gap-2">
                                         <Input
                                             type="date"
@@ -1870,10 +1891,10 @@ export default function ViewCustomerForm({
                             {/* Bulk Apply Section */}
                             {allDocumentsForOriDate.length > 0 && (
                                 <div className="border-b border-slate-200/60 bg-slate-50/80 px-6 py-3 dark:border-zinc-800 dark:bg-zinc-950/50">
-                                    <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-2">
+                                    <div className="mb-2 text-[10px] font-bold tracking-wider text-slate-400 uppercase">
                                         {trans.bulk_apply_ori_date || 'Terapkan Tanggal Sekaligus'}
                                     </div>
-                                    <div className="flex items-center gap-2 flex-wrap">
+                                    <div className="flex flex-wrap items-center gap-2">
                                         <Input
                                             type="date"
                                             value={bulkOriDate}
@@ -1885,7 +1906,7 @@ export default function ViewCustomerForm({
                                             variant="outline"
                                             onClick={() => applyBulkOriDate('all')}
                                             disabled={!bulkOriDate}
-                                            className="h-9 rounded-lg text-[10px] font-bold uppercase tracking-wide dark:border-zinc-700 dark:text-zinc-300"
+                                            className="h-9 rounded-lg text-[10px] font-bold tracking-wide uppercase dark:border-zinc-700 dark:text-zinc-300"
                                         >
                                             {trans.apply_to_all || 'Terapkan Semua'}
                                         </Button>
@@ -1894,7 +1915,7 @@ export default function ViewCustomerForm({
                                             variant="outline"
                                             onClick={() => applyBulkOriDate('selected')}
                                             disabled={!bulkOriDate || selectedOriDocIds.length === 0}
-                                            className="h-9 rounded-lg text-[10px] font-bold uppercase tracking-wide dark:border-zinc-700 dark:text-zinc-300"
+                                            className="h-9 rounded-lg text-[10px] font-bold tracking-wide uppercase dark:border-zinc-700 dark:text-zinc-300"
                                         >
                                             {trans.apply_to_selected || 'Terapkan Terpilih'}
                                             {selectedOriDocIds.length > 0 && (
@@ -1918,10 +1939,15 @@ export default function ViewCustomerForm({
                                         <div className="flex items-center gap-2 rounded-lg bg-slate-100/50 px-3 py-2 dark:bg-zinc-900/50">
                                             <Checkbox
                                                 id="select-all-ori"
-                                                checked={selectedOriDocIds.length === allDocumentsForOriDate.length && allDocumentsForOriDate.length > 0}
+                                                checked={
+                                                    selectedOriDocIds.length === allDocumentsForOriDate.length && allDocumentsForOriDate.length > 0
+                                                }
                                                 onCheckedChange={toggleSelectAllOriDocs}
                                             />
-                                            <label htmlFor="select-all-ori" className="cursor-pointer text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
+                                            <label
+                                                htmlFor="select-all-ori"
+                                                className="cursor-pointer text-[10px] font-bold tracking-wider text-slate-500 uppercase dark:text-zinc-400"
+                                            >
                                                 {trans.select_all || 'Pilih Semua'} ({selectedOriDocIds.length}/{allDocumentsForOriDate.length})
                                             </label>
                                         </div>
@@ -2160,9 +2186,9 @@ export default function ViewCustomerForm({
                                                         existingFile={
                                                             !item.file && item.link
                                                                 ? {
-                                                                    nama_file: item.link,
-                                                                    path: `/file/view/${item.link}`,
-                                                                }
+                                                                      nama_file: item.link,
+                                                                      path: `/file/view/${item.link}`,
+                                                                  }
                                                                 : undefined
                                                         }
                                                         onFileChange={(file) => {
@@ -2175,21 +2201,24 @@ export default function ViewCustomerForm({
                                     ))}
 
                                     {/* Tombol Tambah Item Baru */}
-                                    <Button variant="outline" onClick={addHsCodeField} className="w-full border-dashed border-slate-300 dark:border-zinc-700">
+                                    <Button
+                                        variant="outline"
+                                        onClick={addHsCodeField}
+                                        className="w-full border-dashed border-slate-300 dark:border-zinc-700"
+                                    >
                                         <Plus className="mr-2 h-4 w-4" /> {trans.add_another_hs}
                                     </Button>
                                 </div>
                             </div>
 
                             <DialogFooter className="flex gap-2 rounded-b-2xl border-t bg-slate-50/50 px-6 py-4 dark:border-zinc-800 dark:bg-zinc-900/80">
-                                <Button
-                                    onClick={cancelEditMode}
-                                    variant="outline"
-                                    className="flex-1"
-                                >
+                                <Button onClick={cancelEditMode} variant="outline" className="flex-1">
                                     {trans.cancel}
                                 </Button>
-                                <Button onClick={handleSaveEdit} className="flex-1 bg-black text-white hover:bg-gray-800 dark:bg-zinc-100 dark:text-black dark:hover:bg-zinc-300">
+                                <Button
+                                    onClick={handleSaveEdit}
+                                    className="flex-1 bg-black text-white hover:bg-gray-800 dark:bg-zinc-100 dark:text-black dark:hover:bg-zinc-300"
+                                >
                                     {trans.save_changes}
                                 </Button>
                             </DialogFooter>
@@ -2199,7 +2228,9 @@ export default function ViewCustomerForm({
                     {/* --- Formulir Penerimaan Dokumen --- */}
                     {isInternalUser && (
                     <div className="rounded-2xl border border-slate-200/60 bg-white/80 p-5 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] backdrop-blur-xl sm:p-6 dark:border-zinc-800/80 dark:bg-zinc-900/80">
-                        <div className="mb-5 text-xs font-bold tracking-wider text-slate-500 uppercase">{trans.document_receipt_form || 'Formulir Penerimaan Dokumen'}</div>
+                        <div className="mb-5 text-xs font-bold tracking-wider text-slate-500 uppercase">
+                            {trans.document_receipt_form || 'Formulir Penerimaan Dokumen'}
+                        </div>
                         <div className="flex flex-col gap-4">
                             {/* Shipper */}
                             <div className="space-y-1.5">
@@ -2281,7 +2312,12 @@ export default function ViewCustomerForm({
                                     <Button
                                         variant="ghost"
                                         size="sm"
-                                        onClick={() => setParties([...parties, { party_type: 'FCL', party_category: '1 - GENERAL / DRY CARGO', party_qty: '', party_size: '20 ft' }])}
+                                        onClick={() =>
+                                            setParties([
+                                                ...parties,
+                                                { party_type: 'FCL', party_category: '1 - GENERAL / DRY CARGO', party_qty: '', party_size: '20 ft' },
+                                            ])
+                                        }
                                         className="h-6 px-2 text-[10px] font-bold text-blue-600 hover:bg-blue-50 hover:text-blue-700"
                                     >
                                         <Plus className="mr-1 h-3 w-3" /> Add Party
@@ -2290,7 +2326,10 @@ export default function ViewCustomerForm({
 
                                 <div className="space-y-3">
                                     {parties.map((party, index) => (
-                                        <div key={index} className="relative space-y-2 rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-3 transition-colors hover:border-slate-300 dark:border-zinc-800 dark:bg-zinc-950/30">
+                                        <div
+                                            key={index}
+                                            className="relative space-y-2 rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-3 transition-colors hover:border-slate-300 dark:border-zinc-800 dark:bg-zinc-950/30"
+                                        >
                                             {parties.length > 1 && (
                                                 <button
                                                     onClick={() => setParties(parties.filter((_, i) => i !== index))}
@@ -2323,8 +2362,12 @@ export default function ViewCustomerForm({
                                                             <SelectValue />
                                                         </SelectTrigger>
                                                         <SelectContent className="dark:bg-zinc-900">
-                                                            <SelectItem value="FCL" className="text-xs">FCL</SelectItem>
-                                                            <SelectItem value="LCL" className="text-xs">LCL</SelectItem>
+                                                            <SelectItem value="FCL" className="text-xs">
+                                                                FCL
+                                                            </SelectItem>
+                                                            <SelectItem value="LCL" className="text-xs">
+                                                                LCL
+                                                            </SelectItem>
                                                         </SelectContent>
                                                     </Select>
                                                 </div>
@@ -2344,15 +2387,17 @@ export default function ViewCustomerForm({
                                                             <SelectValue />
                                                         </SelectTrigger>
                                                         <SelectContent className="dark:bg-zinc-900">
-                                                            {party.party_type === 'FCL' ? (
-                                                                ['20 ft', '40 ft', '45 ft', '60 ft'].map(s => (
-                                                                    <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
-                                                                ))
-                                                            ) : (
-                                                                ['CBM', 'KG'].map(s => (
-                                                                    <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
-                                                                ))
-                                                            )}
+                                                            {party.party_type === 'FCL'
+                                                                ? ['20 ft', '40 ft', '45 ft', '60 ft'].map((s) => (
+                                                                      <SelectItem key={s} value={s} className="text-xs">
+                                                                          {s}
+                                                                      </SelectItem>
+                                                                  ))
+                                                                : ['CBM', 'KG'].map((s) => (
+                                                                      <SelectItem key={s} value={s} className="text-xs">
+                                                                          {s}
+                                                                      </SelectItem>
+                                                                  ))}
                                                         </SelectContent>
                                                     </Select>
                                                 </div>
@@ -2375,16 +2420,18 @@ export default function ViewCustomerForm({
                                                         </SelectTrigger>
                                                         <SelectContent className="dark:bg-zinc-900">
                                                             {[
-                                                                "1 - GENERAL / DRY CARGO",
-                                                                "2 - TUNNE TYPE",
-                                                                "3 - OPEN TOP STEEL",
-                                                                "4 - FLAT RACK",
-                                                                "5 - REEFER/REFREGETE",
-                                                                "6 - BARGE CONTAINER",
-                                                                "7 - BULK CONTAINER",
-                                                                "8 - ISOTANK"
-                                                            ].map(cat => (
-                                                                <SelectItem key={cat} value={cat} className="text-xs">{cat}</SelectItem>
+                                                                '1 - GENERAL / DRY CARGO',
+                                                                '2 - TUNNE TYPE',
+                                                                '3 - OPEN TOP STEEL',
+                                                                '4 - FLAT RACK',
+                                                                '5 - REEFER/REFREGETE',
+                                                                '6 - BARGE CONTAINER',
+                                                                '7 - BULK CONTAINER',
+                                                                '8 - ISOTANK',
+                                                            ].map((cat) => (
+                                                                <SelectItem key={cat} value={cat} className="text-xs">
+                                                                    {cat}
+                                                                </SelectItem>
                                                             ))}
                                                         </SelectContent>
                                                     </Select>
@@ -2436,18 +2483,22 @@ export default function ViewCustomerForm({
 
                 {/* --- RIGHT DESKTOP COLUMN --- */}
                 <div className="flex w-full flex-1 flex-col gap-6">
-
                     {/* NEW: Global Deadline Section - ONLY for Internal Users */}
                     {isSupervisor && (
                         <div className="mb-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:mb-5 sm:p-5 dark:border-zinc-800 dark:bg-zinc-900">
                             <div className="flex flex-col gap-3">
                                 {/* Garis Kuning: Global Deadline Field */}
                                 <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:gap-3">
-                                    <label className="text-sm font-semibold whitespace-nowrap text-slate-700 dark:text-zinc-300">{trans.set_deadline}:</label>
+                                    <label className="text-sm font-semibold whitespace-nowrap text-slate-700 dark:text-zinc-300">
+                                        {trans.set_deadline}:
+                                    </label>
                                     <Input
                                         type="date"
-                                        className={`date-input-dark h-9 flex-1 rounded-lg border-slate-300 transition-all duration-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 ${!useUnifiedDeadline ? 'cursor-not-allowed bg-slate-100 opacity-50 dark:bg-zinc-800' : 'bg-white dark:bg-zinc-950'
-                                            } dark:border-zinc-800 dark:text-white`}
+                                        className={`date-input-dark h-9 flex-1 rounded-lg border-slate-300 transition-all duration-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 ${
+                                            !useUnifiedDeadline
+                                                ? 'cursor-not-allowed bg-slate-100 opacity-50 dark:bg-zinc-800'
+                                                : 'bg-white dark:bg-zinc-950'
+                                        } dark:border-zinc-800 dark:text-white`}
                                         value={globalDeadlineDate}
                                         onChange={(e) => setGlobalDeadlineDate(e.target.value)}
                                         disabled={!useUnifiedDeadline}
@@ -2617,10 +2668,11 @@ export default function ViewCustomerForm({
                                                             </label>
                                                             <Input
                                                                 type="date"
-                                                                className={`date-input-light h-9 flex-1 rounded-lg border-slate-300 text-sm transition-all duration-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 ${useUnifiedDeadline
-                                                                    ? 'cursor-not-allowed bg-slate-50 text-slate-900 opacity-50'
-                                                                    : 'bg-white text-slate-900'
-                                                                    } dark:border-zinc-700`}
+                                                                className={`date-input-light h-9 flex-1 rounded-lg border-slate-300 text-sm transition-all duration-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 ${
+                                                                    useUnifiedDeadline
+                                                                        ? 'cursor-not-allowed bg-slate-50 text-slate-900 opacity-50'
+                                                                        : 'bg-white text-slate-900'
+                                                                } dark:border-zinc-700`}
                                                                 value={useUnifiedDeadline ? globalDeadlineDate : sectionDeadlines[section.id] || ''}
                                                                 onChange={(e) => {
                                                                     if (!useUnifiedDeadline) {
@@ -2740,7 +2792,9 @@ export default function ViewCustomerForm({
                         <DialogContent className="max-w-sm rounded-2xl p-0">
                             <DialogHeader className="px-6 pt-6 pb-2">
                                 <DialogTitle className="flex items-center gap-2 text-base font-bold">
-                                    <span className={`inline-block h-3 w-3 rounded-full ${pendingJalur === 'merah' ? 'bg-rose-500' : 'bg-green-500'}`} />
+                                    <span
+                                        className={`inline-block h-3 w-3 rounded-full ${pendingJalur === 'merah' ? 'bg-rose-500' : 'bg-green-500'}`}
+                                    />
                                     {pendingJalur === 'merah' ? trans.red_line : trans.green_line}
                                 </DialogTitle>
                             </DialogHeader>
@@ -2772,14 +2826,20 @@ export default function ViewCustomerForm({
                             </div>
 
                             <DialogFooter className="flex gap-2 rounded-b-2xl border-t bg-slate-50 px-6 py-4">
-                                <Button variant="outline" onClick={() => setPenjaluranModalOpen(false)} className="flex-1" disabled={isUpdatingPenjaluran}>
+                                <Button
+                                    variant="outline"
+                                    onClick={() => setPenjaluranModalOpen(false)}
+                                    className="flex-1"
+                                    disabled={isUpdatingPenjaluran}
+                                >
                                     {trans.cancel}
                                 </Button>
                                 <Button
                                     onClick={handleUpdatePenjaluran}
                                     disabled={isUpdatingPenjaluran || !registerNumber || !registerDate}
-                                    className={`flex-1 text-white ${pendingJalur === 'merah' ? 'bg-rose-500 hover:bg-rose-600' : 'bg-green-500 hover:bg-green-600'
-                                        }`}
+                                    className={`flex-1 text-white ${
+                                        pendingJalur === 'merah' ? 'bg-rose-500 hover:bg-rose-600' : 'bg-green-500 hover:bg-green-600'
+                                    }`}
                                 >
                                     {isUpdatingPenjaluran ? trans.saving : trans.save}
                                 </Button>
@@ -2813,7 +2873,6 @@ export default function ViewCustomerForm({
                             </div>
                         );
                     })()}
-
                 </div>
             </div>
 
@@ -2882,12 +2941,12 @@ export default function ViewCustomerForm({
             </Dialog>
 
             <Dialog open={helpModalOpen} onOpenChange={setHelpModalOpen}>
-                <DialogContent className="bg-background text-foreground max-w-85 rounded-xl border border-slate-200 p-5 shadow-lg sm:max-w-100 dark:border-zinc-800">
-                    <div className="mb-2">
-                        <h2 className="text-foreground text-xl leading-tight font-bold">{selectedHelpData?.nama_file}</h2>
+                <DialogContent className="bg-background text-foreground w-[calc(100vw-2rem)] max-w-[95vw] rounded-xl border border-slate-200 p-4 shadow-lg sm:max-w-2xl sm:p-5 dark:border-zinc-800">
+                    <div className="mb-2 min-w-0">
+                        <h2 className="text-foreground text-lg leading-snug font-bold break-words sm:text-xl">{selectedHelpData?.nama_file}</h2>
                     </div>
 
-                    <div className="text-muted-foreground mb-4 text-sm leading-relaxed">
+                    <div className="text-muted-foreground mb-4 text-sm leading-relaxed break-words">
                         {selectedHelpData?.description_file || 'Tidak ada deskripsi tersedia untuk dokumen ini.'}
                     </div>
 
@@ -2896,9 +2955,11 @@ export default function ViewCustomerForm({
                             <a href={selectedHelpData.link_path_example_file} target="_blank" rel="noreferrer" className="block w-full">
                                 <Button
                                     variant="outline"
-                                    className="border-border text-primary hover:bg-accent hover:text-primary w-full justify-center rounded-xl text-xs font-semibold shadow-sm transition-all"
+                                    className="border-border text-primary hover:bg-accent hover:text-primary h-auto min-h-11 w-full px-4 py-3 text-center text-xs font-semibold break-words whitespace-normal shadow-sm transition-all"
                                 >
-                                    {trans.download_example} {selectedHelpData.nama_file}
+                                    <span className="block w-full break-words">
+                                        {trans.download_template} {selectedHelpData.nama_file}
+                                    </span>
                                 </Button>
                             </a>
                         </div>
@@ -2918,8 +2979,8 @@ export default function ViewCustomerForm({
                     )}
 
                     {videoUrl && videoId && (
-                        <div>
-                            <h3 className="text-foreground mb-2 text-sm font-bold">{trans.video_tutorial}</h3>
+                        <div className="min-w-0">
+                            <h3 className="text-foreground mb-2 text-sm font-bold break-words">{trans.video_tutorial}</h3>
 
                             <div className="bg-muted relative aspect-video w-full overflow-hidden rounded-xl border border-slate-200 dark:border-zinc-800">
                                 {isVideoPlaying ? (
