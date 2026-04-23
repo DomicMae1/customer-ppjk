@@ -98,6 +98,7 @@ export default function DataShippingFormView({ spk, documents = [], flash }: Pro
     }, [documents]);
 
     const [openFileIds, setOpenFileIds] = useState<number[]>([]);
+    const [openDownloadOptions, setOpenDownloadOptions] = useState(false);
 
     const toggleFile = (id: number) => {
         setOpenFileIds((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]));
@@ -114,15 +115,50 @@ export default function DataShippingFormView({ spk, documents = [], flash }: Pro
         <div className="animate-in fade-in w-full bg-slate-50 p-3 font-sans text-sm text-slate-900 duration-500 dark:bg-zinc-950 dark:text-zinc-100">
             <div className="mx-auto w-full max-w-7xl space-y-5">
                 <div className="flex justify-stretch sm:justify-end">
-                    <a
-                        href={`/shipping/${spk?.id}/pdf`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700 sm:w-auto"
-                    >
-                        <FileDown className="h-4 w-4" />
-                        {trans.download_pdf || 'Download PDF'}
-                    </a>
+                    <div className="relative w-full sm:w-auto">
+                        <button
+                            type="button"
+                            onClick={() => setOpenDownloadOptions((prev) => !prev)}
+                            className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700 sm:w-auto"
+                        >
+                            <FileDown className="h-4 w-4" />
+                            {trans.download_pdf || 'Download PDF'}
+                            {openDownloadOptions ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                        </button>
+
+                        {openDownloadOptions && (
+                            <div className="mt-2 w-full rounded-xl border border-slate-200 bg-white p-2 shadow-lg sm:absolute sm:right-0 sm:z-20 sm:min-w-[260px] dark:border-zinc-700 dark:bg-zinc-900">
+                                <div className="flex flex-col gap-2">
+                                    <a
+                                        href={`/shipping/${spk?.id}/pdf?template=false`}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                                    >
+                                        {trans.overview_spk || 'Overview SPK'}
+                                    </a>
+
+                                    <a
+                                        href={`/shipping/${spk?.id}/pdf?template=true&karantina=true`}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                                    >
+                                        {trans.spk_template_karantina || 'SPK Template Karantina'}
+                                    </a>
+
+                                    <a
+                                        href={`/shipping/${spk?.id}/pdf?template=true&karantina=false`}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                                    >
+                                        {trans.spk_template_non_karantina || 'SPK Template Non Karantina'}
+                                    </a>
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 {/* CARD INFORMASI */}
@@ -139,10 +175,6 @@ export default function DataShippingFormView({ spk, documents = [], flash }: Pro
 
                     {(() => {
                         const leftItems = [
-                            {
-                                label: trans.spk_number || 'SPK Number',
-                                value: spk?.spk_code,
-                            },
                             {
                                 label: trans.shipper_label || 'SHIPPER',
                                 value: spk?.shipper,

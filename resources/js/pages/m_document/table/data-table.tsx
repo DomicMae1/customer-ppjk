@@ -35,6 +35,7 @@ interface DocumentData {
     is_confirmed: boolean;
     attribute: boolean;
     is_ori: boolean;
+    is_print: boolean;
     link_path_example_file?: string;
     link_path_template_file?: string;
     link_url_video_file?: string;
@@ -114,11 +115,14 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
         is_confirmed: false,
         attribute: false,
         is_ori: false,
+        is_print: false,
         link_url_video_file: '',
         kuota_revisi: '',
         file_example: null as File | null, // Untuk file
         file_template: null as File | null, // Untuk file
     });
+
+    console.log(form);
 
     const filteredData = React.useMemo(() => {
         let result = [...(data as any[])];
@@ -184,7 +188,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
     };
 
     // Helper Boolean
-    const handleBooleanChange = (field: 'is_internal' | 'attribute' | 'is_confirmed' | 'is_ori', value: boolean) => {
+    const handleBooleanChange = (field: 'is_internal' | 'attribute' | 'is_confirmed' | 'is_ori' | 'is_print', value: boolean) => {
         setForm((prev) => ({ ...prev, [field]: value }));
     };
 
@@ -207,6 +211,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
                     is_confirmed: false,
                     attribute: false,
                     is_ori: false,
+                    is_print: false,
                     link_url_video_file: '',
                     kuota_revisi: '',
                     file_example: null,
@@ -328,6 +333,11 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
                                         {original.is_ori && (
                                             <span className="rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
                                                 ORIGINAL
+                                            </span>
+                                        )}
+                                        {original.is_print && (
+                                            <span className="rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                                                PRINT
                                             </span>
                                         )}
                                     </div>
@@ -536,6 +546,29 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
                                         type="button"
                                         variant={!form.is_ori ? 'default' : 'outline'}
                                         onClick={() => handleBooleanChange('is_ori', false)}
+                                        className="h-11 flex-1 sm:h-9"
+                                    >
+                                        {trans_doc.btn_no || 'Tidak'}
+                                    </Button>
+                                </div>
+                            </div>
+                            <div>
+                                <Label className="text-muted-foreground mb-2 block text-xs font-bold uppercase">
+                                    {trans_doc.label_is_print || 'Is Print'}
+                                </Label>
+                                <div className="flex gap-2">
+                                    <Button
+                                        type="button"
+                                        variant={form.is_print ? 'default' : 'outline'}
+                                        onClick={() => handleBooleanChange('is_print', true)}
+                                        className="h-11 flex-1 sm:h-9"
+                                    >
+                                        {trans_doc.btn_yes || 'Ya'}
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant={!form.is_print ? 'default' : 'outline'}
+                                        onClick={() => handleBooleanChange('is_print', false)}
                                         className="h-11 flex-1 sm:h-9"
                                     >
                                         {trans_doc.btn_no || 'Tidak'}
