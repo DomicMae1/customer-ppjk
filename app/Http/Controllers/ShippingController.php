@@ -1175,7 +1175,6 @@ class ShippingController extends Controller
     public function show($id)
     {
         $user = auth('web')->user();
-
         // NEW: Fetch Internal Staff for Supervisor Assignment (Consistent with index)
         // Moved here to ensure we query the CENTRAL database (tako-user) before tenancy context is switched.
         $internalStaff = [];
@@ -1200,7 +1199,6 @@ class ShippingController extends Controller
                 $tenant = Tenant::where('perusahaan_id', $customer->ownership)->first();
             }
         }
-
         if (!$tenant) {
             abort(404, 'Tenant tidak ditemukan untuk user ini.');
         }
@@ -1212,7 +1210,7 @@ class ShippingController extends Controller
         // 4. Baru sekarang aman untuk Query ke tabel SPK
         // Karena koneksi sudah pindah ke tenant
         $spk = Spk::with(['creator', 'hsCodes', 'customer', 'parties'])->findOrFail($id);
-
+        
         // --- FIRST CLICK VALIDATION ASSIGNMENT ---
         if ($user->role === 'internal' && ($user->role_internal === 'staff' || $user->role_internal === 'marketing')) {
             if (is_null($spk->validated_by)) {
@@ -1328,17 +1326,15 @@ class ShippingController extends Controller
         $latestLog = \App\Models\DocumentStatus::whereIn('id_dokumen_trans', $allDocs->pluck('id'))
             ->latest()
             ->first();
-
         $shipmentData = [
             'id_spk'    => $spk->id,
-            // Format tanggal: 12/11/25 10.35 WIB
             'spkDate'   => $priorityStatus ? $priorityStatus->created_at->format('d/m/y H.i') . ' WIB' : '-',
-            // Use SPK Status Name directly as requested
             'status'    => $priorityStatus ? $priorityStatus->status : 'UNKNOWN',
             'updated_by_name' => $latestLog->by ?? null, // Added to show who uploaded
             'shipmentType' => $spk->shipment_type,
             'type'      => $spk->shipment_type,
             'spkNumber'  => $spk->spk_code, // Mapping spk_code ke siNumber
+            'id_customer' => $spk->id_customer,
             'penjaluran' => $spk->penjaluran,
             'internal_can_upload' => $spk->internal_can_upload,
             'is_created_by_internal' => $spk->is_created_by_internal,

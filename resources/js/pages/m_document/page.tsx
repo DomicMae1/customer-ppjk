@@ -29,6 +29,7 @@ interface DocumentData {
     attribute: boolean;
     is_ori: boolean;
     is_print: boolean;
+    is_send_email: boolean;
     link_path_example_file?: string;
     link_path_template_file?: string;
     link_url_video_file?: string;
@@ -81,6 +82,7 @@ export default function ManageDocuments() {
         attribute: false,
         is_ori: false,
         is_print: false,
+        is_send_email: false,
         link_url_video_file: '',
         kuota_revisi: '',
 
@@ -137,6 +139,7 @@ export default function ManageDocuments() {
                 attribute: Boolean(doc.attribute),
                 is_ori: Boolean(doc.is_ori),
                 is_print: Boolean(doc.is_print),
+                is_send_email: Boolean(doc.is_send_email),
                 link_url_video_file: doc.link_url_video_file || '',
                 kuota_revisi: doc.kuota_revisi != null ? String(doc.kuota_revisi) : '',
 
@@ -155,7 +158,7 @@ export default function ManageDocuments() {
         }
     };
 
-    const handleEditBooleanChange = (field: 'is_internal' | 'attribute' | 'is_confirmed' | 'is_ori' | 'is_print', value: boolean) => {
+    const handleEditBooleanChange = (field: 'is_internal' | 'attribute' | 'is_confirmed' | 'is_ori' | 'is_print' | 'is_send_email', value: boolean) => {
         setEditForm((prev) => ({ ...prev, [field]: value }));
     };
 
@@ -373,6 +376,30 @@ export default function ManageDocuments() {
                                         type="button"
                                         variant={!editForm.is_print ? 'default' : 'outline'}
                                         onClick={() => handleEditBooleanChange('is_print', false)}
+                                        className="flex-1"
+                                    >
+                                        {trans_doc.btn_no || 'Tidak'}
+                                    </Button>
+                                </div>
+                            </div>
+
+                            <div>
+                                <Label className="mb-2 block text-xs font-semibold text-gray-500 uppercase">
+                                    {trans_doc.label_is_send_email || 'Is Send Email'}
+                                </Label>
+                                <div className="flex w-full gap-2">
+                                    <Button
+                                        type="button"
+                                        variant={editForm.is_send_email ? 'default' : 'outline'}
+                                        onClick={() => handleEditBooleanChange('is_send_email', true)}
+                                        className="flex-1"
+                                    >
+                                        {trans_doc.btn_yes || 'Ya'}
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant={!editForm.is_send_email ? 'default' : 'outline'}
+                                        onClick={() => handleEditBooleanChange('is_send_email', false)}
                                         className="flex-1"
                                     >
                                         {trans_doc.btn_no || 'Tidak'}
