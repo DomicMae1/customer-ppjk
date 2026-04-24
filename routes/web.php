@@ -72,6 +72,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::post('document/upload-temp', [DocumentController::class, 'upload'])->name('document.upload');
     Route::delete('document/{id}', [DocumentController::class, 'destroy'])->name('documents.destroy');
+
+    Route::get('customer/{id}/emails', [CustomerController::class, 'getEmails'])->name('customer.emails');
 });
 
 Route::get('/file/view/{path}', [FileController::class, 'view'])->middleware('auth')

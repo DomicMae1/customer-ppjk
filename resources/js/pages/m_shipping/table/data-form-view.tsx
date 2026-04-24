@@ -159,6 +159,45 @@ export default function ViewCustomerForm({
     const [isAdditionalDocsOpen, setIsAdditionalDocsOpen] = useState(true);
     const [isAdditionalSectionVisible, setIsAdditionalSectionVisible] = useState(false);
 
+    const [openEmailModal, setOpenEmailModal] = useState(false);
+    const [emailsTo, setEmailsTo] = useState<string[]>([]);
+    const [inputTo, setInputTo] = useState('');
+
+    const [emailsCc, setEmailsCc] = useState<string[]>([]);
+    const [inputCc, setInputCc] = useState('');
+
+    const openSendEmail = async () => {
+        try {
+            const res = await axios.get(`/customer/${shipmentData.id_customer}/emails`);
+
+            setEmailsTo(res.data.email_to || []);
+            setEmailsCc(res.data.email_cc || []);
+
+            setOpenEmailModal(true);
+        } catch (err) {
+            console.error(err);
+            alert("Gagal ambil email customer");
+        }
+    };
+
+    const isValidEmail = (email: string) => {
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    };
+
+    const addEmail = (value: string, emails: string[], setEmails: any) => {
+        const email = value.trim().toLowerCase();
+
+        if (!email) return;
+        if (!isValidEmail(email)) return;
+        if (emails.includes(email)) return;
+
+        setEmails([...emails, email]);
+    };
+
+    const removeEmail = (index: number, emails: string[], setEmails: any) => {
+        setEmails(emails.filter((_, i) => i !== index));
+    };
+
     const additionalSection = sectionsTransProp?.find(
         (s: SectionTrans) => s.section_name.toLowerCase().includes('additional') || s.section_name.toLowerCase().includes('tambahan'),
     );
@@ -1855,6 +1894,11 @@ export default function ViewCustomerForm({
                                 </div>
                             )}
                         </div>
+                        <div className="flex items-center justify-center mt-2">
+                            <Button onClick={openSendEmail}>
+                                Kirim Email Pemberitahuan
+                            </Button>
+                        </div>
                     </div>
 
                     {/* Ori Date Modal */}
@@ -3088,6 +3132,83 @@ export default function ViewCustomerForm({
                         >
                             {isSavingSections ? 'Saving...' : trans.save_changes || 'Save Changes'}
                         </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={openEmailModal} onOpenChange={setOpenEmailModal}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Kirim Email</DialogTitle>
+                    </DialogHeader>
+
+                    {/* <div className="space-y-3">
+                        <div>
+                            <Label>Email To</Label>
+                            {emailsTo.map((email, index) => (
+                                <div key={index}>{email}</div>
+                            ))}
+                        </div>
+
+                        <div>
+                            <Label>Email CC</Label>
+                            {emailsCc.map((email, index) => (
+                                <div key={index}>{email}</div>
+                            ))}
+                        </div>
+                    </div> */}
+                    <div className="space-y-2">
+                        <Label>Email To</Label>
+
+                        <div className="border p-2 rounded flex flex-wrap gap-2">
+                            {emailsTo.map((email, index) => (
+                                <div key={index} className="bg-gray-200 px-2 py-1 rounded flex items-center gap-1">
+                                    <span>{email}</span>
+                                    <button type="button" onClick={() => removeEmail(index, emailsTo, setEmailsTo)}>x</button>
+                                </div>
+                            ))}
+
+                            <input
+                                value={inputTo}
+                                onChange={(e) => setInputTo(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ',' || e.key === ' ') {
+                                        e.preventDefault();
+                                        addEmail(inputTo, emailsTo, setEmailsTo);
+                                        setInputTo('');
+                                    }
+                                }}
+                                className="outline-none flex-1"
+                                placeholder="ketik email..."
+                            />
+                            
+                        </div>
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Email CC</Label>
+
+                        <div className="border p-2 rounded flex flex-wrap gap-2">
+                            {emailsCc.map((email, index) => (
+                                <div key={index} className="bg-gray-200 px-2 py-1 rounded flex items-center gap-1">
+                                    <span>{email}</span>
+                                    <button type="button" onClick={() => removeEmail(index, emailsCc, setEmailsCc)}>x</button>
+                                </div>
+                            ))}
+
+                            <input
+                                value={inputCc}
+                                onChange={(e) => setInputCc(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ',' || e.key === ' ') {
+                                        e.preventDefault();
+                                        addEmail(inputCc, emailsCc, setEmailsCc);
+                                        setInputCc('');
+                                    }
+                                }}
+                                className="outline-none flex-1"
+                                placeholder="email cc..."
+                            />
+                        </div>
                     </div>
                 </DialogContent>
             </Dialog>

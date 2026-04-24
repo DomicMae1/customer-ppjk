@@ -1220,7 +1220,7 @@ class ShippingController extends Controller
                 DB::transaction(function () use ($spk, $user, &$notificationsToRemove) {
                     // 1. Assign Validator
                     $spk->update(['validated_by' => $user->id_user]);
-                    $spk->refresh();
+                     $spk->refresh();
 
                     // 2. Handle Notifications
                     // A. Update Current User's Notification (Mark as Read, KEEP it)

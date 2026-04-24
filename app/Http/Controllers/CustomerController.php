@@ -201,4 +201,13 @@ class CustomerController extends Controller
                 ->with('error', 'Gagal menghapus data: ' . $e->getMessage());
         }
     }
+
+    public function getEmails($id)
+    {
+        $customer = Customer::findOrFail($id);
+        return response()->json([
+            'email_to' => $customer->email_to ?? [],
+            'email_cc' => $customer->email_cc ?? [],
+        ]);
+    }
 }
