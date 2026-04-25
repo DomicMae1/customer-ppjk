@@ -166,17 +166,60 @@ export default function ViewCustomerForm({
     const [emailsCc, setEmailsCc] = useState<string[]>([]);
     const [inputCc, setInputCc] = useState('');
 
-    const openSendEmail = async () => {
+    const [loadingEmail, setLoadingEmail] = useState(false);
+    const [subject, setSubject] = useState('');
+    const [body, setBody] = useState('');
+
+    useEffect(() => {
+        if (!openEmailModal) return;
+        if (!shipmentData?.id_customer) return;
+
+        const fetchEmails = async () => {
+            try {
+                setLoadingEmail(true);
+                const res = await axios.get(`/customer/${shipmentData.id_customer}/emails`);
+
+                setEmailsTo(res.data.email_to || []);
+                setEmailsCc(res.data.email_cc || []);
+            } catch (err) {
+                console.error(err);
+            } finally {
+                setLoadingEmail(false);
+            }
+        };
+
+        fetchEmails();
+    }, [openEmailModal]);
+
+    const openSendEmail = () => {
+        setOpenEmailModal(true);
+        setSubject('');
+        setBody('');
+        setInputTo('');
+        setInputCc('');
+        setEmailsTo([]);
+        setEmailsCc([]);
+    };
+
+    const handleSendEmail = async () => {
         try {
-            const res = await axios.get(`/customer/${shipmentData.id_customer}/emails`);
+            if (!emailsTo.length) return toast.error('Email To wajib');
+            if (!subject) return toast.error('Subject wajib');
+            if (!body) return toast.error('Body wajib');
 
-            setEmailsTo(res.data.email_to || []);
-            setEmailsCc(res.data.email_cc || []);
+            await axios.post('/send-email', {
+                id_customer: shipmentData.id_customer,
+                email_to: emailsTo,
+                email_cc: emailsCc,
+                subject,
+                body,
+            });
 
-            setOpenEmailModal(true);
+            toast.success('Email berhasil dikirim');
+            setOpenEmailModal(false);
         } catch (err) {
             console.error(err);
-            alert("Gagal ambil email customer");
+            toast.error('Gagal kirim email');
         }
     };
 
@@ -3137,79 +3180,91 @@ export default function ViewCustomerForm({
             </Dialog>
 
             <Dialog open={openEmailModal} onOpenChange={setOpenEmailModal}>
-                <DialogContent>
+                <DialogContent className='max-w-3xl'>
                     <DialogHeader>
                         <DialogTitle>Kirim Email</DialogTitle>
                     </DialogHeader>
+                    {loadingEmail ? (
+                        <p className="text-sm text-gray-400">Loading emails...</p>
+                    ) : (
+                        <>
+                            <div className="space-y-4">
+                                {/* TO */}
+                                <div>
+                                    <Label className="text-sm">To</Label>
+                                    <div className="border p-2 rounded flex flex-wrap gap-2">
+                                        {emailsTo.map((email, index) => (
+                                            <div key={index} className="dark:text-black bg-gray-200 px-2 py-1 rounded flex items-center gap-1 text-sm">
+                                                <span>{email}</span>
+                                                <button type="button" onClick={() => removeEmail(index, emailsTo, setEmailsTo)}>x</button>
+                                            </div>
+                                        ))}
 
-                    {/* <div className="space-y-3">
-                        <div>
-                            <Label>Email To</Label>
-                            {emailsTo.map((email, index) => (
-                                <div key={index}>{email}</div>
-                            ))}
-                        </div>
-
-                        <div>
-                            <Label>Email CC</Label>
-                            {emailsCc.map((email, index) => (
-                                <div key={index}>{email}</div>
-                            ))}
-                        </div>
-                    </div> */}
-                    <div className="space-y-2">
-                        <Label>Email To</Label>
-
-                        <div className="border p-2 rounded flex flex-wrap gap-2">
-                            {emailsTo.map((email, index) => (
-                                <div key={index} className="bg-gray-200 px-2 py-1 rounded flex items-center gap-1">
-                                    <span>{email}</span>
-                                    <button type="button" onClick={() => removeEmail(index, emailsTo, setEmailsTo)}>x</button>
+                                        <input
+                                            value={inputTo}
+                                            onChange={(e) => setInputTo(e.target.value)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter' || e.key === ',' || e.key === ' ') {
+                                                    e.preventDefault();
+                                                    addEmail(inputTo, emailsTo, setEmailsTo);
+                                                    setInputTo('');
+                                                }
+                                            }}
+                                            className="outline-none flex-1 text-sm"
+                                            placeholder="Add recipients"
+                                        />
+                                    </div>
                                 </div>
-                            ))}
 
-                            <input
-                                value={inputTo}
-                                onChange={(e) => setInputTo(e.target.value)}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter' || e.key === ',' || e.key === ' ') {
-                                        e.preventDefault();
-                                        addEmail(inputTo, emailsTo, setEmailsTo);
-                                        setInputTo('');
-                                    }
-                                }}
-                                className="outline-none flex-1"
-                                placeholder="ketik email..."
-                            />
-                            
-                        </div>
-                    </div>
-                    <div className="space-y-2">
-                        <Label>Email CC</Label>
+                                {/* CC */}
+                                <div>
+                                    <Label className="text-sm">Cc</Label>
+                                    <div className="border p-2 rounded flex flex-wrap gap-2">
+                                        {emailsCc.map((email, index) => (
+                                            <div key={index} className="dark:text-black bg-gray-200 px-2 py-1 rounded flex items-center gap-1 text-sm">
+                                                <span>{email}</span>
+                                                <button type="button" onClick={() => removeEmail(index, emailsCc, setEmailsCc)}>x</button>
+                                            </div>
+                                        ))}
 
-                        <div className="border p-2 rounded flex flex-wrap gap-2">
-                            {emailsCc.map((email, index) => (
-                                <div key={index} className="bg-gray-200 px-2 py-1 rounded flex items-center gap-1">
-                                    <span>{email}</span>
-                                    <button type="button" onClick={() => removeEmail(index, emailsCc, setEmailsCc)}>x</button>
+                                        <input
+                                            value={inputCc}
+                                            onChange={(e) => setInputCc(e.target.value)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter' || e.key === ',' || e.key === ' ') {
+                                                    e.preventDefault();
+                                                    addEmail(inputCc, emailsCc, setEmailsCc);
+                                                    setInputCc('');
+                                                }
+                                            }}
+                                            className="outline-none flex-1 text-sm"
+                                            placeholder="Add Cc"
+                                        />
+                                    </div>
                                 </div>
-                            ))}
 
-                            <input
-                                value={inputCc}
-                                onChange={(e) => setInputCc(e.target.value)}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter' || e.key === ',' || e.key === ' ') {
-                                        e.preventDefault();
-                                        addEmail(inputCc, emailsCc, setEmailsCc);
-                                        setInputCc('');
-                                    }
-                                }}
-                                className="outline-none flex-1"
-                                placeholder="email cc..."
-                            />
-                        </div>
-                    </div>
+                                <div className="space-y-2">
+                                    <Input
+                                        placeholder="Subject"
+                                        value={subject}
+                                        onChange={(e) => setSubject(e.target.value)}
+                                    />
+                                </div>
+
+                                <div className="space-y-2">
+                                    <textarea
+                                        placeholder="Write your message..."
+                                        value={body}
+                                        onChange={(e) => setBody(e.target.value)}
+                                        className="w-full border rounded p-2 min-h-[150px]"
+                                    />
+                                </div>
+                                <Button onClick={handleSendEmail}>
+                                    Kirim
+                                </Button>
+                            </div>
+                        </>
+                    )}
                 </DialogContent>
             </Dialog>
 
