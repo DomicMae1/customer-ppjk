@@ -3103,6 +3103,8 @@ export default function ViewCustomerForm({
                 open={openEmailModal}
                 onOpenChange={setOpenEmailModal}
                 idCustomer={(shipmentData as any)?.id_customer}
+                idSpk={shipmentData?.id_spk}
+                sections={sectionsTransProp}
             />
 
             <Dialog open={isRemoveSectionModalOpen} onOpenChange={setIsRemoveSectionModalOpen}>

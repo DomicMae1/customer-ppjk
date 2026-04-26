@@ -49,6 +49,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('shipping/{id}/update-ori-dates', [ShippingController::class, 'updateOriDates'])->name('shipping.update-ori-dates');
     Route::post('shipping/{id}/update-npd', [ShippingController::class, 'updateNpd'])->name('shipping.updateNpd');
     Route::get('shipping/{id}/npd-info', [ShippingController::class, 'getNpdInfo'])->name('shipping.getNpdInfo');
+    Route::post('shipping/{id}/send-email', [ShippingController::class, 'sendEmail'])->name('shipping.sendEmail');
     Route::post('shipping/unified-save', [ShippingController::class, 'unifiedBatchSave'])->name('shipping.unifiedSave');
     Route::post('shipping/update-deadline', [ShippingController::class, 'updateDeadline'])->name('shipping.updateDeadline');
     Route::get('shipping/{id}/download-zip', [ShippingController::class, 'downloadZip'])->name('shipping.downloadZip');
