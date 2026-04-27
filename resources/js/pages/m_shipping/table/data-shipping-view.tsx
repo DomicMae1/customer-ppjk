@@ -22,7 +22,7 @@ type SpkItem = {
     vessel?: string | null;
     aju?: string | null;
     j_o?: string | null;
-    parties?: any[];
+    party_summary?: string | null;
 };
 
 type DocumentItem = {
@@ -196,10 +196,7 @@ export default function DataShippingFormView({ spk, documents = [], flash }: Pro
                             },
                             {
                                 label: trans.part_label || 'PARTY',
-                                value:
-                                    spk?.parties && spk.parties.length > 0
-                                        ? spk.parties.map(p => `${p.party_qty} x ${p.party_size}${p.party_category ? ` (${p.party_category})` : ''}`).join('; ')
-                                        : null,
+                                value: spk?.party_summary ? spk.party_summary.split(',').map((item) => item.trim()) : null,
                             },
                             {
                                 label: trans.aju_label || 'AJU',
@@ -233,7 +230,17 @@ export default function DataShippingFormView({ spk, documents = [], flash }: Pro
                                                     {item.label}
                                                 </span>
                                                 <span className="text-sm font-semibold text-slate-900 dark:text-white">:</span>
-                                                <span className="text-base font-semibold text-slate-900 dark:text-white">{item.value}</span>
+                                                <span className="text-base font-semibold text-slate-900 dark:text-white">
+                                                    {Array.isArray(item.value) ? (
+                                                        <ul className="list-disc space-y-1 pl-4">
+                                                            {item.value.map((party, index) => (
+                                                                <li key={index}>{party}</li>
+                                                            ))}
+                                                        </ul>
+                                                    ) : (
+                                                        item.value
+                                                    )}
+                                                </span>
                                             </div>
                                         ))}
                                     </div>
