@@ -35,6 +35,8 @@ interface DocumentData {
     is_confirmed: boolean;
     attribute: boolean;
     is_ori: boolean;
+    is_print: boolean;
+    is_send_email: boolean;
     link_path_example_file?: string;
     link_path_template_file?: string;
     link_url_video_file?: string;
@@ -88,6 +90,23 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
     // State Form Create Document (Bukan Perusahaan lagi)
     const [openCreate, setOpenCreate] = React.useState(false);
 
+    const toTitleCase = (text: string) => {
+        return text
+            .trim()
+            .toLowerCase()
+            .split(' ')
+            .filter(Boolean)
+            .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ');
+    };
+
+    const handleNamaFileBlur = () => {
+        setForm((prev) => ({
+            ...prev,
+            nama_file: toTitleCase(prev.nama_file),
+        }));
+    };
+
     // Sesuaikan form state dengan kebutuhan Master Document
     const [form, setForm] = useState({
         nama_file: '',
@@ -97,11 +116,15 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
         is_confirmed: false,
         attribute: false,
         is_ori: false,
+        is_print: false,
+        is_send_email: false,
         link_url_video_file: '',
         kuota_revisi: '',
         file_example: null as File | null, // Untuk file
         file_template: null as File | null, // Untuk file
     });
+
+    console.log(form);
 
     const filteredData = React.useMemo(() => {
         let result = [...(data as any[])];
@@ -167,13 +190,18 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
     };
 
     // Helper Boolean
-    const handleBooleanChange = (field: 'is_internal' | 'attribute' | 'is_confirmed' | 'is_ori', value: boolean) => {
+    const handleBooleanChange = (field: 'is_internal' | 'attribute' | 'is_confirmed' | 'is_ori' | 'is_print'|'is_send_email', value: boolean) => {
         setForm((prev) => ({ ...prev, [field]: value }));
     };
 
     const handleSubmit = () => {
+        const payload = {
+            ...form,
+            nama_file: toTitleCase(form.nama_file),
+        };
+
         // Inertia otomatis menangani FormData jika ada file di dalam object payload
-        router.post('/document', form as any, {
+        router.post('/document', payload as any, {
             onSuccess: () => {
                 setOpenCreate(false);
                 // Reset Form
@@ -185,6 +213,8 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
                     is_confirmed: false,
                     attribute: false,
                     is_ori: false,
+                    is_print: false,
+                    is_send_email: false,
                     link_url_video_file: '',
                     kuota_revisi: '',
                     file_example: null,
@@ -299,13 +329,23 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
                                             </span>
                                         )}
                                         {original.is_confirmed && (
-                                            <span className="rounded bg-destructive/10 px-2 py-0.5 text-[10px] font-bold text-destructive">
+                                            <span className="bg-destructive/10 text-destructive rounded px-2 py-0.5 text-[10px] font-bold">
                                                 NEED CONFIRM
                                             </span>
                                         )}
                                         {original.is_ori && (
                                             <span className="rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
                                                 ORIGINAL
+                                            </span>
+                                        )}
+                                        {original.is_print && (
+                                            <span className="rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                                                PRINT
+                                            </span>
+                                        )}
+                                        {original.is_send_email && (
+                                            <span className="rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                                                EMAIL
                                             </span>
                                         )}
                                     </div>
@@ -394,6 +434,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
                                 name="nama_file"
                                 value={form.nama_file}
                                 onChange={handleInputChange}
+                                onBlur={handleNamaFileBlur}
                                 placeholder={trans_doc.placeholder_doc_name}
                                 className="bg-background text-foreground h-11 sm:h-10"
                             />
@@ -519,7 +560,56 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
                                     </Button>
                                 </div>
                             </div>
+                            <div>
+                                <Label className="text-muted-foreground mb-2 block text-xs font-bold uppercase">
+                                    {trans_doc.label_is_print || 'Is Print'}
+                                </Label>
+                                <div className="flex gap-2">
+                                    <Button
+                                        type="button"
+                                        variant={form.is_print ? 'default' : 'outline'}
+                                        onClick={() => handleBooleanChange('is_print', true)}
+                                        className="h-11 flex-1 sm:h-9"
+                                    >
+                                        {trans_doc.btn_yes || 'Ya'}
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant={!form.is_print ? 'default' : 'outline'}
+                                        onClick={() => handleBooleanChange('is_print', false)}
+                                        className="h-11 flex-1 sm:h-9"
+                                    >
+                                        {trans_doc.btn_no || 'Tidak'}
+                                    </Button>
+                                </div>
+                            </div>
+                            <div>
+                                <div>
+                                    <Label className="text-muted-foreground mb-2 block text-xs font-bold uppercase">
+                                        {trans_doc.label_is_send_email || 'Is Send Email'}
+                                    </Label>
+                                    <div className="flex gap-2">
+                                        <Button
+                                            type="button"
+                                            variant={form.is_send_email ? 'default' : 'outline'}
+                                            onClick={() => handleBooleanChange('is_send_email', true)}
+                                            className="h-11 flex-1 sm:h-9"
+                                        >
+                                            {trans_doc.btn_yes || 'Ya'}
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            variant={!form.is_send_email ? 'default' : 'outline'}
+                                            onClick={() => handleBooleanChange('is_send_email', false)}
+                                            className="h-11 flex-1 sm:h-9"
+                                        >
+                                            {trans_doc.btn_no || 'Tidak'}
+                                        </Button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
+
 
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <div className="grid gap-2">

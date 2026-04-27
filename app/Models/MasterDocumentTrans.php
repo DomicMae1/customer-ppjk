@@ -31,7 +31,9 @@ class MasterDocumentTrans extends Model
         'description_file',
         'updated_by',
         'kuota_revisi',
-        'is_ori'
+        'is_ori',
+        'is_print',
+        'is_send_email',
         // created_at dan updated_at otomatis dihandle
     ];
 
@@ -42,9 +44,11 @@ class MasterDocumentTrans extends Model
         'is_confirmed' => 'boolean',
         'attribute' => 'boolean',
         'is_ori' => 'boolean',
+        'is_print' => 'boolean',
         'deadline_document' => 'boolean',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
+        'is_send_email' => 'boolean',
     ];
 
     public function section(): BelongsTo
@@ -59,5 +63,10 @@ class MasterDocumentTrans extends Model
     {
         // Sesuaikan nama model User dan Foreign Key di tabel users
         return $this->belongsTo(User::class, 'updated_by', 'id'); 
+    }
+
+    public function documentTrans()
+    {
+        return $this->hasMany(DocumentTrans::class, 'id_dokumen', 'id_dokumen');
     }
 }

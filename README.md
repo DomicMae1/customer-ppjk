@@ -94,6 +94,9 @@ Transactional DB (tenant{id}_trans_live) → spk, documents, statuses, notificat
 # Migrate all tenants
 php artisan tenant:migrate-transaction
 
+# Migrate all tenants
+php artisan tenants:migrate
+
 # Migrate specific tenant
 php artisan tenant:migrate-transaction alpha
 ```

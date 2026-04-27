@@ -20,10 +20,9 @@ type SpkItem = {
     shipper?: string | null;
     consignee?: string | null;
     vessel?: string | null;
-    party_qty?: string | null;
-    party_size?: string | null;
     aju?: string | null;
     j_o?: string | null;
+    party_summary?: string | null;
 };
 
 type DocumentItem = {
@@ -99,6 +98,7 @@ export default function DataShippingFormView({ spk, documents = [], flash }: Pro
     }, [documents]);
 
     const [openFileIds, setOpenFileIds] = useState<number[]>([]);
+    const [openDownloadOptions, setOpenDownloadOptions] = useState(false);
 
     const toggleFile = (id: number) => {
         setOpenFileIds((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]));
@@ -115,15 +115,50 @@ export default function DataShippingFormView({ spk, documents = [], flash }: Pro
         <div className="animate-in fade-in w-full bg-slate-50 p-3 font-sans text-sm text-slate-900 duration-500 dark:bg-zinc-950 dark:text-zinc-100">
             <div className="mx-auto w-full max-w-7xl space-y-5">
                 <div className="flex justify-stretch sm:justify-end">
-                    <a
-                        href={`/shipping/${spk?.id}/pdf`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700 sm:w-auto"
-                    >
-                        <FileDown className="h-4 w-4" />
-                        {trans.download_pdf || 'Download PDF'}
-                    </a>
+                    <div className="relative w-full sm:w-auto">
+                        <button
+                            type="button"
+                            onClick={() => setOpenDownloadOptions((prev) => !prev)}
+                            className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700 sm:w-auto"
+                        >
+                            <FileDown className="h-4 w-4" />
+                            {trans.download_pdf || 'Download PDF'}
+                            {openDownloadOptions ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                        </button>
+
+                        {openDownloadOptions && (
+                            <div className="mt-2 w-full rounded-xl border border-slate-200 bg-white p-2 shadow-lg sm:absolute sm:right-0 sm:z-20 sm:min-w-[260px] dark:border-zinc-700 dark:bg-zinc-900">
+                                <div className="flex flex-col gap-2">
+                                    <a
+                                        href={`/shipping/${spk?.id}/pdf?template=false`}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                                    >
+                                        {trans.overview_spk || 'Overview SPK'}
+                                    </a>
+
+                                    <a
+                                        href={`/shipping/${spk?.id}/pdf?template=true&karantina=true`}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                                    >
+                                        {trans.spk_template_karantina || 'SPK Template Karantina'}
+                                    </a>
+
+                                    <a
+                                        href={`/shipping/${spk?.id}/pdf?template=true&karantina=false`}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                                    >
+                                        {trans.spk_template_non_karantina || 'SPK Template Non Karantina'}
+                                    </a>
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 {/* CARD INFORMASI */}
@@ -140,10 +175,6 @@ export default function DataShippingFormView({ spk, documents = [], flash }: Pro
 
                     {(() => {
                         const leftItems = [
-                            {
-                                label: trans.spk_number || 'SPK Number',
-                                value: spk?.spk_code,
-                            },
                             {
                                 label: trans.shipper_label || 'SHIPPER',
                                 value: spk?.shipper,
@@ -165,10 +196,7 @@ export default function DataShippingFormView({ spk, documents = [], flash }: Pro
                             },
                             {
                                 label: trans.part_label || 'PARTY',
-                                value:
-                                    spk?.party_qty || spk?.party_size
-                                        ? `${spk?.party_qty ?? ''}${spk?.party_size ? ` x ${spk.party_size}` : ''}`
-                                        : null,
+                                value: spk?.party_summary ? spk.party_summary.split(',').map((item) => item.trim()) : null,
                             },
                             {
                                 label: trans.aju_label || 'AJU',
@@ -202,7 +230,17 @@ export default function DataShippingFormView({ spk, documents = [], flash }: Pro
                                                     {item.label}
                                                 </span>
                                                 <span className="text-sm font-semibold text-slate-900 dark:text-white">:</span>
-                                                <span className="text-base font-semibold text-slate-900 dark:text-white">{item.value}</span>
+                                                <span className="text-base font-semibold text-slate-900 dark:text-white">
+                                                    {Array.isArray(item.value) ? (
+                                                        <ul className="list-disc space-y-1 pl-4">
+                                                            {item.value.map((party, index) => (
+                                                                <li key={index}>{party}</li>
+                                                            ))}
+                                                        </ul>
+                                                    ) : (
+                                                        item.value
+                                                    )}
+                                                </span>
                                             </div>
                                         ))}
                                     </div>
@@ -337,6 +375,9 @@ export default function DataShippingFormView({ spk, documents = [], flash }: Pro
                                         {trans.updated || 'Updated'}
                                     </th>
                                     <th className="border-b px-4 py-3 text-center text-xs font-bold tracking-wide text-slate-500 uppercase dark:border-zinc-800">
+                                        {trans.status || 'Status'}
+                                    </th>
+                                    <th className="border-b px-4 py-3 text-center text-xs font-bold tracking-wide text-slate-500 uppercase dark:border-zinc-800">
                                         {trans.action || 'Aksi'}
                                     </th>
                                 </tr>
@@ -389,6 +430,19 @@ export default function DataShippingFormView({ spk, documents = [], flash }: Pro
                                                         }`}
                                                     >
                                                         {doc.is_updated ? trans.already_updated || 'Sudah' : trans.not_updated || 'Belum'}
+                                                    </span>
+                                                </td>
+
+                                                {/* ✅ KOLOM STATUS */}
+                                                <td className="border-b px-4 py-4 text-center dark:border-zinc-800">
+                                                    <span
+                                                        className={`inline-flex min-w-[88px] items-center justify-center rounded-full border px-3 py-1 text-xs font-bold ${
+                                                            doc.verify === true
+                                                                ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-300'
+                                                                : 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300'
+                                                        }`}
+                                                    >
+                                                        {doc.verify === true ? trans.verified || 'Verified' : trans.pending || 'Pending'}
                                                     </span>
                                                 </td>
 

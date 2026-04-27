@@ -285,6 +285,8 @@ return [
     'clipboard_permission_denied' => 'Izin baca clipboard ditolak. Silakan izinkan di browser.',
     'select_staff_placeholder' => 'Pilih Staff',
     'eta_date' => 'Tanggal ETA',
+    'job_date' => 'Tanggal Job',
+    'inspection_date' => 'Tanggal Pemeriksaan',
     'document_receipt_form' => 'Formulir Penerimaan Dokumen',
     'shipper' => 'Shipper',
     'consignee' => 'Consignee (C\'NEE)',
@@ -342,4 +344,5 @@ return [
     'upload_date' => 'Tanggal Upload',
     'verified_date' => 'Tanggal Verifikasi',
     'ori_date' => 'Tanggal ORI',
+    'note_email' => 'Tekan Enter atau Koma untuk menambahkan email',
 ];

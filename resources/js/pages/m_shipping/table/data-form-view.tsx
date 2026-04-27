@@ -13,8 +13,9 @@ import { router, usePage } from '@inertiajs/react';
 import axios from 'axios';
 import { AlertTriangle, Archive, ChevronDown, ChevronUp, CircleHelp, FileText, Play, Plus, Save, Search, Trash2, Undo2, X } from 'lucide-react';
 import { nanoid } from 'nanoid';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import EmailModal from './components/EmailModal';
 
 interface HsCodeItem {
     id: number;
@@ -43,13 +44,16 @@ interface ShipmentData {
     origin?: string;
     port?: string;
     comodity?: string;
-    party_qty?: string;
-    party_size?: string;
     aju?: string;
     j_o?: string;
+    parties?: any[];
     register_number?: string;
     hsCodes: HsCodeItem[];
     updated_by_name?: string | null;
+    job_date?: string;
+    inspection_date?: string;
+    is_npd?: boolean;
+    npd_date?: string | null;
 }
 
 interface DocumentTrans {
@@ -142,6 +146,7 @@ export default function ViewCustomerForm({
     userRole, // NEW: User role for role-based visibility
     internalStaff = [], // NEW: Internal Staff list for supervisor
 }: Props) {
+    console.log("RENDER PARENT");
     const { props } = usePage();
     const trans = props.trans_general as Record<string, string>;
     const currentLocale = props.locale as string;
@@ -150,19 +155,21 @@ export default function ViewCustomerForm({
     const auth = (props.auth as any) || {};
     const isInternalUser = userRole !== 'eksternal';
     const isSupervisor = auth.user?.role === 'internal' && auth.user?.role_internal === 'supervisor';
-
+    const isNpdSection = (section: any) => section.section_name.toLowerCase().includes('npd');
     const [tempFiles, setTempFiles] = useState<Record<number, string>>({});
     const [activeSection, setActiveSection] = useState<number | null>(null);
     const [isAdditionalDocsOpen, setIsAdditionalDocsOpen] = useState(true);
     const [isAdditionalSectionVisible, setIsAdditionalSectionVisible] = useState(false);
 
-    const additionalSection = sectionsTransProp?.find(
-        (s: SectionTrans) => s.section_name.toLowerCase().includes('additional') || s.section_name.toLowerCase().includes('tambahan'),
-    );
+    const [openEmailModal, setOpenEmailModal] = useState(false);
 
-    const mainSections = sectionsTransProp?.filter(
+    const additionalSection = useMemo(() => sectionsTransProp?.find(
+        (s: SectionTrans) => s.section_name.toLowerCase().includes('additional') || s.section_name.toLowerCase().includes('tambahan'),
+    ), [sectionsTransProp]);
+
+    const mainSections = useMemo(() => sectionsTransProp?.filter(
         (s: SectionTrans) => !s.section_name.toLowerCase().includes('additional') && !s.section_name.toLowerCase().includes('tambahan'),
-    );
+    ), [sectionsTransProp]);
 
     const [isEditingHsCodes, setIsEditingHsCodes] = useState(false);
     const [hsCodes, setHsCodes] = useState<any[]>([]);
@@ -223,8 +230,11 @@ export default function ViewCustomerForm({
     const [originForm, setOriginForm] = useState<string>((shipmentDataProp as any)?.origin || '');
     const [portForm, setPortForm] = useState<string>((shipmentDataProp as any)?.port || '');
     const [comodityForm, setComodityForm] = useState<string>((shipmentDataProp as any)?.comodity || '');
-    const [partyQtyForm, setPartyQtyForm] = useState<string>((shipmentDataProp as any)?.party_qty || '');
-    const [partyLclForm, setPartyLclForm] = useState<string>((shipmentDataProp as any)?.party_size || '20 ft');
+    const [parties, setParties] = useState<any[]>(
+        (shipmentDataProp as any)?.parties?.length > 0
+            ? (shipmentDataProp as any).parties
+            : [{ party_type: 'FCL', party_category: '1 - GENERAL / DRY CARGO', party_qty: '', party_size: '20 ft' }]
+    );
     const [ajuForm, setAjuForm] = useState<string>((shipmentDataProp as any)?.aju || '');
     const [joForm, setJoForm] = useState<string>((shipmentDataProp as any)?.j_o || '');
 
@@ -244,21 +254,17 @@ export default function ViewCustomerForm({
                 origin: originForm,
                 port: portForm,
                 comodity: comodityForm,
-                party_qty: partyQtyForm,
-                party_size: partyLclForm,
+                parties: parties,
                 aju: ajuForm,
                 j_o: joForm
             })
-                .then(response => {
-                    // Background save success - silent
-                })
                 .catch(error => {
                     console.error("Auto-save formulir penerimaan dokumen gagal", error);
                 });
         }, 3000);
 
         return () => clearTimeout(timeoutId);
-    }, [shipperForm, consigneeForm, vesselForm, originForm, portForm, comodityForm, partyQtyForm, partyLclForm, ajuForm, joForm]);
+    }, [shipmentDataProp.id_spk, shipperForm, consigneeForm, vesselForm, originForm, portForm, comodityForm, parties, ajuForm, joForm]);
 
     // Batch Verification State
     const [pendingVerifications, setPendingVerifications] = useState<number[]>([]);
@@ -287,6 +293,101 @@ export default function ViewCustomerForm({
     // ETA Date State
     const [etaDate, setEtaDate] = useState(shipmentDataProp?.eta_date ? shipmentDataProp.eta_date.split('T')[0].split(' ')[0] : '');
     const [isSavingEtaDate, setIsSavingEtaDate] = useState(false);
+
+    // Job Date & Inspection Date States
+    const [jobDate, setJobDate] = useState(shipmentDataProp?.job_date ? shipmentDataProp.job_date.split('T')[0].split(' ')[0] : '');
+    const [isSavingJobDate, setIsSavingJobDate] = useState(false);
+    const [inspectionDate, setInspectionDate] = useState(shipmentDataProp?.inspection_date ? shipmentDataProp.inspection_date.split('T')[0].split(' ')[0] : '');
+    const [isSavingInspectionDate, setIsSavingInspectionDate] = useState(false);
+
+    // NPD States
+    const [isNpd, setIsNpd] = useState(shipmentDataProp?.is_npd || false);
+    const [npdDate, setNpdDate] = useState(shipmentDataProp?.npd_date ? shipmentDataProp.npd_date.split('T')[0].split(' ')[0] : '');
+    const [isNpdModalOpen, setIsNpdModalOpen] = useState(false);
+    const [isUpdatingNpd, setIsUpdatingNpd] = useState(false);
+    const [npdSectionId, setNpdSectionId] = useState<number | null>(null);
+    const [npdMandatoryDocs, setNpdMandatoryDocs] = useState<any[]>([]);
+    const [npdAdditionalDocs, setNpdAdditionalDocs] = useState<any[]>([]);
+    const [npdSelectedAdditionalDocs, setNpdSelectedAdditionalDocs] = useState<number[]>([]);
+    const [npdTempFiles, setNpdTempFiles] = useState<Record<number, string>>({});
+    const [isLoadingNpd, setIsLoadingNpd] = useState(false);
+
+    const handleNpdChange = async (checked: boolean) => {
+        if (!checked) {
+            setIsUpdatingNpd(true);
+            try {
+                const response = await axios.post(`/shipping/${shipmentDataProp.id_spk}/update-npd`, {
+                    is_npd: false,
+                    npd_date: null,
+                    id_section: null,
+                    attachments: {}
+                });
+                if (response.data.success) {
+                    setIsNpd(false);
+                    setNpdDate('');
+                    toast.success('NPD dinonaktifkan');
+                } else {
+                    toast.error(response.data.message || 'Gagal mengubah NPD');
+                }
+            } catch (error: any) {
+                toast.error(error.response?.data?.message || 'Gagal mengubah NPD');
+            } finally {
+                setIsUpdatingNpd(false);
+            }
+        } else {
+            setIsNpdModalOpen(true);
+            setIsLoadingNpd(true);
+            setNpdTempFiles({});
+            try {
+                const res = await axios.get(`/shipping/${shipmentDataProp.id_spk}/npd-info`);
+                if (res.data.success) {
+                    setNpdSectionId(res.data.id_section);
+                    setNpdMandatoryDocs(res.data.mandatory_docs || []);
+                    setNpdAdditionalDocs(res.data.additional_docs || []);
+                    setNpdSelectedAdditionalDocs([]);
+                } else {
+                    toast.error(res.data.message || 'Gagal memuat info NPD');
+                    setIsNpdModalOpen(false);
+                }
+            } catch (error: any) {
+                toast.error(error.response?.data?.message || 'Gagal memuat info NPD');
+                setIsNpdModalOpen(false);
+            } finally {
+                setIsLoadingNpd(false);
+            }
+        }
+    };
+
+    const handleSaveNpdModal = async () => {
+        if (!npdDate) {
+            toast.warning('Silakan isi tanggal NPD');
+            return;
+        }
+
+        setIsUpdatingNpd(true);
+        try {
+            const response = await axios.post(`/shipping/${shipmentDataProp.id_spk}/update-npd`, {
+                is_npd: true,
+                npd_date: npdDate,
+                id_section: npdSectionId,
+                attachments: npdTempFiles,
+                additional_documents: npdSelectedAdditionalDocs
+            });
+
+            if (response.data.success) {
+                toast.success('NPD berhasil disimpan');
+                setIsNpdModalOpen(false);
+                setIsNpd(true);
+                router.reload({ only: ['sectionsTransProp', 'shipmentDataProp', 'documents'] });
+            } else {
+                toast.error(response.data.message || 'Gagal menyimpan NPD');
+            }
+        } catch (error: any) {
+            toast.error(error.response?.data?.message || 'Gagal menyimpan NPD');
+        } finally {
+            setIsUpdatingNpd(false);
+        }
+    };
 
     // Ori Date Modal State
     const [isOriDateModalOpen, setIsOriDateModalOpen] = useState(false);
@@ -426,49 +527,47 @@ export default function ViewCustomerForm({
 
     // Initialize deadline states from database data (only once, on first load)
     useEffect(() => {
-        if (sectionsTransProp && sectionsTransProp.length > 0) {
-            // 1. Deadline Logic — only run once to avoid overriding user edits on prop reload
-            if (!isDeadlineInitialized.current) {
-                const deadlinesFromDb: Record<number, string> = {};
-                let hasAnyDeadline = false;
-                let firstDeadline = '';
-                let allSameDeadline = true;
+        if (!sectionsTransProp?.length || isDeadlineInitialized.current) return;
 
-                sectionsTransProp.forEach((section: SectionTrans) => {
-                    if (section.deadline_date) {
-                        const dateStr = String(section.deadline_date);
-                        const match = dateStr.match(/(\d{4})-(\d{2})-(\d{2})/);
-                        const dateValue = match ? `${match[1]}-${match[2]}-${match[3]}` : '';
-                        if (dateValue) {
-                            deadlinesFromDb[section.id] = dateValue;
-                            if (!hasAnyDeadline) {
-                                firstDeadline = dateValue;
-                                hasAnyDeadline = true;
-                            } else if (dateValue !== firstDeadline) {
-                                allSameDeadline = false;
-                            }
-                        }
+        const deadlinesFromDb: Record<number, string> = {};
+        let hasAnyDeadline = false;
+        let firstDeadline = '';
+        let allSameDeadline = true;
+
+        sectionsTransProp.forEach((section: SectionTrans) => {
+            if (section.deadline_date) {
+                const dateStr = String(section.deadline_date);
+                const match = dateStr.match(/(\d{4})-(\d{2})-(\d{2})/);
+                const dateValue = match ? `${match[1]}-${match[2]}-${match[3]}` : '';
+                if (dateValue) {
+                    deadlinesFromDb[section.id] = dateValue;
+                    if (!hasAnyDeadline) {
+                        firstDeadline = dateValue;
+                        hasAnyDeadline = true;
+                    } else if (dateValue !== firstDeadline) {
+                        allSameDeadline = false;
                     }
-                });
-
-                if (Object.keys(deadlinesFromDb).length > 0) setSectionDeadlines(deadlinesFromDb);
-                if (hasAnyDeadline && allSameDeadline) {
-                    setGlobalDeadlineDate(firstDeadline);
-                    setUseUnifiedDeadline(true);
-                } else if (hasAnyDeadline) {
-                    setUseUnifiedDeadline(false);
                 }
-
-                isDeadlineInitialized.current = true;
             }
+        });
 
-            // 2. Auto-show Additional Document if files exist or explicitly requested (by logic/status)
-            // Di sini kita cek jika ada dokumen yang sudah diupload di section additional
-            if (additionalSection && additionalSection.documents.some((d) => d.url_path_file)) {
-                setIsAdditionalSectionVisible(true);
-            }
+        if (Object.keys(deadlinesFromDb).length > 0) setSectionDeadlines(deadlinesFromDb);
+        if (hasAnyDeadline && allSameDeadline) {
+            setGlobalDeadlineDate(firstDeadline);
+            setUseUnifiedDeadline(true);
+        } else if (hasAnyDeadline) {
+            setUseUnifiedDeadline(false);
         }
-    }, [sectionsTransProp, additionalSection]);
+
+        isDeadlineInitialized.current = true;
+    }, [sectionsTransProp]);
+
+    // Auto-show Additional Document section if files exist
+    useEffect(() => {
+        if (additionalSection?.documents?.some((d) => d.url_path_file)) {
+            setIsAdditionalSectionVisible(true);
+        }
+    }, [additionalSection]);
 
     // NEW: Sync ETA Date for real-time updates
     useEffect(() => {
@@ -846,7 +945,7 @@ export default function ViewCustomerForm({
 
     // Helper: Group documents for rendering
     // Returns array of objects { current: Doc, history: Doc[] }
-    const processDocumentsForRender = (docs: DocumentTrans[]) => {
+    const processDocumentsForRender = useCallback((docs: DocumentTrans[]) => {
         const groups = new Map<number, DocumentTrans[]>();
 
         // 1. Group by id_dokumen
@@ -874,7 +973,16 @@ export default function ViewCustomerForm({
         });
 
         return result;
-    };
+    }, []);
+
+    // Pre-compute processed documents per section — avoids re-running O(n log n) sort on every render
+    const processedSectionDocs = useMemo(() => {
+        const map = new Map<number, { current: DocumentTrans; history: DocumentTrans[] }[]>();
+        sectionsTransProp?.forEach((section: SectionTrans) => {
+            map.set(section.id, processDocumentsForRender(section.documents || []));
+        });
+        return map;
+    }, [sectionsTransProp, processDocumentsForRender]);
 
     const toggleHistory = (id: number) => {
         setOpenHistoryIds((prev) => (prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]));
@@ -1385,22 +1493,56 @@ export default function ViewCustomerForm({
         }
     };
 
-    // Calculate overall progress across all sections
-    const calculateProgress = () => {
+    const handleSaveJobDate = async () => {
+        setIsSavingJobDate(true);
+        try {
+            const response = await axios.post(`/shipping/${shipmentData.id_spk}/update-job-date`, {
+                job_date: jobDate,
+            });
+            if (response.data.success) {
+                toast.success('Job Date berhasil diperbarui');
+            } else {
+                toast.error(response.data.message || 'Gagal memperbarui Job Date');
+            }
+        } catch (error: any) {
+            console.error('Error updating job date:', error);
+            toast.error(error.response?.data?.message || 'Gagal memperbarui Job Date');
+        } finally {
+            setIsSavingJobDate(false);
+        }
+    };
+
+    const handleSaveInspectionDate = async () => {
+        setIsSavingInspectionDate(true);
+        try {
+            const response = await axios.post(`/shipping/${shipmentData.id_spk}/update-inspection-date`, {
+                inspection_date: inspectionDate,
+            });
+            if (response.data.success) {
+                toast.success('Inspection Date berhasil diperbarui');
+            } else {
+                toast.error(response.data.message || 'Gagal memperbarui Inspection Date');
+            }
+        } catch (error: any) {
+            console.error('Error updating inspection date:', error);
+            toast.error(error.response?.data?.message || 'Gagal memperbarui Inspection Date');
+        } finally {
+            setIsSavingInspectionDate(false);
+        }
+    };
+
+    // Calculate overall progress across all sections (memoized)
+    const progressPercentage = useMemo(() => {
         let totalDocs = 0;
         let verifiedDocs = 0;
 
-        sectionsTransProp?.forEach((section: SectionTrans) => {
-            const docs = section.documents || [];
-            const latestDocsGroups = processDocumentsForRender(docs);
-            totalDocs += latestDocsGroups.length;
-            verifiedDocs += latestDocsGroups.filter((g) => g.current.verify === true).length;
+        processedSectionDocs.forEach((groups) => {
+            totalDocs += groups.length;
+            verifiedDocs += groups.filter((g) => g.current.verify === true).length;
         });
 
         return totalDocs === 0 ? 0 : Math.round((verifiedDocs / totalDocs) * 100);
-    };
-
-    const progressPercentage = calculateProgress();
+    }, [processedSectionDocs]);
 
     return (
         <div className="animate-in fade-in mx-auto w-full max-w-7xl overflow-x-hidden bg-slate-50/30 p-4 font-sans text-sm text-slate-900 duration-500 sm:p-6 xl:p-8 dark:bg-zinc-950 dark:text-zinc-100">
@@ -1600,29 +1742,105 @@ export default function ViewCustomerForm({
                                 </div>
                             </div>
 
-                            {/* Conditional ETA Date Field (id_section === 7) */}
+                            {/* ETA Date Field */}
+                            <div className="col-span-2 mt-2 space-y-1.5 border-t border-slate-200/60 pt-3 dark:border-zinc-800">
+                                <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.eta_date}</div>
+                                <div className="flex items-center gap-2">
+                                    <Input
+                                        type="date"
+                                        value={etaDate}
+                                        onChange={(e) => setEtaDate(e.target.value)}
+                                        className="date-input-dark h-9 rounded-lg border-slate-200 bg-white text-xs text-slate-700 focus:ring-blue-500/20 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300"
+                                        disabled={!isInternalUser || isSavingEtaDate}
+                                    />
+                                    {isInternalUser && (
+                                        <Button
+                                            size="sm"
+                                            onClick={handleSaveEtaDate}
+                                            disabled={isSavingEtaDate}
+                                            className="h-9 bg-slate-900 px-4 text-[10px] font-bold text-white hover:bg-slate-800"
+                                        >
+                                            {isSavingEtaDate ? '...' : trans.save || 'Save'}
+                                        </Button>
+                                    )}
+                                </div>
+                            </div>
+                            {/* Job date field */}
                             {sectionsTransProp?.some((s) => s.id_section === 7) && (
                                 <div className="col-span-2 mt-2 space-y-1.5 border-t border-slate-200/60 pt-3 dark:border-zinc-800">
-                                    <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.eta_date}</div>
+                                    <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.job_date || 'Job Date'}</div>
                                     <div className="flex items-center gap-2">
                                         <Input
                                             type="date"
-                                            value={etaDate}
-                                            onChange={(e) => setEtaDate(e.target.value)}
+                                            value={jobDate}
+                                            onChange={(e) => setJobDate(e.target.value)}
                                             className="date-input-dark h-9 rounded-lg border-slate-200 bg-white text-xs text-slate-700 focus:ring-blue-500/20 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300"
-                                            disabled={!isInternalUser || isSavingEtaDate}
+                                            disabled={!isInternalUser || isSavingJobDate}
                                         />
                                         {isInternalUser && (
                                             <Button
                                                 size="sm"
-                                                onClick={handleSaveEtaDate}
-                                                disabled={isSavingEtaDate}
+                                                onClick={handleSaveJobDate}
+                                                disabled={isSavingJobDate}
                                                 className="h-9 bg-slate-900 px-4 text-[10px] font-bold text-white hover:bg-slate-800"
                                             >
-                                                {isSavingEtaDate ? '...' : trans.save || 'Save'}
+                                                {isSavingJobDate ? '...' : trans.save || 'Save'}
                                             </Button>
                                         )}
                                     </div>
+                                </div>
+                            )}
+
+                            {/* inspection date field */}
+                            {sectionsTransProp?.some((s) => s.id_section === 7) && (
+                                <div className="col-span-2 mt-2 space-y-1.5 border-t border-slate-200/60 pt-3 dark:border-zinc-800">
+                                    <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.inspection_date || 'Inspection Date'}</div>
+                                    <div className="flex items-center gap-2">
+                                        <Input
+                                            type="date"
+                                            value={inspectionDate}
+                                            onChange={(e) => setInspectionDate(e.target.value)}
+                                            className="date-input-dark h-9 rounded-lg border-slate-200 bg-white text-xs text-slate-700 focus:ring-blue-500/20 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300"
+                                            disabled={!isInternalUser || isSavingInspectionDate}
+                                        />
+                                        {isInternalUser && (
+                                            <Button
+                                                size="sm"
+                                                onClick={handleSaveInspectionDate}
+                                                disabled={isSavingInspectionDate}
+                                                className="h-9 bg-slate-900 px-4 text-[10px] font-bold text-white hover:bg-slate-800"
+                                            >
+                                                {isSavingInspectionDate ? '...' : trans.save || 'Save'}
+                                            </Button>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* NPD Checkbox Section */}
+                            {isInternalUser && (
+                                <div className="col-span-2 mt-2 space-y-1.5 border-t border-slate-200/60 pt-3 dark:border-zinc-800">
+                                    <div className="flex items-center gap-2">
+                                        <Checkbox
+                                            id="is-npd"
+                                            checked={isNpd}
+                                            onCheckedChange={handleNpdChange}
+                                            disabled={!isInternalUser || isUpdatingNpd}
+                                            className="border-slate-300 data-[state=checked]:border-blue-600 data-[state=checked]:bg-blue-600 dark:border-zinc-700"
+                                        />
+                                        <Label htmlFor="is-npd" className="cursor-pointer text-[10px] font-bold tracking-wider text-slate-500 uppercase dark:text-zinc-400">
+                                            {trans.need_npd || 'Apakah SPK Ini Membutuhkan NPD?'}
+                                        </Label>
+                                    </div>
+                                    {isNpd && npdDate && (
+                                        <div className="mt-1 text-xs font-semibold text-slate-700 dark:text-zinc-300">
+                                            NPD Date: {new Date(npdDate).toLocaleDateString(`${trans.locale || 'id-ID'}`, {
+                                                day: 'numeric',
+                                                month: 'long',
+                                                year: 'numeric',
+                                            })}
+                                        </div>
+                                    )}
                                 </div>
                             )}
 
@@ -1640,6 +1858,11 @@ export default function ViewCustomerForm({
                                     </Button>
                                 </div>
                             )}
+                        </div>
+                        <div className="flex items-center justify-center mt-2">
+                            <Button onClick={() => setOpenEmailModal(true)}>
+                                Kirim Email Pemberitahuan
+                            </Button>
                         </div>
                     </div>
 
@@ -1715,8 +1938,8 @@ export default function ViewCustomerForm({
                                             <div
                                                 key={doc.id}
                                                 className={`flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors ${selectedOriDocIds.includes(doc.id)
-                                                        ? 'border-blue-300 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-950/20'
-                                                        : 'border-slate-200/60 bg-slate-50/50 dark:border-zinc-800 dark:bg-zinc-950/50'
+                                                    ? 'border-blue-300 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-950/20'
+                                                    : 'border-slate-200/60 bg-slate-50/50 dark:border-zinc-800 dark:bg-zinc-950/50'
                                                     }`}
                                             >
                                                 <Checkbox
@@ -1765,6 +1988,137 @@ export default function ViewCustomerForm({
                                     {isSavingOriDates ? '...' : trans.save || 'Simpan'}
                                 </Button>
                             </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+
+                    {/* NPD Modal */}
+                    <Dialog open={isNpdModalOpen} onOpenChange={(val) => {
+                        if (!val && !isUpdatingNpd) {
+                            setIsNpdModalOpen(false);
+                            if (!shipmentDataProp?.is_npd) {
+                                setIsNpd(false);
+                            }
+                        }
+                    }}>
+                        <DialogContent className="max-w-85 rounded-xl p-0 sm:max-w-100">
+                            <DialogHeader className="px-4 py-3">
+                                <DialogTitle className="text-left text-lg font-bold">{trans.npd_setup || 'Pengaturan NPD'}</DialogTitle>
+                            </DialogHeader>
+
+                            <div className="max-h-75 overflow-y-auto px-4 py-2">
+                                {isLoadingNpd ? (
+                                    <div className="py-8 text-center text-sm text-gray-500">{trans.loading_docs || 'Loading...'}</div>
+                                ) : (
+                                    <div className="space-y-6 pb-4">
+                                        <div className="space-y-1.5">
+                                            <Label className="font-semibold text-slate-700 dark:text-zinc-300">
+                                                {trans.npd_date || 'Tanggal NPD'} <span className="text-red-500">*</span>
+                                            </Label>
+                                            <Input
+                                                type="date"
+                                                value={npdDate}
+                                                onChange={(e) => setNpdDate(e.target.value)}
+                                                className="h-10 w-full rounded-md border-gray-400 focus-visible:border-black focus-visible:ring-0"
+                                            />
+                                        </div>
+
+                                        {npdMandatoryDocs.length > 0 && (
+                                            <div className="space-y-3">
+                                                <Label className="text-sm font-semibold text-slate-700 dark:text-zinc-300 mb-1">
+                                                    {trans.mandatory_npd_docs || 'Dokumen Wajib NPD'}
+                                                </Label>
+                                                <div className="flex flex-col gap-3">
+                                                    {npdMandatoryDocs.map((doc) => (
+                                                        <div key={doc.id_dokumen} className="flex flex-col sm:flex-row sm:items-center justify-between rounded-lg border border-gray-200 bg-slate-50/50 p-3 dark:border-zinc-700 dark:bg-zinc-800/30">
+                                                            <div className="flex-1 mb-2 sm:mb-0">
+                                                                <div className="text-sm font-semibold text-slate-800 dark:text-zinc-200 flex items-center gap-2">
+                                                                    <div className="h-1.5 w-1.5 rounded-full bg-blue-500 hidden sm:block" />
+                                                                    {doc.nama_file}
+                                                                </div>
+                                                            </div>
+                                                            <div className="w-full sm:w-[220px]">
+                                                                <ResettableDropzone
+                                                                    label=""
+                                                                    isRequired={false}
+                                                                    className="h-10 border-dashed border-gray-400 bg-white"
+                                                                    existingFile={
+                                                                        npdTempFiles[doc.id_dokumen]
+                                                                            ? { nama_file: doc.nama_file, path: npdTempFiles[doc.id_dokumen] }
+                                                                            : undefined
+                                                                    }
+                                                                    uploadConfig={{
+                                                                        url: '/shipping/upload-temp',
+                                                                        payload: { type: doc.nama_file, spk_code: shipmentData.spkNumber },
+                                                                    }}
+                                                                    onFileChange={(file, response) => {
+                                                                        if (response && (response.status === 'success' || response.path))
+                                                                            setNpdTempFiles((prev) => ({ ...prev, [doc.id_dokumen]: response.path }));
+                                                                        else if (file === null)
+                                                                            setNpdTempFiles((prev) => {
+                                                                                const n = { ...prev };
+                                                                                delete n[doc.id_dokumen];
+                                                                                return n;
+                                                                            });
+                                                                    }}
+                                                                    disabled={isUpdatingNpd}
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {npdAdditionalDocs.length > 0 && (
+                                            <div className="space-y-3">
+                                                <Label className="text-sm font-semibold text-slate-700 dark:text-zinc-300 mb-1">
+                                                    {trans.additional_npd_docs || 'Dokumen Tambahan'}
+                                                </Label>
+                                                <div className="space-y-4">
+                                                    {npdAdditionalDocs.map((doc) => (
+                                                        <div key={doc.id_dokumen} className="flex items-center space-x-3">
+                                                            <Checkbox
+                                                                id={`npd-doc-${doc.id_dokumen}`}
+                                                                checked={npdSelectedAdditionalDocs.includes(doc.id_dokumen)}
+                                                                onCheckedChange={(checked) => {
+                                                                    setNpdSelectedAdditionalDocs((prev) =>
+                                                                        checked
+                                                                            ? [...prev, doc.id_dokumen]
+                                                                            : prev.filter((id) => id !== doc.id_dokumen)
+                                                                    );
+                                                                }}
+                                                                disabled={isUpdatingNpd}
+                                                                className="h-5 w-5 rounded border-2 border-black data-[state=checked]:bg-black data-[state=checked]:text-white dark:border-zinc-500 dark:data-[state=checked]:bg-white dark:data-[state=checked]:text-black"
+                                                            />
+                                                            <label
+                                                                htmlFor={`npd-doc-${doc.id_dokumen}`}
+                                                                className="cursor-pointer text-base leading-none font-normal peer-disabled:cursor-not-allowed peer-disabled:opacity-70 dark:text-zinc-200"
+                                                            >
+                                                                {doc.nama_file}
+                                                            </label>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="flex flex-col items-center gap-3 border-t p-4 pt-2">
+                                {(npdSelectedAdditionalDocs.length > 0 || Object.keys(npdTempFiles).length > 0) && (
+                                    <div className="text-sm text-gray-600 dark:text-zinc-400">
+                                        {npdSelectedAdditionalDocs.length} additional document(s) selected
+                                    </div>
+                                )}
+                                <Button
+                                    className="h-10 w-full rounded-md bg-black text-sm font-bold text-white hover:bg-gray-800 disabled:opacity-50"
+                                    onClick={handleSaveNpdModal}
+                                    disabled={isUpdatingNpd || isLoadingNpd}
+                                >
+                                    {isUpdatingNpd ? 'Saving...' : trans.save_changes || 'Save Changes'}
+                                </Button>
+                            </div>
                         </DialogContent>
                     </Dialog>
 
@@ -1851,126 +2205,241 @@ export default function ViewCustomerForm({
                     </Dialog>
 
                     {/* --- Formulir Penerimaan Dokumen --- */}
-                    <div className="rounded-2xl border border-slate-200/60 bg-white/80 p-5 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] backdrop-blur-xl sm:p-6 dark:border-zinc-800/80 dark:bg-zinc-900/80">
-                        <div className="mb-5 text-xs font-bold tracking-wider text-slate-500 uppercase">{trans.document_receipt_form || 'Formulir Penerimaan Dokumen'}</div>
-                        <div className="flex flex-col gap-4">
-                            {/* Shipper */}
-                            <div className="space-y-1.5">
-                                <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">Shipper</Label>
-                                <Input
-                                    placeholder="Input Shipper"
-                                    value={shipperForm}
-                                    onChange={(e) => setShipperForm(e.target.value)}
-                                    className="h-9 rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-900"
-                                />
-                            </div>
-                            {/* Consignee */}
-                            <div className="space-y-1.5">
-                                <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">Consignee (C'NEE)</Label>
-                                <Input
-                                    placeholder="Input Consignee"
-                                    value={consigneeForm}
-                                    disabled
-                                    onChange={(e) => setConsigneeForm(e.target.value)}
-                                    className="h-9 rounded-lg border-slate-300 bg-slate-100 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-800 dark:text-slate-50"
-                                />
-                            </div>
-                            {/* B/L NUM / S/I NUM / SPK NUM */}
-                            <div className="space-y-1.5">
-                                <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
-                                    {shipmentDataProp?.type === 'Export' ? 'S/I NUM' : shipmentDataProp?.type === 'Import' ? 'B/L NUM' : 'SPK NUM'}
-                                </Label>
-                                <Input
-                                    placeholder="Input B/L / S/I NUM"
-                                    value={blNumForm}
-                                    disabled
-                                    className="h-9 rounded-lg border-slate-300 bg-slate-100 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-800 dark:text-slate-50"
-                                />
-                            </div>
-                            {/* Vessel */}
-                            <div className="space-y-1.5">
-                                <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.vessel}</Label>
-                                <Input
-                                    placeholder="Input Vessel"
-                                    value={vesselForm}
-                                    onChange={(e) => setVesselForm(e.target.value)}
-                                    className="h-9 rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-900"
-                                />
-                            </div>
-                            {/* Origin */}
-                            <div className="space-y-1.5">
-                                <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.origin}</Label>
-                                <Input
-                                    placeholder="Input Origin"
-                                    value={originForm}
-                                    onChange={(e) => setOriginForm(e.target.value)}
-                                    className="h-9 rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-900"
-                                />
-                            </div>
-                            {/* Port */}
-                            <div className="space-y-1.5">
-                                <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.port}</Label>
-                                <Input
-                                    placeholder="Input Port"
-                                    value={portForm}
-                                    onChange={(e) => setPortForm(e.target.value)}
-                                    className="h-9 rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-900"
-                                />
-                            </div>
-                            {/* Comodity */}
-                            <div className="space-y-1.5">
-                                <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.comodity}</Label>
-                                <Input
-                                    placeholder="Input Comodity"
-                                    value={comodityForm}
-                                    onChange={(e) => setComodityForm(e.target.value)}
-                                    className="h-9 rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-900"
-                                />
-                            </div>
-                            {/* Party */}
-                            <div className="space-y-1.5">
-                                <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">Party</Label>
-                                <div className="flex items-center gap-2">
+                    {isInternalUser && (
+                        <div className="rounded-2xl border border-slate-200/60 bg-white/80 p-5 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] backdrop-blur-xl sm:p-6 dark:border-zinc-800/80 dark:bg-zinc-900/80">
+                            <div className="mb-5 text-xs font-bold tracking-wider text-slate-500 uppercase">{trans.document_receipt_form || 'Formulir Penerimaan Dokumen'}</div>
+                            <div className="flex flex-col gap-4">
+                                {/* Shipper */}
+                                <div className="space-y-1.5">
+                                    <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">Shipper</Label>
                                     <Input
-                                        placeholder="Qty"
-                                        value={partyQtyForm}
-                                        onChange={(e) => setPartyQtyForm(e.target.value)}
-                                        className="h-9 w-20 shrink-0 rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-900"
+                                        placeholder="Input Shipper"
+                                        value={shipperForm}
+                                        onChange={(e) => setShipperForm(e.target.value)}
+                                        className="h-9 rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-900"
                                     />
-                                    <span className="text-sm font-semibold text-slate-400">x</span>
-                                    <Select value={partyLclForm} onValueChange={setPartyLclForm}>
-                                        <SelectTrigger className="h-9 flex-1 rounded-lg border-slate-300 text-xs focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-900">
-                                            <SelectValue placeholder="Size" />
-                                        </SelectTrigger>
-                                        <SelectContent className="rounded-xl border-slate-200 shadow-xl dark:border-zinc-700 dark:bg-zinc-900">
-                                            <SelectItem value="20 ft" className="cursor-pointer text-xs dark:text-zinc-200">20 ft</SelectItem>
-                                            <SelectItem value="40 ft" className="cursor-pointer text-xs dark:text-zinc-200">40 ft</SelectItem>
-                                        </SelectContent>
-                                    </Select>
+                                </div>
+                                {/* Consignee */}
+                                <div className="space-y-1.5">
+                                    <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">Consignee (C'NEE)</Label>
+                                    <Input
+                                        placeholder="Input Consignee"
+                                        value={consigneeForm}
+                                        disabled
+                                        onChange={(e) => setConsigneeForm(e.target.value)}
+                                        className="h-9 rounded-lg border-slate-300 bg-slate-100 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-800 dark:text-slate-50"
+                                    />
+                                </div>
+                                {/* B/L NUM / S/I NUM / SPK NUM */}
+                                <div className="space-y-1.5">
+                                    <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
+                                        {shipmentDataProp?.type === 'Export' ? 'S/I NUM' : shipmentDataProp?.type === 'Import' ? 'B/L NUM' : 'SPK NUM'}
+                                    </Label>
+                                    <Input
+                                        placeholder="Input B/L / S/I NUM"
+                                        value={blNumForm}
+                                        disabled
+                                        className="h-9 rounded-lg border-slate-300 bg-slate-100 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-800 dark:text-slate-50"
+                                    />
+                                </div>
+                                {/* Vessel */}
+                                <div className="space-y-1.5">
+                                    <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.vessel}</Label>
+                                    <Input
+                                        placeholder="Input Vessel"
+                                        value={vesselForm}
+                                        onChange={(e) => setVesselForm(e.target.value)}
+                                        className="h-9 rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-900"
+                                    />
+                                </div>
+                                {/* Origin */}
+                                <div className="space-y-1.5">
+                                    <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.origin}</Label>
+                                    <Input
+                                        placeholder="Input Origin"
+                                        value={originForm}
+                                        onChange={(e) => setOriginForm(e.target.value)}
+                                        className="h-9 rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-900"
+                                    />
+                                </div>
+                                {/* Port */}
+                                <div className="space-y-1.5">
+                                    <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.port}</Label>
+                                    <Input
+                                        placeholder="Input Port"
+                                        value={portForm}
+                                        onChange={(e) => setPortForm(e.target.value)}
+                                        className="h-9 rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-900"
+                                    />
+                                </div>
+                                {/* Comodity */}
+                                <div className="space-y-1.5">
+                                    <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.comodity}</Label>
+                                    <Input
+                                        placeholder="Input Comodity"
+                                        value={comodityForm}
+                                        onChange={(e) => setComodityForm(e.target.value)}
+                                        className="h-9 rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-900"
+                                    />
+                                </div>
+                                {/* Party Section */}
+                                <div className="space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">Party List</Label>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => setParties([...parties, { party_type: 'FCL', party_category: '1 - GENERAL / DRY CARGO', party_qty: '', party_size: '20 ft' }])}
+                                            className="h-6 px-2 text-[10px] font-bold text-blue-600 hover:bg-blue-50 hover:text-blue-700"
+                                        >
+                                            <Plus className="mr-1 h-3 w-3" /> Add Party
+                                        </Button>
+                                    </div>
+
+                                    <div className="space-y-3">
+                                        {parties.map((party, index) => (
+                                            <div key={index} className="relative space-y-2 rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-3 transition-colors hover:border-slate-300 dark:border-zinc-800 dark:bg-zinc-950/30">
+                                                {parties.length > 1 && (
+                                                    <button
+                                                        onClick={() => setParties(parties.filter((_, i) => i !== index))}
+                                                        className="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-rose-100 text-rose-600 shadow-sm transition-transform hover:scale-110 dark:bg-rose-900/40"
+                                                    >
+                                                        <Trash2 className="h-3 w-3" />
+                                                    </button>
+                                                )}
+
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    {/* Type FCL/LCL */}
+                                                    <div className="space-y-1">
+                                                        <Label className="text-[9px] font-bold text-slate-400 uppercase">Type</Label>
+                                                        <Select
+                                                            value={party.party_type}
+                                                            onValueChange={(val) => {
+                                                                const newParties = [...parties];
+                                                                newParties[index].party_type = val;
+                                                                if (val === 'LCL') {
+                                                                    newParties[index].party_category = null;
+                                                                    newParties[index].party_size = 'CBM';
+                                                                } else {
+                                                                    newParties[index].party_category = '1 - GENERAL / DRY CARGO';
+                                                                    newParties[index].party_size = '20 ft';
+                                                                }
+                                                                setParties(newParties);
+                                                            }}
+                                                        >
+                                                            <SelectTrigger className="h-8 rounded-lg border-slate-300 text-[10px] focus:ring-blue-500/20 dark:border-zinc-700">
+                                                                <SelectValue />
+                                                            </SelectTrigger>
+                                                            <SelectContent className="dark:bg-zinc-900">
+                                                                <SelectItem value="FCL" className="text-xs">FCL</SelectItem>
+                                                                <SelectItem value="LCL" className="text-xs">LCL</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+
+                                                    {/* Size */}
+                                                    <div className="space-y-1">
+                                                        <Label className="text-[9px] font-bold text-slate-400 uppercase">Size/Unit</Label>
+                                                        <Select
+                                                            value={party.party_size}
+                                                            onValueChange={(val) => {
+                                                                const newParties = [...parties];
+                                                                newParties[index].party_size = val;
+                                                                setParties(newParties);
+                                                            }}
+                                                        >
+                                                            <SelectTrigger className="h-8 rounded-lg border-slate-300 text-[10px] focus:ring-blue-500/20 dark:border-zinc-700">
+                                                                <SelectValue />
+                                                            </SelectTrigger>
+                                                            <SelectContent className="dark:bg-zinc-900">
+                                                                {party.party_type === 'FCL' ? (
+                                                                    ['20 ft', '40 ft', '45 ft', '60 ft'].map(s => (
+                                                                        <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
+                                                                    ))
+                                                                ) : (
+                                                                    ['CBM', 'KG'].map(s => (
+                                                                        <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
+                                                                    ))
+                                                                )}
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+                                                </div>
+
+                                                {/* Category (Only for FCL) */}
+                                                {party.party_type === 'FCL' && (
+                                                    <div className="space-y-1">
+                                                        <Label className="text-[9px] font-bold text-slate-400 uppercase">Category (FCL)</Label>
+                                                        <Select
+                                                            value={party.party_category}
+                                                            onValueChange={(val) => {
+                                                                const newParties = [...parties];
+                                                                newParties[index].party_category = val;
+                                                                setParties(newParties);
+                                                            }}
+                                                        >
+                                                            <SelectTrigger className="h-8 w-full rounded-lg border-slate-300 text-[10px] focus:ring-blue-500/20 dark:border-zinc-700">
+                                                                <SelectValue />
+                                                            </SelectTrigger>
+                                                            <SelectContent className="dark:bg-zinc-900">
+                                                                {[
+                                                                    "1 - GENERAL / DRY CARGO",
+                                                                    "2 - TUNNE TYPE",
+                                                                    "3 - OPEN TOP STEEL",
+                                                                    "4 - FLAT RACK",
+                                                                    "5 - REEFER/REFREGETE",
+                                                                    "6 - BARGE CONTAINER",
+                                                                    "7 - BULK CONTAINER",
+                                                                    "8 - ISOTANK"
+                                                                ].map(cat => (
+                                                                    <SelectItem key={cat} value={cat} className="text-xs">{cat}</SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+                                                )}
+
+                                                {/* Quantity */}
+                                                <div className="space-y-1">
+                                                    <Label className="text-[9px] font-bold text-slate-400 uppercase">Quantity</Label>
+                                                    <Input
+                                                        placeholder="Qty"
+                                                        value={party.party_qty}
+                                                        onChange={(e) => {
+                                                            const newParties = [...parties];
+                                                            newParties[index].party_qty = e.target.value;
+                                                            setParties(newParties);
+                                                        }}
+                                                        className="h-8 w-full rounded-lg border-slate-300 text-[10px] focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-900"
+                                                    />
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                                {/* AJU */}
+                                <div className="space-y-1.5">
+                                    <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">AJU</Label>
+                                    <Input
+                                        placeholder="Input AJU"
+                                        value={ajuForm}
+                                        onChange={(e) => setAjuForm(e.target.value)}
+                                        className="h-9 rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-900"
+                                    />
+                                </div>
+                                {/* J.O */}
+                                <div className="space-y-1.5">
+                                    <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">J.O</Label>
+                                    <Input
+                                        placeholder="Input J.O"
+                                        value={joForm}
+                                        onChange={(e) => setJoForm(e.target.value)}
+                                        className="h-9 rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-900"
+                                    />
                                 </div>
                             </div>
-                            {/* AJU */}
-                            <div className="space-y-1.5">
-                                <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">AJU</Label>
-                                <Input
-                                    placeholder="Input AJU"
-                                    value={ajuForm}
-                                    onChange={(e) => setAjuForm(e.target.value)}
-                                    className="h-9 rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-900"
-                                />
-                            </div>
-                            {/* J.O */}
-                            <div className="space-y-1.5">
-                                <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">J.O</Label>
-                                <Input
-                                    placeholder="Input J.O"
-                                    value={joForm}
-                                    onChange={(e) => setJoForm(e.target.value)}
-                                    className="h-9 rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-900"
-                                />
-                            </div>
                         </div>
-                    </div>
+                    )}
                 </div>
 
                 {/* --- RIGHT DESKTOP COLUMN --- */}
@@ -2048,11 +2517,9 @@ export default function ViewCustomerForm({
 
                                     // --- Status Logic ---
                                     // --- Status Logic ---
-                                    const docs = section.documents || [];
-
                                     // FIX: Use latest documents only for status calculation
                                     // This prevents 'Rejected' status from persisting if a new version exists (which is Pending or Verified)
-                                    const latestDocsGroups = processDocumentsForRender(docs);
+                                    const latestDocsGroups = processedSectionDocs.get(section.id) || [];
                                     const latestDocs = latestDocsGroups.map((g) => g.current);
 
                                     const validDocs = latestDocs.filter((d: any) => d.verify === true); // Verified (Latest only)
@@ -2133,7 +2600,7 @@ export default function ViewCustomerForm({
                                                         </div>
                                                     )}
                                                 </div>
-                                                {isSupervisor && section.id_section > 6 && (
+                                                {isSupervisor && section.id_section > 6 && !isNpdSection(section) && (
                                                     <button
                                                         onClick={(e) => {
                                                             e.stopPropagation();
@@ -2176,7 +2643,7 @@ export default function ViewCustomerForm({
 
                                                     <div className="space-y-4">
                                                         {section.documents && section.documents.length > 0 ? (
-                                                            processDocumentsForRender(section.documents).map((item, idx: number) => {
+                                                            (processedSectionDocs.get(section.id) || []).map((item, idx: number) => {
                                                                 const doc = item.current;
                                                                 const allVersions = [doc, ...item.history];
                                                                 return renderDocumentRow(
@@ -2246,8 +2713,8 @@ export default function ViewCustomerForm({
                         const section4 = sectionsTransProp?.find((s: any) => s.id_section === 4);
                         const section4AllVerified = (() => {
                             if (!section4) return false;
-                            const docs = section4.documents || [];
-                            const latestDocs = processDocumentsForRender(docs).map((g) => g.current);
+                            const docs = processedSectionDocs.get(section4.id) || [];
+                            const latestDocs = docs.map((g) => g.current);
                             if (latestDocs.length === 0) return false;
                             return latestDocs.every((d: any) => d.verify === true);
                         })();
@@ -2332,7 +2799,7 @@ export default function ViewCustomerForm({
                         const isSectionAllVerified = (idSection: number) => {
                             const sec = sectionsTransProp?.find((s: any) => s.id_section === idSection);
                             if (!sec) return false;
-                            const latestDocs = processDocumentsForRender(sec.documents || []).map((g) => g.current);
+                            const latestDocs = (processedSectionDocs.get(sec.id) || []).map((g) => g.current);
                             if (latestDocs.length === 0) return false;
                             return latestDocs.every((d: any) => d.verify === true);
                         };
@@ -2631,6 +3098,14 @@ export default function ViewCustomerForm({
                     </div>
                 </DialogContent>
             </Dialog>
+
+            <EmailModal
+                open={openEmailModal}
+                onOpenChange={setOpenEmailModal}
+                idCustomer={(shipmentData as any)?.id_customer}
+                idSpk={shipmentData?.id_spk}
+                sections={sectionsTransProp}
+            />
 
             <Dialog open={isRemoveSectionModalOpen} onOpenChange={setIsRemoveSectionModalOpen}>
                 <DialogContent className="max-w-md rounded-2xl p-6 dark:border-zinc-800 dark:bg-zinc-900">

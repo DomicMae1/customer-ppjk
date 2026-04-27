@@ -35,6 +35,9 @@ class UserSeeder extends Seeder
             //AML
             ['name' => 'Supervisor AML', 'email' => 'spv@amlogistik.com', 'password' => 'djLmzR1d3d835rWX', 'role_internal' => 'supervisor','id_perusahaan' => 2],
             ['name' => 'Manager AML', 'email' => 'manager@amlogistik.com', 'password' => 'D2jW1Lluwr8K8ppK', 'role_internal' => 'manager','id_perusahaan' => 2],
+            ['name' => 'Adel Staff', 'email' => 'adel@amlogistik.com', 'password' => 'xO5eP7FsJ7x0l14v', 'role_internal' => 'staff', 'id_perusahaan' => 2],
+            ['name' => 'Putra Staff', 'email' => 'putra@amlogistik.com', 'password' => 'F8YjlaRn4rOFqwSd', 'role_internal' => 'staff', 'id_perusahaan' => 2],
+            ['name' => 'Cessy Staff', 'email' => 'cessy@amlogistik.com', 'password' => 'yLStphPUS72L684b', 'role_internal' => 'staff', 'id_perusahaan' => 2],
             ['name' => 'Staff AML', 'email' => 'documentamlogistik@gmail.com', 'password' => 'Q2DtSj8o0PBilZbA', 'role_internal' => 'staff', 'id_perusahaan' => 2],
             ['name' => 'Marketing AML', 'email' => 'deboraamlogistik@gmail.com', 'password' => 'WV5jcrfJVlUIc815', 'role_internal' => 'marketing', 'id_perusahaan' => 2],
 

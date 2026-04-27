@@ -26,6 +26,7 @@ class Spk extends Model
         'internal_can_upload',       // Boolean
         'register_number',
         'register_date',
+        'tanggal_dokumen',
         'eta_date',
         'shipper',
         'consignee',
@@ -33,10 +34,12 @@ class Spk extends Model
         'origin',
         'port',
         'comodity',
-        'party_qty',
-        'party_size',
         'aju',
         'j_o',
+        'job_date',
+        'inspection_date',
+        'is_npd',
+        'npd_date',
     ];
 
     protected $appends = ['is_created_by_internal'];
@@ -48,7 +51,12 @@ class Spk extends Model
     protected $casts = [
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
-        'eta_date' => 'datetime',
+        'eta_date' => 'date:Y-m-d',
+        'tanggal_dokumen' => 'date:Y-m-d',
+        'job_date' => 'date:Y-m-d',
+        'inspection_date' => 'date:Y-m-d',
+        'npd_date' => 'date:Y-m-d',
+        'is_npd' => 'boolean',
     ];
 
     /**
@@ -121,5 +129,13 @@ class Spk extends Model
     {
         // Relasi SPK ke Section Transaksi
         return $this->hasMany(SectionTrans::class, 'id_spk', 'id');
+    }
+
+    /**
+     * Relasi ke Party (FCL/LCL)
+     */
+    public function parties(): HasMany
+    {
+        return $this->hasMany(SpkParty::class, 'id_spk', 'id');
     }
 }

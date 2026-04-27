@@ -36,6 +36,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('shipping/{id}/update-hs-codes', [ShippingController::class, 'updateHsCodes'])
         ->name('shipping.update-hs-codes');
     Route::post('shipping/{id}/update-eta-date', [ShippingController::class, 'updateEtaDate'])->name('shipping.update-eta-date');
+    Route::post('shipping/{id}/update-job-date', [ShippingController::class, 'updateJobDate'])->name('shipping.update-job-date');
+    Route::post('shipping/{id}/update-inspection-date', [ShippingController::class, 'updateInspectionDate'])->name('shipping.update-inspection-date');
     Route::post('shipping/{id}/assign-staff', [ShippingController::class, 'assignStaff'])->name('shipping.assignStaff');
     Route::get('shipping/available-documents', [ShippingController::class, 'getAvailableDocuments'])->name('shipping.availableDocuments');
     Route::post('shipping/add-documents-to-section', [ShippingController::class, 'addDocumentsToSection'])->name('shipping.addDocumentsToSection');
@@ -45,7 +47,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('shipping/{id}/pdf', [ShippingController::class, 'downloadPdf']);
     Route::post('shipping/{id}/update-form-fields', [ShippingController::class, 'updateFormFields'])->name('shipping.update-form-fields');
     Route::post('shipping/{id}/update-ori-dates', [ShippingController::class, 'updateOriDates'])->name('shipping.update-ori-dates');
-
+    Route::post('shipping/{id}/update-npd', [ShippingController::class, 'updateNpd'])->name('shipping.updateNpd');
+    Route::get('shipping/{id}/npd-info', [ShippingController::class, 'getNpdInfo'])->name('shipping.getNpdInfo');
+    Route::post('shipping/{id}/send-email', [ShippingController::class, 'sendEmail'])->name('shipping.sendEmail');
     Route::post('shipping/unified-save', [ShippingController::class, 'unifiedBatchSave'])->name('shipping.unifiedSave');
     Route::post('shipping/update-deadline', [ShippingController::class, 'updateDeadline'])->name('shipping.updateDeadline');
     Route::get('shipping/{id}/download-zip', [ShippingController::class, 'downloadZip'])->name('shipping.downloadZip');
@@ -69,6 +73,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::post('document/upload-temp', [DocumentController::class, 'upload'])->name('document.upload');
     Route::delete('document/{id}', [DocumentController::class, 'destroy'])->name('documents.destroy');
+
+    Route::get('customer/{id}/emails', [CustomerController::class, 'getEmails'])->name('customer.emails');
 });
 
 Route::get('/file/view/{path}', [FileController::class, 'view'])->middleware('auth')

@@ -58,6 +58,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
 
     const [statusFilter, setStatusFilter] = useState<'sudah' | 'belum' | ''>('');
     const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [tanggalDokumen, setTanggalDokumen] = useState('');
     const [shipmentType, setShipmentType] = useState<'Import' | 'Export'>('Import');
     const [blNumber, setBlNumber] = useState('');
     const [selectedCustomer, setSelectedCustomer] = useState('');
@@ -228,8 +229,8 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
 
     const handleSaveShipment = () => {
         // A. Validasi Sederhana
-        if (!blNumber || !selectedCustomer) {
-            alert(trans.alert_complete_data); // Translate Alert
+        if (!tanggalDokumen || !blNumber || !selectedCustomer) {
+            alert(trans.alert_complete_data);
             return;
         }
 
@@ -243,6 +244,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
         const formData = new FormData();
 
         // Append data tunggal
+        formData.append('tanggal_dokumen', tanggalDokumen);
         formData.append('shipment_type', shipmentType);
         formData.append('bl_number', blNumber);
         formData.append('id_customer', selectedCustomer);
@@ -279,6 +281,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
             onSuccess: () => {
                 // Reset form jika sukses
                 setIsDialogOpen(false);
+                setTanggalDokumen('');
                 setBlNumber('');
                 setHsCodes([{ id: nanoid(), code: '', link: '', file: null }]);
                 setSelectedSections([]); // Reset selected sections
@@ -383,6 +386,17 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                 </DialogHeader>
 
                                 <div className="grid gap-4 py-4">
+                                    {/* Input Tanggal Dokumen */}
+                                    <div className="space-y-2">
+                                        <Label className="text-foreground font-semibold">{trans.document_date || 'Tanggal Dokumen'}</Label>
+                                        <Input
+                                            type="date"
+                                            value={tanggalDokumen}
+                                            onChange={(e) => setTanggalDokumen(e.target.value)}
+                                            className="date-input-dark bg-background border-input text-foreground focus:ring-primary"
+                                        />
+                                    </div>
+
                                     {/* Shipment Type Toggle */}
                                     <div className="space-y-2">
                                         <Label className="text-foreground font-semibold">{trans.shipment_type}</Label>

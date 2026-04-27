@@ -28,6 +28,8 @@ interface DocumentData {
     is_confirmed: boolean;
     attribute: boolean;
     is_ori: boolean;
+    is_print: boolean;
+    is_send_email: boolean;
     link_path_example_file?: string;
     link_path_template_file?: string;
     link_url_video_file?: string;
@@ -58,6 +60,16 @@ export default function ManageDocuments() {
     const isManager = ['manager', 'supervisor'].includes(userRole);
     const isAdmin = userRole === 'admin';
 
+    const toTitleCase = (text: string) => {
+        return text
+            .trim()
+            .toLowerCase()
+            .split(' ')
+            .filter(Boolean)
+            .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ');
+    };
+
     // --- STATE EDIT ---
     const [openEdit, setOpenEdit] = useState(false);
     const [docIdToEdit, setDocIdToEdit] = useState<number | null>(null);
@@ -69,6 +81,8 @@ export default function ManageDocuments() {
         is_confirmed: false,
         attribute: false,
         is_ori: false,
+        is_print: false,
+        is_send_email: false,
         link_url_video_file: '',
         kuota_revisi: '',
 
@@ -97,6 +111,13 @@ export default function ManageDocuments() {
         }
     };
 
+    const handleEditNamaFileBlur = () => {
+        setEditForm((prev) => ({
+            ...prev,
+            nama_file: toTitleCase(prev.nama_file),
+        }));
+    };
+
     // --- HANDLER EDIT ---
     const onEditClick = (id: number) => {
         const doc = documents.find((d) => d.id_dokumen === id) as any;
@@ -110,13 +131,15 @@ export default function ManageDocuments() {
 
             setDocIdToEdit(id);
             setEditForm({
-                nama_file: doc.nama_file,
+                nama_file: toTitleCase(doc.nama_file || ''),
                 id_section: String(doc.id_section),
                 description_file: doc.description_file || '',
                 is_internal: Boolean(doc.is_internal),
                 is_confirmed: Boolean(doc.is_confirmed),
                 attribute: Boolean(doc.attribute),
                 is_ori: Boolean(doc.is_ori),
+                is_print: Boolean(doc.is_print),
+                is_send_email: Boolean(doc.is_send_email),
                 link_url_video_file: doc.link_url_video_file || '',
                 kuota_revisi: doc.kuota_revisi != null ? String(doc.kuota_revisi) : '',
 
@@ -135,7 +158,7 @@ export default function ManageDocuments() {
         }
     };
 
-    const handleEditBooleanChange = (field: 'is_internal' | 'attribute' | 'is_confirmed' | 'is_ori', value: boolean) => {
+    const handleEditBooleanChange = (field: 'is_internal' | 'attribute' | 'is_confirmed' | 'is_ori' | 'is_print' | 'is_send_email', value: boolean) => {
         setEditForm((prev) => ({ ...prev, [field]: value }));
     };
 
@@ -148,6 +171,7 @@ export default function ManageDocuments() {
                 {
                     _method: 'put',
                     ...payload,
+                    nama_file: toTitleCase(payload.nama_file),
                 },
                 {
                     onSuccess: () => {
@@ -209,6 +233,7 @@ export default function ManageDocuments() {
                                 id="edit_nama_file"
                                 value={editForm.nama_file}
                                 onChange={(e) => setEditForm({ ...editForm, nama_file: e.target.value })}
+                                onBlur={handleEditNamaFileBlur}
                                 className="mt-1"
                             />
                         </div>
@@ -287,7 +312,9 @@ export default function ManageDocuments() {
                             )}
 
                             <div>
-                                <Label className="mb-2 block text-xs font-semibold text-gray-500 uppercase">{trans_doc.label_need_confirm || 'Need Confirm'}</Label>
+                                <Label className="mb-2 block text-xs font-semibold text-gray-500 uppercase">
+                                    {trans_doc.label_need_confirm || 'Need Confirm'}
+                                </Label>
                                 <div className="flex w-full gap-2">
                                     <Button
                                         type="button"
@@ -309,7 +336,9 @@ export default function ManageDocuments() {
                             </div>
 
                             <div>
-                                <Label className="mb-2 block text-xs font-semibold text-gray-500 uppercase">{trans_doc.label_is_ori || 'Is Original'}</Label>
+                                <Label className="mb-2 block text-xs font-semibold text-gray-500 uppercase">
+                                    {trans_doc.label_is_ori || 'Is Original'}
+                                </Label>
                                 <div className="flex w-full gap-2">
                                     <Button
                                         type="button"
@@ -323,6 +352,54 @@ export default function ManageDocuments() {
                                         type="button"
                                         variant={!editForm.is_ori ? 'default' : 'outline'}
                                         onClick={() => handleEditBooleanChange('is_ori', false)}
+                                        className="flex-1"
+                                    >
+                                        {trans_doc.btn_no || 'Tidak'}
+                                    </Button>
+                                </div>
+                            </div>
+
+                            <div>
+                                <Label className="mb-2 block text-xs font-semibold text-gray-500 uppercase">
+                                    {trans_doc.label_is_print || 'Is Print'}
+                                </Label>
+                                <div className="flex w-full gap-2">
+                                    <Button
+                                        type="button"
+                                        variant={editForm.is_print ? 'default' : 'outline'}
+                                        onClick={() => handleEditBooleanChange('is_print', true)}
+                                        className="flex-1"
+                                    >
+                                        {trans_doc.btn_yes || 'Ya'}
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant={!editForm.is_print ? 'default' : 'outline'}
+                                        onClick={() => handleEditBooleanChange('is_print', false)}
+                                        className="flex-1"
+                                    >
+                                        {trans_doc.btn_no || 'Tidak'}
+                                    </Button>
+                                </div>
+                            </div>
+
+                            <div>
+                                <Label className="mb-2 block text-xs font-semibold text-gray-500 uppercase">
+                                    {trans_doc.label_is_send_email || 'Is Send Email'}
+                                </Label>
+                                <div className="flex w-full gap-2">
+                                    <Button
+                                        type="button"
+                                        variant={editForm.is_send_email ? 'default' : 'outline'}
+                                        onClick={() => handleEditBooleanChange('is_send_email', true)}
+                                        className="flex-1"
+                                    >
+                                        {trans_doc.btn_yes || 'Ya'}
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant={!editForm.is_send_email ? 'default' : 'outline'}
+                                        onClick={() => handleEditBooleanChange('is_send_email', false)}
                                         className="flex-1"
                                     >
                                         {trans_doc.btn_no || 'Tidak'}
