@@ -2462,8 +2462,11 @@ class ShippingController extends Controller
 
                     if (!Storage::disk('customers_external')->exists($shippingFolder)) Storage::disk('customers_external')->makeDirectory($shippingFolder);
 
-                    $cleanFileName = preg_replace('/[^A-Za-z0-9_\-]/', '_', $att['type']);
-                    $finalRelPath = "{$shippingFolder}/{$cleanFileName}_" . uniqid() . ".{$ext}";
+                    $cleanType = preg_replace('/[^A-Za-z0-9]/', '_', $att['type']);
+                    $cleanSpkCode = preg_replace('/[^A-Za-z0-9]/', '_', $spk->spk_code);
+
+                    $fileName = "{$cleanType}_{$cleanSpkCode}";
+                    $finalRelPath = "{$shippingFolder}/{$fileName}.{$ext}";
                     $absPath = Storage::disk('customers_external')->path($finalRelPath);
 
                     Storage::disk('customers_external')->put($finalRelPath, $fileContent);
