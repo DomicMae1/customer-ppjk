@@ -32,7 +32,8 @@ class MasterDocumentTrans extends Model
         'updated_by',
         'kuota_revisi',
         'is_ori',
-        'is_print'
+        'is_print',
+        'is_send_email',
         // created_at dan updated_at otomatis dihandle
     ];
 
@@ -47,6 +48,7 @@ class MasterDocumentTrans extends Model
         'deadline_document' => 'boolean',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
+        'is_send_email' => 'boolean',
     ];
 
     public function section(): BelongsTo

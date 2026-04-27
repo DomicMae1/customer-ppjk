@@ -36,6 +36,7 @@ interface DocumentData {
     attribute: boolean;
     is_ori: boolean;
     is_print: boolean;
+    is_send_email: boolean;
     link_path_example_file?: string;
     link_path_template_file?: string;
     link_url_video_file?: string;
@@ -116,6 +117,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
         attribute: false,
         is_ori: false,
         is_print: false,
+        is_send_email: false,
         link_url_video_file: '',
         kuota_revisi: '',
         file_example: null as File | null, // Untuk file
@@ -188,7 +190,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
     };
 
     // Helper Boolean
-    const handleBooleanChange = (field: 'is_internal' | 'attribute' | 'is_confirmed' | 'is_ori' | 'is_print', value: boolean) => {
+    const handleBooleanChange = (field: 'is_internal' | 'attribute' | 'is_confirmed' | 'is_ori' | 'is_print'|'is_send_email', value: boolean) => {
         setForm((prev) => ({ ...prev, [field]: value }));
     };
 
@@ -212,6 +214,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
                     attribute: false,
                     is_ori: false,
                     is_print: false,
+                    is_send_email: false,
                     link_url_video_file: '',
                     kuota_revisi: '',
                     file_example: null,
@@ -338,6 +341,11 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
                                         {original.is_print && (
                                             <span className="rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
                                                 PRINT
+                                            </span>
+                                        )}
+                                        {original.is_send_email && (
+                                            <span className="rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                                                EMAIL
                                             </span>
                                         )}
                                     </div>
@@ -575,7 +583,33 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
                                     </Button>
                                 </div>
                             </div>
+                            <div>
+                                <div>
+                                    <Label className="text-muted-foreground mb-2 block text-xs font-bold uppercase">
+                                        {trans_doc.label_is_send_email || 'Is Send Email'}
+                                    </Label>
+                                    <div className="flex gap-2">
+                                        <Button
+                                            type="button"
+                                            variant={form.is_send_email ? 'default' : 'outline'}
+                                            onClick={() => handleBooleanChange('is_send_email', true)}
+                                            className="h-11 flex-1 sm:h-9"
+                                        >
+                                            {trans_doc.btn_yes || 'Ya'}
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            variant={!form.is_send_email ? 'default' : 'outline'}
+                                            onClick={() => handleBooleanChange('is_send_email', false)}
+                                            className="h-11 flex-1 sm:h-9"
+                                        >
+                                            {trans_doc.btn_no || 'Tidak'}
+                                        </Button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
+
 
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <div className="grid gap-2">
