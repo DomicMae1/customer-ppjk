@@ -108,6 +108,14 @@
         .center {
             text-align: center;
         }
+        .party-list {
+            margin: 0;
+            padding-left: 12px;
+        }
+
+        .party-list li {
+            margin: 0 0 2px 0;
+        }
     </style>
 </head>
 <body>
@@ -132,14 +140,14 @@
         <div class="title">TANDA TERIMA DOKUMEN</div>
 
         @php
-            $shipper = !empty($spk->shipper) ? $spk->shipper : 'data kosong';
-            $consignee = !empty($spk->consignee) ? $spk->consignee : 'data kosong';
-            $blNumber = !empty($spk->spk_code) ? $spk->spk_code : 'data kosong';
-            $vessel = !empty($spk->vessel) ? $spk->vessel : 'data kosong';
-            $party = !empty($party) ? $party : 'data kosong';
-            $aju = !empty($spk->aju) ? $spk->aju : 'data kosong';
-            $jo = !empty($spk->j_o) ? $spk->j_o : 'data kosong';
-            $tanggalDiterima = !empty($spk->tanggal_dokumen) ? \Carbon\Carbon::parse($spk->tanggal_dokumen)->format('d-m-Y') : 'data kosong';
+            $shipper = !empty($spk->shipper) ? $spk->shipper : '-';
+            $consignee = !empty($spk->consignee) ? $spk->consignee : '-';
+            $blNumber = !empty($spk->spk_code) ? $spk->spk_code : '-';
+            $vessel = !empty($spk->vessel) ? $spk->vessel : '-';
+            $party = !empty($party) ? $party : '-';
+            $aju = !empty($spk->aju) ? $spk->aju : '-';
+            $jo = !empty($spk->j_o) ? $spk->j_o : '-';
+            $tanggalDiterima = !empty($spk->tanggal_dokumen) ? \Carbon\Carbon::parse($spk->tanggal_dokumen)->format('d-m-Y') : '-';
         @endphp
 
         <table class="shipment-table">
@@ -169,7 +177,17 @@
             </tr>
             <tr>
                 <td class="label">PARTY:</td>
-                <td class="value">{{ $party }}</td>
+                <td class="value">
+                    @if(!empty($party) && $party !== 'data kosong')
+                        <ul class="party-list">
+                            @foreach(explode(',', $party) as $item)
+                                <li>{{ trim($item) }}</li>
+                            @endforeach
+                        </ul>
+                    @else
+                        data kosong
+                    @endif
+                </td>
                 <td class="label"></td>
                 <td class="value"></td>
             </tr>
