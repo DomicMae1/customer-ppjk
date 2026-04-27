@@ -83,7 +83,7 @@ class UserSeeder extends Seeder
                     'nama_perusahaan' => 'PT Client A Maju',
                     'type' => 'external',
                     'nama' => 'Budi Santoso', 
-                    'email' => 'corporate.a@gmail.com',
+                    'email_to' => 'corporate.a@gmail.com',
                     'ownership' => 1, // ID Perusahaan pemilik customer ini
                 ]
             ],
@@ -97,7 +97,7 @@ class UserSeeder extends Seeder
                     'nama_perusahaan' => 'CV Sari Roti Enak',
                     'type' => 'external',
                     'nama' => 'Sari Roti',
-                    'email' => 'corporate.b@gmail.com',
+                    'email_to' => 'corporate.b@gmail.com',
                     'ownership' => 1, // ID Perusahaan pemilik customer ini
                 ]
             ],
@@ -113,7 +113,7 @@ class UserSeeder extends Seeder
                     'nama_perusahaan' => $custData['nama_perusahaan'],
                     'type' => $custData['type'],
                     'nama' => $custData['nama'],
-                    'email' => $custData['email'],
+                    'email_to' => $custData['email_to'],
                     'ownership' => $custData['ownership'],
                 ]
             );
