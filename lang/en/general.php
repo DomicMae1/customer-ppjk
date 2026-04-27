@@ -345,4 +345,5 @@ return [
     'upload_date' => 'Upload Date',
     'verified_date' => 'Verified Date',
     'ori_date' => 'ORI Date',
+    'note_email' => 'Press Enter or Comma to add email',
 ];

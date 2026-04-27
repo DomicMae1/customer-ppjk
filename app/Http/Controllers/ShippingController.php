@@ -33,7 +33,9 @@ use Symfony\Component\Process\Process;
 use App\Services\SectionReminderService;
 use App\Services\NotificationService;
 use App\Jobs\GhostscriptCompressionJob;
+use App\Jobs\SendShippingComposeEmailJob;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Mail;
 
 class ShippingController extends Controller
 {
@@ -1175,7 +1177,6 @@ class ShippingController extends Controller
     public function show($id)
     {
         $user = auth('web')->user();
-
         // NEW: Fetch Internal Staff for Supervisor Assignment (Consistent with index)
         // Moved here to ensure we query the CENTRAL database (tako-user) before tenancy context is switched.
         $internalStaff = [];
@@ -1200,7 +1201,6 @@ class ShippingController extends Controller
                 $tenant = Tenant::where('perusahaan_id', $customer->ownership)->first();
             }
         }
-
         if (!$tenant) {
             abort(404, 'Tenant tidak ditemukan untuk user ini.');
         }
@@ -1212,7 +1212,7 @@ class ShippingController extends Controller
         // 4. Baru sekarang aman untuk Query ke tabel SPK
         // Karena koneksi sudah pindah ke tenant
         $spk = Spk::with(['creator', 'hsCodes', 'customer', 'parties'])->findOrFail($id);
-
+        
         // --- FIRST CLICK VALIDATION ASSIGNMENT ---
         if ($user->role === 'internal' && ($user->role_internal === 'staff' || $user->role_internal === 'marketing')) {
             if (is_null($spk->validated_by)) {
@@ -1222,7 +1222,7 @@ class ShippingController extends Controller
                 DB::transaction(function () use ($spk, $user, &$notificationsToRemove) {
                     // 1. Assign Validator
                     $spk->update(['validated_by' => $user->id_user]);
-                    $spk->refresh();
+                     $spk->refresh();
 
                     // 2. Handle Notifications
                     // A. Update Current User's Notification (Mark as Read, KEEP it)
@@ -1328,17 +1328,15 @@ class ShippingController extends Controller
         $latestLog = \App\Models\DocumentStatus::whereIn('id_dokumen_trans', $allDocs->pluck('id'))
             ->latest()
             ->first();
-
         $shipmentData = [
             'id_spk'    => $spk->id,
-            // Format tanggal: 12/11/25 10.35 WIB
             'spkDate'   => $priorityStatus ? $priorityStatus->created_at->format('d/m/y H.i') . ' WIB' : '-',
-            // Use SPK Status Name directly as requested
             'status'    => $priorityStatus ? $priorityStatus->status : 'UNKNOWN',
             'updated_by_name' => $latestLog->by ?? null, // Added to show who uploaded
             'shipmentType' => $spk->shipment_type,
             'type'      => $spk->shipment_type,
             'spkNumber'  => $spk->spk_code, // Mapping spk_code ke siNumber
+            'id_customer' => $spk->id_customer,
             'penjaluran' => $spk->penjaluran,
             'internal_can_upload' => $spk->internal_can_upload,
             'is_created_by_internal' => $spk->is_created_by_internal,
@@ -3443,5 +3441,136 @@ class ShippingController extends Controller
             Log::error("Failed to update NPD: " . $th->getMessage());
             return response()->json(['success' => false, 'error' => $th->getMessage()], 500);
         }
+    }
+
+    public function sendEmail(Request $request, $id)
+    {
+        $user = auth('web')->user();
+        $tenant = null;
+
+        if ($user->id_perusahaan) {
+            $tenant = \App\Models\Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
+        } elseif ($user->id_customer) {
+            $customer = \App\Models\Customer::find($user->id_customer);
+            if ($customer && $customer->ownership) {
+                $tenant = \App\Models\Tenant::where('perusahaan_id', $customer->ownership)->first();
+            }
+        }
+
+        if (!$tenant) {
+            return response()->json(['message' => 'Tenant tidak ditemukan'], 404);
+        }
+
+        tenancy()->initialize($tenant);
+
+        $data = $request->validate([
+            'email_to' => ['required', 'array', 'min:1'],
+            'email_to.*' => ['required', 'email'],
+            'email_cc' => ['nullable', 'array'],
+            'email_cc.*' => ['nullable', 'email'],
+            'subject' => ['required', 'string', 'max:255'],
+            'body' => ['required', 'string'],
+            'document_ids' => ['nullable', 'array'],
+            'document_ids.*' => ['integer'],
+            'files' => ['nullable', 'array'],
+            'files.*' => ['file', 'max:20480'],
+        ]);
+
+        $spk = Spk::findOrFail($id);
+
+        $body = (string) $data['body'];
+        $body = preg_replace('/<script\\b[^>]*>(.*?)<\\/script>/is', '', $body);
+        $body = preg_replace('/on\\w+\\s*=\\s*(\"[^\"]*\"|\\\'[^\\\']*\\\'|[^\\s>]+)/i', '', $body);
+        $body = strip_tags($body, '<p><br><strong><b><em><i><u><s><strike><a><ol><ul><li><blockquote><h1><h2><h3><span><div>');
+
+        $latestDocs = DocumentTrans::with('masterDocument')
+            ->where('id_spk', $id)
+            ->orderByDesc('id')
+            ->get()
+            ->groupBy('id_dokumen')
+            ->map(function ($items) {
+                return $items->first();
+            });
+
+        $missingRequired = $latestDocs->filter(function ($doc) {
+            return $doc && $doc->masterDocument && $doc->masterDocument->is_send_email && empty($doc->url_path_file);
+        });
+
+        if ($missingRequired->count() > 0) {
+            return response()->json(['message' => 'Dokumen wajib email belum lengkap di SPK ini'], 422);
+        }
+
+        $requiredIds = $latestDocs->filter(function ($doc) {
+            return $doc && $doc->masterDocument && $doc->masterDocument->is_send_email;
+        })->keys();
+
+        $selectedIds = collect($data['document_ids'] ?? [])->map(function ($v) {
+            return (int) $v;
+        })->filter()->unique();
+
+        $attachIds = $selectedIds->merge($requiredIds)->unique();
+
+        $missingSelected = $attachIds->filter(function ($idDokumen) use ($latestDocs) {
+            $doc = $latestDocs->get($idDokumen);
+            return !$doc || empty($doc->url_path_file);
+        });
+
+        if ($missingSelected->count() > 0) {
+            return response()->json(['message' => 'Ada dokumen attachment yang tidak ditemukan / belum diupload'], 422);
+        }
+
+        $disk = Storage::disk('customers_external');
+        $maxBytes = (int) env('MAIL_MAX_SIZE_BYTES', 24 * 1024 * 1024);
+        $totalBytes = 0;
+        foreach ($attachIds as $idDokumen) {
+            $doc = $latestDocs->get($idDokumen);
+            if (!$doc || !$doc->url_path_file) continue;
+            if (!$disk->exists($doc->url_path_file)) {
+                return response()->json(['message' => 'Attachment dokumen tidak ditemukan di server'], 422);
+            }
+            try {
+                $totalBytes += (int) $disk->size($doc->url_path_file);
+            } catch (\Throwable $e) {
+                // ignore size calculation failures; mailer will validate at send time
+            }
+        }
+
+        $tempFiles = [];
+        foreach (($request->file('files') ?? []) as $file) {
+            if (!$file) continue;
+            try {
+                $totalBytes += (int) $file->getSize();
+            } catch (\Throwable $e) {
+                // ignore
+            }
+            $storedName = \Illuminate\Support\Str::uuid()->toString() . '-' . $file->getClientOriginalName();
+            $storedPath = $file->storeAs('email-attachments/spk-' . $id, $storedName, 'customers_external');
+            $tempFiles[] = ['path' => $storedPath, 'name' => $file->getClientOriginalName()];
+        }
+
+        if ($totalBytes > $maxBytes) {
+            $mb = round($totalBytes / 1024 / 1024, 1);
+            $limitMb = round($maxBytes / 1024 / 1024, 0);
+            return response()->json(['message' => "Total attachment terlalu besar ({$mb} MB). Maksimum {$limitMb} MB."], 422);
+        }
+
+        $to = $data['email_to'];
+        $cc = $data['email_cc'] ?? [];
+        $perusahaan = Perusahaan::where('id_perusahaan', $user->id_perusahaan)->value('nama_perusahaan');
+        $senderName = $perusahaan ?? config('mail.from.name');
+
+        SendShippingComposeEmailJob::dispatch(
+            (string) $tenant->id,
+            (int) $spk->id,
+            $to,
+            $cc,
+            $data['subject'],
+            $body,
+            $attachIds->values()->all(),
+            $tempFiles,
+            $senderName,
+        );
+
+        return response()->json(['success' => true, 'queued' => true]);
     }
 }

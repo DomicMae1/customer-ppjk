@@ -71,7 +71,10 @@ class CustomerController extends Controller
         $validated = $request->validate([
             'nama_perusahaan' => 'required|string|max:255',
             'type'            => 'required|string|max:100', 
-            'email'           => 'required|email|max:255',
+            'email_to'           => 'required|array|min:1',
+            'email_to.*'       => 'email|max:255',
+            'email_cc'         => 'nullable|array',
+            'email_cc.*'       => 'email|max:255',
             'nama'            => 'required|string|max:255', 
             'no_npwp'         => 'nullable|string|max:50',
             'no_npwp_16'      => 'nullable|string|max:50',
@@ -94,7 +97,8 @@ class CustomerController extends Controller
                 'uid'             => (string) Str::uuid(), 
                 'nama_perusahaan' => $validated['nama_perusahaan'],
                 'type'            => $validated['type'],
-                'email'           => $validated['email'],
+                'email_to'        => $validated['email_to'],
+                'email_cc'        => $validated['email_cc'] ?? [],
                 'nama'            => $validated['nama'],
                 'no_npwp'         => $validated['no_npwp'] ?? null,
                 'no_npwp_16'      => $validated['no_npwp_16'] ?? null,
@@ -127,7 +131,10 @@ class CustomerController extends Controller
         $validated = $request->validate([
             'nama_perusahaan' => 'required|string|max:255',
             'type'            => 'required|string|max:100',
-            'email'           => 'required|email|max:255',
+            'email_to'           => 'required|array|min:1',
+            'email_to.*'       => 'email|max:255',
+            'email_cc'         => 'nullable|array',
+            'email_cc.*'       => 'email|max:255',
             'nama'            => 'required|string|max:255',
             'no_npwp'         => 'nullable|string|max:50',
             'no_npwp_16'      => 'nullable|string|max:50',
@@ -150,7 +157,8 @@ class CustomerController extends Controller
             $customer->update([
                 'nama_perusahaan' => $validated['nama_perusahaan'],
                 'type'            => $validated['type'],
-                'email'           => $validated['email'],
+                'email_to'        => $validated['email_to'],
+                'email_cc'        => $validated['email_cc'] ?? [],
                 'nama'            => $validated['nama'],
                 'no_npwp'         => $validated['no_npwp'] ?? null,
                 'no_npwp_16'      => $validated['no_npwp_16'] ?? null,
@@ -192,5 +200,14 @@ class CustomerController extends Controller
             return redirect()->route('customer.index')
                 ->with('error', 'Gagal menghapus data: ' . $e->getMessage());
         }
+    }
+
+    public function getEmails($id)
+    {
+        $customer = Customer::findOrFail($id);
+        return response()->json([
+            'email_to' => $customer->email_to ?? [],
+            'email_cc' => $customer->email_cc ?? [],
+        ]);
     }
 }
