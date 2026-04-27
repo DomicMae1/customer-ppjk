@@ -30,6 +30,7 @@ export type Shipping = {
     origin?: string | null;
     port?: string | null;
     comodity?: string | null;
+    party_summary?: string | null;
 };
 
 export const columns = (
@@ -221,7 +222,7 @@ export const columns = (
                     {trans.vessel?.toUpperCase() || 'VESSEL'}
                 </div>
             ),
-            cell: ({ row }) => <div className="text-sm md:px-2 text-center">{row.original.vessel || '-'}</div>,
+            cell: ({ row }) => <div className="text-center text-sm md:px-2">{row.original.vessel || '-'}</div>,
         },
         {
             accessorKey: 'origin',
@@ -233,7 +234,7 @@ export const columns = (
                     {trans.origin?.toUpperCase() || 'ORIGIN'}
                 </div>
             ),
-            cell: ({ row }) => <div className="text-sm md:px-2 text-center">{row.original.origin || '-'}</div>,
+            cell: ({ row }) => <div className="text-center text-sm md:px-2">{row.original.origin || '-'}</div>,
         },
         {
             accessorKey: 'port',
@@ -245,7 +246,7 @@ export const columns = (
                     {trans.port?.toUpperCase() || 'PORT'}
                 </div>
             ),
-            cell: ({ row }) => <div className="text-sm md:px-2 text-center">{row.original.port || '-'}</div>,
+            cell: ({ row }) => <div className="text-center text-sm md:px-2">{row.original.port || '-'}</div>,
         },
         {
             accessorKey: 'comodity',
@@ -257,7 +258,19 @@ export const columns = (
                     {trans.comodity?.toUpperCase() || 'COMODITY'}
                 </div>
             ),
-            cell: ({ row }) => <div className="text-sm md:px-2 text-center">{row.original.comodity || '-'}</div>,
+            cell: ({ row }) => <div className="text-center text-sm md:px-2">{row.original.comodity || '-'}</div>,
+        },
+        {
+            accessorKey: 'party_summary',
+            header: ({ column }) => (
+                <div
+                    className="cursor-pointer text-sm font-medium select-none md:px-2 md:py-2"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+                >
+                    {trans.party?.toUpperCase() || 'PARTY'}
+                </div>
+            ),
+            cell: ({ row }) => <div className="text-left text-sm md:min-w-[220px] md:px-2">{row.original.party_summary || '-'}</div>,
         },
         {
             accessorKey: 'jalur',

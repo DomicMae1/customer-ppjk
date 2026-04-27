@@ -93,6 +93,7 @@ class ShippingController extends Controller
                 'customer',
                 'creator',
                 'latestStatus',
+                'parties', 
                 'sections' => function ($q) {
                     // 1. Urutkan section agar rapi
                     $q->orderBy('section_order', 'asc');
@@ -211,6 +212,24 @@ class ShippingController extends Controller
                     'origin'                => $item->origin,
                     'port'                  => $item->port,
                     'comodity'              => $item->comodity,
+                    'party_summary' => $item->parties->map(function ($p) {
+                        if ($p->party_type === 'LCL') {
+                            return "{$p->party_qty} {$p->party_size} (LCL)";
+                        }
+
+                        if ($p->party_type === 'FCL') {
+                            $cleanCategory = $p->party_category 
+                                ? preg_replace('/^\d+\s*-\s*/', '', $p->party_category)
+                                : '';
+
+                            // ❌ HAPUS DASH
+                            $category = $cleanCategory ? " {$cleanCategory}" : '';
+
+                            return "{$p->party_qty} x {$p->party_size}{$category} (FCL)";
+                        }
+
+                        return null;
+                    })->filter()->implode(', '),
                 ];
             });
 
@@ -368,8 +387,25 @@ class ShippingController extends Controller
                 'origin' => $spk->origin,
                 'port' => $spk->port,
                 'comodity' => $spk->comodity,
-                'party_qty' => $spk->party_qty,
-                'party_size' => $spk->party_size, // To be removed later or kept for backwards compat but it's empty now
+                'parties' => $spk->parties,
+                'party_summary' => $spk->parties->map(function ($p) {
+                    if ($p->party_type === 'LCL') {
+                        return "{$p->party_qty} {$p->party_size} (LCL)";
+                    }
+
+                    if ($p->party_type === 'FCL') {
+                        $cleanCategory = $p->party_category 
+                            ? preg_replace('/^\d+\s*-\s*/', '', $p->party_category)
+                            : '';
+
+                        // ❌ HAPUS DASH
+                        $category = $cleanCategory ? " {$cleanCategory}" : '';
+
+                        return "{$p->party_qty} x {$p->party_size}{$category} (FCL)";
+                    }
+
+                    return null;
+                })->filter()->implode(', '),
                 'parties' => $spk->parties,
                 'aju' => $spk->aju,
                 'j_o' => $spk->j_o,
@@ -571,15 +607,23 @@ class ShippingController extends Controller
         $progressPercentage = $totalDocs === 0 ? 0 : round(($verifiedCount / $totalDocs) * 100);
         $generatedAt = now()->format('d-m-Y H:i');
 
-        $partyStrings = [];
-        foreach ($spk->parties as $p) {
-            $s = "{$p->party_qty} x {$p->party_size}";
-            if ($p->party_type === 'FCL' && $p->party_category) {
-                $s .= " ({$p->party_category})";
+        $party = $spk->parties->map(function ($p) {
+            if ($p->party_type === 'LCL') {
+                return "{$p->party_qty} {$p->party_size} (LCL)";
             }
-            $partyStrings[] = $s;
-        }
-        $party = implode('; ', $partyStrings);
+
+            if ($p->party_type === 'FCL') {
+                $cleanCategory = $p->party_category
+                    ? preg_replace('/^\d+\s*-\s*/', '', $p->party_category)
+                    : '';
+
+                $category = $cleanCategory ? " {$cleanCategory}" : '';
+
+                return "{$p->party_qty} x {$p->party_size}{$category} (FCL)";
+            }
+
+            return null;
+        })->filter()->implode(', ');
 
         $view = 'pdf.shipping-report'; // default
 

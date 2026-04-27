@@ -213,6 +213,17 @@
             color: #64748b;
             text-align: right;
         }
+        .party-list {
+            display: inline-block;
+            margin: 0;
+            padding-left: 14px;
+            vertical-align: top;
+        }
+
+        .party-list li {
+            margin: 0 0 4px 0;
+            padding: 0;
+        }
     </style>
 </head>
 <body>
@@ -253,7 +264,18 @@
                 <td>: {{ $spk->shipper ?? '-' }}</td>
 
                 <td class="info-label">Party</td>
-                <td>: {{ $party ?? '-' }}</td>
+                <td>
+                    :
+                    @if(!empty($party))
+                        <ul class="party-list">
+                            @foreach(explode(',', $party) as $partyItem)
+                                <li>{{ trim($partyItem) }}</li>
+                            @endforeach
+                        </ul>
+                    @else
+                        -
+                    @endif
+                </td>
             </tr>
             <tr>
                 <td class="info-label">C'NEE</td>
