@@ -692,7 +692,7 @@ class ShippingController extends Controller
                     'ori_date' => $oriDate ? $oriDate->format('d-m-Y') : '-',
                     'ori_date_full' => $oriDate ? $oriDate->format('d-m-Y H:i') . ' WIB' : null,
                 ];
-            });
+         
 
         $groupedDocuments = collect($rawDocuments)
             ->groupBy(function ($doc) {
