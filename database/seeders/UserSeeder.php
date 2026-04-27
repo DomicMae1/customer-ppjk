@@ -3,11 +3,11 @@
 namespace Database\Seeders;
 
 use App\Models\User;
-use App\Models\Customer;
 use App\Models\Perusahaan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Spatie\Permission\Models\Role;
 use Illuminate\Support\Str;
 
@@ -105,18 +105,49 @@ class UserSeeder extends Seeder
 
         foreach ($externalUsers as $data) {
             $custData = $data['customer_data'];
-            
-            $customer = Customer::updateOrCreate(
-                ['id_customer' => $custData['id_customer']],
-                [
-                    'uid' => Str::uuid(), // Ensure UID is generated if creating new
-                    'nama_perusahaan' => $custData['nama_perusahaan'],
-                    'type' => $custData['type'],
-                    'nama' => $custData['nama'],
-                    'email_to' => $custData['email_to'],
-                    'ownership' => $custData['ownership'],
-                ]
-            );
+
+            $customerId = (int) $custData['id_customer'];
+            $now = now();
+
+            $hasEmailTo = Schema::connection('tako-user')->hasColumn('customers', 'email_to');
+            $hasEmail = Schema::connection('tako-user')->hasColumn('customers', 'email');
+
+            $existing = DB::connection('tako-user')
+                ->table('customers')
+                ->where('id_customer', $customerId)
+                ->first();
+
+            $uid = $existing?->uid ?: (string) Str::uuid();
+            $payload = [
+                'uid' => $uid,
+                'nama_perusahaan' => $custData['nama_perusahaan'],
+                'type' => $custData['type'],
+                'nama' => $custData['nama'],
+                'ownership' => $custData['ownership'],
+                'updated_at' => $now,
+            ];
+
+            if ($existing === null) {
+                $payload['id_customer'] = $customerId;
+                $payload['created_at'] = $now;
+            }
+
+            if ($hasEmailTo) {
+                $emailTo = $custData['email_to'] ?? null;
+                $emailToArray = $emailTo ? (is_array($emailTo) ? $emailTo : [$emailTo]) : null;
+                $payload['email_to'] = $emailToArray ? json_encode($emailToArray) : null;
+                if (Schema::connection('tako-user')->hasColumn('customers', 'email_cc')) {
+                    $payload['email_cc'] = json_encode([]);
+                }
+            } elseif ($hasEmail) {
+                $payload['email'] = $custData['email_to'] ?? null;
+            }
+
+            if ($existing === null) {
+                DB::connection('tako-user')->table('customers')->insert($payload);
+            } else {
+                DB::connection('tako-user')->table('customers')->where('id_customer', $customerId)->update($payload);
+            }
 
             $user = User::updateOrCreate(
                 ['email' => $data['user_email']],
@@ -124,7 +155,7 @@ class UserSeeder extends Seeder
                     'name' => $data['user_name'],
                     'password' => Hash::make($data['password']),
                     'id_perusahaan' => $custData['ownership'], 
-                    'id_customer' => $customer->id_customer,
+                    'id_customer' => $customerId,
                     'role' => 'eksternal',
                     'role_internal' => null,
                 ]
