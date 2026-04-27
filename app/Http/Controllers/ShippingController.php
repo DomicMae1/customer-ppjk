@@ -746,7 +746,7 @@ class ShippingController extends Controller
 
                 if (isset($hsData['file']) && $hsData['file'] instanceof \Illuminate\Http\UploadedFile) {
                     $extension = $hsData['file']->getClientOriginalExtension();
-                    $fileNameToSave = $hsData['code'] . '_' . uniqid() . '.' . $extension;
+                    $fileNameToSave = $spk->spk_code . '_' . $hsData['code'] . '_' . uniqid() . '.' . $extension;
 
                     $path = $hsData['file']->storeAs(
                         'documents/hs_codes',
@@ -1062,13 +1062,18 @@ class ShippingController extends Controller
                 $fileNameToSave = null;
                 if (isset($item['file']) && $item['file'] instanceof \Illuminate\Http\UploadedFile) {
                     $extension = $item['file']->getClientOriginalExtension();
-                    $fileNameToSave = $item['code'] . '_' . uniqid() . '.' . $extension;
+
+                    $safeSpkCode = preg_replace('/[^A-Za-z0-9_\-]/', '_', $spk->spk_code);
+                    $safeHsCode = preg_replace('/[^A-Za-z0-9_\-]/', '_', $item['code']);
+
+                    $fileNameToSave = $safeSpkCode . '_' . $safeHsCode . '_' . uniqid()  . '.' . $extension;
 
                     $path = $item['file']->storeAs(
                         'documents/hs_codes',
                         $fileNameToSave,
                         'customers_external'
                     );
+
                     $filePath = $path;
                 }
 
