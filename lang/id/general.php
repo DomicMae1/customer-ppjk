@@ -292,7 +292,7 @@ return [
     'consignee' => 'Consignee (C\'NEE)',
     'vessel' => 'Vessel',
     'origin' => 'Asal',
-    'port' => 'Pelabuhan',
+    'port' => 'Pelabuhan Tujuan',
     'comodity' => 'Komoditi',
     'party' => 'Party',
     'aju' => 'AJU',
