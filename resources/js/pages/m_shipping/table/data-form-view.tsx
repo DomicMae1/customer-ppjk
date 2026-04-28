@@ -218,8 +218,6 @@ export default function ViewCustomerForm({
     // Verification states
     const [verifyingDocId, setVerifyingDocId] = useState<number | null>(null);
     const [rejectionModalOpen, setRejectionModalOpen] = useState(false);
-    const [rejectionNote, setRejectionNote] = useState('');
-    const [rejectionFile, setRejectionFile] = useState<File | null>(null);
     const [rejectingDocId, setRejectingDocId] = useState<number | null>(null);
 
     // New State for formulir penerimaan dokumen
@@ -669,6 +667,8 @@ export default function ViewCustomerForm({
             if (prev.includes(documentId)) {
                 return prev.filter((id) => id !== documentId);
             } else {
+                // Clear rejection data if we are verifying this document
+                setPendingRejections((rej) => rej.filter((r) => r.docId !== documentId));
                 return [...prev, documentId];
             }
         });
@@ -689,12 +689,10 @@ export default function ViewCustomerForm({
     const handleOpenReject = (documentId: number) => {
         setRejectingDocId(documentId);
         setRejectionModalOpen(true);
-        setRejectionNote('');
-        setRejectionFile(null);
     };
 
-    const handleSubmitReject = async () => {
-        if (!rejectingDocId || !rejectionNote.trim()) {
+    const handleSubmitReject = (docId: number, note: string, file: File | null) => {
+        if (!docId || !note.trim()) {
             toast.warning('Please provide a rejection reason');
             return;
         }
@@ -702,23 +700,21 @@ export default function ViewCustomerForm({
         // Store rejection in local state instead of sending immediately
         setPendingRejections((prev) => {
             // Remove existing rejection for this doc if exists (overwrite)
-            const filtered = prev.filter((r) => r.docId !== rejectingDocId);
+            const filtered = prev.filter((r) => r.docId !== docId);
             return [
                 ...filtered,
                 {
-                    docId: rejectingDocId,
-                    note: rejectionNote,
-                    file: rejectionFile,
+                    docId: docId,
+                    note: note,
+                    file: file,
                 },
             ];
         });
 
         // Also remove from pending verifications if it was there
-        setPendingVerifications((prev) => prev.filter((id) => id !== rejectingDocId));
+        setPendingVerifications((prev) => prev.filter((id) => id !== docId));
 
         setRejectionModalOpen(false);
-        setRejectionNote('');
-        setRejectionFile(null);
         setRejectingDocId(null);
     };
 
@@ -1268,7 +1264,14 @@ export default function ViewCustomerForm({
                                 </span>
                                 <Checkbox
                                     checked={isRejected || isPendingRejection}
-                                    onCheckedChange={(checked) => checked && handleOpenReject(doc.id)}
+                                    onCheckedChange={(checked) => {
+                                        if (checked) {
+                                            handleOpenReject(doc.id);
+                                        } else {
+                                            // Clear pending rejection if unchecked
+                                            setPendingRejections((prev) => prev.filter((r) => r.docId !== doc.id));
+                                        }
+                                    }}
                                     className="border-gray-300 data-[state=checked]:border-red-600 data-[state=checked]:bg-red-600 dark:border-zinc-700 dark:data-[state=checked]:border-red-500 dark:data-[state=checked]:bg-red-500"
                                     disabled={!isPending}
                                 />
@@ -2268,7 +2271,7 @@ export default function ViewCustomerForm({
                                 <div className="space-y-1.5">
                                     <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.port}</Label>
                                     <Input
-                                        placeholder="Input Port"
+                                        placeholder="Input Port Of Destination"
                                         value={portForm}
                                         onChange={(e) => setPortForm(e.target.value)}
                                         className="h-9 rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-900"
@@ -2963,35 +2966,13 @@ export default function ViewCustomerForm({
                 </DialogContent>
             </Dialog>
 
-            <Dialog open={rejectionModalOpen} onOpenChange={setRejectionModalOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>{trans.reject_document || 'Reject Document'}</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4 py-4">
-                        <div className="space-y-2">
-                            <Label>{trans.rejection_reason || 'Reason for Rejection'}</Label>
-                            <Textarea
-                                value={rejectionNote}
-                                onChange={(e) => setRejectionNote(e.target.value)}
-                                placeholder={trans.placeholder_rejection || 'Enter reason for rejection...'}
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label>{trans.correction_file || 'Correction File (Optional)'}</Label>
-                            <Input type="file" onChange={(e) => setRejectionFile(e.target.files ? e.target.files[0] : null)} />
-                        </div>
-                    </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setRejectionModalOpen(false)}>
-                            {trans.cancel}
-                        </Button>
-                        <Button style={{ color: 'white' }} variant="destructive" onClick={handleSubmitReject} disabled={verifyingDocId !== null}>
-                            {verifyingDocId ? trans.rejecting || 'Rejecting...' : trans.confirm_rejection || 'Confirm Rejection'}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+            <RejectionDialog
+                open={rejectionModalOpen}
+                onOpenChange={setRejectionModalOpen}
+                onSubmit={(note: string, file: File | null) => rejectingDocId && handleSubmitReject(rejectingDocId, note, file)}
+                trans={trans}
+                isProcessing={verifyingDocId !== null}
+            />
 
             <Dialog open={historyModalOpen} onOpenChange={setHistoryModalOpen}>
                 <DialogContent className="max-w-md">
@@ -3193,5 +3174,56 @@ export default function ViewCustomerForm({
                 </DialogContent>
             </Dialog>
         </div>
+    );
+}
+
+// Sub-component for Rejection Dialog to prevent parent re-renders while typing
+function RejectionDialog({ open, onOpenChange, onSubmit, trans, isProcessing }: any) {
+    const [note, setNote] = useState('');
+    const [file, setFile] = useState<File | null>(null);
+
+    // Reset local state when opened
+    useEffect(() => {
+        if (open) {
+            setNote('');
+            setFile(null);
+        }
+    }, [open]);
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>{trans.reject_document || 'Reject Document'}</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                        <Label>{trans.rejection_reason || 'Reason for Rejection'}</Label>
+                        <Textarea
+                            value={note}
+                            onChange={(e) => setNote(e.target.value)}
+                            placeholder={trans.placeholder_rejection || 'Enter reason for rejection...'}
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label>{trans.correction_file || 'Correction File (Optional)'}</Label>
+                        <Input type="file" onChange={(e) => setFile(e.target.files ? e.target.files[0] : null)} />
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => onOpenChange(false)}>
+                        {trans.cancel}
+                    </Button>
+                    <Button
+                        style={{ color: 'white' }}
+                        variant="destructive"
+                        onClick={() => onSubmit(note, file)}
+                        disabled={isProcessing}
+                    >
+                        {isProcessing ? trans.rejecting || 'Rejecting...' : trans.confirm_rejection || 'Confirm Rejection'}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
 }
