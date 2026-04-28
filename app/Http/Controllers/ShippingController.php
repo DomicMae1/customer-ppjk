@@ -1417,7 +1417,7 @@ class ShippingController extends Controller
         $spk = Spk::with(['creator', 'hsCodes', 'customer', 'parties'])->findOrFail($id);
         
         // --- FIRST CLICK VALIDATION ASSIGNMENT ---
-        if ($user->role === 'internal' && ($user->role_internal === 'staff' || $user->role_internal === 'marketing')) {
+        if ($user->role === 'internal' && $user->role_internal === 'staff') {
             if (is_null($spk->validated_by)) {
 
                 $notificationsToRemove = collect([]);
@@ -1438,10 +1438,7 @@ class ShippingController extends Controller
                     $staffIdsToCleanup = \App\Models\User::on('tako-user')
                         ->where('role', 'internal')
                         ->where('id_perusahaan', $user->id_perusahaan ?? $tenant->perusahaan_id)
-                        ->where(function ($q) {
-                            $q->where('role_internal', 'staff')
-                                ->orWhere('role_internal', 'marketing');
-                        })
+                        ->where('role_internal', 'staff')
                         ->where('id_user', '!=', $user->id_user)
                         ->pluck('id_user');
 

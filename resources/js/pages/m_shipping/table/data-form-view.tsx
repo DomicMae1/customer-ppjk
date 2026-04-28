@@ -1859,11 +1859,13 @@ export default function ViewCustomerForm({
                                 </div>
                             )}
                         </div>
-                        <div className="flex items-center justify-center mt-2">
-                            <Button onClick={() => setOpenEmailModal(true)}>
-                                Kirim Email Pemberitahuan
-                            </Button>
-                        </div>
+                        {isInternalUser && (
+                            <div className="flex items-center justify-center mt-2">
+                                <Button onClick={() => setOpenEmailModal(true)}>
+                                    Kirim Email Pemberitahuan
+                                </Button>
+                            </div>
+                        )}
                     </div>
 
                     {/* Ori Date Modal */}
