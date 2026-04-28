@@ -91,7 +91,7 @@ RUN chown -R www-data:www-data storage bootstrap/cache \
 RUN composer install --optimize-autoloader --no-dev
 
 # Install dependency JS & Build
-RUN npm install && chmod -R +x node_modules/.bin && npm run build
+RUN npm install --legacy-peer-deps && chmod -R +x node_modules/.bin && npm run build
 
 # Buat Script Startup (Entrypoint)
 # UPDATED: Changed /mnt/Customer_Registration to /mnt/Ppjk
