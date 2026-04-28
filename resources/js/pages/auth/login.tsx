@@ -9,6 +9,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AuthLayout from '@/layouts/auth-layout';
+import { Eye, EyeOff } from 'lucide-react';
+import { useState } from 'react';
 
 interface LoginForm {
     email: string;
@@ -41,6 +43,7 @@ export default function Login({ status, canResetPassword, company, trans_auth, l
             onFinish: () => reset('password'),
         });
     };
+    const [showPassword, setShowPassword] = useState(false);
 
     const companyName = company?.nama_perusahaan || 'PT. Tako Anugerah Koporasi';
     const companyLogo = company?.path_company_logo || null;
@@ -104,16 +107,29 @@ export default function Login({ status, canResetPassword, company, trans_auth, l
                                 </TextLink>
                             )}
                         </div>
-                        <Input
-                            id="password"
-                            type="password"
-                            required
-                            tabIndex={2}
-                            autoComplete="current-password"
-                            value={data.password}
-                            onChange={(e) => setData('password', e.target.value)}
-                            placeholder={trans_auth.password_placeholder}
-                        />
+
+                        <div className="relative">
+                            <Input
+                                id="password"
+                                type={showPassword ? 'text' : 'password'}
+                                required
+                                tabIndex={2}
+                                autoComplete="current-password"
+                                value={data.password}
+                                onChange={(e) => setData('password', e.target.value)}
+                                placeholder={trans_auth.password_placeholder}
+                                className="pr-10"
+                            />
+
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="absolute top-1/2 right-3 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                            >
+                                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                            </button>
+                        </div>
+
                         <InputError message={errors.password} />
                     </div>
 
