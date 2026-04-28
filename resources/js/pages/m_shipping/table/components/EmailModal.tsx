@@ -37,6 +37,9 @@ export default function EmailModal({ open, onOpenChange, idCustomer, idSpk, sect
     const [subject, setSubject] = useState('');
     const [body, setBody] = useState('');
     const [attachments, setAttachments] = useState<any[]>([]);
+    const [attachPdfOverview, setAttachPdfOverview] = useState(false);
+    const [attachPdfKarantina, setAttachPdfKarantina] = useState(false);
+    const [attachPdfNonKarantina, setAttachPdfNonKarantina] = useState(false);
     const [sendingEmail, setSendingEmail] = useState(false);
     const [openPickDoc, setOpenPickDoc] = useState(false);
     const [pickDocIds, setPickDocIds] = useState<number[]>([]);
@@ -103,6 +106,9 @@ export default function EmailModal({ open, onOpenChange, idCustomer, idSpk, sect
         setEmailsTo([]);
         setEmailsCc([]);
         setAttachments(defaultAttachments);
+        setAttachPdfOverview(false);
+        setAttachPdfKarantina(false);
+        setAttachPdfNonKarantina(false);
         setOpenPickDoc(false);
         setPickDocIds([]);
         if (quillRef.current) {
@@ -215,12 +221,13 @@ export default function EmailModal({ open, onOpenChange, idCustomer, idSpk, sect
 
     const handleSendEmail = async () => {
         const plainBody = body.replace(/<(.|\n)*?>/g, '').trim();
+        const pdfCount = Number(attachPdfOverview) + Number(attachPdfKarantina) + Number(attachPdfNonKarantina);
         if (!idSpk) return toast.error('SPK tidak ditemukan');
         if (!emailsTo.length) return toast.error('Email To wajib');
         if (!subject.trim()) return toast.error('Subject wajib');
         if (!plainBody) return toast.error('Body wajib');
         if (missingRequiredAttachments.length) return toast.error('Masih ada dokumen wajib email yang belum diupload di SPK ini');
-        if (!attachments.length) return toast.error('Attachment wajib ada');
+        if (!attachments.length && pdfCount === 0) return toast.error('Attachment wajib ada');
         try {
             setSendingEmail(true);
             const formData = new FormData();
@@ -232,6 +239,9 @@ export default function EmailModal({ open, onOpenChange, idCustomer, idSpk, sect
             const docIds = Array.from(new Set(attachments.filter((a: any) => a?.type === 'document').map((a: any) => a?.id_dokumen).filter(Boolean)));
             docIds.forEach((id: any) => formData.append('document_ids[]', String(id)));
             attachments.filter((a: any) => a?.type === 'file' && a?.file).forEach((a: any) => formData.append('files[]', a.file));
+            if (attachPdfOverview) formData.append('attach_spk_overview_pdf', '1');
+            if (attachPdfKarantina) formData.append('attach_spk_karantina_pdf', '1');
+            if (attachPdfNonKarantina) formData.append('attach_spk_non_karantina_pdf', '1');
             await axios.post(`/shipping/${idSpk}/send-email`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
             toast.success('Email sedang diproses untuk dikirim');
             onOpenChange(false);
@@ -325,12 +335,12 @@ export default function EmailModal({ open, onOpenChange, idCustomer, idSpk, sect
                             </div>
 
                             <div className="space-y-2 border rounded p-3">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <Label className="text-sm">Attachments</Label>
-                                        <p className="text-xs text-gray-500">Dokumen dengan is_send_email dan sudah ada di SPK otomatis dipasang di sini.</p>
-                                    </div>
-                                    <div className="flex gap-2">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <Label className="text-sm">Attachments</Label>
+                                    <p className="text-xs text-gray-500">Dokumen dengan is_send_email dan sudah ada di SPK otomatis dipasang di sini.</p>
+                                </div>
+                                <div className="flex gap-2">
                                         <Button type="button" variant="outline" onClick={() => { setPickDocIds([]); setOpenPickDoc(true); }}>
                                             Pilih Dokumen
                                         </Button>
@@ -347,6 +357,25 @@ export default function EmailModal({ open, onOpenChange, idCustomer, idSpk, sect
                                         Dokumen wajib belum diupload: {missingRequiredAttachments.map((doc: any) => doc?.master_document?.nama_dokumen || doc?.nama_file).join(', ')}
                                     </div>
                                 )}
+
+                                <div className="border rounded p-3 space-y-2">
+                                    <div>
+                                        <p className="text-sm font-medium">Lampiran PDF SPK</p>
+                                        <p className="text-xs text-gray-500">Centang jika ingin melampirkan PDF hasil generate dari SPK.</p>
+                                    </div>
+                                    <label className="flex items-center justify-between gap-3 cursor-pointer">
+                                        <span className="text-sm">SPK Overview (Report)</span>
+                                        <input type="checkbox" checked={attachPdfOverview} onChange={(e) => setAttachPdfOverview(e.target.checked)} />
+                                    </label>
+                                    <label className="flex items-center justify-between gap-3 cursor-pointer">
+                                        <span className="text-sm">SPK Karantina (Template)</span>
+                                        <input type="checkbox" checked={attachPdfKarantina} onChange={(e) => setAttachPdfKarantina(e.target.checked)} />
+                                    </label>
+                                    <label className="flex items-center justify-between gap-3 cursor-pointer">
+                                        <span className="text-sm">SPK Non Karantina (Template)</span>
+                                        <input type="checkbox" checked={attachPdfNonKarantina} onChange={(e) => setAttachPdfNonKarantina(e.target.checked)} />
+                                    </label>
+                                </div>
 
                                 <div className="space-y-2 max-h-48 overflow-y-auto">
                                     {attachments.map((file: any) => (

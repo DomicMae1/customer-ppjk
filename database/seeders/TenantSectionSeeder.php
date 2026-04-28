@@ -94,6 +94,17 @@ class TenantSectionSeeder extends Seeder
                 'created_at'    => $now,
                 'updated_at'    => $now,
             ],
+            [
+                'id_section'    => 8,
+                'section_name'  => 'Quarantine',
+                'section_order' => 8,
+                'is_penjaluran' => false,
+                'attribute_section' => true,
+                'is_checklist' => true,
+                'source_master_section_id' => null,
+                'created_at'    => $now,
+                'updated_at'    => $now,
+            ],
         ];
 
         // Seed into current tenant connection

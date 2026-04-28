@@ -13,8 +13,9 @@ import { router, usePage } from '@inertiajs/react';
 import axios from 'axios';
 import { AlertTriangle, Archive, ChevronDown, ChevronUp, CircleHelp, FileText, Play, Plus, Save, Search, Trash2, Undo2, X } from 'lucide-react';
 import { nanoid } from 'nanoid';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import EmailModal from './components/EmailModal';
 
 interface HsCodeItem {
     id: number;
@@ -145,6 +146,7 @@ export default function ViewCustomerForm({
     userRole, // NEW: User role for role-based visibility
     internalStaff = [], // NEW: Internal Staff list for supervisor
 }: Props) {
+    console.log("RENDER PARENT");
     const { props } = usePage();
     const trans = props.trans_general as Record<string, string>;
     const currentLocale = props.locale as string;
@@ -160,94 +162,14 @@ export default function ViewCustomerForm({
     const [isAdditionalSectionVisible, setIsAdditionalSectionVisible] = useState(false);
 
     const [openEmailModal, setOpenEmailModal] = useState(false);
-    const [emailsTo, setEmailsTo] = useState<string[]>([]);
-    const [inputTo, setInputTo] = useState('');
 
-    const [emailsCc, setEmailsCc] = useState<string[]>([]);
-    const [inputCc, setInputCc] = useState('');
-
-    const [loadingEmail, setLoadingEmail] = useState(false);
-    const [subject, setSubject] = useState('');
-    const [body, setBody] = useState('');
-
-    useEffect(() => {
-        if (!openEmailModal) return;
-        if (!shipmentData?.id_customer) return;
-
-        const fetchEmails = async () => {
-            try {
-                setLoadingEmail(true);
-                const res = await axios.get(`/customer/${shipmentData.id_customer}/emails`);
-
-                setEmailsTo(res.data.email_to || []);
-                setEmailsCc(res.data.email_cc || []);
-            } catch (err) {
-                console.error(err);
-            } finally {
-                setLoadingEmail(false);
-            }
-        };
-
-        fetchEmails();
-    }, [openEmailModal]);
-
-    const openSendEmail = () => {
-        setOpenEmailModal(true);
-        setSubject('');
-        setBody('');
-        setInputTo('');
-        setInputCc('');
-        setEmailsTo([]);
-        setEmailsCc([]);
-    };
-
-    const handleSendEmail = async () => {
-        try {
-            if (!emailsTo.length) return toast.error('Email To wajib');
-            if (!subject) return toast.error('Subject wajib');
-            if (!body) return toast.error('Body wajib');
-
-            await axios.post('/send-email', {
-                id_customer: shipmentData.id_customer,
-                email_to: emailsTo,
-                email_cc: emailsCc,
-                subject,
-                body,
-            });
-
-            toast.success('Email berhasil dikirim');
-            setOpenEmailModal(false);
-        } catch (err) {
-            console.error(err);
-            toast.error('Gagal kirim email');
-        }
-    };
-
-    const isValidEmail = (email: string) => {
-        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-    };
-
-    const addEmail = (value: string, emails: string[], setEmails: any) => {
-        const email = value.trim().toLowerCase();
-
-        if (!email) return;
-        if (!isValidEmail(email)) return;
-        if (emails.includes(email)) return;
-
-        setEmails([...emails, email]);
-    };
-
-    const removeEmail = (index: number, emails: string[], setEmails: any) => {
-        setEmails(emails.filter((_, i) => i !== index));
-    };
-
-    const additionalSection = sectionsTransProp?.find(
+    const additionalSection = useMemo(() => sectionsTransProp?.find(
         (s: SectionTrans) => s.section_name.toLowerCase().includes('additional') || s.section_name.toLowerCase().includes('tambahan'),
-    );
+    ), [sectionsTransProp]);
 
-    const mainSections = sectionsTransProp?.filter(
+    const mainSections = useMemo(() => sectionsTransProp?.filter(
         (s: SectionTrans) => !s.section_name.toLowerCase().includes('additional') && !s.section_name.toLowerCase().includes('tambahan'),
-    );
+    ), [sectionsTransProp]);
 
     const [isEditingHsCodes, setIsEditingHsCodes] = useState(false);
     const [hsCodes, setHsCodes] = useState<any[]>([]);
@@ -296,8 +218,6 @@ export default function ViewCustomerForm({
     // Verification states
     const [verifyingDocId, setVerifyingDocId] = useState<number | null>(null);
     const [rejectionModalOpen, setRejectionModalOpen] = useState(false);
-    const [rejectionNote, setRejectionNote] = useState('');
-    const [rejectionFile, setRejectionFile] = useState<File | null>(null);
     const [rejectingDocId, setRejectingDocId] = useState<number | null>(null);
 
     // New State for formulir penerimaan dokumen
@@ -336,16 +256,13 @@ export default function ViewCustomerForm({
                 aju: ajuForm,
                 j_o: joForm
             })
-                .then(response => {
-                    // Background save success - silent
-                })
                 .catch(error => {
                     console.error("Auto-save formulir penerimaan dokumen gagal", error);
                 });
         }, 3000);
 
         return () => clearTimeout(timeoutId);
-    }, [shipperForm, consigneeForm, vesselForm, originForm, portForm, comodityForm, parties, ajuForm, joForm]);
+    }, [shipmentDataProp.id_spk, shipperForm, consigneeForm, vesselForm, originForm, portForm, comodityForm, parties, ajuForm, joForm]);
 
     // Batch Verification State
     const [pendingVerifications, setPendingVerifications] = useState<number[]>([]);
@@ -608,49 +525,47 @@ export default function ViewCustomerForm({
 
     // Initialize deadline states from database data (only once, on first load)
     useEffect(() => {
-        if (sectionsTransProp && sectionsTransProp.length > 0) {
-            // 1. Deadline Logic — only run once to avoid overriding user edits on prop reload
-            if (!isDeadlineInitialized.current) {
-                const deadlinesFromDb: Record<number, string> = {};
-                let hasAnyDeadline = false;
-                let firstDeadline = '';
-                let allSameDeadline = true;
+        if (!sectionsTransProp?.length || isDeadlineInitialized.current) return;
 
-                sectionsTransProp.forEach((section: SectionTrans) => {
-                    if (section.deadline_date) {
-                        const dateStr = String(section.deadline_date);
-                        const match = dateStr.match(/(\d{4})-(\d{2})-(\d{2})/);
-                        const dateValue = match ? `${match[1]}-${match[2]}-${match[3]}` : '';
-                        if (dateValue) {
-                            deadlinesFromDb[section.id] = dateValue;
-                            if (!hasAnyDeadline) {
-                                firstDeadline = dateValue;
-                                hasAnyDeadline = true;
-                            } else if (dateValue !== firstDeadline) {
-                                allSameDeadline = false;
-                            }
-                        }
+        const deadlinesFromDb: Record<number, string> = {};
+        let hasAnyDeadline = false;
+        let firstDeadline = '';
+        let allSameDeadline = true;
+
+        sectionsTransProp.forEach((section: SectionTrans) => {
+            if (section.deadline_date) {
+                const dateStr = String(section.deadline_date);
+                const match = dateStr.match(/(\d{4})-(\d{2})-(\d{2})/);
+                const dateValue = match ? `${match[1]}-${match[2]}-${match[3]}` : '';
+                if (dateValue) {
+                    deadlinesFromDb[section.id] = dateValue;
+                    if (!hasAnyDeadline) {
+                        firstDeadline = dateValue;
+                        hasAnyDeadline = true;
+                    } else if (dateValue !== firstDeadline) {
+                        allSameDeadline = false;
                     }
-                });
-
-                if (Object.keys(deadlinesFromDb).length > 0) setSectionDeadlines(deadlinesFromDb);
-                if (hasAnyDeadline && allSameDeadline) {
-                    setGlobalDeadlineDate(firstDeadline);
-                    setUseUnifiedDeadline(true);
-                } else if (hasAnyDeadline) {
-                    setUseUnifiedDeadline(false);
                 }
-
-                isDeadlineInitialized.current = true;
             }
+        });
 
-            // 2. Auto-show Additional Document if files exist or explicitly requested (by logic/status)
-            // Di sini kita cek jika ada dokumen yang sudah diupload di section additional
-            if (additionalSection && additionalSection.documents.some((d) => d.url_path_file)) {
-                setIsAdditionalSectionVisible(true);
-            }
+        if (Object.keys(deadlinesFromDb).length > 0) setSectionDeadlines(deadlinesFromDb);
+        if (hasAnyDeadline && allSameDeadline) {
+            setGlobalDeadlineDate(firstDeadline);
+            setUseUnifiedDeadline(true);
+        } else if (hasAnyDeadline) {
+            setUseUnifiedDeadline(false);
         }
-    }, [sectionsTransProp, additionalSection]);
+
+        isDeadlineInitialized.current = true;
+    }, [sectionsTransProp]);
+
+    // Auto-show Additional Document section if files exist
+    useEffect(() => {
+        if (additionalSection?.documents?.some((d) => d.url_path_file)) {
+            setIsAdditionalSectionVisible(true);
+        }
+    }, [additionalSection]);
 
     // NEW: Sync ETA Date for real-time updates
     useEffect(() => {
@@ -752,6 +667,8 @@ export default function ViewCustomerForm({
             if (prev.includes(documentId)) {
                 return prev.filter((id) => id !== documentId);
             } else {
+                // Clear rejection data if we are verifying this document
+                setPendingRejections((rej) => rej.filter((r) => r.docId !== documentId));
                 return [...prev, documentId];
             }
         });
@@ -772,12 +689,10 @@ export default function ViewCustomerForm({
     const handleOpenReject = (documentId: number) => {
         setRejectingDocId(documentId);
         setRejectionModalOpen(true);
-        setRejectionNote('');
-        setRejectionFile(null);
     };
 
-    const handleSubmitReject = async () => {
-        if (!rejectingDocId || !rejectionNote.trim()) {
+    const handleSubmitReject = (docId: number, note: string, file: File | null) => {
+        if (!docId || !note.trim()) {
             toast.warning('Please provide a rejection reason');
             return;
         }
@@ -785,23 +700,21 @@ export default function ViewCustomerForm({
         // Store rejection in local state instead of sending immediately
         setPendingRejections((prev) => {
             // Remove existing rejection for this doc if exists (overwrite)
-            const filtered = prev.filter((r) => r.docId !== rejectingDocId);
+            const filtered = prev.filter((r) => r.docId !== docId);
             return [
                 ...filtered,
                 {
-                    docId: rejectingDocId,
-                    note: rejectionNote,
-                    file: rejectionFile,
+                    docId: docId,
+                    note: note,
+                    file: file,
                 },
             ];
         });
 
         // Also remove from pending verifications if it was there
-        setPendingVerifications((prev) => prev.filter((id) => id !== rejectingDocId));
+        setPendingVerifications((prev) => prev.filter((id) => id !== docId));
 
         setRejectionModalOpen(false);
-        setRejectionNote('');
-        setRejectionFile(null);
         setRejectingDocId(null);
     };
 
@@ -1028,7 +941,7 @@ export default function ViewCustomerForm({
 
     // Helper: Group documents for rendering
     // Returns array of objects { current: Doc, history: Doc[] }
-    const processDocumentsForRender = (docs: DocumentTrans[]) => {
+    const processDocumentsForRender = useCallback((docs: DocumentTrans[]) => {
         const groups = new Map<number, DocumentTrans[]>();
 
         // 1. Group by id_dokumen
@@ -1056,7 +969,16 @@ export default function ViewCustomerForm({
         });
 
         return result;
-    };
+    }, []);
+
+    // Pre-compute processed documents per section — avoids re-running O(n log n) sort on every render
+    const processedSectionDocs = useMemo(() => {
+        const map = new Map<number, { current: DocumentTrans; history: DocumentTrans[] }[]>();
+        sectionsTransProp?.forEach((section: SectionTrans) => {
+            map.set(section.id, processDocumentsForRender(section.documents || []));
+        });
+        return map;
+    }, [sectionsTransProp, processDocumentsForRender]);
 
     const toggleHistory = (id: number) => {
         setOpenHistoryIds((prev) => (prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]));
@@ -1342,7 +1264,14 @@ export default function ViewCustomerForm({
                                 </span>
                                 <Checkbox
                                     checked={isRejected || isPendingRejection}
-                                    onCheckedChange={(checked) => checked && handleOpenReject(doc.id)}
+                                    onCheckedChange={(checked) => {
+                                        if (checked) {
+                                            handleOpenReject(doc.id);
+                                        } else {
+                                            // Clear pending rejection if unchecked
+                                            setPendingRejections((prev) => prev.filter((r) => r.docId !== doc.id));
+                                        }
+                                    }}
                                     className="border-gray-300 data-[state=checked]:border-red-600 data-[state=checked]:bg-red-600 dark:border-zinc-700 dark:data-[state=checked]:border-red-500 dark:data-[state=checked]:bg-red-500"
                                     disabled={!isPending}
                                 />
@@ -1605,22 +1534,18 @@ export default function ViewCustomerForm({
         }
     };
 
-    // Calculate overall progress across all sections
-    const calculateProgress = () => {
+    // Calculate overall progress across all sections (memoized)
+    const progressPercentage = useMemo(() => {
         let totalDocs = 0;
         let verifiedDocs = 0;
 
-        sectionsTransProp?.forEach((section: SectionTrans) => {
-            const docs = section.documents || [];
-            const latestDocsGroups = processDocumentsForRender(docs);
-            totalDocs += latestDocsGroups.length;
-            verifiedDocs += latestDocsGroups.filter((g) => g.current.verify === true).length;
+        processedSectionDocs.forEach((groups) => {
+            totalDocs += groups.length;
+            verifiedDocs += groups.filter((g) => g.current.verify === true).length;
         });
 
         return totalDocs === 0 ? 0 : Math.round((verifiedDocs / totalDocs) * 100);
-    };
-
-    const progressPercentage = calculateProgress();
+    }, [processedSectionDocs]);
 
     return (
         <div className="animate-in fade-in mx-auto w-full max-w-7xl overflow-x-hidden bg-slate-50/30 p-4 font-sans text-sm text-slate-900 duration-500 sm:p-6 xl:p-8 dark:bg-zinc-950 dark:text-zinc-100">
@@ -1937,11 +1862,13 @@ export default function ViewCustomerForm({
                                 </div>
                             )}
                         </div>
-                        <div className="flex items-center justify-center mt-2">
-                            <Button onClick={openSendEmail}>
-                                Kirim Email Pemberitahuan
-                            </Button>
-                        </div>
+                        {isInternalUser && (
+                            <div className="flex items-center justify-center mt-2">
+                                <Button onClick={() => setOpenEmailModal(true)}>
+                                    Kirim Email Pemberitahuan
+                                </Button>
+                            </div>
+                        )}
                     </div>
 
                     {/* Ori Date Modal */}
@@ -2344,7 +2271,7 @@ export default function ViewCustomerForm({
                                 <div className="space-y-1.5">
                                     <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.port}</Label>
                                     <Input
-                                        placeholder="Input Port"
+                                        placeholder="Input Port Of Destination"
                                         value={portForm}
                                         onChange={(e) => setPortForm(e.target.value)}
                                         className="h-9 rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-900"
@@ -2595,11 +2522,9 @@ export default function ViewCustomerForm({
 
                                     // --- Status Logic ---
                                     // --- Status Logic ---
-                                    const docs = section.documents || [];
-
                                     // FIX: Use latest documents only for status calculation
                                     // This prevents 'Rejected' status from persisting if a new version exists (which is Pending or Verified)
-                                    const latestDocsGroups = processDocumentsForRender(docs);
+                                    const latestDocsGroups = processedSectionDocs.get(section.id) || [];
                                     const latestDocs = latestDocsGroups.map((g) => g.current);
 
                                     const validDocs = latestDocs.filter((d: any) => d.verify === true); // Verified (Latest only)
@@ -2723,7 +2648,7 @@ export default function ViewCustomerForm({
 
                                                     <div className="space-y-4">
                                                         {section.documents && section.documents.length > 0 ? (
-                                                            processDocumentsForRender(section.documents).map((item, idx: number) => {
+                                                            (processedSectionDocs.get(section.id) || []).map((item, idx: number) => {
                                                                 const doc = item.current;
                                                                 const allVersions = [doc, ...item.history];
                                                                 return renderDocumentRow(
@@ -2793,8 +2718,8 @@ export default function ViewCustomerForm({
                         const section4 = sectionsTransProp?.find((s: any) => s.id_section === 4);
                         const section4AllVerified = (() => {
                             if (!section4) return false;
-                            const docs = section4.documents || [];
-                            const latestDocs = processDocumentsForRender(docs).map((g) => g.current);
+                            const docs = processedSectionDocs.get(section4.id) || [];
+                            const latestDocs = docs.map((g) => g.current);
                             if (latestDocs.length === 0) return false;
                             return latestDocs.every((d: any) => d.verify === true);
                         })();
@@ -2879,7 +2804,7 @@ export default function ViewCustomerForm({
                         const isSectionAllVerified = (idSection: number) => {
                             const sec = sectionsTransProp?.find((s: any) => s.id_section === idSection);
                             if (!sec) return false;
-                            const latestDocs = processDocumentsForRender(sec.documents || []).map((g) => g.current);
+                            const latestDocs = (processedSectionDocs.get(sec.id) || []).map((g) => g.current);
                             if (latestDocs.length === 0) return false;
                             return latestDocs.every((d: any) => d.verify === true);
                         };
@@ -3041,35 +2966,13 @@ export default function ViewCustomerForm({
                 </DialogContent>
             </Dialog>
 
-            <Dialog open={rejectionModalOpen} onOpenChange={setRejectionModalOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>{trans.reject_document || 'Reject Document'}</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4 py-4">
-                        <div className="space-y-2">
-                            <Label>{trans.rejection_reason || 'Reason for Rejection'}</Label>
-                            <Textarea
-                                value={rejectionNote}
-                                onChange={(e) => setRejectionNote(e.target.value)}
-                                placeholder={trans.placeholder_rejection || 'Enter reason for rejection...'}
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label>{trans.correction_file || 'Correction File (Optional)'}</Label>
-                            <Input type="file" onChange={(e) => setRejectionFile(e.target.files ? e.target.files[0] : null)} />
-                        </div>
-                    </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setRejectionModalOpen(false)}>
-                            {trans.cancel}
-                        </Button>
-                        <Button style={{ color: 'white' }} variant="destructive" onClick={handleSubmitReject} disabled={verifyingDocId !== null}>
-                            {verifyingDocId ? trans.rejecting || 'Rejecting...' : trans.confirm_rejection || 'Confirm Rejection'}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+            <RejectionDialog
+                open={rejectionModalOpen}
+                onOpenChange={setRejectionModalOpen}
+                onSubmit={(note: string, file: File | null) => rejectingDocId && handleSubmitReject(rejectingDocId, note, file)}
+                trans={trans}
+                isProcessing={verifyingDocId !== null}
+            />
 
             <Dialog open={historyModalOpen} onOpenChange={setHistoryModalOpen}>
                 <DialogContent className="max-w-md">
@@ -3179,94 +3082,13 @@ export default function ViewCustomerForm({
                 </DialogContent>
             </Dialog>
 
-            <Dialog open={openEmailModal} onOpenChange={setOpenEmailModal}>
-                <DialogContent className='max-w-3xl'>
-                    <DialogHeader>
-                        <DialogTitle>Kirim Email</DialogTitle>
-                    </DialogHeader>
-                    {loadingEmail ? (
-                        <p className="text-sm text-gray-400">Loading emails...</p>
-                    ) : (
-                        <>
-                            <div className="space-y-4">
-                                {/* TO */}
-                                <div>
-                                    <Label className="text-sm">To</Label>
-                                    <div className="border p-2 rounded flex flex-wrap gap-2">
-                                        {emailsTo.map((email, index) => (
-                                            <div key={index} className="dark:text-black bg-gray-200 px-2 py-1 rounded flex items-center gap-1 text-sm">
-                                                <span>{email}</span>
-                                                <button type="button" onClick={() => removeEmail(index, emailsTo, setEmailsTo)}>x</button>
-                                            </div>
-                                        ))}
-
-                                        <input
-                                            value={inputTo}
-                                            onChange={(e) => setInputTo(e.target.value)}
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter' || e.key === ',' || e.key === ' ') {
-                                                    e.preventDefault();
-                                                    addEmail(inputTo, emailsTo, setEmailsTo);
-                                                    setInputTo('');
-                                                }
-                                            }}
-                                            className="outline-none flex-1 text-sm"
-                                            placeholder="Add recipients"
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* CC */}
-                                <div>
-                                    <Label className="text-sm">Cc</Label>
-                                    <div className="border p-2 rounded flex flex-wrap gap-2">
-                                        {emailsCc.map((email, index) => (
-                                            <div key={index} className="dark:text-black bg-gray-200 px-2 py-1 rounded flex items-center gap-1 text-sm">
-                                                <span>{email}</span>
-                                                <button type="button" onClick={() => removeEmail(index, emailsCc, setEmailsCc)}>x</button>
-                                            </div>
-                                        ))}
-
-                                        <input
-                                            value={inputCc}
-                                            onChange={(e) => setInputCc(e.target.value)}
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter' || e.key === ',' || e.key === ' ') {
-                                                    e.preventDefault();
-                                                    addEmail(inputCc, emailsCc, setEmailsCc);
-                                                    setInputCc('');
-                                                }
-                                            }}
-                                            className="outline-none flex-1 text-sm"
-                                            placeholder="Add Cc"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <Input
-                                        placeholder="Subject"
-                                        value={subject}
-                                        onChange={(e) => setSubject(e.target.value)}
-                                    />
-                                </div>
-
-                                <div className="space-y-2">
-                                    <textarea
-                                        placeholder="Write your message..."
-                                        value={body}
-                                        onChange={(e) => setBody(e.target.value)}
-                                        className="w-full border rounded p-2 min-h-[150px]"
-                                    />
-                                </div>
-                                <Button onClick={handleSendEmail}>
-                                    Kirim
-                                </Button>
-                            </div>
-                        </>
-                    )}
-                </DialogContent>
-            </Dialog>
+            <EmailModal
+                open={openEmailModal}
+                onOpenChange={setOpenEmailModal}
+                idCustomer={(shipmentData as any)?.id_customer}
+                idSpk={shipmentData?.id_spk}
+                sections={sectionsTransProp}
+            />
 
             <Dialog open={isRemoveSectionModalOpen} onOpenChange={setIsRemoveSectionModalOpen}>
                 <DialogContent className="max-w-md rounded-2xl p-6 dark:border-zinc-800 dark:bg-zinc-900">
@@ -3352,5 +3174,56 @@ export default function ViewCustomerForm({
                 </DialogContent>
             </Dialog>
         </div>
+    );
+}
+
+// Sub-component for Rejection Dialog to prevent parent re-renders while typing
+function RejectionDialog({ open, onOpenChange, onSubmit, trans, isProcessing }: any) {
+    const [note, setNote] = useState('');
+    const [file, setFile] = useState<File | null>(null);
+
+    // Reset local state when opened
+    useEffect(() => {
+        if (open) {
+            setNote('');
+            setFile(null);
+        }
+    }, [open]);
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>{trans.reject_document || 'Reject Document'}</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                        <Label>{trans.rejection_reason || 'Reason for Rejection'}</Label>
+                        <Textarea
+                            value={note}
+                            onChange={(e) => setNote(e.target.value)}
+                            placeholder={trans.placeholder_rejection || 'Enter reason for rejection...'}
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label>{trans.correction_file || 'Correction File (Optional)'}</Label>
+                        <Input type="file" onChange={(e) => setFile(e.target.files ? e.target.files[0] : null)} />
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => onOpenChange(false)}>
+                        {trans.cancel}
+                    </Button>
+                    <Button
+                        style={{ color: 'white' }}
+                        variant="destructive"
+                        onClick={() => onSubmit(note, file)}
+                        disabled={isProcessing}
+                    >
+                        {isProcessing ? trans.rejecting || 'Rejecting...' : trans.confirm_rejection || 'Confirm Rejection'}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
 }
