@@ -47,7 +47,7 @@ services:
 
     volumes:
       - ./:/var/www/html
-      - ./docker/php/custom.ini:/usr/local/etc/php/conf.d/99-custom.ini
+      - ./docker/php/custom.ini:/usr/local/etc/php/conf.d/zz-custom.ini
       # Mounting storage public for consistency
       - ./storage/app/public:/var/www/html/storage/app/public
       - /mnt/Ppjk:/mnt/Ppjk
@@ -74,7 +74,7 @@ services:
     volumes:
       - ./:/var/www/html
       - ./.env:/var/www/html/.env
-      - ./docker/php/custom.ini:/usr/local/etc/php/conf.d/99-custom.ini
+      - ./docker/php/custom.ini:/usr/local/etc/php/conf.d/zz-custom.ini
     # Command untuk menjalankan reverb
     command: php artisan reverb:start --host=0.0.0.0 --port=8080
     ports:
@@ -102,7 +102,7 @@ services:
     volumes:
       - ./:/var/www/html
       - ./.env:/var/www/html/.env
-      - ./docker/php/custom.ini:/usr/local/etc/php/conf.d/99-custom.ini
+      - ./docker/php/custom.ini:/usr/local/etc/php/conf.d/zz-custom.ini
     command: php artisan queue:work --sleep=1 --tries=3
     environment:
       - REDIS_HOST=redis
