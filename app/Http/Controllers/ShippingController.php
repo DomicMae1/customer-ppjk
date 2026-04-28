@@ -653,7 +653,19 @@ class ShippingController extends Controller
     {
         $user = auth('web')->user();
 
-        [$tenant, $idPerusahaan] = $this->resolveTenantAndPerusahaanId($user);
+        $tenant = null;
+        $idPerusahaan = null;
+
+        if ($user->id_perusahaan) {
+            $idPerusahaan = $user->id_perusahaan;
+            $tenant = \App\Models\Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
+        } elseif ($user->id_customer) {
+            $customer = \App\Models\Customer::find($user->id_customer);
+            if ($customer && $customer->ownership) {
+                $idPerusahaan = $customer->ownership;
+                $tenant = \App\Models\Tenant::where('perusahaan_id', $customer->ownership)->first();
+            }
+        }
 
         if (!$tenant) {
             abort(404, 'Tenant tidak ditemukan');
@@ -661,11 +673,76 @@ class ShippingController extends Controller
 
         tenancy()->initialize($tenant);
 
+        Log::info("📄 Mulai generate PDF report shipping untuk SPK ID: {$id}");
+
         $spk = Spk::findOrFail($id);
         $template = $request->boolean('template', false);
         $karantina = $request->boolean('karantina', false);
 
-        [$pdf, $filename] = $this->buildShippingPdf($spk, $tenant, $user, $idPerusahaan, $template, $karantina);
+        /*
+        |--------------------------------------------------------------------------
+        | Ambil nama perusahaan + logo
+        |--------------------------------------------------------------------------
+        */
+        $companyName = '-';
+        $companyLogoPath = null;
+        $logoPath = null;
+
+        if ($idPerusahaan) {
+            $perusahaan = \App\Models\Perusahaan::on('tako-user')
+                ->where('id_perusahaan', $idPerusahaan)
+                ->first();
+
+            if ($perusahaan) {
+                $companyName = $perusahaan->nama_perusahaan ?? '-';
+            }
+
+            $domainRecord = \Illuminate\Support\Facades\DB::connection('tako-user')
+                ->table('domains')
+                ->where('tenant_id', $tenant->id)
+                ->first();
+
+            $logoPath = $domainRecord->path_company_logo ?? null;
+
+            if ($logoPath) {
+                $cleanLogoPath = ltrim($logoPath, '/');
+
+                $possiblePaths = [
+                    public_path('storage/' . $cleanLogoPath),
+                    public_path($cleanLogoPath),
+                    base_path('public/storage/' . $cleanLogoPath),
+                    base_path('storage/app/public/' . $cleanLogoPath),
+                ];
+
+                foreach ($possiblePaths as $path) {
+                    if (file_exists($path)) {
+                        $companyLogoPath = $path;
+                        break;
+                    }
+                }
+            }
+        }
+
+        $printableDocIds = \App\Models\MasterDocumentTrans::query()
+            ->where('is_print', true)
+            ->pluck('id_dokumen')
+            ->toArray();
+
+        $printableDocIds = array_map('intval', $printableDocIds);
+
+        $rawDocuments = \App\Models\DocumentTrans::query()
+            ->where('id_spk', $spk->id)
+            ->orderBy('id_section', 'asc')
+            ->orderBy('id', 'desc')
+            ->get()
+            ->map(function ($doc) use ($printableDocIds) {
+                $updatedAt = $doc->updated_at ? \Carbon\Carbon::parse($doc->updated_at) : null;
+                $uploadDate = !empty($doc->upload_date) ? \Carbon\Carbon::parse($doc->upload_date) : null;
+                $verifiedDate = !empty($doc->verified_date) ? \Carbon\Carbon::parse($doc->verified_date) : null;
+                $oriDate = !empty($doc->ori_date) ? \Carbon\Carbon::parse($doc->ori_date) : null;
+
+                $docId = $doc->id_dokumen ? (int) $doc->id_dokumen : null;
+                $isPrint = $docId !== null && in_array($docId, $printableDocIds, true);
 
                 return (object) [
                     'id' => $doc->id,
@@ -692,7 +769,7 @@ class ShippingController extends Controller
                     'ori_date' => $oriDate ? $oriDate->format('d-m-Y') : '-',
                     'ori_date_full' => $oriDate ? $oriDate->format('d-m-Y H:i') . ' WIB' : null,
                 ];
-         
+            });
 
         $groupedDocuments = collect($rawDocuments)
             ->groupBy(function ($doc) {
