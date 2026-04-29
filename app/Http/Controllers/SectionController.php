@@ -80,6 +80,10 @@ class SectionController extends Controller
     public function store(Request $request)
     {
         $user = Auth::user();
+        
+        if(!$user->can('create-section')){
+            return back()->with('error', 'Anda tidak memiliki akses untuk melakukan operasi ini.');
+        }
 
         $validated = $request->validate([
             'section_name' => 'required|string|max:255',

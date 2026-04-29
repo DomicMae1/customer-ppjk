@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import AppLayout from '@/layouts/app-layout';
 import { BreadcrumbItem, PageProps } from '@/types'; // Asumsi base types ada di sini
 import { Head, router, usePage } from '@inertiajs/react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { columns } from './table/columns';
 import { DataTable } from './table/data-table'; // Asumsi Anda punya komponen DataTable yang sama
@@ -38,20 +38,25 @@ export interface Customer {
 interface CustomerPageProps extends PageProps {
     customers: Customer[]; // Pastikan di controller index() Anda me-return data ini
     perusahaan_list?: { id_perusahaan: number; nama_perusahaan: string }[];
-    flash: {
-        success?: string;
-        error?: string;
-    };
     trans_customer: Record<string, string>;
 }
 
 export default function ManageCustomers() {
 
-    const { props } = usePage();
-    const trans = props.trans_general as Record<string, string>;
-    // Ambil data dari Inertia Props
-    const { customers, perusahaan_list, auth, trans_customer } = usePage<CustomerPageProps>().props;
-    const isAdmin = auth.user.roles.some((role: any) => role.name === 'admin');
+    // Ambil semua data sekaligus dari usePage
+    const { customers, flash, perusahaan_list, auth, trans_customer, trans_general } = usePage<any>().props;
+
+    const trans = trans_general as Record<string, string>;
+    const isAdmin = auth.user?.roles?.some((role: any) => role.name === 'admin');
+
+    useEffect(() => {
+        if (flash?.success) {
+            toast.success(flash.success);
+        }
+        if (flash?.error) {
+            toast.error(flash.error);
+        }
+    }, [flash]);
 
     const breadcrumbs: BreadcrumbItem[] = [
         {
@@ -115,6 +120,10 @@ export default function ManageCustomers() {
     };
 
     const handleCreateClick = () => {
+        if (!auth.user.permissions.includes('create-customer')) {
+            toast.error(trans_customer.toast_update_permission_error || 'Anda tidak memiliki izin untuk menambahkan customer.');
+            return;
+        }
         setFormData({ id_customer: 0, ...initialFormState }); // Reset form
         setOpenCreate(true);
     };
@@ -145,6 +154,11 @@ export default function ManageCustomers() {
 
     // 1. Edit Handler: Redirect ke halaman Edit
     const onEditClick = (customer: Customer) => {
+        if (!auth.user.permissions.includes('update-customer')) {
+            toast.error(trans_customer.toast_update_permission_error || 'Anda tidak memiliki izin untuk mengedit customer.');
+            return;
+        }
+
         setEmailsTo(customer.email_to || []);
         setEmailsCc(customer.email_cc || []);
         setFormData({
@@ -184,6 +198,10 @@ export default function ManageCustomers() {
 
     // 3. DELETE Handler
     const onDeleteClick = (customer: Customer) => {
+        if (!auth.user.permissions.includes('delete-customer')) {
+            toast.error(trans_customer.toast_update_permission_error || 'Anda tidak memiliki izin untuk menghapus customer.');
+            return;
+        }
         setCustomerToDelete(customer);
         setOpenDelete(true);
     };

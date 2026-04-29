@@ -24,6 +24,7 @@ import * as React from 'react';
 import { ChangeEvent, useState } from 'react';
 import { DataTableViewOptions } from './data-table-view-options';
 import { DataTablePagination } from './pagination';
+import { toast } from 'sonner';
 
 // Interface Data dari Backend
 interface DocumentData {
@@ -98,6 +99,17 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
             .filter(Boolean)
             .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
             .join(' ');
+    };
+
+    const handleOpenCreate = () => {
+        if (!auth.user.permissions.includes('create-document')) {
+            toast.error(
+                trans_doc.toast_create_permission_error || 'Anda tidak memiliki izin untuk menambahkan document.'
+            );
+            return;
+        }
+
+        setOpenCreate(true);
     };
 
     const handleNamaFileBlur = () => {
@@ -190,7 +202,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
     };
 
     // Helper Boolean
-    const handleBooleanChange = (field: 'is_internal' | 'attribute' | 'is_confirmed' | 'is_ori' | 'is_print'|'is_send_email', value: boolean) => {
+    const handleBooleanChange = (field: 'is_internal' | 'attribute' | 'is_confirmed' | 'is_ori' | 'is_print' | 'is_send_email', value: boolean) => {
         setForm((prev) => ({ ...prev, [field]: value }));
     };
 
@@ -243,7 +255,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
                             />
                         </div>
 
-                        <Button size="icon" className="h-10 w-10 shrink-0 md:hidden" onClick={() => setOpenCreate(true)}>
+                        <Button size="icon" className="h-10 w-10 shrink-0 md:hidden" onClick={handleOpenCreate}>
                             <Plus className="h-4 w-4" />
                         </Button>
                     </div>
@@ -278,7 +290,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
                 {/* Desktop Buttons */}
                 <div className="hidden items-center gap-2 md:flex">
                     <DataTableViewOptions table={table} />
-                    <Button onClick={() => setOpenCreate(true)}>
+                    <Button onClick={handleOpenCreate}>
                         <Plus className="mr-2 h-4 w-4" /> {trans_doc.btn_add || 'Tambah Dokumen'}
                     </Button>
                 </div>
@@ -315,11 +327,10 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
                                     {/* Badges/Tags Status */}
                                     <div className="flex flex-wrap gap-2">
                                         <span
-                                            className={`rounded px-2 py-0.5 text-[10px] font-bold ${
-                                                original.is_internal
+                                            className={`rounded px-2 py-0.5 text-[10px] font-bold ${original.is_internal
                                                     ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
                                                     : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
-                                            }`}
+                                                }`}
                                         >
                                             {original.is_internal ? 'INTERNAL' : 'EXTERNAL / PUBLIC'}
                                         </span>

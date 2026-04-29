@@ -42,8 +42,6 @@ class RoleAndPermissionSeeder extends Seeder
 
         // 3. Tambahan Permission Spesial (Non-CRUD)
         $specialPermissions = [
-            'view-dashboard',
-            'manage-setting',
             'upload-document',
             'verify-document',
         ];
@@ -95,6 +93,7 @@ class RoleAndPermissionSeeder extends Seeder
         // Manager & Supervisor: Full akses modul bisnis tapi mungkin tidak untuk user/role management
         $businessPermissions = [
             'view-customer', 'create-customer', 'update-customer', 'delete-customer',
+            'view-user', 'create-user', 'update-user', 'delete-user',
             'view-document', 'create-document', 'update-document', 'delete-document',
             'view-master-shipping', 'create-master-shipping', 'update-master-shipping', 'delete-master-shipping',
             'upload-document', 'verify-document',
