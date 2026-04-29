@@ -17,86 +17,67 @@ interface SharedProps extends PageProps {
 export function AppSidebar() {
     const { auth, trans_nav } = usePage<SharedProps>().props;
 
-    const mainNavItems: NavItem[] = [
+    const mainNavItems: any[] = [
         {
-            title: trans_nav.shipment, // Translate
+            title: trans_nav.shipment,
             url: '/shipping',
             icon: SquareUserRound,
+            permission: 'view-master-shipping',
         },
         {
-            title: trans_nav.manage_customer, // Translate
+            title: trans_nav.manage_customer,
             url: '/customer',
             icon: BookUser,
-            supervisorManagerOnly: true,
+            permission: 'view-customer',
         },
         {
-            title: trans_nav.manage_users, // Translate
+            title: trans_nav.manage_users,
             url: '/users',
             icon: Users,
-            supervisorManagerOnly: true,
+            permission: 'view-user',
         },
         {
-            title: trans_nav.manage_document, // Translate
+            title: trans_nav.manage_document,
             url: '/document',
             icon: BookCheck,
-            supervisorManagerOnly: true,
+            permission: 'view-document',
         },
         {
-            title: trans_nav.manage_section, // Translate
+            title: trans_nav.manage_section,
             url: '/section',
             icon: SquareLibrary,
-            supervisorManagerOnly: true,
+            permission: 'view-section', // Sesuaikan jika ada permission khusus section
         },
         {
-            title: trans_nav.manage_role, // Translate
+            title: trans_nav.manage_role,
             url: '/role-manager',
             icon: Shield,
-            adminOnly: true,
+            permission: 'view-role',
         },
         {
-            title: trans_nav.manage_company, // Translate
+            title: trans_nav.manage_company,
             url: '/perusahaan',
             icon: Building2,
-            adminOnly: true,
+            permission: 'view-role', // Sesuaikan jika ada permission khusus perusahaan
         },
     ];
 
-    const userRoles = auth?.user?.roles?.map((role: { name: string }) => role.name) || [];
-
-    const isAdmin = userRoles.includes('admin');
-    const isManager = userRoles.includes('manager');
-    const isSupervisor = userRoles.includes('supervisor');
-
     const userPermissions = auth?.user?.permissions || [];
 
-    const hasPermission = (requiredPermissions: string[] = []) => {
-        return requiredPermissions.length === 0 || requiredPermissions.some((perm) => userPermissions.includes(perm));
+    const hasPermission = (perm?: string) => {
+        if (!perm) return true; // Jika tidak ada syarat permission, tampilkan
+        return userPermissions.includes(perm);
     };
 
     const filteredNavItems = mainNavItems
+        .filter((item) => hasPermission(item.permission))
         .map((item) => {
-            if (item.adminOnly && !isAdmin) return null;
-
-            if (item.supervisorManagerOnly) {
-                if (!isAdmin && !isManager && !isSupervisor) {
-                    return null;
-                }
+            if (item.subItems) {
+                const filteredSubItems = item.subItems.filter((sub: any) => hasPermission(sub.permission));
+                return { ...item, subItems: filteredSubItems };
             }
-
-            if ('subItems' in item) {
-                const filteredSubItems =
-                    item.subItems?.filter((subItem: NavItem & { permissions?: string[] }) => hasPermission(subItem.permissions)) || [];
-
-                if (filteredSubItems.length > 0 || hasPermission(item.permissions)) {
-                    return { ...item, subItems: filteredSubItems };
-                }
-
-                return null;
-            }
-
-            return hasPermission((item as any).permissions ?? []) ? item : null;
-        })
-        .filter((item): item is NavItem => item !== null);
+            return item;
+        });
 
     return (
         <Sidebar collapsible="icon" variant="inset">

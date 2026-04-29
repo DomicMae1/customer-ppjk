@@ -18,8 +18,8 @@ class SectionController extends Controller
     {
         $user = Auth::user();
 
-        if (!$user->hasPermissionTo('view-document')) {
-            return redirect('/shipping')->with('error', 'Anda tidak memiliki akses ke halaman tersebut.');
+        if (!$user->can('view-section')) {
+            abort(403);
         }
 
         $sections = [];
@@ -80,6 +80,10 @@ class SectionController extends Controller
     public function store(Request $request)
     {
         $user = Auth::user();
+        
+        if(!$user->can('create-section')){
+            return back()->with('error', 'Anda tidak memiliki akses untuk melakukan operasi ini.');
+        }
 
         $validated = $request->validate([
             'section_name' => 'required|string|max:255',

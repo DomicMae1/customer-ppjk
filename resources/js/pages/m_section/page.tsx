@@ -4,6 +4,7 @@ import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, Di
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
+import { MemoizedInput } from '@/components/ui/memoized-input';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
@@ -35,7 +36,6 @@ interface PageProps {
 
 export default function ManageSections() {
     const { sections, flash, auth, trans_sec } = usePage<PageProps>().props;
-
     const breadcrumbs: BreadcrumbItem[] = [
         {
             title: trans_sec.breadcrumb_title || 'Manage Sections',
@@ -84,6 +84,10 @@ export default function ManageSections() {
     }, [flash]);
 
     const onEditClick = (id: number) => {
+        if (!auth.user.permissions.includes('update-section')) {
+            toast.error(trans_sec.toast_update_permission_error || 'Anda tidak memiliki izin untuk mengedit section.');
+            return;
+        }
         const section = sections.find((item) => item.id_section === id);
 
         if (!section) return;
@@ -125,6 +129,10 @@ export default function ManageSections() {
     };
 
     const onDeleteClick = (id: number) => {
+        if (!auth.user.permissions.includes('delete-section')) {
+            toast.error(trans_sec.toast_delete_permission_error || 'Anda tidak memiliki izin untuk menghapus section.');
+            return;
+        }
         setSectionIdToDelete(id);
         setOpenDelete(true);
     };

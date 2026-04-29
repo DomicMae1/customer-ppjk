@@ -85,8 +85,8 @@ class ShippingController extends Controller
             // $externalCustomers = $externalCustomers->unique('id_customer')->values();
         }
 
-        if (!$user->hasPermissionTo('view-master-shipping')) {
-            throw UnauthorizedException::forPermissions(['view-master-shipping']);
+        if (!$user->can('view-master-shipping')) {
+            abort(403);
         }
 
         $tenant = null;
@@ -938,6 +938,13 @@ class ShippingController extends Controller
 
     public function upload(Request $request)
     {
+        $user = auth('web')->user();
+
+        // --- PERMISSION CHECK ---
+        if (!$user->can('upload-document')) {
+            return response()->json(['error' => 'Anda tidak memiliki izin untuk mengunggah dokumen.'], 403);
+        }
+
         // Validasi File
         $file = $request->file('pdf') ?? $request->file('file');
         if (!$file) {
@@ -1035,6 +1042,10 @@ class ShippingController extends Controller
     public function show($id)
     {
         $user = auth('web')->user();
+
+        if (!$user->can('update-master-shipping')) {
+            abort(403);
+        }
         // NEW: Fetch Internal Staff for Supervisor Assignment (Consistent with index)
         // Moved here to ensure we query the CENTRAL database (tako-user) before tenancy context is switched.
         $internalStaff = [];
@@ -2049,6 +2060,30 @@ class ShippingController extends Controller
     {
         $user = auth('web')->user();
         $userId = $user->id_user ?? $user->id;
+
+        // --- PERMISSION CHECK ---
+        // 1. Check for Upload Permission
+        if ($request->has('attachments') && is_array($request->attachments) && count($request->attachments) > 0) {
+            if (!$user->can('upload-document')) {
+                if ($request->header('X-Inertia')) {
+                    return back()->withErrors(['message' => 'Anda tidak memiliki izin untuk mengunggah dokumen.']);
+                }
+                return response()->json(['success' => false, 'message' => 'Anda tidak memiliki izin untuk mengunggah dokumen.'], 403);
+            }
+        }
+
+        // 2. Check for Verify/Reject Permission
+        $hasVerify = ($request->has('verified_ids') && is_array($request->verified_ids) && count($request->verified_ids) > 0);
+        $hasReject = ($request->has('rejections') && is_array($request->rejections) && count($request->rejections) > 0);
+
+        if ($hasVerify || $hasReject) {
+            if (!$user->can('verify-document')) {
+                if ($request->header('X-Inertia')) {
+                    return back()->withErrors(['message' => 'Anda tidak memiliki izin untuk memverifikasi atau menolak dokumen.']);
+                }
+                return response()->json(['success' => false, 'message' => 'Anda tidak memiliki izin untuk memverifikasi atau menolak dokumen.'], 403);
+            }
+        }
 
         $request->validate([
             'spk_id' => 'required',

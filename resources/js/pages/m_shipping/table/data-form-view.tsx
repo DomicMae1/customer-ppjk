@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { MemoizedInput } from '@/components/ui/memoized-input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
@@ -861,28 +862,48 @@ export default function ViewCustomerForm({
                     // CLEANUP STATE
                     if (filesToProcess.length > 0) {
                         const newTempFiles = { ...tempFiles };
-                        filesToProcess.forEach((doc) => delete newTempFiles[doc.id]);
+                        filesToProcess.forEach((doc) => {
+                            delete newTempFiles[doc.id];
+                        });
                         setTempFiles(newTempFiles);
                     }
+
                     if (docsToVerify.length > 0) {
-                        setPendingVerifications((prev) => prev.filter((id) => !docsToVerify.includes(id)));
-                    }
-                    if (rejectionsToProcess.length > 0) {
-                        const processedIds = rejectionsToProcess.map((r) => r.docId);
-                        setPendingRejections((prev) => prev.filter((r) => !processedIds.includes(r.docId)));
+                        setPendingVerifications((prev) =>
+                            prev.filter((id) => !docsToVerify.includes(id))
+                        );
                     }
 
+                    if (rejectionsToProcess.length > 0) {
+                        const processedIds = rejectionsToProcess.map((r) => r.docId);
+                        setPendingRejections((prev) =>
+                            prev.filter((r) => !processedIds.includes(r.docId))
+                        );
+                    }
+
+                    // FEEDBACK KE USER
                     toast.success('Section saved successfully');
+
+                    // reset UI state
                     setActiveSection(null);
                 },
+
                 onError: (errors) => {
                     console.error('Save errors:', errors);
-                    toast.error('Gagal menyimpan section.');
+
+                    const message =
+                        errors.message ||
+                        Object.values(errors)[0]?.[0] ||
+                        'Terjadi kesalahan.';
+
+                    toast.error(message);
                 },
+
                 onFinish: () => {
                     setProcessingSectionId(null);
                     isSavingRef.current = false;
                 },
+
                 preserveState: true,
                 preserveScroll: true,
                 only: ['sectionsTransProp', 'shipmentDataProp'],
@@ -2217,21 +2238,21 @@ export default function ViewCustomerForm({
                                 {/* Shipper */}
                                 <div className="space-y-1.5">
                                     <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">Shipper</Label>
-                                    <Input
+                                    <MemoizedInput
                                         placeholder="Input Shipper"
                                         value={shipperForm}
-                                        onChange={(e) => setShipperForm(e.target.value)}
+                                        onValueChange={(val) => setShipperForm(val)}
                                         className="h-9 rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-900"
                                     />
                                 </div>
                                 {/* Consignee */}
                                 <div className="space-y-1.5">
                                     <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">Consignee (C'NEE)</Label>
-                                    <Input
+                                    <MemoizedInput
                                         placeholder="Input Consignee"
                                         value={consigneeForm}
                                         disabled
-                                        onChange={(e) => setConsigneeForm(e.target.value)}
+                                        onValueChange={(val) => setConsigneeForm(val)}
                                         className="h-9 rounded-lg border-slate-300 bg-slate-100 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-800 dark:text-slate-50"
                                     />
                                 </div>
@@ -2240,9 +2261,10 @@ export default function ViewCustomerForm({
                                     <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
                                         {shipmentDataProp?.type === 'Export' ? 'S/I NUM' : shipmentDataProp?.type === 'Import' ? 'B/L NUM' : 'SPK NUM'}
                                     </Label>
-                                    <Input
+                                    <MemoizedInput
                                         placeholder="Input B/L / S/I NUM"
                                         value={blNumForm}
+                                        onValueChange={(val) => setBlNumForm(val)}
                                         disabled
                                         className="h-9 rounded-lg border-slate-300 bg-slate-100 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-800 dark:text-slate-50"
                                     />
@@ -2250,40 +2272,40 @@ export default function ViewCustomerForm({
                                 {/* Vessel */}
                                 <div className="space-y-1.5">
                                     <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.vessel}</Label>
-                                    <Input
+                                    <MemoizedInput
                                         placeholder="Input Vessel"
                                         value={vesselForm}
-                                        onChange={(e) => setVesselForm(e.target.value)}
+                                        onValueChange={(val) => setVesselForm(val)}
                                         className="h-9 rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-900"
                                     />
                                 </div>
                                 {/* Origin */}
                                 <div className="space-y-1.5">
                                     <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.origin}</Label>
-                                    <Input
+                                    <MemoizedInput
                                         placeholder="Input Origin"
                                         value={originForm}
-                                        onChange={(e) => setOriginForm(e.target.value)}
+                                        onValueChange={(val) => setOriginForm(val)}
                                         className="h-9 rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-900"
                                     />
                                 </div>
                                 {/* Port */}
                                 <div className="space-y-1.5">
                                     <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.port}</Label>
-                                    <Input
+                                    <MemoizedInput
                                         placeholder="Input Port Of Destination"
                                         value={portForm}
-                                        onChange={(e) => setPortForm(e.target.value)}
+                                        onValueChange={(val) => setPortForm(val)}
                                         className="h-9 rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-900"
                                     />
                                 </div>
                                 {/* Comodity */}
                                 <div className="space-y-1.5">
                                     <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.comodity}</Label>
-                                    <Input
+                                    <MemoizedInput
                                         placeholder="Input Comodity"
                                         value={comodityForm}
-                                        onChange={(e) => setComodityForm(e.target.value)}
+                                        onValueChange={(val) => setComodityForm(val)}
                                         className="h-9 rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-900"
                                     />
                                 </div>
@@ -2407,12 +2429,12 @@ export default function ViewCustomerForm({
                                                 {/* Quantity */}
                                                 <div className="space-y-1">
                                                     <Label className="text-[9px] font-bold text-slate-400 uppercase">Quantity</Label>
-                                                    <Input
+                                                    <MemoizedInput
                                                         placeholder="Qty"
                                                         value={party.party_qty}
-                                                        onChange={(e) => {
+                                                        onValueChange={(val) => {
                                                             const newParties = [...parties];
-                                                            newParties[index].party_qty = e.target.value;
+                                                            newParties[index].party_qty = val;
                                                             setParties(newParties);
                                                         }}
                                                         className="h-8 w-full rounded-lg border-slate-300 text-[10px] focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-900"
@@ -2425,20 +2447,20 @@ export default function ViewCustomerForm({
                                 {/* AJU */}
                                 <div className="space-y-1.5">
                                     <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">AJU</Label>
-                                    <Input
+                                    <MemoizedInput
                                         placeholder="Input AJU"
                                         value={ajuForm}
-                                        onChange={(e) => setAjuForm(e.target.value)}
+                                        onValueChange={(val) => setAjuForm(val)}
                                         className="h-9 rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-900"
                                     />
                                 </div>
                                 {/* J.O */}
                                 <div className="space-y-1.5">
                                     <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">J.O</Label>
-                                    <Input
+                                    <MemoizedInput
                                         placeholder="Input J.O"
                                         value={joForm}
-                                        onChange={(e) => setJoForm(e.target.value)}
+                                        onValueChange={(val) => setJoForm(val)}
                                         className="h-9 rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-900"
                                     />
                                 </div>

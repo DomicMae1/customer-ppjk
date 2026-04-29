@@ -20,8 +20,8 @@ class DocumentController extends Controller
     {
         $user = Auth::user();
 
-        if (!$user->hasPermissionTo('view-document')) {
-            return redirect('/shipping')->with('error', 'Anda tidak memiliki akses ke halaman tersebut.');
+        if (!$user->can('view-document')) {
+            abort(403);
         }
 
         $documents = [];
