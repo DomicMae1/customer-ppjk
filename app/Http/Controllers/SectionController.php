@@ -18,8 +18,8 @@ class SectionController extends Controller
     {
         $user = Auth::user();
 
-        if (!$user->hasPermissionTo('view-document')) {
-            return redirect('/shipping')->with('error', 'Anda tidak memiliki akses ke halaman tersebut.');
+        if (!$user->can('view-section')) {
+            abort(403);
         }
 
         $sections = [];

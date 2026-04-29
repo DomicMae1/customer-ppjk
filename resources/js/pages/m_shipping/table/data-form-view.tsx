@@ -861,28 +861,48 @@ export default function ViewCustomerForm({
                     // CLEANUP STATE
                     if (filesToProcess.length > 0) {
                         const newTempFiles = { ...tempFiles };
-                        filesToProcess.forEach((doc) => delete newTempFiles[doc.id]);
+                        filesToProcess.forEach((doc) => {
+                            delete newTempFiles[doc.id];
+                        });
                         setTempFiles(newTempFiles);
                     }
+
                     if (docsToVerify.length > 0) {
-                        setPendingVerifications((prev) => prev.filter((id) => !docsToVerify.includes(id)));
-                    }
-                    if (rejectionsToProcess.length > 0) {
-                        const processedIds = rejectionsToProcess.map((r) => r.docId);
-                        setPendingRejections((prev) => prev.filter((r) => !processedIds.includes(r.docId)));
+                        setPendingVerifications((prev) =>
+                            prev.filter((id) => !docsToVerify.includes(id))
+                        );
                     }
 
+                    if (rejectionsToProcess.length > 0) {
+                        const processedIds = rejectionsToProcess.map((r) => r.docId);
+                        setPendingRejections((prev) =>
+                            prev.filter((r) => !processedIds.includes(r.docId))
+                        );
+                    }
+
+                    // FEEDBACK KE USER
                     toast.success('Section saved successfully');
+
+                    // reset UI state
                     setActiveSection(null);
                 },
+
                 onError: (errors) => {
                     console.error('Save errors:', errors);
-                    toast.error('Gagal menyimpan section.');
+
+                    const message =
+                        errors.message ||
+                        Object.values(errors)[0]?.[0] ||
+                        'Terjadi kesalahan.';
+
+                    toast.error(message);
                 },
+
                 onFinish: () => {
                     setProcessingSectionId(null);
                     isSavingRef.current = false;
                 },
+
                 preserveState: true,
                 preserveScroll: true,
                 only: ['sectionsTransProp', 'shipmentDataProp'],
