@@ -158,6 +158,16 @@
                         <span class="info-label">Tanggal Sistem</span>
                         <span class="info-value">: {{ date('d F Y') }}</span>
                     </div>
+
+                    @if(!empty($attachedNames))
+                    <div class="divider" style="margin: 15px 0;"></div>
+                    <div class="info-box-title" style="margin-top: 10px;">Daftar Dokumen Lampiran</div>
+                    <ul style="margin: 0; padding-left: 20px; font-size: 14px; color: #334155;">
+                        @foreach($attachedNames as $name)
+                            <li>{{ $name }}</li>
+                        @endforeach
+                    </ul>
+                    @endif
                 </div>
 
                 <div class="divider"></div>

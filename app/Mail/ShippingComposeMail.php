@@ -14,24 +14,23 @@ class ShippingComposeMail extends Mailable
 {
     use Queueable, SerializesModels;
 
-    // KUNCI PERBAIKAN: Property ini harus ada!
     public $spk;
     public $subjectText;
     public $bodyHtml;
-    public $fromName; // Kita pakai string saja supaya aman dari error undefined
+    public $fromName; 
+    public $attachedNames;
 
-    public function __construct(Spk $spk, string $subjectText, string $bodyHtml, $fromName = null)
+    public function __construct(Spk $spk, string $subjectText, string $bodyHtml, $fromName = null, array $attachedNames = [])
     {
         $this->spk = $spk;
         $this->subjectText = $subjectText;
         $this->bodyHtml = $bodyHtml;
-        $this->fromName = $fromName; // Menyimpan nama perusahaan pengirim
+        $this->fromName = $fromName; 
+        $this->attachedNames = $attachedNames;
     }
 
     public function envelope(): Envelope
     {
-        // Gunakan fromName yang dikirim dari Job/Controller, 
-        // kalau kosong baru ambil dari relasi SPK, kalau masih kosong pakai default .env
         $finalName = $this->fromName 
                      ?? $this->spk->perusahaan->nama_perusahaan 
                      ?? config('mail.from.name');
@@ -49,13 +48,11 @@ class ShippingComposeMail extends Mailable
             with: [
                 'spk' => $this->spk,
                 'bodyHtml' => $this->bodyHtml,
-                'senderName' => $this->fromName, // Bisa dipakai di template blade
+                'senderName' => $this->fromName,
+                'attachedNames' => $this->attachedNames,
             ],
         );
     }
 
-    public function attachments(): array
-    {
-        return [];
-    }
+
 }
