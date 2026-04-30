@@ -22,7 +22,7 @@ interface HsCodeItem {
     id: number;
     code: string;
     link: string | null;
-    file?: File | null;
+    file ?: File | null;
 }
 
 interface ShipmentData {
@@ -151,11 +151,12 @@ export default function ViewCustomerForm({
     const { props } = usePage();
     const trans = props.trans_general as Record<string, string>;
     const currentLocale = props.locale as string;
+    const flash = props.flash as any;
 
     // Check if user is internal (not external)
     const auth = (props.auth as any) || {};
     const isInternalUser = userRole !== 'eksternal';
-    const isSupervisor = auth.user?.role === 'internal' && auth.user?.role_internal === 'supervisor';
+    const isSupervisor = auth.user?.permissions?.includes('assign_staff-master-shipping');
     const isNpdSection = (section: any) => section.section_name.toLowerCase().includes('npd');
     const [tempFiles, setTempFiles] = useState<Record<number, string>>({});
     const [activeSection, setActiveSection] = useState<number | null>(null);
@@ -236,6 +237,15 @@ export default function ViewCustomerForm({
     );
     const [ajuForm, setAjuForm] = useState<string>((shipmentDataProp as any)?.aju || '');
     const [joForm, setJoForm] = useState<string>((shipmentDataProp as any)?.j_o || '');
+
+    useEffect(() => {
+        if (flash?.success) {
+            toast.success(flash.success);
+        }
+        if (flash?.error) {
+            toast.error(flash.error);
+        }
+    }, [flash]);
 
     // Auto save effect
     const isFormFieldsInitialMount = useRef(true);
@@ -2428,7 +2438,7 @@ export default function ViewCustomerForm({
 
                                                 {/* Quantity */}
                                                 <div className="space-y-1">
-                                                    <Label className="text-[9px] font-bold text-slate-400 uppercase">Quantity</Label>
+                                                    <Label className="text-[9px] font-bold text-slate-400 uppercase">{party.party_type === 'FCL' ? 'Party' : 'Quantity'}</Label>
                                                     <MemoizedInput
                                                         placeholder="Qty"
                                                         value={party.party_qty}

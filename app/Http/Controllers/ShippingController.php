@@ -657,7 +657,7 @@ class ShippingController extends Controller
             }
 
             if ($user->role === 'internal') {
-                if ($user->role_internal === 'supervisor' && !empty($validated['assigned_pic'])) {
+                if ($user->can('assign_staff-master-shipping') && !empty($validated['assigned_pic'])) {
                     // SUPERVISOR: Assign to Selected Staff
                     $spk->update(['validated_by' => $validated['assigned_pic']]);
 
@@ -721,7 +721,7 @@ class ShippingController extends Controller
                     }
 
                     // 1. If Supervisor & Assigned Staff -> Notify the Staff
-                    if ($user->role_internal === 'supervisor' && !empty($validated['assigned_pic'])) {
+                    if ($user->can('assign_staff-master-shipping') && !empty($validated['assigned_pic'])) {
                         $assignedStaff = \App\Models\User::on('tako-user')->find($validated['assigned_pic']);
                         if ($assignedStaff) {
                             // 1. Email for Assigned Staff
@@ -1264,8 +1264,8 @@ class ShippingController extends Controller
         $user = auth('web')->user();
 
         // 1. Authorization Check
-        if ($user->role !== 'internal' || $user->role_internal !== 'supervisor') {
-            abort(403, 'Unauthorized action.');
+        if (!$user->can('assign_staff-master-shipping')) {
+            return back()->with('error', 'Unauthorized action.');
         }
 
         $validated = $request->validate([
@@ -2359,7 +2359,7 @@ class ShippingController extends Controller
         $user = auth('web')->user();
 
         // Supervisor-only guard
-        if ($user->role !== 'internal' || $user->role_internal !== 'supervisor') {
+        if (!$user->can('assign_staff-master-shipping')) {
             return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
         }
 
@@ -2816,7 +2816,7 @@ class ShippingController extends Controller
         $user = auth('web')->user();
 
         // Security check: Only internal supervisors can remove sections
-        if ($user->role !== 'internal' || $user->role_internal !== 'supervisor') {
+        if (!$user->can('assign_staff-master-shipping')) {
             return response()->json(['success' => false, 'message' => 'Hanya Supervisor yang diperbolehkan menghapus section.'], 403);
         }
 
