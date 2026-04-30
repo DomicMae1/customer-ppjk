@@ -15,19 +15,52 @@ export const columns = (onEditClick: (role: Role) => void, onDeleteClick: (id: n
         cell: ({ row }) => <div className="min-w-[150px] px-2 py-2 font-medium">{row.original.name}</div>,
     },
     {
+        accessorKey: 'role_type',
+        header: trans.label_role_type || 'Role Type',
+        cell: ({ row }) => {
+            const roleType = row.original.role_type;
+            if (!roleType) return null;
+            
+            const color = roleType === 'admin' 
+                ? 'bg-purple-50 text-purple-600 border-purple-100 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-800'
+                : 'bg-indigo-50 text-indigo-600 border-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-400 dark:border-indigo-800';
+                
+            return (
+                <Badge variant="outline" className={`px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-md border shadow-sm ${color}`}>
+                    {roleType}
+                </Badge>
+            );
+        },
+    },
+    {
         accessorKey: 'permissions',
         header: trans.label_permissions || 'Permissions',
         cell: ({ row }) => {
             const permissions = row.original.permissions;
-            const maxPermissionsToShow = 4;
+            const maxPermissionsToShow = 5;
 
             const displayedPermissions = permissions.slice(0, maxPermissionsToShow);
             const hasMorePermissions = permissions.length > maxPermissionsToShow;
 
+            const getBadgeStyles = (name: string) => {
+                const action = name.split('-')[0];
+                switch (action) {
+                    case 'view': return 'bg-blue-50 text-blue-600 border-blue-100 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800';
+                    case 'create': return 'bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800';
+                    case 'update': return 'bg-amber-50 text-amber-600 border-amber-100 hover:bg-amber-100 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800';
+                    case 'delete': return 'bg-rose-50 text-rose-600 border-rose-100 hover:bg-rose-100 dark:bg-rose-900/30 dark:text-rose-400 dark:border-rose-800';
+                    default: return 'bg-slate-50 text-slate-600 border-slate-100 hover:bg-slate-100 dark:bg-slate-900/30 dark:text-slate-400 dark:border-slate-800';
+                }
+            };
+
             return (
-                <div className="flex max-w-[800px] items-center gap-2 2xl:max-w-[1440px]">
+                <div className="flex flex-wrap items-center gap-1.5 py-1">
                     {displayedPermissions.map((perm) => (
-                        <Badge key={perm.id} className="text-[10px] font-medium" variant="outline">
+                        <Badge 
+                            key={perm.id} 
+                            variant="outline"
+                            className={`px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded-md border shadow-sm transition-all hover:scale-105 ${getBadgeStyles(perm.name)}`}
+                        >
                             {perm.name}
                         </Badge>
                     ))}
@@ -35,14 +68,18 @@ export const columns = (onEditClick: (role: Role) => void, onDeleteClick: (id: n
                         <TooltipProvider>
                             <Tooltip>
                                 <TooltipTrigger asChild>
-                                    <span className="text-muted-foreground hover:text-primary cursor-pointer text-xs font-bold">
+                                    <Badge variant="secondary" className="cursor-pointer bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 text-[10px] font-black px-2 py-0.5 rounded-md">
                                         +{permissions.length - maxPermissionsToShow}
-                                    </span>
+                                    </Badge>
                                 </TooltipTrigger>
-                                <TooltipContent className="max-w-2xl border bg-zinc-950 p-4 shadow-xl 2xl:max-w-7xl">
-                                    <div className="flex flex-wrap gap-2">
+                                <TooltipContent className="max-w-md border-border bg-background/95 backdrop-blur-md p-3 shadow-2xl rounded-xl">
+                                    <div className="flex flex-wrap gap-1.5">
                                         {permissions.map((perm) => (
-                                            <Badge key={perm.id} className="text-[10px]" variant="secondary">
+                                            <Badge 
+                                                key={perm.id} 
+                                                variant="outline"
+                                                className={`px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded-md border ${getBadgeStyles(perm.name)}`}
+                                            >
                                                 {perm.name}
                                             </Badge>
                                         ))}

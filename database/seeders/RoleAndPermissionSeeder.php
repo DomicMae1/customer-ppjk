@@ -17,40 +17,40 @@ class RoleAndPermissionSeeder extends Seeder
         // 1. Reset Cache Permission
         app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
 
-        // 2. Definisi Permissions
-        $customPermissions = [
+        // 2. Definisi Modul & Aksi (Otomatis jadi Permission)
+        // Pola: {action}-{module}
+        $modules = [
+            'user',
+            'customer',
+            'document',
+            'role',
+            'master-shipping',
+            'section',
 
-            // Create Page Permissions
-            'create-user',
-            'create-customer',
-            'create-document',
-
-            // View Page Permissions
-            'view-user',
-            'view-customer',
-            'view-document',
-
-            // Update Page Permissions
-            'update-user',
-            'update-customer',
-            'update-document',
         ];
+        
+        $actions = ['view', 'create', 'update', 'delete'];
 
-        foreach ($customPermissions as $perm) {
-            Permission::firstOrCreate(['name' => $perm, 'guard_name' => 'web']);
-        }
-
-        // CRUD Permissions Otomatis
-        $models = ['master-shipping']; // Tambahkan model lain di sini nanti
-        $actions = ['create', 'update', 'delete', 'view'];
-
-        foreach ($models as $model) {
+        foreach ($modules as $module) {
             foreach ($actions as $action) {
-                Permission::firstOrCreate(['name' => "{$action}-{$model}", 'guard_name' => 'web']);
+                Permission::firstOrCreate([
+                    'name' => "{$action}-{$module}",
+                    'guard_name' => 'web'
+                ]);
             }
         }
 
-        // 3. Definisi Roles (LENGKAP SESUAI USER SEEDER)
+        // 3. Tambahan Permission Spesial (Non-CRUD)
+        $specialPermissions = [
+            'upload-document',
+            'verify-document',
+        ];
+
+        foreach ($specialPermissions as $sp) {
+            Permission::firstOrCreate(['name' => $sp, 'guard_name' => 'web']);
+        }
+
+        // 4. Definisi Roles
         $rolesList = [
             'admin',
             'staff',
@@ -63,75 +63,53 @@ class RoleAndPermissionSeeder extends Seeder
         $rolesObj = [];
         foreach ($rolesList as $rName) {
             $rolesObj[$rName] = Role::firstOrCreate(
-                ['name' => $rName, 'guard_name' => 'web'],
-                ['change_upload_permission' => null] 
+                ['name' => $rName, 'guard_name' => 'web']
             );
         }
 
-        // 4. Assign Permissions ke Role
+        // 5. Assign Permissions ke Role (Setup Awal)
 
-        // Admin: Super Power
+        // Admin: SEMUA AKSES
         $rolesObj['admin']->syncPermissions(Permission::all());
 
-        // Staff
+        // Staff: Operasional dasar shipping
         $rolesObj['staff']->syncPermissions([
+            'view-master-shipping',
             'create-master-shipping',
             'update-master-shipping',
-            'view-master-shipping',
+            'upload-document',
+            'verify-document',
         ]);
 
-        // Marketing
+        // Marketing: View & Create Customer/Shipping
         $rolesObj['marketing']->syncPermissions([
-            'create-master-shipping',
-            'update-master-shipping',
-            'view-master-shipping',
-        ]);
-
-        // Manager
-        $rolesObj['manager']->syncPermissions([
-            'create-master-shipping',
-            'update-master-shipping',
-            'view-master-shipping',
-            'create-user',
-            'create-customer',
-            'create-document',
-            'view-user',
             'view-customer',
-            'view-document',
-            'update-user',
-            'update-customer',
-            'update-document',
-        ]);
-
-        // Direktur
-        $rolesObj['supervisor']->syncPermissions([
-            'create-master-shipping',
-            'update-master-shipping',
-            'view-master-shipping',
-            'create-user',
             'create-customer',
-            'create-document',
-            'view-user',
-            'view-customer',
-            'view-document',
-            'update-user',
-            'update-customer',
-            'update-document',
+            'view-master-shipping',
+            'update-master-shipping',
+            'create-master-shipping',
         ]);
 
-        // Customer
+        // Manager & Supervisor: Full akses modul bisnis tapi mungkin tidak untuk user/role management
+        $businessPermissions = [
+            'view-customer', 'create-customer', 'update-customer', 'delete-customer',
+            'view-user', 'create-user', 'update-user', 'delete-user',
+            'view-document', 'create-document', 'update-document', 'delete-document',
+            'view-master-shipping', 'create-master-shipping', 'update-master-shipping', 'delete-master-shipping',
+            'upload-document', 'verify-document',
+            'view-section', 'create-section', 'update-section', 'delete-section',
+        ];
+        
+        $rolesObj['manager']->syncPermissions($businessPermissions);
+        $rolesObj['supervisor']->syncPermissions($businessPermissions);
+
+        // Customer: Hanya lihat & upload document miliknya (logic filter ada di controller)
         $rolesObj['customer']->syncPermissions([
-            'create-master-shipping',
-            'update-master-shipping',
             'view-master-shipping',
+            'view-document',
+            'update-master-shipping',
+            'upload-document',
+            'verify-document',
         ]);
-
-        // 5. Logic Tambahan: Pastikan semua role punya view-master-customer
-        $viewPerm = Permission::where('name', 'view-master-shipping')->first();
-        foreach (Role::all() as $role) {
-            if (!$role->hasPermissionTo('view-master-shipping')) {
-                $role->givePermissionTo($viewPerm);
-            }
-        }
     }
 }
