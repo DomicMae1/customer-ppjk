@@ -34,6 +34,7 @@ interface DataTableProps<TData, TValue> {
 interface Role {
     id: number;
     name: string;
+    role_type: string;
 }
 interface Perusahaan {
     id: number;
@@ -417,7 +418,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                         </SelectTrigger>
                                         <SelectContent className="bg-popover text-popover-foreground">
                                             {roles
-                                                .filter((role) => ['staff', 'marketing', 'manager', 'supervisor'].includes(role.name))
+                                                .filter((role) => role.role_type === 'internal')
                                                 .map((role) => (
                                                     <SelectItem key={role.id} value={String(role.id)}>
                                                         {role.name.charAt(0).toUpperCase() + role.name.slice(1)}

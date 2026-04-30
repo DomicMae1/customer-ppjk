@@ -13,6 +13,7 @@ class Role extends SpatieRole
     protected $fillable = [
         'name',
         'guard_name',
+        'role_type',
         'change_upload_permission', // Kolom baru Anda
         'updated_at',
         'created_at'

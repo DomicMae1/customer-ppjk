@@ -11,6 +11,7 @@ import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { columns } from './table/columns';
 import { DataTable } from './table/data-table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function ManageRoles() {
     const { roles, permissions, flash, trans_role } = usePage().props as any;
@@ -27,6 +28,7 @@ export default function ManageRoles() {
     const [roleIdToDelete, setRoleIdToDelete] = useState<number | null>(null);
     const [selectedRole, setSelectedRole] = useState<Role | null>(null);
     const [roleName, setRoleName] = useState('');
+    const [selectedRoleType, setSelectedRoleType] = useState('');
     const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
 
     useEffect(() => {
@@ -41,6 +43,7 @@ export default function ManageRoles() {
     const handleCreateClick = () => {
         setSelectedRole(null);
         setRoleName('');
+        setSelectedRoleType('');
         setSelectedPermissions([]);
         setOpenForm(true);
     };
@@ -53,6 +56,7 @@ export default function ManageRoles() {
     const onEditClick = (role: Role) => {
         setSelectedRole(role);
         setRoleName(role.name);
+        setSelectedRoleType(role.role_type || '');
         setSelectedPermissions(role.permissions.map((perm) => perm.name));
         setOpenForm(true);
     };
@@ -98,6 +102,7 @@ export default function ManageRoles() {
     const onSubmit = () => {
         const data = {
             name: roleName,
+            role_type: selectedRoleType,
             permissions: selectedPermissions,
         };
 
@@ -208,12 +213,28 @@ export default function ManageRoles() {
                             />
                         </div>
 
+                        {/* Role Type Dropdown (Added) */}
+                        <div className="space-y-3">
+                            <Label htmlFor="roleType" className="text-foreground text-sm font-bold uppercase tracking-wider">
+                                {trans_role.label_role_type || 'Role Type'}
+                            </Label>
+                            <Select value={selectedRoleType} onValueChange={setSelectedRoleType}>
+                                <SelectTrigger className="bg-background/50 border-input text-lg h-12 focus:ring-2 focus:ring-primary/20 transition-all rounded-xl">
+                                    <SelectValue placeholder="Select role type" />
+                                </SelectTrigger>
+                                <SelectContent className="bg-background border-border text-foreground">
+                                    <SelectItem value="internal">Internal</SelectItem>
+                                    <SelectItem value="eksternal">Eksternal</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
                         <div className="space-y-6">
                             <div className="flex items-center justify-between">
                                 <Label className="text-foreground text-sm font-bold uppercase tracking-wider">{trans_role.label_permissions || 'Permissions'}</Label>
                                 <div className="relative w-full max-w-xs">
-                                    <Input 
-                                        placeholder="Search module..." 
+                                    <Input
+                                        placeholder="Search module..."
                                         value={searchTerm}
                                         onChange={(e) => setSearchTerm(e.target.value)}
                                         className="h-9 text-xs rounded-full bg-muted/50"
@@ -248,14 +269,13 @@ export default function ManageRoles() {
 
                                         <div className="grid grid-cols-2 gap-2">
                                             {modelPermissions.map((permission: string) => (
-                                                <div 
-                                                    key={permission} 
+                                                <div
+                                                    key={permission}
                                                     onClick={() => handlePermissionChange(permission)}
-                                                    className={`flex items-center gap-3 p-2 rounded-xl border transition-all cursor-pointer hover:scale-[1.02] active:scale-95 ${
-                                                        selectedPermissions.includes(permission) 
-                                                        ? getPermissionColor(permission) 
+                                                    className={`flex items-center gap-3 p-2 rounded-xl border transition-all cursor-pointer hover:scale-[1.02] active:scale-95 ${selectedPermissions.includes(permission)
+                                                        ? getPermissionColor(permission)
                                                         : 'bg-muted/20 border-transparent text-muted-foreground grayscale opacity-60'
-                                                    }`}
+                                                        }`}
                                                 >
                                                     <Checkbox
                                                         id={permission}

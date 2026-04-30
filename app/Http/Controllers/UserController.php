@@ -47,7 +47,7 @@ class UserController extends Controller
         }
 
         $users = $usersQuery->get();
-        $roles = Role::all(['id', 'name']);
+        $roles = Role::all(['id', 'name', 'role_type']);
         $perusahaan = $companyQuery->get();
         
         if ($user->hasRole('admin')) {

@@ -44,6 +44,7 @@ class RoleController extends Controller
             'title_create_role' => 'Create New Role',
             'title_edit_role' => 'Edit Role Permissions',
             'label_role_name' => 'Role Name',
+            'label_role_type' => 'Role Type',
             'label_permissions' => 'Assign Permissions',
             'label_select_all' => 'Select All Module',
             'placeholder_role_name' => 'e.g. Finance, Operation Manager',
@@ -88,11 +89,16 @@ class RoleController extends Controller
 
         $request->validate([
             'name' => 'required|string|unique:roles,name',
+            'role_type' => 'required|string|in:internal,eksternal',
             'permissions' => 'array',
             'permissions.*' => 'string|exists:permissions,name',
         ]);
 
-        $role = Role::create(['name' => $request->name]);
+        $role = Role::create([
+            'name' => $request->name,
+            'role_type' => $request->role_type,
+            'guard_name' => 'web'
+        ]);
         if ($request->permissions) {
             $role->syncPermissions($request->permissions);
         }
@@ -129,11 +135,15 @@ class RoleController extends Controller
 
         $request->validate([
             'name' => 'required|string|unique:roles,name,' . $id,
+            'role_type' => 'required|string|in:internal,eksternal',
             'permissions' => 'array',
             'permissions.*' => 'string|exists:permissions,name',
         ]);
 
-        $role->update(['name' => $request->name]);
+        $role->update([
+            'name' => $request->name,
+            'role_type' => $request->role_type
+        ]);
         $role->syncPermissions($request->permissions);
 
         return redirect()->route('role-manager.index')->with('success', 'Role updated successfully.');
