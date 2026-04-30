@@ -44,6 +44,7 @@ class RoleAndPermissionSeeder extends Seeder
         $specialPermissions = [
             'upload-document',
             'verify-document',
+            'assign_staff-master-shipping',
         ];
 
         foreach ($specialPermissions as $sp) {
@@ -98,6 +99,7 @@ class RoleAndPermissionSeeder extends Seeder
             'view-master-shipping', 'create-master-shipping', 'update-master-shipping', 'delete-master-shipping',
             'upload-document', 'verify-document',
             'view-section', 'create-section', 'update-section', 'delete-section',
+            'assign_staff-master-shipping',
         ];
         
         $rolesObj['manager']->syncPermissions($businessPermissions);

@@ -455,7 +455,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                         {isUserExternal && <p className="text-muted-foreground text-[10px] italic">{trans.auto_selected_msg}</p>}
                                     </div>
 
-                                    {auth.user?.role === 'internal' && auth.user?.role_internal === 'supervisor' && (
+                                    {auth.user?.permissions?.includes('assign_staff-master-shipping') && (
                                         <div className="space-y-2">
                                             <Label className="font-semibold">{trans.assign_staff || 'Assign Staff'}</Label>
                                             <Select value={selectedStaff} onValueChange={setSelectedStaff}>
