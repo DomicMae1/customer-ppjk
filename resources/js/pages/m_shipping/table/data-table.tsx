@@ -301,7 +301,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
     };
 
     return (
-        <div>
+        <div className="w-[calc(100vw-8rem)] max-w-full min-w-0 overflow-hidden group-data-[state=expanded]/sidebar-wrapper:w-[calc(100vw-2rem)]">
             <div className="flex hidden items-center gap-2 pb-4 md:block">
                 <div className="flex gap-2">
                     <Select value={filterColumn} onValueChange={(val) => setFilterColumn(val as any)}>
@@ -857,49 +857,51 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                 )}
             </div>
 
-            <div className="hidden rounded-md border md:block">
-                <Table>
-                    <TableHeader>
-                        {table.getHeaderGroups().map((headerGroup) => (
-                            <TableRow key={headerGroup.id}>
-                                {headerGroup.headers.map((header) => (
-                                    <TableHead key={header.id}>
-                                        {header.isPlaceholder ? null : header.column.getCanSort() ? (
-                                            <button className="flex items-center gap-1" onClick={() => header.column.toggleSorting()}>
-                                                {flexRender(header.column.columnDef.header, header.getContext())}
-                                                {hasUserSorted &&
-                                                    (header.column.getIsSorted() === 'asc'
-                                                        ? '⬆️'
-                                                        : header.column.getIsSorted() === 'desc'
-                                                          ? '⬇️'
-                                                          : '')}
-                                            </button>
-                                        ) : (
-                                            flexRender(header.column.columnDef.header, header.getContext())
-                                        )}
-                                    </TableHead>
-                                ))}
-                            </TableRow>
-                        ))}
-                    </TableHeader>
-                    <TableBody>
-                        {table.getRowModel().rows?.length ? (
-                            table.getRowModel().rows.map((row) => (
-                                <TableRow key={row.id} data-state={row.getIsSelected() && 'selected'}>
-                                    {row.getVisibleCells().map((cell) => (
-                                        <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
+            <div className="hidden w-full max-w-full min-w-0 overflow-hidden rounded-md border md:block">
+                <div className="w-full max-w-full min-w-0 overflow-x-auto">
+                    <Table className="min-w-[1800px] whitespace-nowrap">
+                        <TableHeader>
+                            {table.getHeaderGroups().map((headerGroup) => (
+                                <TableRow key={headerGroup.id}>
+                                    {headerGroup.headers.map((header) => (
+                                        <TableHead key={header.id}>
+                                            {header.isPlaceholder ? null : header.column.getCanSort() ? (
+                                                <button className="flex items-center gap-1" onClick={() => header.column.toggleSorting()}>
+                                                    {flexRender(header.column.columnDef.header, header.getContext())}
+                                                    {hasUserSorted &&
+                                                        (header.column.getIsSorted() === 'asc'
+                                                            ? '⬆️'
+                                                            : header.column.getIsSorted() === 'desc'
+                                                              ? '⬇️'
+                                                              : '')}
+                                                </button>
+                                            ) : (
+                                                flexRender(header.column.columnDef.header, header.getContext())
+                                            )}
+                                        </TableHead>
                                     ))}
                                 </TableRow>
-                            ))
-                        ) : (
-                            <TableRow>
-                                <TableCell colSpan={columns.length} className="h-24 text-center">
-                                    No results.
-                                </TableCell>
-                            </TableRow>
-                        )}
-                    </TableBody>
-                </Table>
+                            ))}
+                        </TableHeader>
+                        <TableBody>
+                            {table.getRowModel().rows?.length ? (
+                                table.getRowModel().rows.map((row) => (
+                                    <TableRow key={row.id} data-state={row.getIsSelected() && 'selected'}>
+                                        {row.getVisibleCells().map((cell) => (
+                                            <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
+                                        ))}
+                                    </TableRow>
+                                ))
+                            ) : (
+                                <TableRow>
+                                    <TableCell colSpan={columns.length} className="h-24 text-center">
+                                        No results.
+                                    </TableCell>
+                                </TableRow>
+                            )}
+                        </TableBody>
+                    </Table>
+                </div>
             </div>
 
             <DataTablePagination table={table} />

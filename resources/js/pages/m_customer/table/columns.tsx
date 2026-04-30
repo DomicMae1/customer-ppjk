@@ -74,8 +74,52 @@ export const columns = (
             ),
         },
         {
-            accessorKey: 'email',
-            header: trans.label_email || 'Email',
+            accessorKey: 'email_to',
+            header: trans.label_email_to || 'Email To',
+            cell: ({ row }) => {
+                const emails = row.original.email_to ?? [];
+
+                return (
+                    <div className="grid max-w-[350px] grid-cols-2 gap-1">
+                        {emails.length > 0 ? (
+                            emails.map((email, index) => (
+                                <span
+                                    key={index}
+                                    className="dark:bg-accent max-w-full rounded-xl bg-blue-200 px-2 py-0.5 text-xs break-words text-black dark:text-white"
+                                >
+                                    {email}
+                                </span>
+                            ))
+                        ) : (
+                            <span className="text-muted-foreground">-</span>
+                        )}
+                    </div>
+                );
+            },
+        },
+        {
+            accessorKey: 'email_cc',
+            header: trans.label_email_cc || 'Email CC',
+            cell: ({ row }) => {
+                const emails = row.original.email_cc ?? [];
+
+                return (
+                    <div className="grid max-w-[350px] grid-cols-2 gap-1">
+                        {emails.length > 0 ? (
+                            emails.map((email, index) => (
+                                <span
+                                    key={index}
+                                    className="dark:bg-accent max-w-full rounded-xl bg-blue-200 px-2 py-0.5 text-xs break-words text-black dark:text-white"
+                                >
+                                    {email}
+                                </span>
+                            ))
+                        ) : (
+                            <span className="text-muted-foreground">-</span>
+                        )}
+                    </div>
+                );
+            },
         },
         {
             accessorKey: 'nama', // Nama PIC
