@@ -1,9 +1,8 @@
 // Role/ManageRoles/table/columns.tsx
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { ColumnDef } from '@tanstack/react-table';
-import { FileText, MoreHorizontal, Pencil, Trash2, Video } from 'lucide-react';
+import { FileText, Pencil, Trash2, Video } from 'lucide-react';
 
 // Sesuaikan tipe data dengan output backend Anda
 export type MasterDocument = {
@@ -28,11 +27,56 @@ export type MasterDocument = {
     };
 };
 
+const badgeClass = (active: boolean) =>
+    `gap-1.5 px-2.5 py-0.5 font-bold tracking-tight uppercase shadow-sm transition-all ${
+        active
+            ? 'border-emerald-200 bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:border-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400'
+            : 'border-slate-200 text-slate-500 hover:bg-slate-50 dark:border-zinc-800 dark:text-zinc-500'
+    }`;
+
+const BooleanBadge = ({ active }: { active: boolean }) => (
+    <Badge className={badgeClass(active)}>
+        <div className={`h-1.5 w-1.5 rounded-full ${active ? 'animate-pulse bg-emerald-500' : 'bg-slate-300'}`} />
+        {active ? 'Yes' : 'No'}
+    </Badge>
+);
+
 export const columns = (
     onEditClick: (id: number) => void,
     onDeleteClick: (id: number) => void,
     trans: Record<string, string>,
 ): ColumnDef<MasterDocument>[] => [
+    {
+        id: 'actions',
+        cell: ({ row }) => {
+            const doc = row.original;
+
+            return (
+                <div className="flex items-center justify-start gap-2">
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8 text-black hover:bg-orange-50 hover:text-orange-700 dark:text-white"
+                        onClick={() => onEditClick(doc.id_dokumen)}
+                        title={trans.btn_edit || 'Edit'}
+                    >
+                        <Pencil className="h-4 w-4" />
+                    </Button>
+
+                    {/* Tombol Delete */}
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8 text-red-600 hover:bg-red-50 hover:text-red-700"
+                        onClick={() => onDeleteClick(doc.id_dokumen)}
+                        title={trans.btn_delete || 'Delete'}
+                    >
+                        <Trash2 className="h-4 w-4" />
+                    </Button>
+                </div>
+            );
+        },
+    },
     {
         id: 'rowNumber',
         header: 'No.',
@@ -53,95 +97,40 @@ export const columns = (
         ),
     },
     {
-        accessorKey: 'description_file',
-        header: trans.label_description || 'Deskripsi',
-        cell: ({ row }) => (
-            <div className="text-muted-foreground max-w-[300px] truncate py-2 text-sm" title={row.original.description_file || ''}>
-                {row.original.description_file || '-'}
-            </div>
-        ),
+        accessorKey: 'is_internal',
+        header: trans.label_upload_by || 'Upload By',
+        cell: ({ row }) => {
+            return <BooleanBadge active={row.original.is_internal} />;
+        },
     },
     {
-        accessorKey: 'is_internal',
-        header: trans.label_status || 'Status',
-        cell: ({ row }) => {
-            const isInternal = row.original.is_internal;
-            return (
-                <Badge
-                    variant={isInternal ? 'default' : 'secondary'}
-                    className={
-                        isInternal
-                            ? 'border-amber-200 bg-amber-100 text-amber-700 shadow-none hover:bg-amber-200 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-400'
-                            : 'border-blue-200 bg-blue-100 text-blue-700 shadow-none hover:bg-blue-200 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
-                    }
-                >
-                    {isInternal ? trans.btn_internal || 'Internal' : trans.btn_external || 'Public'}
-                </Badge>
-            );
-        },
+        accessorKey: 'attribute',
+        header: trans.label_must_shipping || 'Must in Shipping',
+        cell: ({ row }) => <BooleanBadge active={row.original.attribute} />,
     },
     {
         accessorKey: 'is_confirmed',
-        header: trans.label_need_confirm || 'Need Confirm',
-        cell: ({ row }) => {
-            const isConfirmed = row.original.is_confirmed;
-            return (
-                <Badge
-                    variant={isConfirmed ? 'destructive' : 'outline'}
-                    className={
-                        isConfirmed
-                            ? 'border-red-200 bg-red-100 text-red-700 shadow-none hover:bg-red-200 dark:border-red-800 dark:bg-red-900/30 dark:text-red-400'
-                            : 'text-muted-foreground border-border font-medium'
-                    }
-                >
-                    {isConfirmed ? trans.btn_yes || 'Ya' : trans.btn_no || 'Tidak'}
-                </Badge>
-            );
-        },
+        header: trans.label_requires_verification || 'Requires Verification',
+        cell: ({ row }) => <BooleanBadge active={row.original.is_confirmed} />,
     },
     {
         accessorKey: 'is_ori',
-        header: trans.label_is_ori || 'Is Original',
-        cell: ({ row }) => {
-            const isOri = row.original.is_ori;
-            return (
-                <Badge
-                    variant={isOri ? 'default' : 'outline'}
-                    className={`gap-1.5 px-2.5 py-0.5 font-bold tracking-tight uppercase shadow-sm transition-all ${
-                        isOri
-                            ? 'border-emerald-200 bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:border-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400'
-                            : 'border-slate-200 text-slate-500 hover:bg-slate-50 dark:border-zinc-800 dark:text-zinc-500'
-                    }`}
-                >
-                    <div className={`h-1.5 w-1.5 rounded-full ${isOri ? 'animate-pulse bg-emerald-500' : 'bg-slate-300'}`} />
-                    {isOri ? trans.btn_yes || 'Ya' : trans.btn_no || 'Tidak'}
-                </Badge>
-            );
-        },
+        header: trans.label_show_ori_date || 'Show Ori Date',
+        cell: ({ row }) => <BooleanBadge active={row.original.is_ori} />,
     },
     {
         accessorKey: 'is_print',
-        header: trans.label_is_print || 'Is Print',
-        cell: ({ row }) => {
-            const isPrint = row.original.is_print;
-            return (
-                <Badge
-                    variant={isPrint ? 'default' : 'outline'}
-                    className={`gap-1.5 px-2.5 py-0.5 font-bold tracking-tight uppercase shadow-sm transition-all ${
-                        isPrint
-                            ? 'border-emerald-200 bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:border-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400'
-                            : 'border-slate-200 text-slate-500 hover:bg-slate-50 dark:border-zinc-800 dark:text-zinc-500'
-                    }`}
-                >
-                    <div className={`h-1.5 w-1.5 rounded-full ${isPrint ? 'animate-pulse bg-emerald-500' : 'bg-slate-300'}`} />
-                    {isPrint ? trans.btn_yes || 'Ya' : trans.btn_no || 'Tidak'}
-                </Badge>
-            );
-        },
+        header: trans.label_show_pdf || 'Show in PDF',
+        cell: ({ row }) => <BooleanBadge active={row.original.is_print} />,
+    },
+    {
+        accessorKey: 'is_send_email',
+        header: trans.label_send_email || 'Send Email',
+        cell: ({ row }) => <BooleanBadge active={row.original.is_send_email} />,
     },
     {
         accessorKey: 'links',
-        header: 'Links',
+        header: trans.label_links || 'Links',
         cell: ({ row }) => {
             const { link_url_video_file, link_path_template_file } = row.original;
             return (
@@ -163,33 +152,6 @@ export const columns = (
                         </span>
                     )}
                 </div>
-            );
-        },
-    },
-    {
-        id: 'actions',
-        cell: ({ row }) => {
-            const doc = row.original;
-
-            return (
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
-                            <span className="sr-only">{trans.label_open_menu || 'Open menu'}</span>
-                            <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => onEditClick(doc.id_dokumen)}>
-                            <Pencil className="mr-2 h-4 w-4" />
-                            {trans.btn_edit || 'Edit'}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => onDeleteClick(doc.id_dokumen)} className="text-red-600 focus:text-red-700">
-                            <Trash2 className="mr-2 h-4 w-4 text-red-600" />
-                            {trans.btn_delete || 'Delete'}
-                        </DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
             );
         },
     },

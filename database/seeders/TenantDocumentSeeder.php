@@ -308,7 +308,7 @@ class TenantDocumentSeeder extends Seeder
             [
                 'id_section' => 4,
                 'nama_file' => 'Bukti Penerimaan Negara',
-                'attribute' => 1,
+                'attribute' => 0,
                 'link_path_example_file' => 'documents/examples/bukti_pembayaran.pdf',
                 'link_path_template_file' => 'documents/templates/bukti_pembayaran.pdf',
                 'link_url_video_file' => 'https://www.youtube.com/watch?v=28whxoWAzA0',
@@ -372,7 +372,7 @@ class TenantDocumentSeeder extends Seeder
             [
                 'id_section' => 5,
                 'nama_file' => 'SPJM/PPB',
-                'attribute' => 1,
+                'attribute' => 0,
                 'link_path_example_file' => 'documents/examples/sppb.pdf',
                 'link_path_template_file' => 'documents/templates/sppb.pdf',
                 'link_url_video_file' => 'https://www.youtube.com/watch?v=28whxoWAzA0',

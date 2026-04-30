@@ -309,7 +309,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
     };
 
     return (
-        <div>
+        <div className="w-[calc(100vw-8rem)] max-w-full min-w-0 overflow-hidden group-data-[state=expanded]/sidebar-wrapper:w-[calc(100vw-2rem)]">
             <div className="flex hidden items-center gap-2 pb-4 md:block">
                 <div className="flex gap-2">
                     <Select value={filterColumn} onValueChange={(val) => setFilterColumn(val as any)}>
@@ -898,16 +898,27 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                         <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
                                     ))}
                                 </TableRow>
-                            ))
-                        ) : (
-                            <TableRow>
-                                <TableCell colSpan={columns.length} className="h-24 text-center">
-                                    No results.
-                                </TableCell>
-                            </TableRow>
-                        )}
-                    </TableBody>
-                </Table>
+                            ))}
+                        </TableHeader>
+                        <TableBody>
+                            {table.getRowModel().rows?.length ? (
+                                table.getRowModel().rows.map((row) => (
+                                    <TableRow key={row.id} data-state={row.getIsSelected() && 'selected'}>
+                                        {row.getVisibleCells().map((cell) => (
+                                            <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
+                                        ))}
+                                    </TableRow>
+                                ))
+                            ) : (
+                                <TableRow>
+                                    <TableCell colSpan={columns.length} className="h-24 text-center">
+                                        No results.
+                                    </TableCell>
+                                </TableRow>
+                            )}
+                        </TableBody>
+                    </Table>
+                </div>
             </div>
 
             <DataTablePagination table={table} />

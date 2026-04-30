@@ -37,9 +37,9 @@ return [
     // Pencarian & Header Tabel
     "search_placeholder" => "Cari nama dokumen...",
     // FILTER ATTRIBUTE
-    'filter_all_attribute' => 'Semua Attribute',
-    'filter_mandatory' => 'Mandatory',
-    'filter_non_mandatory' => 'Non Mandatory',
+    'filter_all_attribute' => 'Kebutuhan Shipping',
+    'filter_mandatory' => 'Wajib',
+    'filter_non_mandatory' => 'Tidak Wajib',
 
     // FILTER SECTION
     'filter_all_section' => 'Semua Section',
@@ -87,4 +87,13 @@ return [
     'dropzone_image_format' => '(PNG, JPG, JPEG, WEBP, SVG)',
     'dropzone_image_preview' => 'Preview gambar',
     'dropzone_image_invalid' => 'File gambar tidak valid',
+
+    // KOLOM TABEL
+    'label_upload_by' => 'Upload Oleh',
+    'label_must_shipping' => 'Wajib di Shipping',
+    'label_requires_verification' => 'Perlu Verifikasi',
+    'label_show_ori_date' => 'Tampilkan Tanggal Asli',
+    'label_show_pdf' => 'Tampilkan di PDF',
+    'label_send_email' => 'Kirim Email',
+    'label_links' => 'Tautan',
 ];

@@ -76,9 +76,14 @@ class ShippingController extends Controller
             // Ambil daftar user yang role-nya 'eksternal'
             // Ambil 'name' dari tabel users, tapi value-nya tetap id_customer
             $externalCustomers = User::where('role', 'eksternal')
-                ->whereNotNull('id_customer')
-                ->where('id_perusahaan', $user->id_perusahaan) // Filter Perusahaan
-                ->select('id_customer', 'name as nama')
+                ->whereNotNull('users.id_customer')
+                ->where('users.id_perusahaan', $user->id_perusahaan)
+                ->join('customers', 'customers.id_customer', '=', 'users.id_customer')
+                ->select(
+                    'customers.id_customer',
+                    'customers.nama_perusahaan as nama'
+                )
+                ->distinct()
                 ->get();
 
             // Opsional: Jika ingin menghilangkan duplikasi (misal ada 2 user dari PT yang sama)
@@ -212,7 +217,6 @@ class ShippingController extends Controller
                     'id'                    => $item->id,
                     'spk_code'              => $item->spk_code,
                     'nama_customer'         => $item->customer->nama_perusahaan ?? '-',
-                    'nama_cust'             => $item->customer->nama_perusahaan ?? '-',
                     'tanggal_status'        => $latestDocLog ? $latestDocLog->created_at : $item->created_at,
                     'status_label'          => $item->latestStatus->status ?? 'Draft/Pending',
                     'nama_user'             => $latestDocLog->by ?? $item->creator->name ?? 'System',
@@ -472,7 +476,6 @@ class ShippingController extends Controller
 
         return $pdf->download($filename);
     }
-
 
     /**
      * Store a newly created resource in storage.

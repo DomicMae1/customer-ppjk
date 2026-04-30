@@ -90,7 +90,7 @@ export default function MasterCustomerPage() {
             {/* Translate Head Title */}
             <Head title={trans_general.master_customer} />
 
-            <div className="md:p-4">
+            <div className="w-full max-w-full min-w-0 overflow-hidden group-data-[state=expanded]/sidebar-wrapper:max-w-[90%] md:p-4">
                 <DataTable columns={columns(trans_general, onDeleteClick)} data={customers} />
             </div>
 
@@ -102,7 +102,7 @@ export default function MasterCustomerPage() {
                         <div className="mt-2">
                             {/* Translate Kalimat Konfirmasi */}
                             {trans_general.data} {/* "Data" */}
-                            <span className="px-1 font-bold text-white">{supplierToDelete?.nama_cust ?? trans_general.not_found}</span>
+                            <span className="px-1 font-bold text-white">{supplierToDelete?.nama_customer ?? trans_general.not_found}</span>
                             {trans_general.delete_confirm} {/* "akan dihapus..." */}
                         </div>
                     </DialogHeader>
