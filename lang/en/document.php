@@ -37,9 +37,9 @@ return [
     // Search & Table Header
     "search_placeholder" => "Search by document name...",
     // FILTER ATTRIBUTE
-    'filter_all_attribute' => 'All Attribute',
-    'filter_mandatory' => 'Mandatory',
-    'filter_non_mandatory' => 'Non Mandatory',
+    'filter_all_attribute' => 'Shipping Requirement',
+    'filter_mandatory' => 'Required',
+    'filter_non_mandatory' => 'Non Required',
 
     // FILTER SECTION
     'filter_all_section' => 'All Section',
@@ -87,4 +87,13 @@ return [
     'dropzone_image_format' => '(PNG, JPG, JPEG, WEBP, SVG)',
     'dropzone_image_preview' => 'Image preview',
     'dropzone_image_invalid' => 'Invalid image file',
+
+    // TABLE COLUMNS
+    'label_upload_by' => 'Upload By',
+    'label_must_shipping' => 'Must in Shipping',
+    'label_requires_verification' => 'Requires Verification',
+    'label_show_ori_date' => 'Show Ori Date',
+    'label_show_pdf' => 'Show in PDF',
+    'label_send_email' => 'Send Email',
+    'label_links' => 'Links',
 ];

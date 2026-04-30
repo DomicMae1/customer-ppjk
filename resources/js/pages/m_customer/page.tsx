@@ -42,7 +42,6 @@ interface CustomerPageProps extends PageProps {
 }
 
 export default function ManageCustomers() {
-
     // Ambil semua data sekaligus dari usePage
     const { customers, flash, perusahaan_list, auth, trans_customer, trans_general } = usePage<any>().props;
 
@@ -124,8 +123,17 @@ export default function ManageCustomers() {
             toast.error(trans_customer.toast_update_permission_error || 'Anda tidak memiliki izin untuk menambahkan customer.');
             return;
         }
-        setFormData({ id_customer: 0, ...initialFormState }); // Reset form
+        resetCustomerForm();
         setOpenCreate(true);
+    };
+
+    const resetCustomerForm = () => {
+        setFormData({ id_customer: 0, ...initialFormState });
+        setEmailsTo([]);
+        setEmailsCc([]);
+        setInputTo('');
+        setInputCc('');
+        setIsSubmitting(false);
     };
 
     const handleCreateSubmit = (e: React.FormEvent) => {
@@ -136,7 +144,7 @@ export default function ManageCustomers() {
             ...formData,
             email_to: emailsTo,
             email_cc: emailsCc,
-        }
+        };
         router.post(route('customer.store'), payload, {
             onSuccess: () => {
                 setOpenCreate(false);
@@ -181,7 +189,7 @@ export default function ManageCustomers() {
             ...formData,
             email_to: emailsTo,
             email_cc: emailsCc,
-        }
+        };
         router.put(route('customer.update', formData.id_customer), payload, {
             onSuccess: () => {
                 setOpenEdit(false);
@@ -311,11 +319,13 @@ export default function ManageCustomers() {
                         <div className="grid gap-2">
                             <Label>Email To *</Label>
 
-                            <div className="border p-2 rounded flex flex-wrap gap-2">
+                            <div className="flex flex-wrap gap-2 rounded border p-2">
                                 {emailsTo.map((email, index) => (
-                                    <div key={index} className=" dark:text-black bg-gray-200 px-2 py-1 rounded flex items-center gap-1">
+                                    <div key={index} className="flex items-center gap-1 rounded bg-gray-200 px-2 py-1 dark:text-black">
                                         <span>{email}</span>
-                                        <button type="button" onClick={() => removeEmail(index, emailsTo, setEmailsTo)}>x</button>
+                                        <button type="button" onClick={() => removeEmail(index, emailsTo, setEmailsTo)}>
+                                            x
+                                        </button>
                                     </div>
                                 ))}
 
@@ -329,19 +339,21 @@ export default function ManageCustomers() {
                                             setInputTo('');
                                         }
                                     }}
-                                    className="outline-none flex-1"
+                                    className="flex-1 outline-none"
                                 />
                             </div>
-                            <span className="text-xs text-muted-foreground">{trans.note_email}</span>
+                            <span className="text-muted-foreground text-xs">{trans.note_email}</span>
                         </div>
                         <div className="grid gap-2">
                             <Label>Email CC</Label>
 
-                            <div className="border p-2 rounded flex flex-wrap gap-2">
+                            <div className="flex flex-wrap gap-2 rounded border p-2">
                                 {emailsCc.map((email, index) => (
-                                    <div key={index} className="dark:text-black bg-gray-200 px-2 py-1 rounded flex items-center gap-1">
+                                    <div key={index} className="flex items-center gap-1 rounded bg-gray-200 px-2 py-1 dark:text-black">
                                         <span>{email}</span>
-                                        <button type="button" onClick={() => removeEmail(index, emailsCc, setEmailsCc)}>x</button>
+                                        <button type="button" onClick={() => removeEmail(index, emailsCc, setEmailsCc)}>
+                                            x
+                                        </button>
                                     </div>
                                 ))}
 
@@ -355,10 +367,10 @@ export default function ManageCustomers() {
                                             setInputCc('');
                                         }
                                     }}
-                                    className="outline-none flex-1"
+                                    className="flex-1 outline-none"
                                 />
                             </div>
-                            <span className="text-xs text-muted-foreground">{trans.note_email}</span>
+                            <span className="text-muted-foreground text-xs">{trans.note_email}</span>
                         </div>
 
                         {/* PIC Name */}
@@ -492,11 +504,13 @@ export default function ManageCustomers() {
                         <div className="grid gap-2">
                             <Label>Email To *</Label>
 
-                            <div className="border p-2 rounded flex flex-wrap gap-2">
+                            <div className="flex flex-wrap gap-2 rounded border p-2">
                                 {emailsTo.map((email, index) => (
-                                    <div key={index} className="dark:text-black bg-gray-200 px-2 py-1 rounded flex items-center gap-1">
+                                    <div key={index} className="flex items-center gap-1 rounded bg-gray-200 px-2 py-1 dark:text-black">
                                         <span>{email}</span>
-                                        <button type="button" onClick={() => removeEmail(index, emailsTo, setEmailsTo)}>x</button>
+                                        <button type="button" onClick={() => removeEmail(index, emailsTo, setEmailsTo)}>
+                                            x
+                                        </button>
                                     </div>
                                 ))}
 
@@ -510,19 +524,21 @@ export default function ManageCustomers() {
                                             setInputTo('');
                                         }
                                     }}
-                                    className="outline-none flex-1"
+                                    className="flex-1 outline-none"
                                 />
                             </div>
-                            <span className="text-xs text-muted-foreground">{trans.note_email}</span>
+                            <span className="text-muted-foreground text-xs">{trans.note_email}</span>
                         </div>
                         <div className="grid gap-2">
                             <Label>Email CC</Label>
 
-                            <div className="border p-2 rounded flex flex-wrap gap-2">
+                            <div className="flex flex-wrap gap-2 rounded border p-2">
                                 {emailsCc.map((email, index) => (
-                                    <div key={index} className="dark:text-black bg-gray-200 px-2 py-1 rounded flex items-center gap-1">
+                                    <div key={index} className="flex items-center gap-1 rounded bg-gray-200 px-2 py-1 dark:text-black">
                                         <span>{email}</span>
-                                        <button type="button" onClick={() => removeEmail(index, emailsCc, setEmailsCc)}>x</button>
+                                        <button type="button" onClick={() => removeEmail(index, emailsCc, setEmailsCc)}>
+                                            x
+                                        </button>
                                     </div>
                                 ))}
 
@@ -536,10 +552,10 @@ export default function ManageCustomers() {
                                             setInputCc('');
                                         }
                                     }}
-                                    className="outline-none flex-1"
+                                    className="flex-1 outline-none"
                                 />
                             </div>
-                            <span className="text-xs text-muted-foreground">{trans.note_email}</span>
+                            <span className="text-muted-foreground text-xs">{trans.note_email}</span>
                         </div>
 
                         {/* PIC Name */}

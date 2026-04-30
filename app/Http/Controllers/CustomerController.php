@@ -41,7 +41,7 @@ class CustomerController extends Controller
 
         // 3. Urutkan dan Ambil data
         // (Jika user tidak punya id_perusahaan/Super Admin, dia akan melihat semua data)
-        $customers = $query->latest()->get();
+        $customers = $query->orderBy('id_customer', 'asc')->get();
 
         return Inertia::render('m_customer/page', [
             'customers' => $customers,
