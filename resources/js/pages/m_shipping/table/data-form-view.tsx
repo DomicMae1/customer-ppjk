@@ -585,6 +585,75 @@ export default function ViewCustomerForm({
         }
     }, [shipmentDataProp?.eta_date]);
 
+    // NEW: Sync Job Date for real-time updates
+    useEffect(() => {
+        if (shipmentDataProp?.job_date) {
+            setJobDate(shipmentDataProp.job_date.split('T')[0].split(' ')[0]);
+        }
+    }, [shipmentDataProp?.job_date]);
+
+    // NEW: Sync Inspection Date for real-time updates
+    useEffect(() => {
+        if (shipmentDataProp?.inspection_date) {
+            setInspectionDate(shipmentDataProp.inspection_date.split('T')[0].split(' ')[0]);
+        }
+    }, [shipmentDataProp?.inspection_date]);
+
+    // AUTO-SAVE: ETA Date
+    const isEtaInitialMount = useRef(true);
+    useEffect(() => {
+        if (isEtaInitialMount.current) {
+            isEtaInitialMount.current = false;
+            return;
+        }
+
+        // Only save if the value is different from prop to avoid unnecessary calls
+        const propValue = shipmentDataProp?.eta_date ? shipmentDataProp.eta_date.split('T')[0].split(' ')[0] : '';
+        if (etaDate === propValue) return;
+
+        const timeoutId = setTimeout(() => {
+            handleSaveEtaDate();
+        }, 500);
+
+        return () => clearTimeout(timeoutId);
+    }, [etaDate]);
+
+    // AUTO-SAVE: Job Date
+    const isJobInitialMount = useRef(true);
+    useEffect(() => {
+        if (isJobInitialMount.current) {
+            isJobInitialMount.current = false;
+            return;
+        }
+
+        const propValue = shipmentDataProp?.job_date ? shipmentDataProp.job_date.split('T')[0].split(' ')[0] : '';
+        if (jobDate === propValue) return;
+
+        const timeoutId = setTimeout(() => {
+            handleSaveJobDate();
+        }, 500);
+
+        return () => clearTimeout(timeoutId);
+    }, [jobDate]);
+
+    // AUTO-SAVE: Inspection Date
+    const isInspectionInitialMount = useRef(true);
+    useEffect(() => {
+        if (isInspectionInitialMount.current) {
+            isInspectionInitialMount.current = false;
+            return;
+        }
+
+        const propValue = shipmentDataProp?.inspection_date ? shipmentDataProp.inspection_date.split('T')[0].split(' ')[0] : '';
+        if (inspectionDate === propValue) return;
+
+        const timeoutId = setTimeout(() => {
+            handleSaveInspectionDate();
+        }, 500);
+
+        return () => clearTimeout(timeoutId);
+    }, [inspectionDate]);
+
     const [processingSectionId, setProcessingSectionId] = useState<number | null>(null);
 
     const [selectedAdditionalDocs, setSelectedAdditionalDocs] = useState<{ id: string; label: string }[]>([
@@ -1778,7 +1847,15 @@ export default function ViewCustomerForm({
 
                             {/* ETA Date Field */}
                             <div className="col-span-2 mt-2 space-y-1.5 border-t border-slate-200/60 pt-3 dark:border-zinc-800">
-                                <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.eta_date}</div>
+                                <div className="flex items-center justify-between">
+                                    <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.eta_date}</div>
+                                    {isSavingEtaDate && (
+                                        <div className="flex items-center gap-1.5 text-[9px] font-medium text-blue-500 animate-pulse">
+                                            <div className="h-1 w-1 rounded-full bg-blue-500"></div>
+                                            Saving...
+                                        </div>
+                                    )}
+                                </div>
                                 <div className="flex items-center gap-2">
                                     <Input
                                         type="date"
@@ -1787,22 +1864,20 @@ export default function ViewCustomerForm({
                                         className="date-input-dark h-9 rounded-lg border-slate-200 bg-white text-xs text-slate-700 focus:ring-blue-500/20 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300"
                                         disabled={!isInternalUser || isSavingEtaDate}
                                     />
-                                    {isInternalUser && (
-                                        <Button
-                                            size="sm"
-                                            onClick={handleSaveEtaDate}
-                                            disabled={isSavingEtaDate}
-                                            className="h-9 bg-slate-900 px-4 text-[10px] font-bold text-white hover:bg-slate-800"
-                                        >
-                                            {isSavingEtaDate ? '...' : trans.save || 'Save'}
-                                        </Button>
-                                    )}
                                 </div>
                             </div>
                             {/* Job date field */}
                             {sectionsTransProp?.some((s) => s.id_section === 7) && (
                                 <div className="col-span-2 mt-2 space-y-1.5 border-t border-slate-200/60 pt-3 dark:border-zinc-800">
-                                    <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.job_date || 'Job Date'}</div>
+                                    <div className="flex items-center justify-between">
+                                        <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.job_date || 'Job Date'}</div>
+                                        {isSavingJobDate && (
+                                            <div className="flex items-center gap-1.5 text-[9px] font-medium text-blue-500 animate-pulse">
+                                                <div className="h-1 w-1 rounded-full bg-blue-500"></div>
+                                                Saving...
+                                            </div>
+                                        )}
+                                    </div>
                                     <div className="flex items-center gap-2">
                                         <Input
                                             type="date"
@@ -1811,16 +1886,6 @@ export default function ViewCustomerForm({
                                             className="date-input-dark h-9 rounded-lg border-slate-200 bg-white text-xs text-slate-700 focus:ring-blue-500/20 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300"
                                             disabled={!isInternalUser || isSavingJobDate}
                                         />
-                                        {isInternalUser && (
-                                            <Button
-                                                size="sm"
-                                                onClick={handleSaveJobDate}
-                                                disabled={isSavingJobDate}
-                                                className="h-9 bg-slate-900 px-4 text-[10px] font-bold text-white hover:bg-slate-800"
-                                            >
-                                                {isSavingJobDate ? '...' : trans.save || 'Save'}
-                                            </Button>
-                                        )}
                                     </div>
                                 </div>
                             )}
@@ -1828,7 +1893,15 @@ export default function ViewCustomerForm({
                             {/* inspection date field */}
                             {sectionsTransProp?.some((s) => s.id_section === 7) && (
                                 <div className="col-span-2 mt-2 space-y-1.5 border-t border-slate-200/60 pt-3 dark:border-zinc-800">
-                                    <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.inspection_date || 'Inspection Date'}</div>
+                                    <div className="flex items-center justify-between">
+                                        <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.inspection_date || 'Inspection Date'}</div>
+                                        {isSavingInspectionDate && (
+                                            <div className="flex items-center gap-1.5 text-[9px] font-medium text-blue-500 animate-pulse">
+                                                <div className="h-1 w-1 rounded-full bg-blue-500"></div>
+                                                Saving...
+                                            </div>
+                                        )}
+                                    </div>
                                     <div className="flex items-center gap-2">
                                         <Input
                                             type="date"
@@ -1837,16 +1910,6 @@ export default function ViewCustomerForm({
                                             className="date-input-dark h-9 rounded-lg border-slate-200 bg-white text-xs text-slate-700 focus:ring-blue-500/20 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300"
                                             disabled={!isInternalUser || isSavingInspectionDate}
                                         />
-                                        {isInternalUser && (
-                                            <Button
-                                                size="sm"
-                                                onClick={handleSaveInspectionDate}
-                                                disabled={isSavingInspectionDate}
-                                                className="h-9 bg-slate-900 px-4 text-[10px] font-bold text-white hover:bg-slate-800"
-                                            >
-                                                {isSavingInspectionDate ? '...' : trans.save || 'Save'}
-                                            </Button>
-                                        )}
                                     </div>
                                 </div>
                             )}
