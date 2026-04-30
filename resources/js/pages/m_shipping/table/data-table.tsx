@@ -25,6 +25,7 @@ import * as React from 'react';
 import { useEffect, useState } from 'react';
 import { DataTableViewOptions } from './data-table-view-options';
 import { DataTablePagination } from './pagination';
+import { toast } from 'sonner';
 
 interface DataTableProps<TData, TValue> {
     columns: ColumnDef<TData, TValue>[];
@@ -229,14 +230,23 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
 
     const handleSaveShipment = () => {
         // A. Validasi Sederhana
-        if (!tanggalDokumen || !blNumber || !selectedCustomer) {
-            alert(trans.alert_complete_data);
+        if (!tanggalDokumen) {
+            toast.error('Tanggal dokumen wajib diisi');
+            return;
+        }
+        if (!blNumber) {
+            const label = shipmentType === 'Import' ? 'Nomor BL' : 'Nomor SI';
+            toast.error(`${label} wajib diisi`);
+            return;
+        }
+        if (!selectedCustomer) {
+            toast.error('Customer wajib dipilih');
             return;
         }
 
         const invalidHs = hsCodes.find((item) => !item.code);
         if (invalidHs) {
-            alert(trans.alert_hs_code); // Translate Alert
+            toast.error('Setiap baris HS Code wajib diisi kodenya');
             return;
         }
 
@@ -285,16 +295,14 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                 setBlNumber('');
                 setHsCodes([{ id: nanoid(), code: '', link: '', file: null }]);
                 setSelectedSections([]); // Reset selected sections
-                // Opsional: toast.success('Data berhasil disimpan');
+                toast.success(trans.alert_save_success || 'Data berhasil disimpan');
             },
             onError: (errors) => {
                 console.error('Gagal menyimpan:', errors);
-                // Translate Alert Error
-                if (errors.bl_number) alert(`BL Number: ${errors.bl_number}`);
-                else if (errors.id_customer) alert(`Customer: ${errors.id_customer}`);
-                else if (errors['hs_codes.0.code']) alert(trans.alert_hs_code_first);
-                else if (errors['hs_codes.0.file']) alert(trans.alert_file_problem);
-                else alert(trans.alert_save_error);
+                // Show each error message in a toast
+                Object.values(errors).forEach((error: any) => {
+                    toast.error(error);
+                });
             },
             onFinish: () => setIsSubmitting(false),
         });
@@ -702,38 +710,38 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
 
                         const tanggalFormat = dateObj
                             ? dateObj
-                                  .toLocaleDateString('id-ID', {
-                                      day: '2-digit',
-                                      month: '2-digit',
-                                      year: 'numeric',
-                                  })
-                                  .replace(/\./g, '/')
+                                .toLocaleDateString('id-ID', {
+                                    day: '2-digit',
+                                    month: '2-digit',
+                                    year: 'numeric',
+                                })
+                                .replace(/\./g, '/')
                             : '-';
 
                         const jamMenit = dateObj
                             ? dateObj
-                                  .toLocaleTimeString('id-ID', {
-                                      hour: '2-digit',
-                                      minute: '2-digit',
-                                      hour12: false,
-                                  })
-                                  .replace('.', ':')
+                                .toLocaleTimeString('id-ID', {
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    hour12: false,
+                                })
+                                .replace('.', ':')
                             : '';
 
                         const deadlineFormatted = original.deadline_date
                             ? new Date(original.deadline_date).toLocaleDateString('en-GB', {
-                                  day: 'numeric',
-                                  month: 'short',
-                                  year: 'numeric',
-                              })
+                                day: 'numeric',
+                                month: 'short',
+                                year: 'numeric',
+                            })
                             : null;
 
                         const etaFormatted = original.eta_date
                             ? new Date(original.eta_date).toLocaleDateString('en-GB', {
-                                  day: 'numeric',
-                                  month: 'short',
-                                  year: 'numeric',
-                              })
+                                day: 'numeric',
+                                month: 'short',
+                                year: 'numeric',
+                            })
                             : null;
 
                         const progress = original.progress || 0;
@@ -871,8 +879,8 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                                     (header.column.getIsSorted() === 'asc'
                                                         ? '⬆️'
                                                         : header.column.getIsSorted() === 'desc'
-                                                          ? '⬇️'
-                                                          : '')}
+                                                            ? '⬇️'
+                                                            : '')}
                                             </button>
                                         ) : (
                                             flexRender(header.column.columnDef.header, header.getContext())

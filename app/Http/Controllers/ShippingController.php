@@ -488,22 +488,6 @@ class ShippingController extends Controller
             throw UnauthorizedException::forPermissions(['create-master-shipping']);
         }
 
-        $validated = $request->validate([
-            'tanggal_dokumen' => 'required|date',
-            'shipment_type'   => 'required|in:Import,Export',
-            'bl_number'       => 'required|string',
-            'id_customer'     => 'required|exists:customers,id_customer',
-            'hs_codes'        => 'required|array|min:1',
-            'hs_codes.*.code' => 'required|string',
-            'hs_codes.*.link' => 'nullable|string',
-            'hs_codes.*.file' => 'nullable|file|image|mimes:jpeg,png,jpg|max:5120',
-            'assigned_pic'    => 'nullable|integer|exists:users,id_user', // Validasi Assigned PIC
-            'vessel'          => 'nullable|string',
-            'origin'          => 'nullable|string',
-            'port'            => 'nullable|string',
-            'comodity'        => 'nullable|string',
-        ]);
-
         // --- Logic Tenant ---
         $tenant = null;
         if ($user->id_perusahaan) {
@@ -520,6 +504,36 @@ class ShippingController extends Controller
         }
 
         tenancy()->initialize($tenant);
+
+        $validated = $request->validate([
+            'tanggal_dokumen' => 'required|date',
+            'shipment_type'   => 'required|in:Import,Export',
+            'bl_number'       => 'required|string',
+            'id_customer'     => 'required|exists:App\Models\Customer,id_customer',
+            'hs_codes'        => 'required|array|min:1',
+            'hs_codes.*.code' => 'required|string',
+            'hs_codes.*.link' => 'nullable|string',
+            'hs_codes.*.file' => 'nullable|file|image|mimes:jpeg,png,jpg|max:5120',
+            'assigned_pic'    => 'nullable|integer|exists:App\Models\User,id_user', // Validasi Assigned PIC
+            'vessel'          => 'nullable|string',
+            'origin'          => 'nullable|string',
+            'port'            => 'nullable|string',
+            'comodity'        => 'nullable|string',
+        ], [
+            'tanggal_dokumen.required' => 'Tanggal dokumen wajib diisi.',
+            'shipment_type.required'   => 'Tipe shipment (Import/Export) wajib dipilih.',
+            'bl_number.required'       => 'Nomor BL/SI wajib diisi.',
+            'id_customer.required'     => 'Customer wajib dipilih.',
+            'hs_codes.required'        => 'Data HS Code minimal harus ada satu.',
+            'hs_codes.*.code.required' => 'Kode HS tidak boleh kosong.',
+        ]);
+
+        // Manual uniqueness check to avoid connection issues with Laravel's unique rule
+        if (Spk::where('spk_code', $validated['bl_number'])->exists()) {
+            return redirect()->back()->withErrors([
+                'bl_number' => 'Nomor BL/SI ini sudah pernah dibuat sebelumnya.'
+            ]);
+        }
 
         DB::beginTransaction();
 
