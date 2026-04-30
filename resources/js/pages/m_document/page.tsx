@@ -49,6 +49,15 @@ interface PageProps {
 export default function ManageDocuments() {
     const { documents, sections, flash, auth, trans_doc } = usePage<PageProps>().props;
 
+     useEffect(() => {
+        if (flash?.success) {
+            toast.success(flash.success);
+        }
+        if (flash?.error) {
+            toast.error(flash.error);
+        }
+    }, [flash]);
+
     const breadcrumbs: BreadcrumbItem[] = [
         {
             title: trans_doc.breadcrumb_title || 'Manage Documents',
@@ -98,11 +107,6 @@ export default function ManageDocuments() {
     const [docIdToDelete, setDocIdToDelete] = useState<number | null>(null);
     const docToDelete = documents.find((d) => d.id_dokumen === docIdToDelete);
 
-    useEffect(() => {
-        if (flash.success) toast.success(flash.success);
-        if (flash.error) toast.error(flash.error);
-    }, [flash]);
-
     const handleEditDropzoneChange = (field: 'link_path_example_file' | 'link_path_template_file', response: any) => {
         if (response && (response.status === 'success' || response.path)) {
             setEditForm((prev) => ({ ...prev, [field]: response.path }));
@@ -120,6 +124,11 @@ export default function ManageDocuments() {
 
     // --- HANDLER EDIT ---
     const onEditClick = (id: number) => {
+
+        if (!auth.user.permissions.includes('update-document')) {
+            toast.error(trans_doc.toast_update_permission_error || 'Anda tidak memiliki izin untuk mengedit dokumen.');
+            return;
+        }
         const doc = documents.find((d) => d.id_dokumen === id) as any;
 
         if (doc) {
@@ -187,6 +196,10 @@ export default function ManageDocuments() {
 
     // --- HANDLER DELETE ---
     const onDeleteClick = (id: number) => {
+        if (!auth.user.permissions.includes('delete-document')) {
+            toast.error(trans_doc.toast_delete_permission_error || 'Anda tidak memiliki izin untuk menghapus dokumen.');
+            return;
+        }
         setDocIdToDelete(id);
         setOpenDelete(true);
     };

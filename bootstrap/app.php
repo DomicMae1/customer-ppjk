@@ -22,5 +22,10 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        //
+        $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\HttpExceptionInterface $e, \Illuminate\Http\Request $request) {
+            if ($e->getStatusCode() === 403) {
+                return inertia('error/unauthorized')->toResponse($request)->setStatusCode(403);
+            }
+            return null;
+        });
     })->create();

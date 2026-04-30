@@ -24,6 +24,7 @@ import * as React from 'react';
 import { useState } from 'react';
 import { DataTableViewOptions } from './data-table-view-options';
 import { DataTablePagination } from './pagination';
+import { toast } from 'sonner';
 
 interface DataTableProps<TData, TValue> {
     columns: ColumnDef<TData, TValue>[];
@@ -33,6 +34,7 @@ interface DataTableProps<TData, TValue> {
 interface Role {
     id: number;
     name: string;
+    role_type: string;
 }
 interface Perusahaan {
     id: number;
@@ -45,11 +47,12 @@ interface Customer {
 }
 
 export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData, TValue>) {
-    const { roles, companies, customers, trans_auth, isAdmin, authCompanyId } = usePage().props as unknown as {
+    const { roles, companies, customers, trans_auth, auth, isAdmin, authCompanyId } = usePage().props as unknown as {
         roles: Role[];
         companies: Perusahaan[];
         customers: Customer[];
         trans_auth: Record<string, string>;
+        auth: any;
         isAdmin: boolean;
         authCompanyId: number | null;
     };
@@ -72,6 +75,17 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
     const [showPasswordConfirmation, setShowPasswordConfirmation] = useState(false);
 
     const [filterValue, setFilterValue] = React.useState('');
+
+    const handleOpenCreate = () => {
+        if (!auth.user.permissions.includes('create-user')) {
+            toast.error(
+                trans_auth.toast_create_permission_error || 'Anda tidak memiliki izin untuk menambahkan user.'
+            );
+            return;
+        }
+
+        setOpenCreate(true);
+    };
 
     const table = useReactTable({
         data,
@@ -198,7 +212,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                 </div>
 
                 <DataTableViewOptions table={table} />
-                <Button className="h-9" onClick={() => setOpenCreate(true)}>
+                <Button className="h-9" onClick={handleOpenCreate}>
                     {trans_auth.add_button} {/* Translate */}
                 </Button>
             </div>
@@ -213,7 +227,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                     }}
                     className="w-full"
                 />
-                <Button size="icon" className="shrink-0" onClick={() => setOpenCreate(true)}>
+                <Button size="icon" className="shrink-0" onClick={handleOpenCreate}>
                     <Plus className="h-4 w-4" />
                 </Button>
             </div>
@@ -404,7 +418,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                         </SelectTrigger>
                                         <SelectContent className="bg-popover text-popover-foreground">
                                             {roles
-                                                .filter((role) => ['staff', 'marketing', 'manager', 'supervisor'].includes(role.name))
+                                                .filter((role) => role.role_type === 'internal')
                                                 .map((role) => (
                                                     <SelectItem key={role.id} value={String(role.id)}>
                                                         {role.name.charAt(0).toUpperCase() + role.name.slice(1)}

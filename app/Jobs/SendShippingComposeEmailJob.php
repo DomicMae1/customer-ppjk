@@ -56,9 +56,40 @@ class SendShippingComposeEmailJob implements ShouldQueue
                 return $items->first();
             });
 
-        $mailable = new \App\Mail\ShippingComposeMail($spk, $this->subject, $this->bodyHtml, $this->senderName);
-        $pdfService = new \App\Services\ShippingPdfService();
+        $attachedNames = [];
         $disk = Storage::disk('customers_external');
+
+        // 1. Prepare DocumentTrans attachments & names
+        foreach ($this->documentIds as $idDokumen) {
+            $doc = $latestDocs->get((int) $idDokumen);
+            if ($doc && $doc->url_path_file && $disk->exists($doc->url_path_file)) {
+                $originalName = $doc->nama_file ?? $doc->masterDocument?->nama_dokumen ?? basename($doc->url_path_file);
+                $safeName = str_replace(['/', '\\'], '-', $originalName);
+                
+                $pathExt = pathinfo($doc->url_path_file, PATHINFO_EXTENSION);
+                if ($pathExt && !str_ends_with(strtolower($safeName), '.' . strtolower($pathExt))) {
+                    $safeName .= '.' . $pathExt;
+                }
+                $attachedNames[] = $safeName;
+            }
+        }
+
+        // 2. Manual Uploads
+        foreach ($this->tempFilePaths as $temp) {
+            $path = $temp['path'] ?? null;
+            if ($path && $disk->exists($path)) {
+                $name = $temp['name'] ?? basename($path);
+                $attachedNames[] = str_replace(['/', '\\'], '-', $name);
+            }
+        }
+
+        // 3. Background PDFs
+        if ($this->attachOverviewPdf) $attachedNames[] = "SPK Overview (PDF)";
+        if ($this->attachKarantinaPdf) $attachedNames[] = "SPK Karantina (PDF)";
+        if ($this->attachNonKarantinaPdf) $attachedNames[] = "SPK Non Karantina (PDF)";
+
+        $mailable = new \App\Mail\ShippingComposeMail($spk, $this->subject, $this->bodyHtml, $this->senderName, $attachedNames);
+        $pdfService = new \App\Services\ShippingPdfService();
 
         // 1. Attach DocumentTrans files
         foreach ($this->documentIds as $idDokumen) {
@@ -70,8 +101,27 @@ class SendShippingComposeEmailJob implements ShouldQueue
                 Log::warning("Job Attachment Missing: {$doc->url_path_file} for SPK {$this->spkId}");
                 continue;
             }
-            $fullPath = $disk->path($doc->url_path_file);
-            $mailable->attach($fullPath, ['as' => $doc->nama_file ?? basename($fullPath)]);
+
+            $fileContent = $disk->get($doc->url_path_file);
+            
+            // Tentukan nama file: gunakan nama_file dari DB atau basename dari path
+            $originalName = $doc->nama_file ?? basename($doc->url_path_file);
+            
+            // Bersihkan nama dari karakter bermasalah (seperti / di "Draft PIB/PEB")
+            $safeName = str_replace(['/', '\\'], '-', $originalName);
+
+            // Pastikan ada ekstensi jika di nama tidak ada tapi di path ada
+            $pathExt = pathinfo($doc->url_path_file, PATHINFO_EXTENSION);
+            if ($pathExt && !str_ends_with(strtolower($safeName), '.' . strtolower($pathExt))) {
+                $safeName .= '.' . $pathExt;
+            }
+
+            try {
+                $mime = $disk->mimeType($doc->url_path_file);
+                $mailable->attachData($fileContent, $safeName, ['mime' => $mime]);
+            } catch (\Exception $e) {
+                $mailable->attachData($fileContent, $safeName);
+            }
         }
 
         // 2. Attach Manually Uploaded Files
@@ -81,7 +131,15 @@ class SendShippingComposeEmailJob implements ShouldQueue
             if (!$path || !$disk->exists($path)) {
                 continue;
             }
-            $mailable->attach($disk->path($path), ['as' => $name ?: basename($path)]);
+            $fileContent = $disk->get($path);
+            $safeName = str_replace(['/', '\\'], '-', $name ?: basename($path));
+            
+            try {
+                $mime = $disk->mimeType($path);
+                $mailable->attachData($fileContent, $safeName, ['mime' => $mime]);
+            } catch (\Exception $e) {
+                $mailable->attachData($fileContent, $safeName);
+            }
         }
 
         // 3. Generate and Attach PDFs in Background

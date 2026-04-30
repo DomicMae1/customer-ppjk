@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { MemoizedInput } from '@/components/ui/memoized-input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
@@ -150,11 +151,12 @@ export default function ViewCustomerForm({
     const { props } = usePage();
     const trans = props.trans_general as Record<string, string>;
     const currentLocale = props.locale as string;
+    const flash = props.flash as any;
 
     // Check if user is internal (not external)
     const auth = (props.auth as any) || {};
     const isInternalUser = userRole !== 'eksternal';
-    const isSupervisor = auth.user?.role === 'internal' && auth.user?.role_internal === 'supervisor';
+    const isSupervisor = auth.user?.permissions?.includes('assign_staff-master-shipping');
     const isNpdSection = (section: any) => section.section_name.toLowerCase().includes('npd');
     const [tempFiles, setTempFiles] = useState<Record<number, string>>({});
     const [activeSection, setActiveSection] = useState<number | null>(null);
@@ -235,6 +237,15 @@ export default function ViewCustomerForm({
     );
     const [ajuForm, setAjuForm] = useState<string>((shipmentDataProp as any)?.aju || '');
     const [joForm, setJoForm] = useState<string>((shipmentDataProp as any)?.j_o || '');
+
+    useEffect(() => {
+        if (flash?.success) {
+            toast.success(flash.success);
+        }
+        if (flash?.error) {
+            toast.error(flash.error);
+        }
+    }, [flash]);
 
     // Auto save effect
     const isFormFieldsInitialMount = useRef(true);
@@ -574,6 +585,75 @@ export default function ViewCustomerForm({
         }
     }, [shipmentDataProp?.eta_date]);
 
+    // NEW: Sync Job Date for real-time updates
+    useEffect(() => {
+        if (shipmentDataProp?.job_date) {
+            setJobDate(shipmentDataProp.job_date.split('T')[0].split(' ')[0]);
+        }
+    }, [shipmentDataProp?.job_date]);
+
+    // NEW: Sync Inspection Date for real-time updates
+    useEffect(() => {
+        if (shipmentDataProp?.inspection_date) {
+            setInspectionDate(shipmentDataProp.inspection_date.split('T')[0].split(' ')[0]);
+        }
+    }, [shipmentDataProp?.inspection_date]);
+
+    // AUTO-SAVE: ETA Date
+    const isEtaInitialMount = useRef(true);
+    useEffect(() => {
+        if (isEtaInitialMount.current) {
+            isEtaInitialMount.current = false;
+            return;
+        }
+
+        // Only save if the value is different from prop to avoid unnecessary calls
+        const propValue = shipmentDataProp?.eta_date ? shipmentDataProp.eta_date.split('T')[0].split(' ')[0] : '';
+        if (etaDate === propValue) return;
+
+        const timeoutId = setTimeout(() => {
+            handleSaveEtaDate();
+        }, 500);
+
+        return () => clearTimeout(timeoutId);
+    }, [etaDate]);
+
+    // AUTO-SAVE: Job Date
+    const isJobInitialMount = useRef(true);
+    useEffect(() => {
+        if (isJobInitialMount.current) {
+            isJobInitialMount.current = false;
+            return;
+        }
+
+        const propValue = shipmentDataProp?.job_date ? shipmentDataProp.job_date.split('T')[0].split(' ')[0] : '';
+        if (jobDate === propValue) return;
+
+        const timeoutId = setTimeout(() => {
+            handleSaveJobDate();
+        }, 500);
+
+        return () => clearTimeout(timeoutId);
+    }, [jobDate]);
+
+    // AUTO-SAVE: Inspection Date
+    const isInspectionInitialMount = useRef(true);
+    useEffect(() => {
+        if (isInspectionInitialMount.current) {
+            isInspectionInitialMount.current = false;
+            return;
+        }
+
+        const propValue = shipmentDataProp?.inspection_date ? shipmentDataProp.inspection_date.split('T')[0].split(' ')[0] : '';
+        if (inspectionDate === propValue) return;
+
+        const timeoutId = setTimeout(() => {
+            handleSaveInspectionDate();
+        }, 500);
+
+        return () => clearTimeout(timeoutId);
+    }, [inspectionDate]);
+
     const [processingSectionId, setProcessingSectionId] = useState<number | null>(null);
 
     const [selectedAdditionalDocs, setSelectedAdditionalDocs] = useState<{ id: string; label: string }[]>([
@@ -861,28 +941,48 @@ export default function ViewCustomerForm({
                     // CLEANUP STATE
                     if (filesToProcess.length > 0) {
                         const newTempFiles = { ...tempFiles };
-                        filesToProcess.forEach((doc) => delete newTempFiles[doc.id]);
+                        filesToProcess.forEach((doc) => {
+                            delete newTempFiles[doc.id];
+                        });
                         setTempFiles(newTempFiles);
                     }
+
                     if (docsToVerify.length > 0) {
-                        setPendingVerifications((prev) => prev.filter((id) => !docsToVerify.includes(id)));
-                    }
-                    if (rejectionsToProcess.length > 0) {
-                        const processedIds = rejectionsToProcess.map((r) => r.docId);
-                        setPendingRejections((prev) => prev.filter((r) => !processedIds.includes(r.docId)));
+                        setPendingVerifications((prev) =>
+                            prev.filter((id) => !docsToVerify.includes(id))
+                        );
                     }
 
+                    if (rejectionsToProcess.length > 0) {
+                        const processedIds = rejectionsToProcess.map((r) => r.docId);
+                        setPendingRejections((prev) =>
+                            prev.filter((r) => !processedIds.includes(r.docId))
+                        );
+                    }
+
+                    // FEEDBACK KE USER
                     toast.success('Section saved successfully');
+
+                    // reset UI state
                     setActiveSection(null);
                 },
+
                 onError: (errors) => {
                     console.error('Save errors:', errors);
-                    toast.error('Gagal menyimpan section.');
+
+                    const message =
+                        errors.message ||
+                        Object.values(errors)[0]?.[0] ||
+                        'Terjadi kesalahan.';
+
+                    toast.error(message);
                 },
+
                 onFinish: () => {
                     setProcessingSectionId(null);
                     isSavingRef.current = false;
                 },
+
                 preserveState: true,
                 preserveScroll: true,
                 only: ['sectionsTransProp', 'shipmentDataProp'],
@@ -1747,7 +1847,15 @@ export default function ViewCustomerForm({
 
                             {/* ETA Date Field */}
                             <div className="col-span-2 mt-2 space-y-1.5 border-t border-slate-200/60 pt-3 dark:border-zinc-800">
-                                <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.eta_date}</div>
+                                <div className="flex items-center justify-between">
+                                    <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.eta_date}</div>
+                                    {isSavingEtaDate && (
+                                        <div className="flex items-center gap-1.5 text-[9px] font-medium text-blue-500 animate-pulse">
+                                            <div className="h-1 w-1 rounded-full bg-blue-500"></div>
+                                            Saving...
+                                        </div>
+                                    )}
+                                </div>
                                 <div className="flex items-center gap-2">
                                     <Input
                                         type="date"
@@ -1756,22 +1864,20 @@ export default function ViewCustomerForm({
                                         className="date-input-dark h-9 rounded-lg border-slate-200 bg-white text-xs text-slate-700 focus:ring-blue-500/20 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300"
                                         disabled={!isInternalUser || isSavingEtaDate}
                                     />
-                                    {isInternalUser && (
-                                        <Button
-                                            size="sm"
-                                            onClick={handleSaveEtaDate}
-                                            disabled={isSavingEtaDate}
-                                            className="h-9 bg-slate-900 px-4 text-[10px] font-bold text-white hover:bg-slate-800"
-                                        >
-                                            {isSavingEtaDate ? '...' : trans.save || 'Save'}
-                                        </Button>
-                                    )}
                                 </div>
                             </div>
                             {/* Job date field */}
                             {sectionsTransProp?.some((s) => s.id_section === 7) && (
                                 <div className="col-span-2 mt-2 space-y-1.5 border-t border-slate-200/60 pt-3 dark:border-zinc-800">
-                                    <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.job_date || 'Job Date'}</div>
+                                    <div className="flex items-center justify-between">
+                                        <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.job_date || 'Job Date'}</div>
+                                        {isSavingJobDate && (
+                                            <div className="flex items-center gap-1.5 text-[9px] font-medium text-blue-500 animate-pulse">
+                                                <div className="h-1 w-1 rounded-full bg-blue-500"></div>
+                                                Saving...
+                                            </div>
+                                        )}
+                                    </div>
                                     <div className="flex items-center gap-2">
                                         <Input
                                             type="date"
@@ -1780,16 +1886,6 @@ export default function ViewCustomerForm({
                                             className="date-input-dark h-9 rounded-lg border-slate-200 bg-white text-xs text-slate-700 focus:ring-blue-500/20 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300"
                                             disabled={!isInternalUser || isSavingJobDate}
                                         />
-                                        {isInternalUser && (
-                                            <Button
-                                                size="sm"
-                                                onClick={handleSaveJobDate}
-                                                disabled={isSavingJobDate}
-                                                className="h-9 bg-slate-900 px-4 text-[10px] font-bold text-white hover:bg-slate-800"
-                                            >
-                                                {isSavingJobDate ? '...' : trans.save || 'Save'}
-                                            </Button>
-                                        )}
                                     </div>
                                 </div>
                             )}
@@ -1797,7 +1893,15 @@ export default function ViewCustomerForm({
                             {/* inspection date field */}
                             {sectionsTransProp?.some((s) => s.id_section === 7) && (
                                 <div className="col-span-2 mt-2 space-y-1.5 border-t border-slate-200/60 pt-3 dark:border-zinc-800">
-                                    <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.inspection_date || 'Inspection Date'}</div>
+                                    <div className="flex items-center justify-between">
+                                        <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.inspection_date || 'Inspection Date'}</div>
+                                        {isSavingInspectionDate && (
+                                            <div className="flex items-center gap-1.5 text-[9px] font-medium text-blue-500 animate-pulse">
+                                                <div className="h-1 w-1 rounded-full bg-blue-500"></div>
+                                                Saving...
+                                            </div>
+                                        )}
+                                    </div>
                                     <div className="flex items-center gap-2">
                                         <Input
                                             type="date"
@@ -1806,16 +1910,6 @@ export default function ViewCustomerForm({
                                             className="date-input-dark h-9 rounded-lg border-slate-200 bg-white text-xs text-slate-700 focus:ring-blue-500/20 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300"
                                             disabled={!isInternalUser || isSavingInspectionDate}
                                         />
-                                        {isInternalUser && (
-                                            <Button
-                                                size="sm"
-                                                onClick={handleSaveInspectionDate}
-                                                disabled={isSavingInspectionDate}
-                                                className="h-9 bg-slate-900 px-4 text-[10px] font-bold text-white hover:bg-slate-800"
-                                            >
-                                                {isSavingInspectionDate ? '...' : trans.save || 'Save'}
-                                            </Button>
-                                        )}
                                     </div>
                                 </div>
                             )}
@@ -2023,7 +2117,7 @@ export default function ViewCustomerForm({
                                                 type="date"
                                                 value={npdDate}
                                                 onChange={(e) => setNpdDate(e.target.value)}
-                                                className="h-10 w-full rounded-md border-gray-400 focus-visible:border-black focus-visible:ring-0"
+                                                className="date-input-dark h-9 rounded-lg border-slate-200 bg-white text-xs text-slate-700 focus:ring-blue-500/20 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300"
                                             />
                                         </div>
 
@@ -2217,21 +2311,21 @@ export default function ViewCustomerForm({
                                 {/* Shipper */}
                                 <div className="space-y-1.5">
                                     <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">Shipper</Label>
-                                    <Input
+                                    <MemoizedInput
                                         placeholder="Input Shipper"
                                         value={shipperForm}
-                                        onChange={(e) => setShipperForm(e.target.value)}
+                                        onValueChange={(val) => setShipperForm(val)}
                                         className="h-9 rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-900"
                                     />
                                 </div>
                                 {/* Consignee */}
                                 <div className="space-y-1.5">
                                     <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">Consignee (C'NEE)</Label>
-                                    <Input
+                                    <MemoizedInput
                                         placeholder="Input Consignee"
                                         value={consigneeForm}
                                         disabled
-                                        onChange={(e) => setConsigneeForm(e.target.value)}
+                                        onValueChange={(val) => setConsigneeForm(val)}
                                         className="h-9 rounded-lg border-slate-300 bg-slate-100 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-800 dark:text-slate-50"
                                     />
                                 </div>
@@ -2240,9 +2334,10 @@ export default function ViewCustomerForm({
                                     <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
                                         {shipmentDataProp?.type === 'Export' ? 'S/I NUM' : shipmentDataProp?.type === 'Import' ? 'B/L NUM' : 'SPK NUM'}
                                     </Label>
-                                    <Input
+                                    <MemoizedInput
                                         placeholder="Input B/L / S/I NUM"
                                         value={blNumForm}
+                                        onValueChange={(val) => setBlNumForm(val)}
                                         disabled
                                         className="h-9 rounded-lg border-slate-300 bg-slate-100 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-800 dark:text-slate-50"
                                     />
@@ -2250,40 +2345,40 @@ export default function ViewCustomerForm({
                                 {/* Vessel */}
                                 <div className="space-y-1.5">
                                     <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.vessel}</Label>
-                                    <Input
+                                    <MemoizedInput
                                         placeholder="Input Vessel"
                                         value={vesselForm}
-                                        onChange={(e) => setVesselForm(e.target.value)}
+                                        onValueChange={(val) => setVesselForm(val)}
                                         className="h-9 rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-900"
                                     />
                                 </div>
                                 {/* Origin */}
                                 <div className="space-y-1.5">
                                     <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.origin}</Label>
-                                    <Input
+                                    <MemoizedInput
                                         placeholder="Input Origin"
                                         value={originForm}
-                                        onChange={(e) => setOriginForm(e.target.value)}
+                                        onValueChange={(val) => setOriginForm(val)}
                                         className="h-9 rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-900"
                                     />
                                 </div>
                                 {/* Port */}
                                 <div className="space-y-1.5">
                                     <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.port}</Label>
-                                    <Input
+                                    <MemoizedInput
                                         placeholder="Input Port Of Destination"
                                         value={portForm}
-                                        onChange={(e) => setPortForm(e.target.value)}
+                                        onValueChange={(val) => setPortForm(val)}
                                         className="h-9 rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-900"
                                     />
                                 </div>
                                 {/* Comodity */}
                                 <div className="space-y-1.5">
                                     <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.comodity}</Label>
-                                    <Input
+                                    <MemoizedInput
                                         placeholder="Input Comodity"
                                         value={comodityForm}
-                                        onChange={(e) => setComodityForm(e.target.value)}
+                                        onValueChange={(val) => setComodityForm(val)}
                                         className="h-9 rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-900"
                                     />
                                 </div>
@@ -2406,13 +2501,13 @@ export default function ViewCustomerForm({
 
                                                 {/* Quantity */}
                                                 <div className="space-y-1">
-                                                    <Label className="text-[9px] font-bold text-slate-400 uppercase">Quantity</Label>
-                                                    <Input
+                                                    <Label className="text-[9px] font-bold text-slate-400 uppercase">{party.party_type === 'FCL' ? 'Party' : 'Quantity'}</Label>
+                                                    <MemoizedInput
                                                         placeholder="Qty"
                                                         value={party.party_qty}
-                                                        onChange={(e) => {
+                                                        onValueChange={(val) => {
                                                             const newParties = [...parties];
-                                                            newParties[index].party_qty = e.target.value;
+                                                            newParties[index].party_qty = val;
                                                             setParties(newParties);
                                                         }}
                                                         className="h-8 w-full rounded-lg border-slate-300 text-[10px] focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-900"
@@ -2425,20 +2520,20 @@ export default function ViewCustomerForm({
                                 {/* AJU */}
                                 <div className="space-y-1.5">
                                     <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">AJU</Label>
-                                    <Input
+                                    <MemoizedInput
                                         placeholder="Input AJU"
                                         value={ajuForm}
-                                        onChange={(e) => setAjuForm(e.target.value)}
+                                        onValueChange={(val) => setAjuForm(val)}
                                         className="h-9 rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-900"
                                     />
                                 </div>
                                 {/* J.O */}
                                 <div className="space-y-1.5">
                                     <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">J.O</Label>
-                                    <Input
+                                    <MemoizedInput
                                         placeholder="Input J.O"
                                         value={joForm}
-                                        onChange={(e) => setJoForm(e.target.value)}
+                                        onValueChange={(val) => setJoForm(val)}
                                         className="h-9 rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-900"
                                     />
                                 </div>
@@ -2777,7 +2872,7 @@ export default function ViewCustomerForm({
                                         type="date"
                                         value={registerDate}
                                         onChange={(e) => setRegisterDate(e.target.value)}
-                                        className="h-9 rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                                        className="date-input-dark h-9 rounded-lg border-slate-200 bg-white text-xs text-slate-700 focus:ring-blue-500/20 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300"
                                     />
                                 </div>
                             </div>

@@ -8,13 +8,22 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import AppLayout from '@/layouts/app-layout';
 import { Role, User, type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { columns } from './table/columns';
 import { DataTable } from './table/data-table';
 
 export default function ManageUsers() {
-    const { users, roles, trans_auth } = usePage().props as unknown as { users: User[]; roles: Role[]; trans_auth: Record<string, string> };
+    const { users, roles, trans_auth, flash, auth } = usePage().props as any;
+
+    useEffect(() => {
+        if (flash?.success) {
+            toast.success(flash.success);
+        }
+        if (flash?.error) {
+            toast.error(flash.error);
+        }
+    }, [flash]);
 
     const breadcrumbs: BreadcrumbItem[] = [
         {
@@ -35,6 +44,12 @@ export default function ManageUsers() {
     const userToDelete = users.find((u) => (u.id_user || u.id) === userIdToDelete);
 
     const onEditClick = (id: number) => {
+        // Cek apakah user punya permission update-user
+        if (!auth.user.permissions.includes('update-user')) {
+            toast.error(trans_auth.toast_update_permission_error || 'Anda tidak memiliki izin untuk mengedit user.');
+            return;
+        }
+
         // Cari user berdasarkan ID
         const user = users.find((u) => (u.id_user || u.id) === id);
 
@@ -71,6 +86,11 @@ export default function ManageUsers() {
     };
 
     const onDeleteClick = (id: number) => {
+        // Cek apakah user punya permission delete-user
+        if (!auth.user.permissions.includes('delete-user')) {
+            toast.error(trans_auth.toast_delete_permission_error || 'Anda tidak memiliki izin untuk menghapus user.');
+            return;
+        }
         setUserIdToDelete(id);
         setOpenDelete(true);
     };
@@ -81,7 +101,6 @@ export default function ManageUsers() {
                 onSuccess: () => {
                     setOpenDelete(false);
                     setUserIdToDelete(null);
-                    toast.success(trans_auth.toast_delete_success);
                 },
                 onError: (errors) => {
                     console.error('❌ Error saat menghapus user:', errors);
@@ -126,7 +145,6 @@ export default function ManageUsers() {
                 onSuccess: () => {
                     setOpenEdit(false);
                     resetEditState();
-                    toast.success(trans_auth.toast_update_success);
                 },
                 onError: (errors: any) => {
                     console.error('❌ Error saat mengedit user:', errors);
@@ -220,8 +238,8 @@ export default function ManageUsers() {
                                     </SelectTrigger>
                                     <SelectContent>
                                         {roles
-                                            .filter((role) => ['staff', 'marketing', 'manager', 'supervisor'].includes(role.name))
-                                            .map((role) => (
+                                            .filter((role: Role) => role.role_type === 'internal')
+                                            .map((role: Role) => (
                                                 <SelectItem key={role.id} value={String(role.id)}>
                                                     {role.name.charAt(0).toUpperCase() + role.name.slice(1)}
                                                 </SelectItem>

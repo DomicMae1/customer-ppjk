@@ -27,7 +27,7 @@ class UserController extends Controller
         $user = Auth::user();
 
         if (!$user->hasPermissionTo('view-user')) {
-            return redirect('/shipping')->with('error', 'Anda tidak memiliki akses ke halaman tersebut.');
+            abort(403);
         }
 
         $usersQuery = User::with(['role_internal', 'roles']);
@@ -47,7 +47,7 @@ class UserController extends Controller
         }
 
         $users = $usersQuery->get();
-        $roles = Role::all(['id', 'name']);
+        $roles = Role::all(['id', 'name', 'role_type']);
         $perusahaan = $companyQuery->get();
         
         if ($user->hasRole('admin')) {
@@ -90,6 +90,12 @@ class UserController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
+        $user = Auth::user();
+
+        if (!$user->can('create-user')) {
+            return back()->with('error', 'Anda tidak memiliki hak akses untuk membuat user.');
+        }
+
         $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|string|lowercase|email|max:255|unique:' . User::class,
@@ -132,7 +138,7 @@ class UserController extends Controller
         // 4. Assign Role Spatie
         $user->assignRole($request->role);
 
-        return redirect()->route('users.index')->with('message', 'User created successfully.');
+        return redirect()->route('users.index')->with('success', 'User created successfully.');
     }
 
     /**
@@ -156,6 +162,12 @@ class UserController extends Controller
      */
     public function update(Request $request, User $user): RedirectResponse
     {
+        $user = Auth::user();
+
+        if (!$user->hasPermissionTo('update-user')) {
+            abort(403);
+        }
+
         $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|string|lowercase|email|max:255|unique:users,email,' . $user->id_user . ',id_user',
@@ -182,7 +194,7 @@ class UserController extends Controller
 
             $user->update($data);
 
-            return redirect()->route('users.index')->with('message', 'User updated successfully.');
+            return redirect()->route('users.index')->with('success', 'User updated successfully.');
         } catch (\Exception $e) {
             return redirect()->back()->withErrors(['error' => 'Failed to update user: ' . $e->getMessage()]);
         }
@@ -193,7 +205,13 @@ class UserController extends Controller
      */
     public function destroy(User $user)
     {
+        $user = Auth::user();
+
+        if (!$user->hasPermissionTo('delete-user')) {
+            abort(403);
+        }
+        
         $user->delete();
-        return redirect()->route('users.index')->with('message', 'User deleted successfully.');
+        return redirect()->route('users.index')->with('success', 'User deleted successfully.');
     }
 }

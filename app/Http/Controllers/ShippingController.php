@@ -76,17 +76,22 @@ class ShippingController extends Controller
             // Ambil daftar user yang role-nya 'eksternal'
             // Ambil 'name' dari tabel users, tapi value-nya tetap id_customer
             $externalCustomers = User::where('role', 'eksternal')
-                ->whereNotNull('id_customer')
-                ->where('id_perusahaan', $user->id_perusahaan) // Filter Perusahaan
-                ->select('id_customer', 'name as nama')
+                ->whereNotNull('users.id_customer')
+                ->where('users.id_perusahaan', $user->id_perusahaan)
+                ->join('customers', 'customers.id_customer', '=', 'users.id_customer')
+                ->select(
+                    'customers.id_customer',
+                    'customers.nama_perusahaan as nama'
+                )
+                ->distinct()
                 ->get();
 
             // Opsional: Jika ingin menghilangkan duplikasi (misal ada 2 user dari PT yang sama)
             // $externalCustomers = $externalCustomers->unique('id_customer')->values();
         }
 
-        if (!$user->hasPermissionTo('view-master-shipping')) {
-            throw UnauthorizedException::forPermissions(['view-master-shipping']);
+        if (!$user->can('view-master-shipping')) {
+            abort(403);
         }
 
         $tenant = null;
@@ -212,7 +217,6 @@ class ShippingController extends Controller
                     'id'                    => $item->id,
                     'spk_code'              => $item->spk_code,
                     'nama_customer'         => $item->customer->nama_perusahaan ?? '-',
-                    'nama_cust'             => $item->customer->nama_perusahaan ?? '-',
                     'tanggal_status'        => $latestDocLog ? $latestDocLog->created_at : $item->created_at,
                     'status_label'          => $item->latestStatus->status ?? 'Draft/Pending',
                     'nama_user'             => $latestDocLog->by ?? $item->creator->name ?? 'System',
@@ -473,7 +477,6 @@ class ShippingController extends Controller
         return $pdf->download($filename);
     }
 
-
     /**
      * Store a newly created resource in storage.
      */
@@ -487,22 +490,6 @@ class ShippingController extends Controller
         if (!$user->hasPermissionTo('create-master-shipping')) {
             throw UnauthorizedException::forPermissions(['create-master-shipping']);
         }
-
-        $validated = $request->validate([
-            'tanggal_dokumen' => 'required|date',
-            'shipment_type'   => 'required|in:Import,Export',
-            'bl_number'       => 'required|string',
-            'id_customer'     => 'required|exists:customers,id_customer',
-            'hs_codes'        => 'required|array|min:1',
-            'hs_codes.*.code' => 'required|string',
-            'hs_codes.*.link' => 'nullable|string',
-            'hs_codes.*.file' => 'nullable|file|image|mimes:jpeg,png,jpg|max:5120',
-            'assigned_pic'    => 'nullable|integer|exists:users,id_user', // Validasi Assigned PIC
-            'vessel'          => 'nullable|string',
-            'origin'          => 'nullable|string',
-            'port'            => 'nullable|string',
-            'comodity'        => 'nullable|string',
-        ]);
 
         // --- Logic Tenant ---
         $tenant = null;
@@ -520,6 +507,36 @@ class ShippingController extends Controller
         }
 
         tenancy()->initialize($tenant);
+
+        $validated = $request->validate([
+            'tanggal_dokumen' => 'required|date',
+            'shipment_type'   => 'required|in:Import,Export',
+            'bl_number'       => 'required|string',
+            'id_customer'     => 'required|exists:App\Models\Customer,id_customer',
+            'hs_codes'        => 'required|array|min:1',
+            'hs_codes.*.code' => 'required|string',
+            'hs_codes.*.link' => 'nullable|string',
+            'hs_codes.*.file' => 'nullable|file|image|mimes:jpeg,png,jpg|max:5120',
+            'assigned_pic'    => 'nullable|integer|exists:App\Models\User,id_user', // Validasi Assigned PIC
+            'vessel'          => 'nullable|string',
+            'origin'          => 'nullable|string',
+            'port'            => 'nullable|string',
+            'comodity'        => 'nullable|string',
+        ], [
+            'tanggal_dokumen.required' => 'Tanggal dokumen wajib diisi.',
+            'shipment_type.required'   => 'Tipe shipment (Import/Export) wajib dipilih.',
+            'bl_number.required'       => 'Nomor BL/SI wajib diisi.',
+            'id_customer.required'     => 'Customer wajib dipilih.',
+            'hs_codes.required'        => 'Data HS Code minimal harus ada satu.',
+            'hs_codes.*.code.required' => 'Kode HS tidak boleh kosong.',
+        ]);
+
+        // Manual uniqueness check to avoid connection issues with Laravel's unique rule
+        if (Spk::where('spk_code', $validated['bl_number'])->exists()) {
+            return redirect()->back()->withErrors([
+                'bl_number' => 'Nomor BL/SI ini sudah pernah dibuat sebelumnya.'
+            ]);
+        }
 
         DB::beginTransaction();
 
@@ -657,7 +674,7 @@ class ShippingController extends Controller
             }
 
             if ($user->role === 'internal') {
-                if ($user->role_internal === 'supervisor' && !empty($validated['assigned_pic'])) {
+                if ($user->can('assign_staff-master-shipping') && !empty($validated['assigned_pic'])) {
                     // SUPERVISOR: Assign to Selected Staff
                     $spk->update(['validated_by' => $validated['assigned_pic']]);
 
@@ -721,7 +738,7 @@ class ShippingController extends Controller
                     }
 
                     // 1. If Supervisor & Assigned Staff -> Notify the Staff
-                    if ($user->role_internal === 'supervisor' && !empty($validated['assigned_pic'])) {
+                    if ($user->can('assign_staff-master-shipping') && !empty($validated['assigned_pic'])) {
                         $assignedStaff = \App\Models\User::on('tako-user')->find($validated['assigned_pic']);
                         if ($assignedStaff) {
                             // 1. Email for Assigned Staff
@@ -938,6 +955,13 @@ class ShippingController extends Controller
 
     public function upload(Request $request)
     {
+        $user = auth('web')->user();
+
+        // --- PERMISSION CHECK ---
+        if (!$user->can('upload-document')) {
+            return response()->json(['error' => 'Anda tidak memiliki izin untuk mengunggah dokumen.'], 403);
+        }
+
         // Validasi File
         $file = $request->file('pdf') ?? $request->file('file');
         if (!$file) {
@@ -1035,6 +1059,10 @@ class ShippingController extends Controller
     public function show($id)
     {
         $user = auth('web')->user();
+
+        if (!$user->can('update-master-shipping')) {
+            abort(403);
+        }
         // NEW: Fetch Internal Staff for Supervisor Assignment (Consistent with index)
         // Moved here to ensure we query the CENTRAL database (tako-user) before tenancy context is switched.
         $internalStaff = [];
@@ -1253,8 +1281,8 @@ class ShippingController extends Controller
         $user = auth('web')->user();
 
         // 1. Authorization Check
-        if ($user->role !== 'internal' || $user->role_internal !== 'supervisor') {
-            abort(403, 'Unauthorized action.');
+        if (!$user->can('assign_staff-master-shipping')) {
+            return back()->with('error', 'Unauthorized action.');
         }
 
         $validated = $request->validate([
@@ -2050,6 +2078,30 @@ class ShippingController extends Controller
         $user = auth('web')->user();
         $userId = $user->id_user ?? $user->id;
 
+        // --- PERMISSION CHECK ---
+        // 1. Check for Upload Permission
+        if ($request->has('attachments') && is_array($request->attachments) && count($request->attachments) > 0) {
+            if (!$user->can('upload-document')) {
+                if ($request->header('X-Inertia')) {
+                    return back()->withErrors(['message' => 'Anda tidak memiliki izin untuk mengunggah dokumen.']);
+                }
+                return response()->json(['success' => false, 'message' => 'Anda tidak memiliki izin untuk mengunggah dokumen.'], 403);
+            }
+        }
+
+        // 2. Check for Verify/Reject Permission
+        $hasVerify = ($request->has('verified_ids') && is_array($request->verified_ids) && count($request->verified_ids) > 0);
+        $hasReject = ($request->has('rejections') && is_array($request->rejections) && count($request->rejections) > 0);
+
+        if ($hasVerify || $hasReject) {
+            if (!$user->can('verify-document')) {
+                if ($request->header('X-Inertia')) {
+                    return back()->withErrors(['message' => 'Anda tidak memiliki izin untuk memverifikasi atau menolak dokumen.']);
+                }
+                return response()->json(['success' => false, 'message' => 'Anda tidak memiliki izin untuk memverifikasi atau menolak dokumen.'], 403);
+            }
+        }
+
         $request->validate([
             'spk_id' => 'required',
             'section_id' => 'required',
@@ -2324,7 +2376,7 @@ class ShippingController extends Controller
         $user = auth('web')->user();
 
         // Supervisor-only guard
-        if ($user->role !== 'internal' || $user->role_internal !== 'supervisor') {
+        if (!$user->can('assign_staff-master-shipping')) {
             return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
         }
 
@@ -2781,7 +2833,7 @@ class ShippingController extends Controller
         $user = auth('web')->user();
 
         // Security check: Only internal supervisors can remove sections
-        if ($user->role !== 'internal' || $user->role_internal !== 'supervisor') {
+        if (!$user->can('assign_staff-master-shipping')) {
             return response()->json(['success' => false, 'message' => 'Hanya Supervisor yang diperbolehkan menghapus section.'], 403);
         }
 
@@ -3286,6 +3338,44 @@ class ShippingController extends Controller
             }
 
             \Illuminate\Support\Facades\DB::commit();
+
+            // --- Kirim Email & Notifikasi ke Customer ---
+            if ($request->is_npd && $request->id_section) {
+                try {
+                    $spk = Spk::find($idSpk);
+                    if ($spk && $spk->id_customer) {
+                        // Ambil semua user dengan id_customer yang sama
+                        $recipients = User::where('id_customer', $spk->id_customer)->get();
+
+                        if ($recipients->isNotEmpty()) {
+                            $masterSec = MasterSectionTrans::where('id_section', $request->id_section)->first();
+                            $sectionName = $masterSec ? $masterSec->section_name : 'NPD';
+
+                            foreach ($recipients as $recipient) {
+                                // 1. Kirim Email (Antri di Queue)
+                                SectionReminderService::sendSectionAdded($spk, $sectionName, $user, $recipient, 1);
+
+                                // 2. Buat Notifikasi Database
+                                \App\Models\Notification::create([
+                                    'send_to'    => $recipient->id_user,
+                                    'created_by' => $user->id_user,
+                                    'role'       => $recipient->role,
+                                    'id_section' => $request->id_section,
+                                    'id_spk'     => $idSpk,
+                                    'data'       => [
+                                        'type'    => 'section_added',
+                                        'title'   => 'Section Baru Ditambahkan',
+                                        'message' => "Section {$sectionName} telah ditambahkan untuk SPK {$spk->spk_code}. Tolong segera dilengkapi.",
+                                        'url'     => "/shipping/{$idSpk}",
+                                    ],
+                                ]);
+                            }
+                        }
+                    }
+                } catch (\Exception $e) {
+                    Log::error("Failed to send NPD notifications: " . $e->getMessage());
+                }
+            }
 
             try {
                 \App\Events\ShippingDataUpdated::dispatch($idSpk, 'update');

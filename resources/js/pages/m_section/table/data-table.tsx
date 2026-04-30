@@ -23,6 +23,7 @@ import * as React from 'react';
 import { ChangeEvent, useState } from 'react';
 import { DataTableViewOptions } from './data-table-view-options';
 import { DataTablePagination } from './pagination';
+import { toast } from 'sonner';
 
 interface SectionData {
     id?: number;
@@ -71,6 +72,17 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'section_n
         deadline: false,
         deadline_date: '',
     });
+
+    const handleOpenCreate = () => {
+        if (!auth.user.permissions.includes('create-section')) {
+            toast.error(
+                trans_sec.toast_create_permission_error || 'Anda tidak memiliki izin untuk menambahkan section.'
+            );
+            return;
+        }
+
+        setOpenCreate(true);
+    };
 
     const table = useReactTable({
         data,
@@ -144,14 +156,14 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'section_n
                             className="w-full pl-9"
                         />
                     </div>
-                    <Button size="icon" className="shrink-0 md:hidden" onClick={() => setOpenCreate(true)}>
+                    <Button size="icon" className="shrink-0 md:hidden" onClick={handleOpenCreate}>
                         <Plus className="h-4 w-4" />
                     </Button>
                 </div>
 
                 <div className="hidden items-center gap-2 md:flex">
                     <DataTableViewOptions table={table} />
-                    <Button onClick={() => setOpenCreate(true)}>
+                    <Button onClick={handleOpenCreate}>
                         <Plus className="mr-2 h-4 w-4" /> {trans_sec.btn_add || 'Tambah Section'}
                     </Button>
                 </div>

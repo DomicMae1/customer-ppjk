@@ -16,45 +16,13 @@ export const columns = (
 ): ColumnDef<Customer>[] => {
     return [
         {
-            accessorKey: 'nama_perusahaan',
-            // Gunakan translasi untuk header
-            header: trans.label_company_name || 'Nama Perusahaan',
-        },
-        {
-            accessorKey: 'type',
-            header: trans.label_type || 'Tipe',
-            cell: ({ row }) => (
-                <span
-                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${
-                        row.original.type === 'internal' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'
-                    }`}
-                >
-                    {row.original.type}
-                </span>
-            ),
-        },
-        {
-            accessorKey: 'email',
-            header: trans.label_email || 'Email',
-        },
-        {
-            accessorKey: 'nama', // Nama PIC
-            header: trans.label_pic_name || 'PIC',
-            cell: ({ row }) => <span className="font-medium">{row.original.nama}</span>,
-        },
-        {
-            accessorKey: 'no_npwp', // GANTI dari no_telp ke no_npwp
-            header: trans.label_npwp || 'NPWP',
-            cell: ({ row }) => <code className="text-muted-foreground text-xs">{row.original.no_npwp || '-'}</code>,
-        },
-        {
             id: 'actions',
             header: '', // Biasanya aksi tidak butuh teks header di desktop
             cell: ({ row }) => {
                 const customer = row.original;
 
                 return (
-                    <div className="flex items-center justify-end gap-2">
+                    <div className="flex items-center justify-start gap-2">
                         {/* Tombol Edit */}
                         <Button
                             variant="outline"
@@ -79,6 +47,89 @@ export const columns = (
                     </div>
                 );
             },
+        },
+        {
+            id: 'rowNumber',
+            header: 'No.',
+            cell: ({ row }) => <div className="px-2 py-2 font-medium">{row.index + 1}</div>,
+            enableSorting: false,
+            enableHiding: false,
+        },
+        {
+            accessorKey: 'nama_perusahaan',
+            // Gunakan translasi untuk header
+            header: trans.label_company_name || 'Nama Perusahaan',
+        },
+        {
+            accessorKey: 'type',
+            header: trans.label_type || 'Tipe',
+            cell: ({ row }) => (
+                <span
+                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${
+                        row.original.type === 'internal' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'
+                    }`}
+                >
+                    {row.original.type}
+                </span>
+            ),
+        },
+        {
+            accessorKey: 'email_to',
+            header: trans.label_email_to || 'Email To',
+            cell: ({ row }) => {
+                const emails = row.original.email_to ?? [];
+
+                return (
+                    <div className="grid max-w-[350px] grid-cols-2 gap-1">
+                        {emails.length > 0 ? (
+                            emails.map((email, index) => (
+                                <span
+                                    key={index}
+                                    className="dark:bg-accent max-w-full rounded-xl bg-blue-200 px-2 py-0.5 text-xs break-words text-black dark:text-white"
+                                >
+                                    {email}
+                                </span>
+                            ))
+                        ) : (
+                            <span className="text-muted-foreground">-</span>
+                        )}
+                    </div>
+                );
+            },
+        },
+        {
+            accessorKey: 'email_cc',
+            header: trans.label_email_cc || 'Email CC',
+            cell: ({ row }) => {
+                const emails = row.original.email_cc ?? [];
+
+                return (
+                    <div className="grid max-w-[350px] grid-cols-2 gap-1">
+                        {emails.length > 0 ? (
+                            emails.map((email, index) => (
+                                <span
+                                    key={index}
+                                    className="dark:bg-accent max-w-full rounded-xl bg-blue-200 px-2 py-0.5 text-xs break-words text-black dark:text-white"
+                                >
+                                    {email}
+                                </span>
+                            ))
+                        ) : (
+                            <span className="text-muted-foreground">-</span>
+                        )}
+                    </div>
+                );
+            },
+        },
+        {
+            accessorKey: 'nama', // Nama PIC
+            header: trans.label_pic_name || 'PIC',
+            cell: ({ row }) => <span className="font-medium">{row.original.nama}</span>,
+        },
+        {
+            accessorKey: 'no_npwp', // GANTI dari no_telp ke no_npwp
+            header: trans.label_npwp || 'NPWP',
+            cell: ({ row }) => <code className="text-muted-foreground text-xs">{row.original.no_npwp || '-'}</code>,
         },
     ];
 };

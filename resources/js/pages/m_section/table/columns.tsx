@@ -1,8 +1,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { ColumnDef } from '@tanstack/react-table';
-import { MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
+import { Pencil, Trash2 } from 'lucide-react';
 
 export type SectionRow = {
     id_section: number;
@@ -20,6 +19,44 @@ export const columns = (
     onDeleteClick: (id: number) => void,
     trans: Record<string, string>,
 ): ColumnDef<SectionRow>[] => [
+    {
+        id: 'actions',
+        cell: ({ row }) => {
+            const section = row.original;
+
+            return (
+                <div className="flex items-center justify-start gap-2">
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8 text-black hover:bg-orange-50 hover:text-orange-700 dark:text-white"
+                        onClick={() => onEditClick(section.id_section)}
+                        title={trans.btn_edit || 'Edit'}
+                    >
+                        <Pencil className="h-4 w-4" />
+                    </Button>
+
+                    {/* Tombol Delete */}
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8 text-red-600 hover:bg-red-50 hover:text-red-700"
+                        onClick={() => onDeleteClick(section.id_section)}
+                        title={trans.btn_delete || 'Delete'}
+                    >
+                        <Trash2 className="h-4 w-4" />
+                    </Button>
+                </div>
+            );
+        },
+    },
+    {
+        id: 'rowNumber',
+        header: 'No.',
+        cell: ({ row }) => <div className="px-2 py-2 font-medium">{row.index + 1}</div>,
+        enableSorting: false,
+        enableHiding: false,
+    },
     {
         accessorKey: 'section_name',
         header: trans.label_section_name || 'Nama Section',
@@ -51,36 +88,12 @@ export const columns = (
             const isChecklist = !!row.original.is_checklist;
 
             return (
-                <Badge variant={isChecklist ? 'secondary' : 'outline'} className={isChecklist ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' : ''}>
+                <Badge
+                    variant={isChecklist ? 'secondary' : 'outline'}
+                    className={isChecklist ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' : ''}
+                >
                     {isChecklist ? trans.option_checklist || 'Yes (Checklist)' : trans.option_no_checklist || 'No'}
                 </Badge>
-            );
-        },
-    },
-    {
-        id: 'actions',
-        cell: ({ row }) => {
-            const section = row.original;
-
-            return (
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
-                            <span className="sr-only">{trans.label_open_menu || 'Open menu'}</span>
-                            <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => onEditClick(section.id_section)}>
-                            <Pencil className="mr-2 h-4 w-4" />
-                            {trans.btn_edit || 'Edit'}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => onDeleteClick(section.id_section)} className="text-red-600 focus:text-red-700">
-                            <Trash2 className="mr-2 h-4 w-4 text-red-600" />
-                            {trans.btn_delete || 'Delete'}
-                        </DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
             );
         },
     },
