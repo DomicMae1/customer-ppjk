@@ -24,13 +24,13 @@ export type Shipping = {
     jalur: string;
     deadline_date?: string | null;
     progress: number;
-    nama_cust?: string;
     eta_date?: string | null;
     vessel?: string | null;
     origin?: string | null;
     port?: string | null;
     comodity?: string | null;
     party_summary?: string | null;
+    validated_by?: number | string | null;
 };
 
 export const columns = (
@@ -52,6 +52,18 @@ export const columns = (
             header: () => <div className="w-[50px] md:px-2 md:py-2"></div>,
             cell: ({ row }) => {
                 const shipping = row.original;
+                const { auth } = usePage().props as any;
+
+                const isStaff = auth.user?.role === 'internal' && auth.user?.role_internal === 'staff';
+
+                const hasValidatedBy =
+                    shipping.validated_by !== null && shipping.validated_by !== undefined && String(shipping.validated_by).trim() !== '';
+
+                const currentUserId = auth.user?.id_user;
+
+                const isAssignedToCurrentStaff = hasValidatedBy && String(shipping.validated_by) === String(currentUserId);
+
+                const canEdit = !isStaff || isAssignedToCurrentStaff;
 
                 return (
                     <div className="flex items-center justify-center gap-2 md:px-2">
@@ -63,13 +75,24 @@ export const columns = (
                             <Eye className="h-4 w-4" />
                         </Link>
 
-                        <Link
-                            href={`/shipping/${shipping.id}`}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-slate-300 hover:bg-slate-100 hover:text-slate-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:border-blue-500/50 dark:hover:bg-zinc-800 dark:hover:text-blue-400"
-                            title="View Customer"
-                        >
-                            <Pencil className="h-4 w-4" />
-                        </Link>
+                        {canEdit ? (
+                            <Link
+                                href={`/shipping/${shipping.id}`}
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-slate-300 hover:bg-slate-100 hover:text-slate-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:border-blue-500/50 dark:hover:bg-zinc-800 dark:hover:text-blue-400"
+                                title="Edit Shipping"
+                            >
+                                <Pencil className="h-4 w-4" />
+                            </Link>
+                        ) : (
+                            <button
+                                type="button"
+                                disabled
+                                className="inline-flex h-8 w-8 cursor-not-allowed items-center justify-center rounded-md border border-slate-200 bg-slate-100 text-slate-400 opacity-50 shadow-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-600"
+                                title="Belum di-assign / belum ada validated_by"
+                            >
+                                <Pencil className="h-4 w-4" />
+                            </button>
+                        )}
                     </div>
                 );
             },

@@ -14,7 +14,7 @@ export function DataTablePagination<TData>({ table }: DataTablePaginationProps<T
     const trans = props.trans_general as Record<string, string>;
 
     return (
-        <div className="w-full border-t px-2 py-4">
+        <div className="w-full max-w-full min-w-0 overflow-hidden border-t px-2 py-4">
             {/* === MOBILE VERSION (Compact) === */}
             <div className="flex flex-col items-center gap-3 md:hidden">
                 {/* Page Indicator */}
@@ -36,7 +36,7 @@ export function DataTablePagination<TData>({ table }: DataTablePaginationProps<T
             </div>
 
             {/* === DESKTOP VERSION === */}
-            <div className="hidden items-center justify-between md:flex">
+            <div className="hidden w-full min-w-0 items-center justify-between overflow-hidden md:flex">
                 <div className="text-muted-foreground text-sm">
                     {/* Translate: "X dari Y baris dipilih" */}
                     {table.getFilteredSelectedRowModel().rows.length} {trans.of} {table.getFilteredRowModel().rows.length} {trans.rows_selected}.
