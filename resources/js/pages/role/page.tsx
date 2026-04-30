@@ -14,7 +14,7 @@ import { DataTable } from './table/data-table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function ManageRoles() {
-    const { roles, permissions, flash, trans_role } = usePage().props as any;
+    const { roles, permissions, flash, trans_role, errors } = usePage().props as any;
 
     const breadcrumbs: BreadcrumbItem[] = [
         {
@@ -100,6 +100,12 @@ export default function ManageRoles() {
     };
 
     const onSubmit = () => {
+        // Simple client-side validation for "otomatis" feel
+        if (!roleName || !selectedRoleType) {
+            toast.error('Silahkan lengkapi Nama Role dan Tipe Role.');
+            return;
+        }
+
         const data = {
             name: roleName,
             role_type: selectedRoleType,
@@ -211,6 +217,7 @@ export default function ManageRoles() {
                                 placeholder={trans_role.placeholder_role_name || 'Enter role name'}
                                 className="bg-background/50 border-input text-lg h-12 focus:ring-2 focus:ring-primary/20 transition-all rounded-xl"
                             />
+                            {errors?.name && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1 uppercase tracking-tighter">{errors.name}</p>}
                         </div>
 
                         {/* Role Type Dropdown (Added) */}
@@ -227,6 +234,7 @@ export default function ManageRoles() {
                                     <SelectItem value="eksternal">Eksternal</SelectItem>
                                 </SelectContent>
                             </Select>
+                            {errors?.role_type && <p className="text-rose-500 text-[10px] font-bold mt-1 ml-1 uppercase tracking-tighter">{errors.role_type}</p>}
                         </div>
 
                         <div className="space-y-6">
