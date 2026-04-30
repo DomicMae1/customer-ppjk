@@ -238,8 +238,8 @@ export default function ManageUsers() {
                                     </SelectTrigger>
                                     <SelectContent>
                                         {roles
-                                            .filter((role) => ['staff', 'marketing', 'manager', 'supervisor'].includes(role.name))
-                                            .map((role) => (
+                                            .filter((role: Role) => role.role_type === 'internal')
+                                            .map((role: Role) => (
                                                 <SelectItem key={role.id} value={String(role.id)}>
                                                     {role.name.charAt(0).toUpperCase() + role.name.slice(1)}
                                                 </SelectItem>

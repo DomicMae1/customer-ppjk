@@ -15,6 +15,24 @@ export const columns = (onEditClick: (role: Role) => void, onDeleteClick: (id: n
         cell: ({ row }) => <div className="min-w-[150px] px-2 py-2 font-medium">{row.original.name}</div>,
     },
     {
+        accessorKey: 'role_type',
+        header: trans.label_role_type || 'Role Type',
+        cell: ({ row }) => {
+            const roleType = row.original.role_type;
+            if (!roleType) return null;
+            
+            const color = roleType === 'admin' 
+                ? 'bg-purple-50 text-purple-600 border-purple-100 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-800'
+                : 'bg-indigo-50 text-indigo-600 border-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-400 dark:border-indigo-800';
+                
+            return (
+                <Badge variant="outline" className={`px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-md border shadow-sm ${color}`}>
+                    {roleType}
+                </Badge>
+            );
+        },
+    },
+    {
         accessorKey: 'permissions',
         header: trans.label_permissions || 'Permissions',
         cell: ({ row }) => {
