@@ -2438,7 +2438,7 @@ export default function ViewCustomerForm({
 
                                                 {/* Quantity */}
                                                 <div className="space-y-1">
-                                                    <Label className="text-[9px] font-bold text-slate-400 uppercase">Quantity</Label>
+                                                    <Label className="text-[9px] font-bold text-slate-400 uppercase">{party.party_type === 'FCL' ? 'Party' : 'Quantity'}</Label>
                                                     <MemoizedInput
                                                         placeholder="Qty"
                                                         value={party.party_qty}
