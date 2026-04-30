@@ -1,9 +1,8 @@
 // Role/ManageRoles/table/columns.tsx
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { ColumnDef } from '@tanstack/react-table';
-import { FileText, MoreHorizontal, Pencil, Trash2, Video } from 'lucide-react';
+import { FileText, Pencil, Trash2, Video } from 'lucide-react';
 
 // Sesuaikan tipe data dengan output backend Anda
 export type MasterDocument = {
@@ -33,6 +32,37 @@ export const columns = (
     onDeleteClick: (id: number) => void,
     trans: Record<string, string>,
 ): ColumnDef<MasterDocument>[] => [
+    {
+        id: 'actions',
+        cell: ({ row }) => {
+            const doc = row.original;
+
+            return (
+                <div className="flex items-center justify-start gap-2">
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8 text-black hover:bg-orange-50 hover:text-orange-700 dark:text-white"
+                        onClick={() => onEditClick(doc.id_dokumen)}
+                        title={trans.btn_edit || 'Edit'}
+                    >
+                        <Pencil className="h-4 w-4" />
+                    </Button>
+
+                    {/* Tombol Delete */}
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8 text-red-600 hover:bg-red-50 hover:text-red-700"
+                        onClick={() => onDeleteClick(doc.id_dokumen)}
+                        title={trans.btn_delete || 'Delete'}
+                    >
+                        <Trash2 className="h-4 w-4" />
+                    </Button>
+                </div>
+            );
+        },
+    },
     {
         id: 'rowNumber',
         header: 'No.',
@@ -163,33 +193,6 @@ export const columns = (
                         </span>
                     )}
                 </div>
-            );
-        },
-    },
-    {
-        id: 'actions',
-        cell: ({ row }) => {
-            const doc = row.original;
-
-            return (
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
-                            <span className="sr-only">{trans.label_open_menu || 'Open menu'}</span>
-                            <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => onEditClick(doc.id_dokumen)}>
-                            <Pencil className="mr-2 h-4 w-4" />
-                            {trans.btn_edit || 'Edit'}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => onDeleteClick(doc.id_dokumen)} className="text-red-600 focus:text-red-700">
-                            <Trash2 className="mr-2 h-4 w-4 text-red-600" />
-                            {trans.btn_delete || 'Delete'}
-                        </DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
             );
         },
     },
