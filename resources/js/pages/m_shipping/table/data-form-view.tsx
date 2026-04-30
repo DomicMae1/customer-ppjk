@@ -22,7 +22,7 @@ interface HsCodeItem {
     id: number;
     code: string;
     link: string | null;
-    file ?: File | null;
+    file?: File | null;
 }
 
 interface ShipmentData {
@@ -2872,7 +2872,7 @@ export default function ViewCustomerForm({
                                         type="date"
                                         value={registerDate}
                                         onChange={(e) => setRegisterDate(e.target.value)}
-                                        className="h-9 rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                                        className="date-input-dark h-9 rounded-lg border-slate-200 bg-white text-xs text-slate-700 focus:ring-blue-500/20 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300"
                                     />
                                 </div>
                             </div>
