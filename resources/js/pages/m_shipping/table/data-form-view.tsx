@@ -2117,7 +2117,7 @@ export default function ViewCustomerForm({
                                                 type="date"
                                                 value={npdDate}
                                                 onChange={(e) => setNpdDate(e.target.value)}
-                                                className="h-10 w-full rounded-md border-gray-400 focus-visible:border-black focus-visible:ring-0"
+                                                className="date-input-dark h-9 rounded-lg border-slate-200 bg-white text-xs text-slate-700 focus:ring-blue-500/20 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300"
                                             />
                                         </div>
 

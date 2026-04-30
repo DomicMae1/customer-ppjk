@@ -3336,6 +3336,44 @@ class ShippingController extends Controller
 
             \Illuminate\Support\Facades\DB::commit();
 
+            // --- Kirim Email & Notifikasi ke Customer ---
+            if ($request->is_npd && $request->id_section) {
+                try {
+                    $spk = Spk::find($idSpk);
+                    if ($spk && $spk->id_customer) {
+                        // Ambil semua user dengan id_customer yang sama
+                        $recipients = User::where('id_customer', $spk->id_customer)->get();
+
+                        if ($recipients->isNotEmpty()) {
+                            $masterSec = MasterSectionTrans::where('id_section', $request->id_section)->first();
+                            $sectionName = $masterSec ? $masterSec->section_name : 'NPD';
+
+                            foreach ($recipients as $recipient) {
+                                // 1. Kirim Email (Antri di Queue)
+                                SectionReminderService::sendSectionAdded($spk, $sectionName, $user, $recipient, 1);
+
+                                // 2. Buat Notifikasi Database
+                                \App\Models\Notification::create([
+                                    'send_to'    => $recipient->id_user,
+                                    'created_by' => $user->id_user,
+                                    'role'       => $recipient->role,
+                                    'id_section' => $request->id_section,
+                                    'id_spk'     => $idSpk,
+                                    'data'       => [
+                                        'type'    => 'section_added',
+                                        'title'   => 'Section Baru Ditambahkan',
+                                        'message' => "Section {$sectionName} telah ditambahkan untuk SPK {$spk->spk_code}. Tolong segera dilengkapi.",
+                                        'url'     => "/shipping/{$idSpk}",
+                                    ],
+                                ]);
+                            }
+                        }
+                    }
+                } catch (\Exception $e) {
+                    Log::error("Failed to send NPD notifications: " . $e->getMessage());
+                }
+            }
+
             try {
                 \App\Events\ShippingDataUpdated::dispatch($idSpk, 'update');
             } catch (\Exception $e) {
