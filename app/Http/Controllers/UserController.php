@@ -47,7 +47,20 @@ class UserController extends Controller
         }
 
         $users = $usersQuery->get();
-        $roles = Role::all(['id', 'name', 'role_type']);
+        $roleIds = (clone $usersQuery)
+            ->with('roles')
+            ->get()
+            ->flatMap(function ($user) {
+                return $user->roles->pluck('id');
+            })
+            ->unique()
+            ->values();
+
+        $roles = Role::whereIn('id', $roleIds)
+            ->select(['id', 'name', 'role_type'])
+            ->orderBy('name', 'asc')
+            ->get();
+            
         $perusahaan = $companyQuery->get();
         
         if ($user->hasRole('admin')) {
