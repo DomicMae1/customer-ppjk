@@ -134,8 +134,6 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
         file_template: null as File | null, // Untuk file
     });
 
-    console.log(form);
-
     const filteredData = React.useMemo(() => {
         let result = [...(data as any[])];
 
