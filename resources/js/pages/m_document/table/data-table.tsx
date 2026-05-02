@@ -19,12 +19,12 @@ import {
     useReactTable,
     VisibilityState,
 } from '@tanstack/react-table';
-import { Plus, Search } from 'lucide-react';
+import { HelpCircle, Plus, Search } from 'lucide-react';
 import * as React from 'react';
 import { ChangeEvent, useState } from 'react';
+import { toast } from 'sonner';
 import { DataTableViewOptions } from './data-table-view-options';
 import { DataTablePagination } from './pagination';
-import { toast } from 'sonner';
 
 // Interface Data dari Backend
 interface DocumentData {
@@ -103,9 +103,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
 
     const handleOpenCreate = () => {
         if (!auth.user.permissions.includes('create-document')) {
-            toast.error(
-                trans_doc.toast_create_permission_error || 'Anda tidak memiliki izin untuk menambahkan document.'
-            );
+            toast.error(trans_doc.toast_create_permission_error || 'Anda tidak memiliki izin untuk menambahkan document.');
             return;
         }
 
@@ -131,7 +129,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
         is_print: false,
         is_send_email: false,
         link_url_video_file: '',
-        kuota_revisi: '',
+        kuota_revisi: '3',
         file_example: null as File | null, // Untuk file
         file_template: null as File | null, // Untuk file
     });
@@ -207,6 +205,16 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
     };
 
     const handleSubmit = () => {
+        if (!form.nama_file.trim()) {
+            toast.error('Document Name wajib diisi');
+            return;
+        }
+
+        if (!form.id_section) {
+            toast.error('Section wajib dipilih');
+            return;
+        }
+
         const payload = {
             ...form,
             nama_file: toTitleCase(form.nama_file),
@@ -228,7 +236,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
                     is_print: false,
                     is_send_email: false,
                     link_url_video_file: '',
-                    kuota_revisi: '',
+                    kuota_revisi: '3',
                     file_example: null,
                     file_template: null,
                 });
@@ -236,6 +244,22 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
             onError: (errors) => console.error(errors),
         });
     };
+
+    const FieldLabelWithTooltip = ({ label, tooltip, required = false }: { label: string; tooltip?: string; required?: boolean }) => (
+        <Label className="text-muted-foreground mb-2 flex items-center gap-1 text-xs font-bold uppercase">
+            {label}
+            {required && <span className="text-red-500">*</span>}
+
+            {tooltip && (
+                <span className="group relative inline-flex">
+                    <HelpCircle className="h-3.5 w-3.5 cursor-help" />
+                    <span className="bg-popover text-popover-foreground border-border pointer-events-none absolute bottom-full left-0 z-[9999] mb-2 hidden w-64 max-w-[calc(100vw-3rem)] rounded-md border px-3 py-2 text-xs font-normal normal-case shadow-md group-hover:block">
+                        {tooltip}
+                    </span>
+                </span>
+            )}
+        </Label>
+    );
 
     return (
         <div className="w-full space-y-4">
@@ -327,10 +351,11 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
                                     {/* Badges/Tags Status */}
                                     <div className="flex flex-wrap gap-2">
                                         <span
-                                            className={`rounded px-2 py-0.5 text-[10px] font-bold ${original.is_internal
+                                            className={`rounded px-2 py-0.5 text-[10px] font-bold ${
+                                                original.is_internal
                                                     ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
                                                     : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
-                                                }`}
+                                            }`}
                                         >
                                             {original.is_internal ? 'INTERNAL' : 'EXTERNAL / PUBLIC'}
                                         </span>
@@ -438,7 +463,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
                     <div className="space-y-5 py-3">
                         <div className="grid gap-2">
                             <Label htmlFor="nama_file" className="text-foreground font-semibold">
-                                {trans_doc.label_doc_name}
+                                {trans_doc.label_doc_name} <span className="text-red-500">*</span>
                             </Label>
                             <Input
                                 id="nama_file"
@@ -453,7 +478,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
 
                         <div className="grid gap-2">
                             <Label htmlFor="id_section" className="text-foreground font-semibold">
-                                {trans_doc.label_section}
+                                {trans_doc.label_section} <span className="text-red-500">*</span>
                             </Label>
                             <select
                                 id="id_section"
@@ -475,9 +500,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
 
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <div>
-                                <Label className="text-muted-foreground mb-2 block text-xs font-bold uppercase">
-                                    {trans_doc.label_upload_access}
-                                </Label>
+                                <FieldLabelWithTooltip label={trans_doc.label_upload_by} tooltip={trans_doc.label_upload_by_desc} required />
                                 <div className="flex gap-2">
                                     <Button
                                         type="button"
@@ -500,9 +523,11 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
 
                             {Number(form.id_section) !== 6 && (
                                 <div>
-                                    <Label className="text-muted-foreground mb-2 block text-xs font-bold uppercase">
-                                        {trans_doc.label_mandatory}
-                                    </Label>
+                                    <FieldLabelWithTooltip
+                                        label={trans_doc.label_must_shipping}
+                                        tooltip={trans_doc.label_must_shipping_desc}
+                                        required
+                                    />
                                     <div className="flex gap-2">
                                         <Button
                                             type="button"
@@ -525,9 +550,11 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
                             )}
 
                             <div>
-                                <Label className="text-muted-foreground mb-2 block text-xs font-bold uppercase">
-                                    {trans_doc.label_need_confirm || 'Need Confirm'}
-                                </Label>
+                                <FieldLabelWithTooltip
+                                    label={trans_doc.label_requires_verification}
+                                    tooltip={trans_doc.label_requires_verification_desc}
+                                    required
+                                />
                                 <div className="flex gap-2">
                                     <Button
                                         type="button"
@@ -549,9 +576,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
                             </div>
 
                             <div>
-                                <Label className="text-muted-foreground mb-2 block text-xs font-bold uppercase">
-                                    {trans_doc.label_is_ori || 'Is Original'}
-                                </Label>
+                                <FieldLabelWithTooltip label={trans_doc.label_show_ori_date} tooltip={trans_doc.label_show_ori_date_desc} required />
                                 <div className="flex gap-2">
                                     <Button
                                         type="button"
@@ -572,9 +597,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
                                 </div>
                             </div>
                             <div>
-                                <Label className="text-muted-foreground mb-2 block text-xs font-bold uppercase">
-                                    {trans_doc.label_is_print || 'Is Print'}
-                                </Label>
+                                <FieldLabelWithTooltip label={trans_doc.label_show_pdf} tooltip={trans_doc.label_show_pdf_desc} required />
                                 <div className="flex gap-2">
                                     <Button
                                         type="button"
@@ -596,9 +619,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
                             </div>
                             <div>
                                 <div>
-                                    <Label className="text-muted-foreground mb-2 block text-xs font-bold uppercase">
-                                        {trans_doc.label_is_send_email || 'Is Send Email'}
-                                    </Label>
+                                    <FieldLabelWithTooltip label={trans_doc.label_send_email} tooltip={trans_doc.label_send_email_desc} required />
                                     <div className="flex gap-2">
                                         <Button
                                             type="button"
@@ -621,7 +642,6 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
                             </div>
                         </div>
 
-
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <div className="grid gap-2">
                                 <Label htmlFor="link_url_video_file" className="text-foreground font-semibold">
@@ -639,7 +659,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
 
                             <div className="grid gap-2">
                                 <Label htmlFor="kuota_revisi" className="text-foreground font-semibold">
-                                    {trans_doc.count_revisi}
+                                    {trans_doc.count_revisi} <span className="text-red-500">*</span>
                                 </Label>
                                 <Input
                                     id="kuota_revisi"

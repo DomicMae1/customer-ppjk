@@ -95,5 +95,11 @@ return [
     'label_show_ori_date' => 'Show Ori Date',
     'label_show_pdf' => 'Show in PDF',
     'label_send_email' => 'Send Email',
+    'label_upload_by_desc' => 'Determines who is allowed to upload this document.',
+    'label_must_shipping_desc' => 'Determines whether this document is required in the shipping process.',
+    'label_requires_verification_desc' => 'Determines whether this document needs verification.',
+    'label_show_ori_date_desc' => 'Determines whether the original document date should be shown.',
+    'label_show_pdf_desc' => 'Determines whether this document appears in the generated PDF.',
+    'label_send_email_desc' => 'Determines whether this document should be sent to customer email.',
     'label_links' => 'Links',
 ];
