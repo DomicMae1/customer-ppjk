@@ -680,7 +680,7 @@ class ShippingController extends Controller
 
                     // Optional: Notification Logic to Assigned Staff can be added here
                     /* NotificationService::send([...]); */
-                } elseif (in_array($user->role_internal, ['staff', 'marketing'])) {
+                } elseif (in_array($user->role_internal, ['staff', 'AML_Staff'])) {
                     // STAFF & Marketing: Auto-assign to Self
                     $spk->update(['validated_by' => $userId]);
                 }
@@ -694,7 +694,7 @@ class ShippingController extends Controller
                 if ($user->role === 'eksternal') {
                     $internalUsers = \App\Models\User::on('tako-user')
                         ->where('role', 'internal')
-                        ->whereIn('role_internal', ['staff', 'marketing', 'supervisor'])
+                        ->whereIn('role_internal', ['staff', 'marketing', 'supervisor', 'AML_Staff', 'AML_Marketing'])
                         ->where('id_perusahaan', $tenant->perusahaan_id)
                         ->distinct()
                         ->get();
