@@ -22,9 +22,9 @@ import {
 import { Eye, EyeOff, Plus } from 'lucide-react';
 import * as React from 'react';
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { DataTableViewOptions } from './data-table-view-options';
 import { DataTablePagination } from './pagination';
-import { toast } from 'sonner';
 
 interface DataTableProps<TData, TValue> {
     columns: ColumnDef<TData, TValue>[];
@@ -75,20 +75,32 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
     const [showPasswordConfirmation, setShowPasswordConfirmation] = useState(false);
 
     const [filterValue, setFilterValue] = React.useState('');
+    const [roleFilter, setRoleFilter] = React.useState('all');
 
     const handleOpenCreate = () => {
         if (!auth.user.permissions.includes('create-user')) {
-            toast.error(
-                trans_auth.toast_create_permission_error || 'Anda tidak memiliki izin untuk menambahkan user.'
-            );
+            toast.error(trans_auth.toast_create_permission_error || 'Anda tidak memiliki izin untuk menambahkan user.');
             return;
         }
 
         setOpenCreate(true);
     };
 
+    const filteredData = React.useMemo(() => {
+        let result = [...(data as any[])];
+
+        if (roleFilter !== 'all') {
+            result = result.filter((user) => {
+                const roleNames = user.roles?.map((role: any) => role.name) ?? [];
+                return roleNames.includes(roleFilter);
+            });
+        }
+
+        return result;
+    }, [data, roleFilter]);
+
     const table = useReactTable({
-        data,
+        data: filteredData as TData[],
         columns,
         getCoreRowModel: getCoreRowModel(),
         getPaginationRowModel: getPaginationRowModel(),
@@ -201,14 +213,19 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
         <div>
             <div className="hidden items-center gap-2 pb-4 md:flex">
                 <div className="flex gap-2">
-                    <Input
-                        placeholder={trans_auth.filter_placeholder} // Translate
-                        value={filterValue}
-                        onChange={(event) => {
-                            setFilterValue(event.target.value);
-                        }}
-                        className="max-w-sm"
-                    />
+                    <Select value={roleFilter} onValueChange={setRoleFilter}>
+                        <SelectTrigger className="w-[180px]">
+                            <SelectValue placeholder="Filter Role" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All Roles</SelectItem>
+                            {roles.map((role) => (
+                                <SelectItem key={role.id} value={role.name}>
+                                    {role.name.charAt(0).toUpperCase() + role.name.slice(1)}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
                 </div>
 
                 <DataTableViewOptions table={table} />
@@ -219,14 +236,19 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
 
             {/* --- MOBILE HEADER (Compact) --- */}
             <div className="flex items-center justify-between gap-2 pb-4 md:hidden">
-                <Input
-                    placeholder={trans_auth.filter_placeholder}
-                    value={filterValue}
-                    onChange={(event) => {
-                        setFilterValue(event.target.value);
-                    }}
-                    className="w-full"
-                />
+                <Select value={roleFilter} onValueChange={setRoleFilter}>
+                    <SelectTrigger className="w-[160px] shrink-0">
+                        <SelectValue placeholder="Role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">All</SelectItem>
+                        {roles.map((role) => (
+                            <SelectItem key={role.id} value={role.name}>
+                                {role.name}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
                 <Button size="icon" className="shrink-0" onClick={handleOpenCreate}>
                     <Plus className="h-4 w-4" />
                 </Button>
@@ -393,7 +415,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                             {/* User Type Select */}
                             <div className="grid gap-2">
                                 <Label htmlFor="role" className="text-foreground font-semibold">
-                                    {trans_auth.label_user_type}
+                                    {trans_auth.label_user_type} <span className="text-destructive">*</span>
                                 </Label>
                                 <Select onValueChange={setSelectedRole} value={selectedRole}>
                                     <SelectTrigger className="border-input bg-background text-foreground h-11 w-full sm:h-10">
@@ -410,7 +432,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                             {selectedRole === 'internal' && (
                                 <div className="animate-in fade-in slide-in-from-top-1 grid gap-2 duration-300">
                                     <Label htmlFor="role_internal" className="text-foreground font-semibold">
-                                        {trans_auth.label_role_internal}
+                                        {trans_auth.label_role_internal} <span className="text-destructive">*</span>
                                     </Label>
                                     <Select onValueChange={setSelectedRoleInternal} value={selectedRoleInternal}>
                                         <SelectTrigger className="border-input bg-background text-foreground h-11 w-full sm:h-10">
@@ -433,7 +455,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                             {selectedRole === 'external' && (
                                 <div className="animate-in fade-in slide-in-from-top-1 grid gap-2 duration-300">
                                     <Label htmlFor="customer" className="text-foreground font-semibold">
-                                        {trans_auth.label_customer}
+                                        {trans_auth.label_customer} <span className="text-destructive">*</span>
                                     </Label>
                                     <Select onValueChange={setSelectedCustomer} value={selectedCustomer}>
                                         <SelectTrigger className="border-input bg-background text-foreground h-11 w-full sm:h-10">
@@ -459,7 +481,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                         <div className="space-y-4">
                             <div className="grid gap-2">
                                 <Label htmlFor="name" className="text-foreground font-semibold">
-                                    {trans_auth.label_name}
+                                    {trans_auth.label_name} <span className="text-destructive">*</span>
                                 </Label>
                                 <Input
                                     id="name"
@@ -472,7 +494,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
 
                             <div className="grid gap-2">
                                 <Label htmlFor="email" className="text-foreground font-semibold">
-                                    {trans_auth.label_email}
+                                    {trans_auth.label_email} <span className="text-destructive">*</span>
                                 </Label>
                                 <Input
                                     id="email"
@@ -486,7 +508,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
 
                             <div className="grid gap-2">
                                 <Label htmlFor="password" className="text-foreground font-semibold">
-                                    {trans_auth.label_password}
+                                    {trans_auth.label_password} <span className="text-destructive">*</span>
                                 </Label>
 
                                 <div className="relative">
@@ -512,7 +534,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
 
                             <div className="grid gap-2">
                                 <Label htmlFor="password_confirmation" className="text-foreground font-semibold">
-                                    {trans_auth.label_password_confirm}
+                                    {trans_auth.label_password_confirm} <span className="text-destructive">*</span>
                                 </Label>
 
                                 <div className="relative">
