@@ -40,14 +40,14 @@ return [
     'desc_create' => 'Isi detail untuk membuat pengguna baru.',
     
     // Form Labels & Placeholders (Create & Edit)
-    'label_name' => 'Nama',
-    'placeholder_name' => 'Masukkan nama',
-    'label_email' => 'Email',
-    'placeholder_email' => 'Masukkan email',
-    'label_password' => 'Kata Sandi', // Reused from login if needed, or distinct
-    'placeholder_password' => 'Masukkan kata sandi',
-    'label_password_confirm' => 'Konfirmasi Kata Sandi',
-    'placeholder_password_confirm' => 'Ulangi kata sandi',
+    'label_name' => 'Nama Akun',
+    'placeholder_name' => 'Masukkan nama akun user',
+    'label_email' => 'Email Akun',
+    'placeholder_email' => 'Masukkan email akun user',
+    'label_password' => 'Kata Sandi Akun', // Reused from login if needed, or distinct
+    'placeholder_password' => 'Masukkan kata sandi akun user',
+    'label_password_confirm' => 'Konfirmasi Kata Sandi Akun',
+    'placeholder_password_confirm' => 'Ulangi kata sandi akun user',
     
     'label_company' => 'Perusahaan',
     'placeholder_company' => 'Pilih perusahaan',

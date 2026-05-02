@@ -136,8 +136,30 @@ export default function ManageCustomers() {
         setIsSubmitting(false);
     };
 
+    const validateCustomerForm = () => {
+        if (!formData.nama_perusahaan.trim()) {
+            toast.error(trans_customer.validation_company_name_required || 'Nama perusahaan wajib diisi.');
+            return false;
+        }
+
+        if (!formData.type) {
+            toast.error(trans_customer.validation_type_required || 'Tipe pelanggan wajib dipilih.');
+            return false;
+        }
+
+        if (!formData.nama.trim()) {
+            toast.error(trans_customer.validation_pic_name_required || 'Nama PIC wajib diisi.');
+            return false;
+        }
+
+        return true;
+    };
+
     const handleCreateSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+
+        if (!validateCustomerForm()) return;
+
         setIsSubmitting(true);
 
         const payload = {
@@ -183,6 +205,7 @@ export default function ManageCustomers() {
 
     const handleUpdateSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        if (!validateCustomerForm()) return;
         setIsSubmitting(true);
 
         const payload = {
@@ -317,7 +340,7 @@ export default function ManageCustomers() {
                         </div>
 
                         <div className="grid gap-2">
-                            <Label>Email To *</Label>
+                            <Label>Email To</Label>
 
                             <div className="flex flex-wrap gap-2 rounded border p-2">
                                 {emailsTo.map((email, index) => (
@@ -453,7 +476,7 @@ export default function ManageCustomers() {
                         {/* Nama Perusahaan */}
                         <div className="grid gap-2">
                             <Label htmlFor="edit_nama_perusahaan" className="text-foreground font-semibold">
-                                {trans_customer.label_company_name}
+                                {trans_customer.label_company_name} <span className="text-destructive">*</span>
                             </Label>
                             <Input
                                 id="edit_nama_perusahaan"
@@ -468,7 +491,7 @@ export default function ManageCustomers() {
                         {isAdmin && (
                             <div className="grid gap-2">
                                 <Label htmlFor="edit_id_perusahaan" className="text-foreground font-semibold">
-                                    {trans_customer.label_owner_company || 'Owner Company'}
+                                    {trans_customer.label_owner_company || 'Owner Company'} <span className="text-destructive">*</span>
                                 </Label>
                                 <Select value={formData.id_perusahaan} onValueChange={(val) => handleInputChange('id_perusahaan', val)}>
                                     <SelectTrigger className="border-input bg-background text-foreground h-11 sm:h-10">
@@ -488,7 +511,7 @@ export default function ManageCustomers() {
                         {/* Tipe */}
                         <div className="grid gap-2">
                             <Label htmlFor="edit_type" className="text-foreground font-semibold">
-                                {trans_customer.label_type}
+                                {trans_customer.label_type} <span className="text-destructive">*</span>
                             </Label>
                             <Select value={formData.type} onValueChange={(val) => handleInputChange('type', val)}>
                                 <SelectTrigger className="border-input bg-background text-foreground h-11 sm:h-10">
@@ -502,7 +525,7 @@ export default function ManageCustomers() {
                         </div>
 
                         <div className="grid gap-2">
-                            <Label>Email To *</Label>
+                            <Label>Email To</Label>
 
                             <div className="flex flex-wrap gap-2 rounded border p-2">
                                 {emailsTo.map((email, index) => (
@@ -561,7 +584,7 @@ export default function ManageCustomers() {
                         {/* PIC Name */}
                         <div className="grid gap-2">
                             <Label htmlFor="edit_nama" className="text-foreground font-semibold">
-                                {trans_customer.label_pic_name}
+                                {trans_customer.label_pic_name} <span className="text-destructive">*</span>
                             </Label>
                             <Input
                                 id="edit_nama"
