@@ -143,7 +143,7 @@ class DocumentController extends Controller
             'nama_file' => 'required|string|max:255',
             'description_file' => 'nullable|string',
             'link_url_video_file' => 'nullable|url',
-            'kuota_revisi' => 'nullable|integer|min:0',
+            'kuota_revisi' => 'nullable|integer|min:3',
             
             // PERUBAHAN: Validasi String Path (Bukan File Upload lagi)
             // Karena file sudah diupload via dropzone ke folder temp
@@ -166,9 +166,9 @@ class DocumentController extends Controller
         $validated['is_print'] = $request->boolean('is_print', false);
         $validated['is_send_email'] = $request->boolean('is_send_email', false);
 
-        $validated['kuota_revisi'] = $request->filled('kuota_revisi')
-        ? (int) $request->kuota_revisi
-        : 0;
+        $validated['kuota_revisi'] = $request->input('kuota_revisi') !== null
+        ? (int) $request->input('kuota_revisi')
+        : 3;
 
         // --- Logic Helper: Pindahkan File dari Temp ke Permanen ---
         $moveFileFromTemp = function ($tempPath, $targetFolder) {

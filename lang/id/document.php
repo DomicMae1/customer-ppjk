@@ -95,5 +95,11 @@ return [
     'label_show_ori_date' => 'Tampilkan Tanggal Asli',
     'label_show_pdf' => 'Tampilkan di PDF',
     'label_send_email' => 'Kirim Email',
+    'label_upload_by_desc' => 'Menentukan siapa yang boleh mengupload dokumen ini.',
+    'label_must_shipping_desc' => 'Menentukan apakah dokumen ini wajib ada dalam proses shipping.',
+    'label_requires_verification_desc' => 'Menentukan apakah dokumen ini perlu diverifikasi.',
+    'label_show_ori_date_desc' => 'Menentukan apakah tanggal asli dokumen perlu ditampilkan.',
+    'label_show_pdf_desc' => 'Menentukan apakah dokumen ini ditampilkan di PDF.',
+    'label_send_email_desc' => 'Menentukan apakah dokumen ini dikirim ke email customer.',
     'label_links' => 'Tautan',
 ];
