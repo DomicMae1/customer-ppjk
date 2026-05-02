@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
+import { HelpCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { columns } from './table/columns';
@@ -49,7 +50,7 @@ interface PageProps {
 export default function ManageDocuments() {
     const { documents, sections, flash, auth, trans_doc } = usePage<PageProps>().props;
 
-     useEffect(() => {
+    useEffect(() => {
         if (flash?.success) {
             toast.success(flash.success);
         }
@@ -124,7 +125,6 @@ export default function ManageDocuments() {
 
     // --- HANDLER EDIT ---
     const onEditClick = (id: number) => {
-
         if (!auth.user.permissions.includes('update-document')) {
             toast.error(trans_doc.toast_update_permission_error || 'Anda tidak memiliki izin untuk mengedit dokumen.');
             return;
@@ -167,7 +167,10 @@ export default function ManageDocuments() {
         }
     };
 
-    const handleEditBooleanChange = (field: 'is_internal' | 'attribute' | 'is_confirmed' | 'is_ori' | 'is_print' | 'is_send_email', value: boolean) => {
+    const handleEditBooleanChange = (
+        field: 'is_internal' | 'attribute' | 'is_confirmed' | 'is_ori' | 'is_print' | 'is_send_email',
+        value: boolean,
+    ) => {
         setEditForm((prev) => ({ ...prev, [field]: value }));
     };
 
@@ -218,6 +221,22 @@ export default function ManageDocuments() {
         }
     };
 
+    const FieldLabelWithTooltip = ({ label, tooltip, required = false }: { label: string; tooltip?: string; required?: boolean }) => (
+        <Label className="text-muted-foreground mb-2 flex items-center gap-1 text-xs font-bold uppercase">
+            {label}
+            {required && <span className="text-red-500">*</span>}
+
+            {tooltip && (
+                <span className="group relative inline-flex">
+                    <HelpCircle className="h-3.5 w-3.5 cursor-help" />
+                    <span className="bg-popover text-popover-foreground border-border pointer-events-none absolute bottom-full left-0 z-[9999] mb-2 hidden w-[min(16rem,calc(100vw-3rem))] rounded-md border px-3 py-2 text-xs font-normal whitespace-normal normal-case shadow-md group-hover:block">
+                        {tooltip}
+                    </span>
+                </span>
+            )}
+        </Label>
+    );
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={trans_doc.page_title || 'Manage Documents'} />
@@ -241,7 +260,10 @@ export default function ManageDocuments() {
 
                     <form onSubmit={onConfirmEdit} className="space-y-4 py-2">
                         <div>
-                            <Label htmlFor="edit_nama_file">{trans_doc.label_doc_name}</Label>
+                            <Label htmlFor="edit_nama_file">
+                                {trans_doc.label_doc_name}
+                                <span className="text-red-500"> *</span>
+                            </Label>
                             <Input
                                 id="edit_nama_file"
                                 value={editForm.nama_file}
@@ -252,7 +274,10 @@ export default function ManageDocuments() {
                         </div>
 
                         <div>
-                            <Label htmlFor="edit_id_section">{trans_doc.label_section}</Label>
+                            <Label htmlFor="edit_id_section">
+                                {trans_doc.label_section}
+                                <span className="text-red-500"> *</span>
+                            </Label>
                             <Select
                                 value={editForm.id_section}
                                 onValueChange={(val) => {
@@ -279,7 +304,7 @@ export default function ManageDocuments() {
 
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <div>
-                                <Label className="mb-2 block text-xs font-semibold text-gray-500 uppercase">{trans_doc.label_upload_access}</Label>
+                                <FieldLabelWithTooltip label={trans_doc.label_upload_by} tooltip={trans_doc.label_upload_by_desc} required />
                                 <div className="flex w-full gap-2">
                                     <Button
                                         type="button"
@@ -302,7 +327,11 @@ export default function ManageDocuments() {
 
                             {Number(editForm.id_section) !== 6 && (
                                 <div>
-                                    <Label className="mb-2 block text-xs font-semibold text-gray-500 uppercase">{trans_doc.label_mandatory}</Label>
+                                    <FieldLabelWithTooltip
+                                        label={trans_doc.label_must_shipping}
+                                        tooltip={trans_doc.label_must_shipping_desc}
+                                        required
+                                    />
                                     <div className="flex w-full gap-2">
                                         <Button
                                             type="button"
@@ -325,9 +354,11 @@ export default function ManageDocuments() {
                             )}
 
                             <div>
-                                <Label className="mb-2 block text-xs font-semibold text-gray-500 uppercase">
-                                    {trans_doc.label_need_confirm || 'Need Confirm'}
-                                </Label>
+                                <FieldLabelWithTooltip
+                                    label={trans_doc.label_requires_verification}
+                                    tooltip={trans_doc.label_requires_verification_desc}
+                                    required
+                                />
                                 <div className="flex w-full gap-2">
                                     <Button
                                         type="button"
@@ -349,9 +380,7 @@ export default function ManageDocuments() {
                             </div>
 
                             <div>
-                                <Label className="mb-2 block text-xs font-semibold text-gray-500 uppercase">
-                                    {trans_doc.label_is_ori || 'Is Original'}
-                                </Label>
+                                <FieldLabelWithTooltip label={trans_doc.label_show_ori_date} tooltip={trans_doc.label_show_ori_date_desc} required />
                                 <div className="flex w-full gap-2">
                                     <Button
                                         type="button"
@@ -373,9 +402,7 @@ export default function ManageDocuments() {
                             </div>
 
                             <div>
-                                <Label className="mb-2 block text-xs font-semibold text-gray-500 uppercase">
-                                    {trans_doc.label_is_print || 'Is Print'}
-                                </Label>
+                                <FieldLabelWithTooltip label={trans_doc.label_show_pdf} tooltip={trans_doc.label_show_pdf_desc} required />
                                 <div className="flex w-full gap-2">
                                     <Button
                                         type="button"
@@ -397,9 +424,7 @@ export default function ManageDocuments() {
                             </div>
 
                             <div>
-                                <Label className="mb-2 block text-xs font-semibold text-gray-500 uppercase">
-                                    {trans_doc.label_is_send_email || 'Is Send Email'}
-                                </Label>
+                                <FieldLabelWithTooltip label={trans_doc.label_send_email} tooltip={trans_doc.label_send_email_desc} required />
                                 <div className="flex w-full gap-2">
                                     <Button
                                         type="button"
@@ -434,7 +459,10 @@ export default function ManageDocuments() {
                             </div>
 
                             <div>
-                                <Label htmlFor="edit_kuota_revisi">{trans_doc.count_revisi}</Label>
+                                <Label htmlFor="edit_kuota_revisi">
+                                    {trans_doc.count_revisi}
+                                    <span className="text-red-500"> *</span>
+                                </Label>
                                 <Input
                                     id="edit_kuota_revisi"
                                     type="number"
