@@ -162,14 +162,14 @@ class UserController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, User $user): RedirectResponse
+   public function update(Request $request, User $user): RedirectResponse
     {
-        $user = Auth::user();
-
-        if (!$user->hasPermissionTo('update-user')) {
+        // 1. Cek permission menggunakan user yang sedang LOGIN
+        if (!auth()->user()->hasPermissionTo('update-user')) {
             abort(403);
         }
 
+        // 2. Validasi (Gunakan $user->id_user dari parameter route untuk exception unique)
         $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|string|lowercase|email|max:255|unique:users,email,' . $user->id_user . ',id_user',
@@ -183,20 +183,26 @@ class UserController extends Controller
                 'email' => $request->email,
             ];
 
+            // 3. Update Password jika diisi
             if ($request->filled('password')) {
                 $data['password'] = Hash::make($request->password);
             }
 
+            // 4. Update Role untuk si TARGET user
             if ($user->role === 'internal') {
                 if ($request->filled('role_internal')) {
                     $data['role_internal'] = $request->role_internal;
+                    
+                    // Sinkronisasi role spatie ke user yang sedang diedit
                     $user->syncRoles($request->role_internal);
                 }
             } 
 
+            // 5. Eksekusi update ke user yang dituju
             $user->update($data);
 
             return redirect()->route('users.index')->with('success', 'User updated successfully.');
+
         } catch (\Exception $e) {
             return redirect()->back()->withErrors(['error' => 'Failed to update user: ' . $e->getMessage()]);
         }
@@ -207,13 +213,14 @@ class UserController extends Controller
      */
     public function destroy(User $user)
     {
-        $user = Auth::user();
+        // Ambil user yang sedang login untuk cek permission
+        $me = Auth::user();
 
-        if (!$user->hasPermissionTo('delete-user')) {
+        if (!$me->hasPermissionTo('delete-user')) {
             abort(403);
         }
+        $user->delete(); 
         
-        $user->delete();
         return redirect()->route('users.index')->with('success', 'User deleted successfully.');
     }
 }
