@@ -55,7 +55,9 @@ export const columns = (
                 const shipping = row.original;
                 const { auth } = usePage().props as any;
 
-                const isStaff = auth.user?.role === 'internal' && auth.user?.role_internal === 'staff';
+                const roleInternal = String(auth.user?.role_internal ?? '').toLowerCase();
+
+                const isStaffRole = auth.user?.role === 'internal' && roleInternal.includes('staff');
 
                 const hasValidatedBy =
                     shipping.validated_by !== null && shipping.validated_by !== undefined && String(shipping.validated_by).trim() !== '';
@@ -64,7 +66,7 @@ export const columns = (
 
                 const isAssignedToCurrentStaff = hasValidatedBy && String(shipping.validated_by) === String(currentUserId);
 
-                const canEdit = !isStaff || isAssignedToCurrentStaff;
+                const canEdit = !isStaffRole || isAssignedToCurrentStaff;
 
                 return (
                     <div className="flex items-center justify-center gap-2 md:px-2">
