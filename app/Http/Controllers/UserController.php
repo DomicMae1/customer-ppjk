@@ -47,19 +47,8 @@ class UserController extends Controller
         }
 
         $users = $usersQuery->get();
-        $roleIds = (clone $usersQuery)
-            ->with('roles')
-            ->get()
-            ->flatMap(function ($user) {
-                return $user->roles->pluck('id');
-            })
-            ->unique()
-            ->values();
 
-        $roles = Role::whereIn('id', $roleIds)
-            ->select(['id', 'name', 'role_type'])
-            ->orderBy('name', 'asc')
-            ->get();
+        $roles = Role::all(['id', 'name', 'role_type']);
             
         $perusahaan = $companyQuery->get();
         

@@ -271,7 +271,7 @@ class ShippingController extends Controller
         if ($user->role === 'internal') {
             $internalStaff = User::on('tako-user')
                 ->where('role', 'internal')
-                ->where('role_internal', 'staff')
+                ->where('role_internal', 'ILIKE', '%staff%')
                 ->where('id_perusahaan', $user->id_perusahaan)
                 ->select('id_user', 'name')
                 ->get();
@@ -1070,7 +1070,7 @@ class ShippingController extends Controller
             $internalStaff = \App\Models\User::on('tako-user')
                 ->where('role', 'internal')
                 ->where('id_perusahaan', $user->id_perusahaan)
-                ->where('role_internal', 'staff')
+                ->where('role_internal', 'ILIKE', '%staff%')
                 ->select('id_user', 'name', 'role_internal', 'id_perusahaan')
                 ->get();
         }
