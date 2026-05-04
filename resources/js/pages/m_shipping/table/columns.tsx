@@ -31,6 +31,7 @@ export type Shipping = {
     comodity?: string | null;
     party_summary?: string | null;
     validated_by?: number | string | null;
+    drafter?: string | null;
 };
 
 export const columns = (
@@ -122,6 +123,18 @@ export const columns = (
                 </div>
             ),
             cell: ({ row }) => <div className="text-sm font-bold md:min-w-[150px] md:truncate md:px-2 md:py-2">{row.original.spk_code ?? '-'}</div>,
+        },
+        {
+            accessorKey: 'drafter',
+            header: ({ column }) => (
+                <div
+                    className="cursor-pointer text-sm font-medium select-none md:px-2 md:py-2"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+                >
+                    Drafter
+                </div>
+            ),
+            cell: ({ row }) => <div className="text-sm md:min-w-[150px] md:truncate md:px-2 md:py-2">{row.original.drafter || '-'}</div>,
         },
         {
             accessorKey: 'deadline_date',
