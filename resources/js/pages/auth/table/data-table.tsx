@@ -219,7 +219,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="all">All Roles</SelectItem>
-                            {roles.map((role) => (
+                            {roles.filter((role) => role.role_type === 'internal').map((role) => (
                                 <SelectItem key={role.id} value={role.name}>
                                     {role.name.charAt(0).toUpperCase() + role.name.slice(1)}
                                 </SelectItem>
