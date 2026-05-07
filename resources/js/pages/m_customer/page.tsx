@@ -340,7 +340,9 @@ export default function ManageCustomers() {
                         </div>
 
                         <div className="grid gap-2">
-                            <Label>Email To</Label>
+                            <Label>
+                                Email To <span className="text-destructive">*</span>
+                            </Label>
 
                             <div className="flex flex-wrap gap-2 rounded border p-2">
                                 {emailsTo.map((email, index) => (
@@ -525,7 +527,9 @@ export default function ManageCustomers() {
                         </div>
 
                         <div className="grid gap-2">
-                            <Label>Email To</Label>
+                            <Label>
+                                Email To <span className="text-destructive">*</span>
+                            </Label>
 
                             <div className="flex flex-wrap gap-2 rounded border p-2">
                                 {emailsTo.map((email, index) => (
