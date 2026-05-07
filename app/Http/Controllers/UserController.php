@@ -205,15 +205,16 @@ class UserController extends Controller
             $data['password'] = Hash::make($request->password);
         }
 
-        if ($user->role === 'internal' && $request->filled('role_internal')) {
-            $data['role_internal'] = $request->role_internal;
-        }
+        if ($user->role === 'internal') {
+                if ($request->filled('role_internal')) {
+                    $data['role_internal'] = $request->role_internal;
+                    
+                    // Sinkronisasi role spatie ke user yang sedang diedit
+                    $user->syncRoles($request->role_internal);
+                }
+            } 
 
         $user->update($data);
-
-        if ($user->role === 'internal' && $request->filled('role_internal')) {
-            $user->syncRoles([$request->role_internal]);
-        }
 
         return redirect()->route('users.index')->with('success', 'User updated successfully.');
     }
