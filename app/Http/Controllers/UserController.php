@@ -16,6 +16,7 @@ use Inertia\Response;
 use Illuminate\Support\Facades\Auth;
 use Spatie\Permission\Models\Role;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\Rule;
 
 class UserController extends Controller
 {
@@ -175,42 +176,46 @@ class UserController extends Controller
      */
     public function update(Request $request, User $user): RedirectResponse
     {
-        $user = Auth::user();
+        $authUser = Auth::user();
 
-        if (!$user->hasPermissionTo('update-user')) {
+        if (!$authUser->hasPermissionTo('update-user')) {
             abort(403);
         }
 
         $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|string|lowercase|email|max:255|unique:users,email,' . $user->id_user . ',id_user',
+            'email' => [
+                'required',
+                'string',
+                'lowercase',
+                'email',
+                'max:255',
+                Rule::unique('users', 'email')->ignore($user->id_user, 'id_user'),
+            ],
             'password' => ['nullable', 'confirmed', Rules\Password::defaults()],
-            'role_internal' => 'nullable|exists:roles,name', 
+            'role_internal' => 'nullable|exists:roles,name',
         ]);
 
-        try {
-            $data = [
-                'name' => $request->name,
-                'email' => $request->email,
-            ];
+        $data = [
+            'name' => $request->name,
+            'email' => $request->email,
+        ];
 
-            if ($request->filled('password')) {
-                $data['password'] = Hash::make($request->password);
-            }
-
-            if ($user->role === 'internal') {
-                if ($request->filled('role_internal')) {
-                    $data['role_internal'] = $request->role_internal;
-                    $user->syncRoles($request->role_internal);
-                }
-            } 
-
-            $user->update($data);
-
-            return redirect()->route('users.index')->with('success', 'User updated successfully.');
-        } catch (\Exception $e) {
-            return redirect()->back()->withErrors(['error' => 'Failed to update user: ' . $e->getMessage()]);
+        if ($request->filled('password')) {
+            $data['password'] = Hash::make($request->password);
         }
+
+        if ($user->role === 'internal' && $request->filled('role_internal')) {
+            $data['role_internal'] = $request->role_internal;
+        }
+
+        $user->update($data);
+
+        if ($user->role === 'internal' && $request->filled('role_internal')) {
+            $user->syncRoles([$request->role_internal]);
+        }
+
+        return redirect()->route('users.index')->with('success', 'User updated successfully.');
     }
 
     /**
