@@ -28,6 +28,7 @@ class Customer extends Model
         'email_to',
         'email_cc',
         'nama',
+        'uid_perusahaan',
     ];
 
     protected $casts = [

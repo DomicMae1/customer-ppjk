@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id('id_customer');
 
             // UID (Unique Identifier) - Baru
-            $table->uuid('uid')->nullable();
+            $table->string('uid')->nullable();
 
             // Data Utama
             $table->string('nama_perusahaan')->nullable();
