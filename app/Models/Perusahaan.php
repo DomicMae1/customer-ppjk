@@ -25,7 +25,8 @@ class Perusahaan extends Model
         'notify_1',
         'notify_2',
         'sla',
-        'sla_timer'
+        'sla_timer',
+        'uid'
     ];
 
     protected $casts = [
