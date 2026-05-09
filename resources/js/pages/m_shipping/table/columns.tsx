@@ -35,6 +35,16 @@ export type Shipping = {
     drafter?: string | null;
 };
 
+const stickyView = 'sticky left-0 z-40 w-[100px] min-w-[100px] bg-background align-middle';
+const stickyCustomer = 'sticky left-[100px] z-40 w-[130px] min-w-[130px] bg-background align-middle';
+const stickySpk = 'sticky left-[230px] z-40 w-[150px] min-w-[150px] bg-background align-middle';
+const stickyDrafter = 'sticky left-[380px] z-40 w-[150px] min-w-[150px] bg-background align-middle';
+const stickyEta = 'sticky left-[530px] z-40 w-[180px] min-w-[180px] bg-background align-middle shadow-[6px_0_12px_-10px_rgba(0,0,0,0.8)]';
+
+const th = 'px-3 py-3 text-left align-middle text-sm font-medium whitespace-nowrap';
+const td = 'px-3 py-3 text-left align-middle text-sm';
+const tdCenter = 'px-3 py-3 text-center align-middle text-sm';
+
 export const columns = (
     trans: Record<string, string>, // <--- INI PENTING
     onDeleteClick?: (shipping: Shipping) => void,
@@ -51,7 +61,11 @@ export const columns = (
     return [
         {
             id: 'view_documents',
-            header: () => <div className="w-[50px] md:px-2 md:py-2"></div>,
+            header: () => <div className="w-[100px] text-center"></div>,
+            meta: {
+                headerClassName: stickyView,
+                cellClassName: stickyView,
+            },
             cell: ({ row }) => {
                 const shipping = row.original;
                 const { auth } = usePage().props as any;
@@ -103,6 +117,10 @@ export const columns = (
         },
         {
             accessorKey: 'nama_customer',
+            meta: {
+                headerClassName: stickyCustomer,
+                cellClassName: stickyCustomer,
+            },
             header: ({ column }) => (
                 <div
                     className="cursor-pointer text-sm font-medium select-none md:px-2 md:py-2"
@@ -112,10 +130,16 @@ export const columns = (
                     {trans.customer_name}
                 </div>
             ),
-            cell: ({ row }) => <div className="text-sm md:min-w-[150px] md:truncate md:px-2">{row.original.nama_customer || '-'}</div>,
+            cell: ({ row }) => (
+                <div className="w-[130px] truncate px-3 py-3 text-left text-sm font-semibold">{row.original.nama_customer || '-'}</div>
+            ),
         },
         {
             accessorKey: 'spk_code',
+            meta: {
+                headerClassName: stickySpk,
+                cellClassName: stickySpk,
+            },
             header: ({ column }) => (
                 <div
                     className="cursor-pointer text-sm font-medium select-none md:px-2 md:py-2"
@@ -125,10 +149,14 @@ export const columns = (
                     {trans.spk_number}
                 </div>
             ),
-            cell: ({ row }) => <div className="text-sm font-bold md:min-w-[150px] md:truncate md:px-2 md:py-2">{row.original.spk_code ?? '-'}</div>,
+            cell: ({ row }) => <div className="w-[150px] truncate px-3 py-3 text-left text-sm font-bold">{row.original.spk_code ?? '-'}</div>,
         },
         {
             accessorKey: 'drafter',
+            meta: {
+                headerClassName: stickyDrafter,
+                cellClassName: stickyDrafter,
+            },
             header: ({ column }) => (
                 <div
                     className="cursor-pointer text-sm font-medium select-none md:px-2 md:py-2"
@@ -137,10 +165,14 @@ export const columns = (
                     Drafter
                 </div>
             ),
-            cell: ({ row }) => <div className="text-sm md:min-w-[150px] md:truncate md:px-2 md:py-2">{row.original.drafter || '-'}</div>,
+            cell: ({ row }) => <div className="w-[150px] truncate px-3 py-3 text-left text-sm">{row.original.drafter || '-'}</div>,
         },
         {
             accessorKey: 'eta_date',
+            meta: {
+                headerClassName: stickyEta,
+                cellClassName: stickyEta,
+            },
             header: ({ column }) => (
                 <div
                     className="cursor-pointer text-sm font-medium select-none md:px-2 md:py-2"
@@ -175,10 +207,8 @@ export const columns = (
                 const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
                 return (
-                    <div className="flex flex-col justify-center gap-1 md:min-w-[200px] md:px-2">
-                        <div className="flex items-center gap-1 text-white">
-                            <span className="text-sm leading-none">{formatted}</span>
-                        </div>
+                    <div className="flex w-[180px] flex-col justify-center gap-1 px-3 py-3 text-left">
+                        <span className="text-sm leading-none">{formatted}</span>
 
                         <div
                             className={`mt-1 inline-flex w-fit items-center rounded-full px-2 py-0.5 text-[11px] font-bold ${
@@ -198,67 +228,52 @@ export const columns = (
         {
             accessorKey: 'vessel',
             header: ({ column }) => (
-                <div
-                    className="cursor-pointer text-sm font-medium select-none md:px-2 md:py-2"
-                    onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-                >
+                <div className={`${th} w-[120px]`} onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>
                     {trans.vessel?.toUpperCase() || 'VESSEL'}
                 </div>
             ),
-            cell: ({ row }) => <div className="text-center text-sm md:px-2">{row.original.vessel || '-'}</div>,
+            cell: ({ row }) => <div className={`${td} w-[120px] truncate`}>{row.original.vessel || '-'}</div>,
         },
         {
             accessorKey: 'origin',
             header: ({ column }) => (
-                <div
-                    className="cursor-pointer text-sm font-medium select-none md:px-2 md:py-2"
-                    onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-                >
+                <div className={`${th} w-[120px]`} onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>
                     {trans.origin?.toUpperCase() || 'ORIGIN'}
                 </div>
             ),
-            cell: ({ row }) => <div className="text-center text-sm md:px-2">{row.original.origin || '-'}</div>,
+            cell: ({ row }) => <div className={`${td} w-[120px] truncate`}>{row.original.origin || '-'}</div>,
         },
         {
             accessorKey: 'port',
             header: ({ column }) => (
-                <div
-                    className="cursor-pointer text-sm font-medium select-none md:px-2 md:py-2"
-                    onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-                >
+                <div className={`${th} w-[220px] min-w-[220px]`} onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>
                     {trans.port?.toUpperCase() || 'PORT'}
                 </div>
             ),
-            cell: ({ row }) => <div className="text-center text-sm md:px-2">{row.original.port || '-'}</div>,
+            cell: ({ row }) => <div className={`${td} w-[220px] min-w-[220px] truncate`}>{row.original.port || '-'}</div>,
         },
         {
             accessorKey: 'comodity',
             header: ({ column }) => (
-                <div
-                    className="cursor-pointer text-sm font-medium select-none md:px-2 md:py-2"
-                    onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-                >
+                <div className={`${th} w-[150px]`} onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>
                     {trans.comodity?.toUpperCase() || 'COMODITY'}
                 </div>
             ),
-            cell: ({ row }) => <div className="text-center text-sm md:px-2">{row.original.comodity || '-'}</div>,
+            cell: ({ row }) => <div className={`${td} w-[150px] truncate`}>{row.original.comodity || '-'}</div>,
         },
         {
             accessorKey: 'party_summary',
             header: ({ column }) => (
-                <div
-                    className="cursor-pointer text-sm font-medium select-none md:px-2 md:py-2"
-                    onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-                >
+                <div className={`${th} w-[260px]`} onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>
                     {trans.party?.toUpperCase() || 'PARTY'}
                 </div>
             ),
-            cell: ({ row }) => <div className="text-left text-sm md:min-w-[220px] md:px-2">{row.original.party_summary || '-'}</div>,
+            cell: ({ row }) => <div className={`${td} w-[260px] leading-snug whitespace-normal`}>{row.original.party_summary || '-'}</div>,
         },
         {
             accessorKey: 'jalur',
             // 2. Gunakan trans
-            header: () => <div className="text-sm font-medium md:px-2 md:py-2">{trans.channel}</div>,
+            header: () => <div className={`${th} w-[130px]`}>{trans.channel}</div>,
             cell: ({ row }) => {
                 const jalur = row.original.jalur;
                 let colorClass = 'text-gray-500';
@@ -279,7 +294,7 @@ export const columns = (
                     displayText = jalur;
                 }
 
-                return <div className={`text-sm font-bold ${colorClass} md:min-w-[100px] md:px-2`}>{displayText}</div>;
+                return <div className={`${td} w-[130px] font-bold ${colorClass}`}>{displayText}</div>;
             },
         },
         {
@@ -304,7 +319,7 @@ export const columns = (
                 const sectionName = row.original.deadline_section_name;
 
                 return (
-                    <div className="flex flex-col gap-1 md:min-w-[180px] md:px-2">
+                    <div className="flex w-[190px] flex-col gap-1 px-3 py-3 text-left align-middle">
                         <div className="flex items-center gap-1 text-red-600">
                             <AlertCircle className="h-3 w-3 shrink-0" />
                             <span className="text-sm font-bold">{formatted}</span>
@@ -355,12 +370,13 @@ export const columns = (
                 }
 
                 return (
-                    <div className="flex flex-col gap-1.5 md:min-w-[150px] md:px-2">
+                    <div className="flex w-[200px] flex-col gap-1.5 px-3 py-3 text-left">
                         <div className="flex items-center justify-between gap-2">
                             <span className={`text-[10px] font-bold tracking-wider uppercase ${textClass}`}>{statusText}</span>
-                            <span className="text-[11px] font-extrabold text-slate-700">{progress}%</span>
+                            <span className="text-[11px] font-extrabold text-slate-700 dark:text-slate-200">{progress}%</span>
                         </div>
-                        <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100 shadow-inner">
+
+                        <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100 shadow-inner dark:bg-zinc-800">
                             <div className={`h-full transition-all duration-1000 ease-out ${colorClass}`} style={{ width: `${progress}%` }} />
                         </div>
                     </div>
@@ -376,7 +392,7 @@ export const columns = (
                 };
             },
             // 2. Gunakan trans
-            header: ({ column }) => <div className="cursor-pointer text-sm font-medium select-none md:px-2 md:py-2">{trans.status_description}</div>,
+            header: () => <div className={`${th} w-[380px]`}>{trans.status_description}</div>,
             cell: ({ row }) => {
                 const tanggal = row.original.tanggal_status;
                 const label = row.original.status_label;
@@ -405,7 +421,7 @@ export const columns = (
                     .replace('.', ':');
 
                 return (
-                    <div className="text-sm md:min-w-[200px] md:truncate md:px-2">
+                    <div className={`${td} w-[380px] leading-snug whitespace-normal`}>
                         <span>
                             {label} {trans.last_updated || 'updated'} {` ${trans.at || 'at'} `}
                             <strong>{`${tanggalFormat} ${jamMenit} WIB`}</strong>
