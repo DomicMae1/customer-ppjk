@@ -23,6 +23,7 @@ export type Shipping = {
     nama_user: string;
     jalur: string;
     deadline_date?: string | null;
+    deadline_section_name?: string | null;
     progress: number;
     eta_date?: string | null;
     vessel?: string | null;
@@ -139,90 +140,6 @@ export const columns = (
             cell: ({ row }) => <div className="text-sm md:min-w-[150px] md:truncate md:px-2 md:py-2">{row.original.drafter || '-'}</div>,
         },
         {
-            accessorKey: 'deadline_date',
-            header: () => <div className="text-sm font-medium md:px-2 md:py-2">{trans.deadline}</div>,
-            cell: ({ row }) => {
-                const deadline = row.original.deadline_date;
-                // Ambil data user dari usePage() di dalam cell render (aman)
-                const { props } = usePage();
-                const auth = props.auth as any;
-                const isUserExternal = auth.user?.role === 'eksternal';
-                const currentLocale = props.locale as string;
-
-                if (!deadline) {
-                    return <div className="text-sm md:px-2">-</div>;
-                }
-
-                const date = new Date(deadline);
-
-                const formatted = date.toLocaleDateString('en-GB', {
-                    day: 'numeric',
-                    month: 'short',
-                    year: 'numeric',
-                });
-
-                return (
-                    <div className="flex flex-col justify-center md:min-w-[200px] md:px-2">
-                        {/* Tampilkan Warning Merah (Khusus External) */}
-                        {
-                            <div className="flex items-center gap-1 text-red-600">
-                                <AlertCircle className="h-3 w-3 shrink-0" />
-                                <span className="text-sm leading-none font-bold">{formatted}</span>
-                            </div>
-                        }
-                    </div>
-                );
-            },
-        },
-        {
-            accessorKey: 'progress',
-            header: ({ column }) => (
-                <div
-                    className="cursor-pointer text-sm font-medium select-none md:px-2 md:py-2"
-                    onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-                >
-                    {trans.progress}
-                </div>
-            ),
-            cell: ({ row }) => {
-                const progress = row.original.progress || 0;
-
-                let statusText = trans.progress_not_started;
-                let colorClass = 'bg-slate-200';
-                let textClass = 'text-slate-500';
-
-                if (progress === 100) {
-                    statusText = trans.progress_completed;
-                    colorClass = 'bg-emerald-500';
-                    textClass = 'text-emerald-600';
-                } else if (progress >= 80) {
-                    statusText = trans.progress_almost_done;
-                    colorClass = 'bg-indigo-500';
-                    textClass = 'text-indigo-600';
-                } else if (progress >= 40) {
-                    statusText = trans.progress_in_process;
-                    colorClass = 'bg-blue-500';
-                    textClass = 'text-blue-600';
-                } else if (progress > 0) {
-                    statusText = trans.progress_started;
-                    colorClass = 'bg-sky-400';
-                    textClass = 'text-sky-600';
-                }
-
-                return (
-                    <div className="flex flex-col gap-1.5 md:min-w-[150px] md:px-2">
-                        <div className="flex items-center justify-between gap-2">
-                            <span className={`text-[10px] font-bold tracking-wider uppercase ${textClass}`}>{statusText}</span>
-                            <span className="text-[11px] font-extrabold text-slate-700">{progress}%</span>
-                        </div>
-                        <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100 shadow-inner">
-                            <div className={`h-full transition-all duration-1000 ease-out ${colorClass}`} style={{ width: `${progress}%` }} />
-                        </div>
-                    </div>
-                );
-            },
-        },
-        {
             accessorKey: 'eta_date',
             header: ({ column }) => (
                 <div
@@ -247,7 +164,35 @@ export const columns = (
                     year: 'numeric',
                 });
 
-                return <div className="text-sm md:min-w-[150px] md:px-2">{formatted}</div>;
+                // Hitung H-
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+
+                const etaDate = new Date(eta);
+                etaDate.setHours(0, 0, 0, 0);
+
+                const diffTime = etaDate.getTime() - today.getTime();
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                return (
+                    <div className="flex flex-col justify-center gap-1 md:min-w-[200px] md:px-2">
+                        <div className="flex items-center gap-1 text-white">
+                            <span className="text-sm leading-none">{formatted}</span>
+                        </div>
+
+                        <div
+                            className={`mt-1 inline-flex w-fit items-center rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                                diffDays > 0
+                                    ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400'
+                                    : diffDays === 0
+                                      ? 'bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400'
+                                      : 'bg-slate-100 text-slate-600 dark:bg-zinc-800 dark:text-zinc-300'
+                            }`}
+                        >
+                            {diffDays > 0 ? `H-${diffDays}` : diffDays === 0 ? 'ETA Hari Ini' : `Lewat ${Math.abs(diffDays)} Hari`}
+                        </div>
+                    </div>
+                );
             },
         },
         {
@@ -335,6 +280,91 @@ export const columns = (
                 }
 
                 return <div className={`text-sm font-bold ${colorClass} md:min-w-[100px] md:px-2`}>{displayText}</div>;
+            },
+        },
+        {
+            accessorKey: 'deadline_date',
+            header: () => <div className="text-sm font-medium md:px-2 md:py-2">{trans.deadline}</div>,
+            cell: ({ row }) => {
+                const deadline = row.original.deadline_date;
+                // Ambil data user dari usePage() di dalam cell render (aman)
+
+                if (!deadline) {
+                    return <div className="text-sm md:px-2">-</div>;
+                }
+
+                const date = new Date(deadline);
+
+                const formatted = date.toLocaleDateString('en-GB', {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric',
+                });
+
+                const sectionName = row.original.deadline_section_name;
+
+                return (
+                    <div className="flex flex-col gap-1 md:min-w-[180px] md:px-2">
+                        <div className="flex items-center gap-1 text-red-600">
+                            <AlertCircle className="h-3 w-3 shrink-0" />
+                            <span className="text-sm font-bold">{formatted}</span>
+                        </div>
+
+                        {sectionName && (
+                            <div className="w-fit rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-semibold text-red-700 dark:bg-red-500/10 dark:text-red-400">
+                                {sectionName}
+                            </div>
+                        )}
+                    </div>
+                );
+            },
+        },
+        {
+            accessorKey: 'progress',
+            header: ({ column }) => (
+                <div
+                    className="cursor-pointer text-sm font-medium select-none md:px-2 md:py-2"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+                >
+                    {trans.progress}
+                </div>
+            ),
+            cell: ({ row }) => {
+                const progress = row.original.progress || 0;
+
+                let statusText = trans.progress_not_started;
+                let colorClass = 'bg-slate-200';
+                let textClass = 'text-slate-500';
+
+                if (progress === 100) {
+                    statusText = trans.progress_completed;
+                    colorClass = 'bg-emerald-500';
+                    textClass = 'text-emerald-600';
+                } else if (progress >= 80) {
+                    statusText = trans.progress_almost_done;
+                    colorClass = 'bg-indigo-500';
+                    textClass = 'text-indigo-600';
+                } else if (progress >= 40) {
+                    statusText = trans.progress_in_process;
+                    colorClass = 'bg-blue-500';
+                    textClass = 'text-blue-600';
+                } else if (progress > 0) {
+                    statusText = trans.progress_started;
+                    colorClass = 'bg-sky-400';
+                    textClass = 'text-sky-600';
+                }
+
+                return (
+                    <div className="flex flex-col gap-1.5 md:min-w-[150px] md:px-2">
+                        <div className="flex items-center justify-between gap-2">
+                            <span className={`text-[10px] font-bold tracking-wider uppercase ${textClass}`}>{statusText}</span>
+                            <span className="text-[11px] font-extrabold text-slate-700">{progress}%</span>
+                        </div>
+                        <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100 shadow-inner">
+                            <div className={`h-full transition-all duration-1000 ease-out ${colorClass}`} style={{ width: `${progress}%` }} />
+                        </div>
+                    </div>
+                );
             },
         },
         {
