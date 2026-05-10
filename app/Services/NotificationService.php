@@ -3,11 +3,61 @@
 namespace App\Services;
 
 use App\Models\Notification;
+use App\Models\NotificationChannelSetting;
 use App\Events\NotificationSent;
 use Illuminate\Support\Facades\Log;
 
 class NotificationService
 {
+    private static $channelSettingsCache = [];
+
+    /**
+     * Helper to check if we should send email/notification based on settings
+     */
+    public static function shouldSend(int $idPerusahaan, string $roleInternal, string $eventType, string $channel): bool
+    {
+        // Cache key: {idPerusahaan}_{roleInternal}_{eventType}
+        $cacheKey = "{$idPerusahaan}_{$roleInternal}_{$eventType}";
+
+        if (!isset(self::$channelSettingsCache[$cacheKey])) {
+            $setting = NotificationChannelSetting::where('id_perusahaan', $idPerusahaan)
+                ->where('role_internal', $roleInternal)
+                ->where('event_type', $eventType)
+                ->first();
+
+            self::$channelSettingsCache[$cacheKey] = $setting;
+        }
+
+        $setting = self::$channelSettingsCache[$cacheKey];
+
+        // Default is true if no setting found
+        if (!$setting) {
+            return true;
+        }
+
+        if ($channel === 'email') {
+            return $setting->send_email;
+        }
+
+        if ($channel === 'notification') {
+            return $setting->send_notification;
+        }
+
+        return true;
+    }
+
+    /**
+     * Helper to get user's resolved role for settings
+     */
+    public static function resolveRoleForSetting($user): string
+    {
+        if ($user->role === 'eksternal') {
+            return 'eksternal';
+        }
+
+        return $user->role_internal ?? 'staff';
+    }
+
     /**
      * Send notification to user(s) or role
      * 
@@ -35,6 +85,26 @@ class NotificationService
             // If role is specified without user_id OR send_to, create notification for each user with that role
             if (!empty($data['role']) && empty($data['user_id']) && empty($data['send_to'])) {
                 return self::sendToRole($data);
+            }
+
+            // Check settings for specific user
+            $recipientId = $data['send_to'] ?? $data['user_id'] ?? null;
+            if ($recipientId) {
+                $recipient = \App\Models\User::on('tako-user')->find($recipientId);
+                if ($recipient) {
+                    $roleSetting = self::resolveRoleForSetting($recipient);
+                    $eventType = $data['data']['type'] ?? 'unknown';
+                    
+                    $idPerusahaan = $recipient->id_perusahaan;
+                    if (!$idPerusahaan && $recipient->id_customer) {
+                        $customer = \App\Models\Customer::on('tako-user')->find($recipient->id_customer);
+                        $idPerusahaan = $customer ? $customer->ownership : null;
+                    }
+
+                    if ($idPerusahaan && !self::shouldSend($idPerusahaan, $roleSetting, $eventType, 'notification')) {
+                        return null; // Skip sending
+                    }
+                }
             }
 
             // Create single notification for specific user
@@ -101,7 +171,12 @@ class NotificationService
         
         foreach ($users as $user) {
             try {
-                // Create notification for each user
+                $roleSetting = self::resolveRoleForSetting($user);
+                $eventType = $data['data']['type'] ?? 'unknown';
+                if (!self::shouldSend($tenant->perusahaan_id, $roleSetting, $eventType, 'notification')) {
+                    continue;
+                }
+
                 // Create notification for each user
                 $notification = Notification::create([
                     'send_to' => $user->id_user,
