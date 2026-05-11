@@ -15,6 +15,7 @@ class CustomerApiController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
+            'uid'             => 'required|string',
             'uid_perusahaan'  => 'nullable|string',
             'nama_perusahaan' => 'required|string|max:255',
             'type'            => 'required|string|max:100',
@@ -22,6 +23,7 @@ class CustomerApiController extends Controller
             'nama'            => 'required|string|max:255',
             'no_npwp'         => 'nullable|string|max:50',
             'no_npwp_16'      => 'nullable|string|max:50',
+            'uid_marketing'   => 'nullable|string',
         ]);
 
         DB::beginTransaction();
@@ -36,8 +38,9 @@ class CustomerApiController extends Controller
             }
 
             $customer = Customer::create([
-                'uid'             => (string) Str::uuid(),
+                'uid'             => $validated['uid'],
                 'uid_perusahaan'  => $validated['uid_perusahaan'] ?? null,
+                'uid_marketing'   => $validated['uid_marketing'] ?? null,
                 'nama_perusahaan' => $validated['nama_perusahaan'],
                 'type'            => $validated['type'],
                 'email_to'        => !empty($validated['email']) ? [$validated['email']] : [],
