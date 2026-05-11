@@ -73,18 +73,39 @@ class ShippingController extends Controller
                 ->select('id_customer', 'nama_perusahaan as nama') // Alias 'nama' agar frontend konsisten
                 ->get();
         } else {
-            // Ambil daftar user yang role-nya 'eksternal'
-            // Ambil 'name' dari tabel users, tapi value-nya tetap id_customer
-            $externalCustomers = User::where('role', 'eksternal')
-                ->whereNotNull('users.id_customer')
-                ->where('users.id_perusahaan', $user->id_perusahaan)
-                ->join('customers', 'customers.id_customer', '=', 'users.id_customer')
+            $customerQuery = Customer::query()
+                ->leftJoin('users as external_users', function ($join) {
+                    $join->on('external_users.id_customer', '=', 'customers.id_customer')
+                        ->where('external_users.role', '=', 'eksternal');
+                })
+                ->where('customers.ownership', $user->id_perusahaan)
                 ->select(
                     'customers.id_customer',
                     'customers.nama_perusahaan as nama'
                 )
-                ->distinct()
-                ->get();
+                ->selectRaw('CASE WHEN COUNT(external_users.id_user) > 0 THEN 1 ELSE 0 END as has_external_account')
+                ->groupBy(
+                    'customers.id_customer',
+                    'customers.nama_perusahaan'
+                )
+                ->orderBy('customers.nama_perusahaan', 'asc');
+
+            /*
+            |--------------------------------------------------------------------------
+            | KHUSUS MARKETING
+            |--------------------------------------------------------------------------
+            | Marketing hanya boleh melihat customer yang dia tambahkan sendiri.
+            |
+            | Catatan:
+            | Sesuaikan kolom `customers.created_by` kalau di tabel kamu namanya beda,
+            | misalnya `created_user`, `id_user`, `created_by_user`, dll.
+            |--------------------------------------------------------------------------
+            */
+            if ($user->role_internal === 'marketing') {
+                $customerQuery->where('customers.created_by', $user->id_user);
+            }
+
+            $externalCustomers = $customerQuery->get();
 
             // Opsional: Jika ingin menghilangkan duplikasi (misal ada 2 user dari PT yang sama)
             // $externalCustomers = $externalCustomers->unique('id_customer')->values();
