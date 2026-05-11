@@ -23,6 +23,18 @@ class SectionReminderService
         if (!$staff || empty($staff->email)) {
             throw new \Exception('Staff atau email staff tidak ditemukan');
         }
+        
+        $roleSetting = \App\Services\NotificationService::resolveRoleForSetting($staff);
+        $idPerusahaan = $staff->id_perusahaan;
+        if (!$idPerusahaan && $staff->id_customer) {
+             $customer = \App\Models\Customer::on('tako-user')->find($staff->id_customer);
+             $idPerusahaan = $customer ? $customer->ownership : null;
+        }
+
+        if ($idPerusahaan && !\App\Services\NotificationService::shouldSend($idPerusahaan, $roleSetting, 'section_reminder', 'email')) {
+            return;
+        }
+
         Mail::to($staff->email)->send(new \App\Mail\SectionReminderMail($section, $externalUser, $spk));
     }
 
@@ -40,6 +52,18 @@ class SectionReminderService
             // Log warning logic here if needed, but for now just return or throw
             return;
         }
+
+        $roleSetting = \App\Services\NotificationService::resolveRoleForSetting($staff);
+        $idPerusahaan = $staff->id_perusahaan;
+        if (!$idPerusahaan && $staff->id_customer) {
+             $customer = \App\Models\Customer::on('tako-user')->find($staff->id_customer);
+             $idPerusahaan = $customer ? $customer->ownership : null;
+        }
+
+        if ($idPerusahaan && !\App\Services\NotificationService::shouldSend($idPerusahaan, $roleSetting, 'spk_created', 'email')) {
+            return;
+        }
+
         Mail::to($staff->email)->send(new \App\Mail\SpkCreatedMail($spk, $creator));
     }
 
@@ -56,6 +80,17 @@ class SectionReminderService
     {
         if (!$recipient || empty($recipient->email)) return;
 
+        $roleSetting = \App\Services\NotificationService::resolveRoleForSetting($recipient);
+        $idPerusahaan = $recipient->id_perusahaan;
+        if (!$idPerusahaan && $recipient->id_customer) {
+             $customer = \App\Models\Customer::on('tako-user')->find($recipient->id_customer);
+             $idPerusahaan = $customer ? $customer->ownership : null;
+        }
+
+        if ($idPerusahaan && !\App\Services\NotificationService::shouldSend($idPerusahaan, $roleSetting, 'document_uploaded', 'email')) {
+            return;
+        }
+
         try {
             \Illuminate\Support\Facades\Mail::to($recipient->email)->queue(new \App\Mail\DocumentUploadedMail($spk, $sectionName, $uploader, $recipient));
         } catch (\Exception $e) {
@@ -69,6 +104,17 @@ class SectionReminderService
     public static function sendDocumentAdded(Spk $spk, $sectionName, User $adminUser, User $recipient, $count)
     {
         if (!$recipient || empty($recipient->email)) return;
+
+        $roleSetting = \App\Services\NotificationService::resolveRoleForSetting($recipient);
+        $idPerusahaan = $recipient->id_perusahaan;
+        if (!$idPerusahaan && $recipient->id_customer) {
+             $customer = \App\Models\Customer::on('tako-user')->find($recipient->id_customer);
+             $idPerusahaan = $customer ? $customer->ownership : null;
+        }
+
+        if ($idPerusahaan && !\App\Services\NotificationService::shouldSend($idPerusahaan, $roleSetting, 'document_added', 'email')) {
+            return;
+        }
 
         try {
             \Illuminate\Support\Facades\Mail::to($recipient->email)->queue(new \App\Mail\DocumentAddedMail($spk, $sectionName, $adminUser, $recipient, $count));
@@ -84,6 +130,17 @@ class SectionReminderService
     {
         if (!$recipient || empty($recipient->email)) return;
 
+        $roleSetting = \App\Services\NotificationService::resolveRoleForSetting($recipient);
+        $idPerusahaan = $recipient->id_perusahaan;
+        if (!$idPerusahaan && $recipient->id_customer) {
+             $customer = \App\Models\Customer::on('tako-user')->find($recipient->id_customer);
+             $idPerusahaan = $customer ? $customer->ownership : null;
+        }
+
+        if ($idPerusahaan && !\App\Services\NotificationService::shouldSend($idPerusahaan, $roleSetting, 'section_added', 'email')) {
+            return;
+        }
+
         try {
             \Illuminate\Support\Facades\Mail::to($recipient->email)->queue(new \App\Mail\SectionAddedMail($spk, $sectionNames, $adminUser, $recipient, $count));
         } catch (\Exception $e) {
@@ -97,6 +154,17 @@ class SectionReminderService
     public static function sendDocumentVerified(Spk $spk, $sectionName, User $verifier, User $recipient)
     {
         if (!$recipient || empty($recipient->email)) return;
+
+        $roleSetting = \App\Services\NotificationService::resolveRoleForSetting($recipient);
+        $idPerusahaan = $recipient->id_perusahaan;
+        if (!$idPerusahaan && $recipient->id_customer) {
+             $customer = \App\Models\Customer::on('tako-user')->find($recipient->id_customer);
+             $idPerusahaan = $customer ? $customer->ownership : null;
+        }
+
+        if ($idPerusahaan && !\App\Services\NotificationService::shouldSend($idPerusahaan, $roleSetting, 'document_verified', 'email')) {
+            return;
+        }
 
         try {
             \Illuminate\Support\Facades\Mail::to($recipient->email)->queue(new \App\Mail\DocumentVerifiedMail($spk, $sectionName, $verifier, $recipient));
@@ -112,6 +180,17 @@ class SectionReminderService
     {
         if (!$recipient || empty($recipient->email)) return;
 
+        $roleSetting = \App\Services\NotificationService::resolveRoleForSetting($recipient);
+        $idPerusahaan = $recipient->id_perusahaan;
+        if (!$idPerusahaan && $recipient->id_customer) {
+             $customer = \App\Models\Customer::on('tako-user')->find($recipient->id_customer);
+             $idPerusahaan = $customer ? $customer->ownership : null;
+        }
+
+        if ($idPerusahaan && !\App\Services\NotificationService::shouldSend($idPerusahaan, $roleSetting, 'document_rejected', 'email')) {
+            return;
+        }
+
         try {
             \Illuminate\Support\Facades\Mail::to($recipient->email)->queue(new \App\Mail\DocumentRejectedMail($spk, $sectionName, $rejector, $recipient, $reason, $documentName));
         } catch (\Exception $e) {
@@ -125,6 +204,17 @@ class SectionReminderService
     public static function sendBatchDocumentRejected(Spk $spk, $sectionName, User $rejector, User $recipient, $reason, $count)
     {
         if (!$recipient || empty($recipient->email)) return;
+
+        $roleSetting = \App\Services\NotificationService::resolveRoleForSetting($recipient);
+        $idPerusahaan = $recipient->id_perusahaan;
+        if (!$idPerusahaan && $recipient->id_customer) {
+             $customer = \App\Models\Customer::on('tako-user')->find($recipient->id_customer);
+             $idPerusahaan = $customer ? $customer->ownership : null;
+        }
+
+        if ($idPerusahaan && !\App\Services\NotificationService::shouldSend($idPerusahaan, $roleSetting, 'document_rejected', 'email')) {
+            return;
+        }
 
         try {
             // We reuse DocumentRejectedMail but adapt the "documentName" parameter to show count.
@@ -142,6 +232,17 @@ class SectionReminderService
     public static function sendStaffAssigned(Spk $spk, User $supervisor, User $staff)
     {
         if (!$staff || empty($staff->email)) return;
+
+        $roleSetting = \App\Services\NotificationService::resolveRoleForSetting($staff);
+        $idPerusahaan = $staff->id_perusahaan;
+        if (!$idPerusahaan && $staff->id_customer) {
+             $customer = \App\Models\Customer::on('tako-user')->find($staff->id_customer);
+             $idPerusahaan = $customer ? $customer->ownership : null;
+        }
+
+        if ($idPerusahaan && !\App\Services\NotificationService::shouldSend($idPerusahaan, $roleSetting, 'spk_assigned', 'email')) {
+            return;
+        }
 
         try {
             \Illuminate\Support\Facades\Mail::to($staff->email)->queue(new \App\Mail\SpkAssignedMail($spk, $supervisor, $staff));

@@ -65,6 +65,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('document', DocumentController::class);
     Route::resource('section', SectionController::class);
 
+    // Notification Settings routes
+    Route::get('notification-settings', [\App\Http\Controllers\NotificationSettingController::class, 'index'])->name('notification_settings.index');
+    Route::get('notification-settings/companies/{id}/data', [\App\Http\Controllers\NotificationSettingController::class, 'getSettings'])->name('notification_settings.data');
+    Route::post('notification-settings/channel', [\App\Http\Controllers\NotificationSettingController::class, 'upsertChannel'])->name('notification_settings.upsertChannel');
+    Route::post('notification-settings/reminder', [\App\Http\Controllers\NotificationSettingController::class, 'upsertReminder'])->name('notification_settings.upsertReminder');
+
     // Notification routes
     Route::get('notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::get('notifications/unread-count', [NotificationController::class, 'unreadCount'])->name('notifications.unreadCount');
