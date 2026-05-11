@@ -16,9 +16,9 @@ interface Company {
 
 interface PageProps {
     companies: Company[];
+    roles: string[];
 }
 
-const ROLES = ['staff', 'marketing', 'supervisor', 'manager', 'eksternal'];
 const EVENT_TYPES = [
     { id: 'spk_created', label: 'SPK Created' },
     { id: 'spk_assigned', label: 'Staff Assigned' },
@@ -29,7 +29,7 @@ const EVENT_TYPES = [
     { id: 'document_added', label: 'Document Added' },
 ];
 
-export default function NotificationSettings({ companies }: PageProps) {
+export default function NotificationSettings({ companies, roles }: PageProps) {
     const [selectedCompany, setSelectedCompany] = useState<string>('');
     const [activeTab, setActiveTab] = useState<'channel' | 'reminder'>('channel');
     
@@ -205,7 +205,7 @@ export default function NotificationSettings({ companies }: PageProps) {
                                             <thead className="bg-muted text-muted-foreground uppercase text-xs">
                                                 <tr>
                                                     <th className="p-4 font-medium border-r">Event Type</th>
-                                                    {ROLES.map((role) => (
+                                                    {roles.map((role) => (
                                                         <th key={role} className="p-4 font-medium text-center border-r capitalize">{role}</th>
                                                     ))}
                                                 </tr>
@@ -214,7 +214,7 @@ export default function NotificationSettings({ companies }: PageProps) {
                                                 {EVENT_TYPES.map((event) => (
                                                     <tr key={event.id} className="border-b last:border-b-0">
                                                         <td className="p-4 font-medium border-r bg-muted/30">{event.label}</td>
-                                                        {ROLES.map((role) => (
+                                                        {roles.map((role) => (
                                                             <td key={`${event.id}-${role}`} className="p-4 border-r align-top">
                                                                 <div className="flex flex-col gap-3 items-center">
                                                                     <div className="flex items-center gap-2">
@@ -254,7 +254,7 @@ export default function NotificationSettings({ companies }: PageProps) {
                                         <CardDescription>Notifikasi otomatis sebelum batas waktu section.</CardDescription>
                                     </CardHeader>
                                     <CardContent className="space-y-6">
-                                        {ROLES.map(role => {
+                                        {roles.map(role => {
                                             const val = getReminderValue(role, 'deadline');
                                             return (
                                                 <div key={`dl-${role}`} className="flex flex-col gap-3 p-4 border rounded-md">
@@ -312,7 +312,7 @@ export default function NotificationSettings({ companies }: PageProps) {
                                         <CardDescription>Notifikasi otomatis sebelum kedatangan kapal.</CardDescription>
                                     </CardHeader>
                                     <CardContent className="space-y-6">
-                                        {ROLES.map(role => {
+                                        {roles.map(role => {
                                             const val = getReminderValue(role, 'eta');
                                             return (
                                                 <div key={`eta-${role}`} className="flex flex-col gap-3 p-4 border rounded-md">
