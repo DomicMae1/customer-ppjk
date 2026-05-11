@@ -79,6 +79,12 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
         return String(item.internal_handler_name ?? item.assigned_pic_name ?? item.pic_internal_name ?? item.nama_user_internal ?? '').trim();
     };
 
+    const selectedCustomerData = externalCustomers.find((cust: any) => String(cust.id_customer) === String(selectedCustomer));
+
+    const selectedCustomerHasExternalAccount = Number(selectedCustomerData?.has_external_account) === 1;
+
+    const shouldShowExternalAccountWarning = selectedCustomerData && Number(selectedCustomerData.has_external_account) !== 1;
+
     const filteredData = React.useMemo(() => {
         let result = [...(data as any[])];
 
@@ -240,7 +246,11 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
             return;
         }
         if (!selectedCustomer) {
-            toast.error('Customer wajib dipilih');
+            if (auth.user?.role_internal === 'marketing') {
+                toast.error('Marketing wajib membuat data customer terlebih dahulu');
+            } else {
+                toast.error('Customer wajib dipilih');
+            }
             return;
         }
 
@@ -443,10 +453,12 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                     {/* Input Customer */}
                                     <div className="space-y-2">
                                         <Label className="text-foreground font-semibold">{trans.input_customer}</Label>
+
                                         <Select value={selectedCustomer} onValueChange={setSelectedCustomer} disabled={isUserExternal}>
                                             <SelectTrigger className="bg-background border-input text-foreground">
                                                 <SelectValue placeholder={trans.select_customer_placeholder} />
                                             </SelectTrigger>
+
                                             <SelectContent className="bg-popover border-border text-popover-foreground">
                                                 {externalCustomers.length > 0 ? (
                                                     externalCustomers.map((cust: any) => (
@@ -455,10 +467,17 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                                         </SelectItem>
                                                     ))
                                                 ) : (
-                                                    <div className="text-muted-foreground p-2 text-center text-sm">{trans.data_not_found}</div>
+                                                    <div className="text-muted-foreground p-2 text-center text-sm">
+                                                        {auth.user?.role_internal === 'marketing' ? trans.data_not_found : trans.data_not_found}
+                                                    </div>
                                                 )}
                                             </SelectContent>
                                         </Select>
+
+                                        {shouldShowExternalAccountWarning && (
+                                            <p className="mt-1 text-[11px] font-bold text-red-500 italic">* akun user eksternal belum dibuat *</p>
+                                        )}
+
                                         {isUserExternal && <p className="text-muted-foreground text-[10px] italic">{trans.auto_selected_msg}</p>}
                                     </div>
 
@@ -776,6 +795,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                             <SelectTrigger className="bg-background border-input text-foreground">
                                                 <SelectValue placeholder={trans.select_customer_placeholder} />
                                             </SelectTrigger>
+
                                             <SelectContent className="bg-popover border-border text-popover-foreground">
                                                 {externalCustomers.length > 0 ? (
                                                     externalCustomers.map((cust: any) => (
@@ -784,10 +804,15 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                                         </SelectItem>
                                                     ))
                                                 ) : (
-                                                    <div className="text-muted-foreground p-2 text-center text-sm">{trans.data_not_found}</div>
+                                                    <div className="text-muted-foreground p-2 text-center text-sm">
+                                                        {auth.user?.role_internal === 'marketing' ? trans.data_not_found : trans.data_not_found}
+                                                    </div>
                                                 )}
                                             </SelectContent>
                                         </Select>
+                                        {shouldShowExternalAccountWarning && (
+                                            <p className="mt-1 text-[11px] font-bold text-red-500 italic">* akun user eksternal belum dibuat *</p>
+                                        )}
                                         {isUserExternal && <p className="text-muted-foreground text-[10px] italic">{trans.auto_selected_msg}</p>}
                                     </div>
 
