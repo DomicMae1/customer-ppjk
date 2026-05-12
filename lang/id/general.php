@@ -11,7 +11,7 @@ return [
     'delete' => 'Hapus',
     'close' => 'Tutup',
 
-    'spk_number' => 'Nomor SPK',
+    'spk_number' => 'BL/SI',
     'customer_name' => 'Nama Customer',
     'status_description' => 'Keterangan Status',
     'channel' => 'Penjaluran', // Jalur

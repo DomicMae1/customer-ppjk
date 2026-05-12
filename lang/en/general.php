@@ -12,7 +12,7 @@ return [
     'delete' => 'Delete',
     'close' => 'Close',
 
-    'spk_number' => 'SPK Number',
+    'spk_number' => 'BL/SI',
     'customer_name' => 'Customer Name',
     'status_description' => 'Status Description',
     'channel' => 'Channel',
