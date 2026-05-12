@@ -639,11 +639,13 @@ class ShippingController extends Controller
             }
 
             // --- 4. GENERATE DOKUMEN TRANSAKSI (MANDATORY ONLY) ---
-            // Hanya dokumen dengan attribute = true yang otomatis ditambahkan saat SPK/Section dibuat.
+            // Hanya dokumen dengan import_mandatory/export_mandatory = true yang otomatis ditambahkan saat SPK/Section dibuat.
             $allowedSectionIds = $masterSections->pluck('id_section')->toArray();
 
+            $mandatoryColumn = $validated['shipment_type'] === 'Import' ? 'import_mandatory' : 'export_mandatory';
+
             $finalDocs = MasterDocumentTrans::where('is_active', true)
-                ->where('attribute', true)
+                ->where($mandatoryColumn, true)
                 ->whereIn('id_section', $allowedSectionIds)
                 ->orderBy('id_dokumen', 'asc')
                 ->get()
@@ -1926,7 +1928,8 @@ class ShippingController extends Controller
                 'description_file',
                 'is_internal',
                 'is_verification',
-                'attribute',
+                'import_mandatory',
+                'export_mandatory',
                 'link_path_example_file',
                 'link_path_template_file',
                 'link_url_video_file'
@@ -2761,9 +2764,10 @@ class ShippingController extends Controller
 
                 // NEW: Generate Dokumen Mandatory untuk section yang baru ditambahkan ini
                 // Mengambil template dokumen terbaru dari MasterDocumentTrans
+                $mandatoryColumn = $spk->shipment_type === 'Import' ? 'import_mandatory' : 'export_mandatory';
                 $masterDocs = MasterDocumentTrans::where('id_section', $masterSec->id_section)
                     ->where('is_active', true)
-                    ->where('attribute', true) // Hanya yang mandatory
+                    ->where($mandatoryColumn, true) // Hanya yang mandatory
                     ->get();
 
                 foreach ($masterDocs as $mDoc) {
@@ -3192,6 +3196,9 @@ class ShippingController extends Controller
 
         tenancy()->initialize($tenant);
 
+        $spk = Spk::findOrFail($idSpk);
+        $mandatoryColumn = $spk->shipment_type === 'Import' ? 'import_mandatory' : 'export_mandatory';
+
         // Find NPD section (contains 'npd' case insensitive)
         $npdSection = MasterSectionTrans::whereRaw('LOWER(section_name) LIKE ?', ['%npd%'])->first();
 
@@ -3202,7 +3209,7 @@ class ShippingController extends Controller
         // Get mandatory documents for this section
         $mandatoryDocs = MasterDocumentTrans::where('id_section', $npdSection->id_section)
             ->where('is_active', true)
-            ->where('attribute', true)
+            ->where($mandatoryColumn, true)
             ->get();
 
         $existingDocs = DocumentTrans::where('id_spk', $idSpk)
@@ -3219,7 +3226,7 @@ class ShippingController extends Controller
 
         $additionalDocs = MasterDocumentTrans::whereIn('id_section', $sections)
             ->where('is_active', 1)
-            ->where('attribute', 0)
+            ->where($mandatoryColumn, false)
             ->when(!empty($existingDocs), function ($q) use ($existingDocs) {
                 $q->whereNotIn('id_dokumen', $existingDocs);
             })
@@ -3312,11 +3319,14 @@ class ShippingController extends Controller
                 }
 
                 if ($existingSection) {
+                    $spk = Spk::findOrFail($idSpk);
+                    $mandatoryColumn = $spk->shipment_type === 'Import' ? 'import_mandatory' : 'export_mandatory';
+
                     // Generate mandatory docs + selected additional docs
                     $masterDocs = MasterDocumentTrans::where('id_section', $request->id_section)
                         ->where('is_active', true)
-                        ->where(function ($query) use ($request) {
-                            $query->where('attribute', true);
+                        ->where(function ($query) use ($request, $mandatoryColumn) {
+                            $query->where($mandatoryColumn, true);
                             if (!empty($request->additional_documents) && is_array($request->additional_documents)) {
                                 $query->orWhereIn('id_dokumen', $request->additional_documents);
                             }

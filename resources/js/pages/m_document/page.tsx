@@ -26,8 +26,8 @@ interface DocumentData {
     nama_file: string;
     description_file: string;
     is_internal: boolean;
-    is_confirmed: boolean;
-    attribute: boolean;
+    import_mandatory: boolean;
+    export_mandatory: boolean;
     is_ori: boolean;
     is_print: boolean;
     is_send_email: boolean;
@@ -83,13 +83,15 @@ export default function ManageDocuments() {
     // --- STATE EDIT ---
     const [openEdit, setOpenEdit] = useState(false);
     const [docIdToEdit, setDocIdToEdit] = useState<number | null>(null);
+    const [isProcessingEdit, setIsProcessingEdit] = useState(false);
     const [editForm, setEditForm] = useState({
         nama_file: '',
         id_section: '',
         description_file: '',
         is_internal: false,
         is_confirmed: false,
-        attribute: false,
+        import_mandatory: false,
+        export_mandatory: false,
         is_ori: false,
         is_print: false,
         is_send_email: false,
@@ -106,6 +108,7 @@ export default function ManageDocuments() {
     // --- STATE DELETE ---
     const [openDelete, setOpenDelete] = useState(false);
     const [docIdToDelete, setDocIdToDelete] = useState<number | null>(null);
+    const [isProcessingDelete, setIsProcessingDelete] = useState(false);
     const docToDelete = documents.find((d) => d.id_dokumen === docIdToDelete);
 
     const handleEditDropzoneChange = (field: 'link_path_example_file' | 'link_path_template_file', response: any) => {
@@ -145,7 +148,8 @@ export default function ManageDocuments() {
                 description_file: doc.description_file || '',
                 is_internal: Boolean(doc.is_internal),
                 is_confirmed: Boolean(doc.is_confirmed),
-                attribute: Boolean(doc.attribute),
+                import_mandatory: Boolean(doc.import_mandatory),
+                export_mandatory: Boolean(doc.export_mandatory),
                 is_ori: Boolean(doc.is_ori),
                 is_print: Boolean(doc.is_print),
                 is_send_email: Boolean(doc.is_send_email),
@@ -168,7 +172,7 @@ export default function ManageDocuments() {
     };
 
     const handleEditBooleanChange = (
-        field: 'is_internal' | 'attribute' | 'is_confirmed' | 'is_ori' | 'is_print' | 'is_send_email',
+        field: 'is_internal' | 'import_mandatory' | 'export_mandatory' | 'is_confirmed' | 'is_ori' | 'is_print' | 'is_send_email',
         value: boolean,
     ) => {
         setEditForm((prev) => ({ ...prev, [field]: value }));
@@ -177,6 +181,7 @@ export default function ManageDocuments() {
     const onConfirmEdit = (e: React.FormEvent) => {
         e.preventDefault();
         if (docIdToEdit) {
+            setIsProcessingEdit(true);
             const { existing_example, existing_template, ...payload } = editForm;
             router.post(
                 `/document/${docIdToEdit}`,
@@ -189,9 +194,13 @@ export default function ManageDocuments() {
                     onSuccess: () => {
                         setOpenEdit(false);
                         setDocIdToEdit(null);
+                        setIsProcessingEdit(false);
                         // toast handled by flash
                     },
-                    onError: (err) => console.error(err),
+                    onError: (err) => {
+                        console.error(err);
+                        setIsProcessingEdit(false);
+                    },
                 },
             );
         }
@@ -209,13 +218,16 @@ export default function ManageDocuments() {
 
     const handleConfirmDelete = () => {
         if (docIdToDelete) {
+            setIsProcessingDelete(true);
             router.delete(`/document/${docIdToDelete}`, {
                 onSuccess: () => {
                     setOpenDelete(false);
                     setDocIdToDelete(null);
+                    setIsProcessingDelete(false);
                 },
                 onError: (errors) => {
                     console.error('Gagal menghapus:', errors);
+                    setIsProcessingDelete(false);
                 },
             });
         }
@@ -284,7 +296,10 @@ export default function ManageDocuments() {
                                     setEditForm((prev) => {
                                         const newState = { ...prev, id_section: val };
                                         // Auto-reset mandatory if Global section selected
-                                        if (val === '6') newState.attribute = false;
+                                        if (val === '6') {
+                                            newState.import_mandatory = false;
+                                            newState.export_mandatory = false;
+                                        }
                                         return newState;
                                     });
                                 }}
@@ -326,29 +341,56 @@ export default function ManageDocuments() {
                             </div>
 
                             {Number(editForm.id_section) !== 6 && (
-                                <div>
-                                    <FieldLabelWithTooltip
-                                        label={trans_doc.label_must_shipping}
-                                        tooltip={trans_doc.label_must_shipping_desc}
-                                        required
-                                    />
-                                    <div className="flex w-full gap-2">
-                                        <Button
-                                            type="button"
-                                            variant={editForm.attribute ? 'default' : 'outline'}
-                                            onClick={() => handleEditBooleanChange('attribute', true)}
-                                            className="flex-1"
-                                        >
-                                            {trans_doc.btn_yes}
-                                        </Button>
-                                        <Button
-                                            type="button"
-                                            variant={!editForm.attribute ? 'default' : 'outline'}
-                                            onClick={() => handleEditBooleanChange('attribute', false)}
-                                            className="flex-1"
-                                        >
-                                            {trans_doc.btn_no}
-                                        </Button>
+                                <div className="col-span-1 sm:col-span-2 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                    <div>
+                                        <FieldLabelWithTooltip
+                                            label={trans_doc.label_must_shipping_import || 'Must in Shipping (Import)'}
+                                            tooltip={trans_doc.label_must_shipping_import_desc || 'Determines whether this document is required in the import shipping process.'}
+                                            required
+                                        />
+                                        <div className="flex w-full gap-2">
+                                            <Button
+                                                type="button"
+                                                variant={editForm.import_mandatory ? 'default' : 'outline'}
+                                                onClick={() => handleEditBooleanChange('import_mandatory', true)}
+                                                className="flex-1"
+                                            >
+                                                {trans_doc.btn_yes}
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                variant={!editForm.import_mandatory ? 'default' : 'outline'}
+                                                onClick={() => handleEditBooleanChange('import_mandatory', false)}
+                                                className="flex-1"
+                                            >
+                                                {trans_doc.btn_no}
+                                            </Button>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <FieldLabelWithTooltip
+                                            label={trans_doc.label_must_shipping_export || 'Must in Shipping (Export)'}
+                                            tooltip={trans_doc.label_must_shipping_export_desc || 'Determines whether this document is required in the export shipping process.'}
+                                            required
+                                        />
+                                        <div className="flex w-full gap-2">
+                                            <Button
+                                                type="button"
+                                                variant={editForm.export_mandatory ? 'default' : 'outline'}
+                                                onClick={() => handleEditBooleanChange('export_mandatory', true)}
+                                                className="flex-1"
+                                            >
+                                                {trans_doc.btn_yes}
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                variant={!editForm.export_mandatory ? 'default' : 'outline'}
+                                                onClick={() => handleEditBooleanChange('export_mandatory', false)}
+                                                className="flex-1"
+                                            >
+                                                {trans_doc.btn_no}
+                                            </Button>
+                                        </div>
                                     </div>
                                 </div>
                             )}
@@ -519,8 +561,8 @@ export default function ManageDocuments() {
                         </div>
 
                         <DialogFooter className="flex-col space-y-2 sm:flex-row sm:justify-end sm:space-y-0 sm:space-x-2">
-                            <Button type="submit" className="w-full sm:w-auto">
-                                {trans_doc.btn_save_changes}
+                            <Button type="submit" disabled={isProcessingEdit} className="w-full sm:w-auto">
+                                {isProcessingEdit ? 'Saving...' : trans_doc.btn_save_changes}
                             </Button>
                             <DialogClose asChild>
                                 <Button type="button" variant="secondary" className="w-full sm:w-auto">
@@ -542,11 +584,11 @@ export default function ManageDocuments() {
                         </DialogDescription>
                     </DialogHeader>
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setOpenDelete(false)}>
+                        <Button variant="outline" onClick={() => setOpenDelete(false)} disabled={isProcessingDelete}>
                             {trans_doc.btn_cancel}
                         </Button>
-                        <Button variant="destructive" className="text-white" onClick={handleConfirmDelete}>
-                            {trans_doc.btn_delete}
+                        <Button variant="destructive" className="text-white" onClick={handleConfirmDelete} disabled={isProcessingDelete}>
+                            {isProcessingDelete ? 'Deleting...' : trans_doc.btn_delete}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

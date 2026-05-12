@@ -47,7 +47,8 @@ interface DocumentTrans {
     url_path_file?: string;
     logs: string;
     link_url_video_file?: string;
-    attribute: boolean;
+    import_mandatory: boolean;
+    export_mandatory: boolean;
     created_at: string;
     master_document?: {
         id_dokumen: number;
@@ -73,7 +74,8 @@ interface MasterDocument {
     link_path_example_file?: string;
     link_path_template_file?: string;
     link_url_video_file?: string;
-    attribute: boolean;
+    import_mandatory: boolean;
+    export_mandatory: boolean;
 }
 
 interface MasterSection {
