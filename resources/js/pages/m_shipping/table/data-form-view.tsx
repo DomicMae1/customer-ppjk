@@ -43,6 +43,7 @@ interface ShipmentData {
     consignee?: string;
     vessel?: string;
     origin?: string;
+    port_of_loading?: string;
     port?: string;
     comodity?: string;
     aju?: string;
@@ -229,6 +230,7 @@ export default function ViewCustomerForm({
     const [blNumForm, setBlNumForm] = useState<string>(shipmentDataProp?.spkNumber || '');
     const [vesselForm, setVesselForm] = useState<string>((shipmentDataProp as any)?.vessel || '');
     const [originForm, setOriginForm] = useState<string>((shipmentDataProp as any)?.origin || '');
+    const [portOfLoadingForm, setPortOfLoadingForm] = useState<string>((shipmentDataProp as any)?.port_of_loading || '');
     const [portForm, setPortForm] = useState<string>((shipmentDataProp as any)?.port || '');
     const [comodityForm, setComodityForm] = useState<string>((shipmentDataProp as any)?.comodity || '');
     const [parties, setParties] = useState<any[]>(
@@ -262,6 +264,7 @@ export default function ViewCustomerForm({
                 consignee: consigneeForm,
                 vessel: vesselForm,
                 origin: originForm,
+                port_of_loading: portOfLoadingForm,
                 port: portForm,
                 comodity: comodityForm,
                 parties: parties,
@@ -274,7 +277,7 @@ export default function ViewCustomerForm({
         }, 3000);
 
         return () => clearTimeout(timeoutId);
-    }, [shipmentDataProp.id_spk, shipperForm, consigneeForm, vesselForm, originForm, portForm, comodityForm, parties, ajuForm, joForm]);
+    }, [shipmentDataProp.id_spk, shipperForm, consigneeForm, vesselForm, originForm, portOfLoadingForm, portForm, comodityForm, parties, ajuForm, joForm]);
 
     // Batch Verification State
     const [pendingVerifications, setPendingVerifications] = useState<number[]>([]);
@@ -2402,11 +2405,21 @@ export default function ViewCustomerForm({
                                         className="h-9 rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-900"
                                     />
                                 </div>
-                                {/* Port */}
+                                {/* Port Of Loading */}
+                                <div className="space-y-1.5">
+                                    <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.port_of_loading || 'Port Of Loading'}</Label>
+                                    <MemoizedInput
+                                        placeholder="Input Port Of Loading"
+                                        value={portOfLoadingForm}
+                                        onValueChange={(val) => setPortOfLoadingForm(val)}
+                                        className="h-9 rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-900"
+                                    />
+                                </div>
+                                {/* Port Of Discharge (Previously Port) */}
                                 <div className="space-y-1.5">
                                     <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.port}</Label>
                                     <MemoizedInput
-                                        placeholder="Input Port Of Destination"
+                                        placeholder="Input Port Of Discharge"
                                         value={portForm}
                                         onValueChange={(val) => setPortForm(val)}
                                         className="h-9 rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-900"
@@ -2543,7 +2556,7 @@ export default function ViewCustomerForm({
                                                 <div className="space-y-1">
                                                     <Label className="text-[9px] font-bold text-slate-400 uppercase">{party.party_type === 'FCL' ? 'Party' : 'Quantity'}</Label>
                                                     <MemoizedInput
-                                                        placeholder="Qty"
+                                                        placeholder="Size"
                                                         value={party.party_qty}
                                                         onValueChange={(val) => {
                                                             const newParties = [...parties];
