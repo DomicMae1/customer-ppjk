@@ -247,6 +247,7 @@ class ShippingController extends Controller
                 return [
                     'id'                    => $item->id,
                     'spk_code'              => $item->spk_code,
+                    'shipment_type'         => $item->shipment_type,
                     'nama_customer'         => $item->customer->nama_perusahaan ?? '-',
                     'tanggal_status'        => $latestDocLog ? $latestDocLog->created_at : $item->created_at,
                     'status_label'          => $item->latestStatus->status ?? 'Draft/Pending',

@@ -17,6 +17,7 @@ import { AlertCircle, Eye, MoreHorizontal, Pencil } from 'lucide-react';
 export type Shipping = {
     id: string | number;
     spk_code: string;
+    shipment_type?: string | null;
     nama_customer: string;
     tanggal_status: string;
     status_label: string;
@@ -35,11 +36,27 @@ export type Shipping = {
     drafter?: string | null;
 };
 
-const stickyView = 'sticky left-0 z-40 w-[100px] min-w-[100px] bg-background align-middle';
-const stickyCustomer = 'sticky left-[100px] z-40 w-[130px] min-w-[130px] bg-background align-middle';
-const stickySpk = 'sticky left-[230px] z-40 w-[150px] min-w-[150px] bg-background align-middle';
-const stickyDrafter = 'sticky left-[380px] z-40 w-[150px] min-w-[150px] bg-background align-middle';
-const stickyEta = 'sticky left-[530px] z-40 w-[180px] min-w-[180px] bg-background align-middle shadow-[6px_0_12px_-10px_rgba(0,0,0,0.8)]';
+const freezeHeaderBg = 'bg-slate-100 text-slate-700 dark:bg-zinc-800 dark:text-zinc-100';
+
+const stickyViewHeader = `sticky left-0 z-50 w-[100px] min-w-[100px] align-middle ${freezeHeaderBg}`;
+
+const stickyCustomerHeader = `sticky left-[100px] z-50 w-[130px] min-w-[130px] align-middle ${freezeHeaderBg}`;
+
+const stickySpkHeader = `sticky left-[230px] z-50 w-[150px] min-w-[150px] align-middle ${freezeHeaderBg}`;
+
+const stickyDrafterHeader = `sticky left-[380px] z-50 w-[150px] min-w-[150px] align-middle ${freezeHeaderBg}`;
+
+const stickyEtaHeader = `sticky left-[530px] z-40 w-[180px] min-w-[180px] bg-background align-middle shadow-[6px_0_12px_-10px_rgba(0,0,0,0.8)] ${freezeHeaderBg}`;
+
+const stickyViewCell = 'sticky left-0 z-40 w-[100px] min-w-[100px] bg-background align-middle';
+
+const stickyCustomerCell = 'sticky left-[100px] z-40 w-[130px] min-w-[130px] bg-background align-middle';
+
+const stickySpkCell = 'sticky left-[230px] z-40 w-[150px] min-w-[150px] bg-background align-middle';
+
+const stickyDrafterCell = 'sticky left-[380px] z-40 w-[150px] min-w-[150px] bg-background align-middle';
+
+const stickyEtaCell = 'sticky left-[530px] z-40 w-[180px] min-w-[180px] bg-background align-middle shadow-[6px_0_12px_-10px_rgba(0,0,0,0.8)]';
 
 const th = 'px-3 py-3 text-left align-middle text-sm font-medium whitespace-nowrap';
 const td = 'px-3 py-3 text-left align-middle text-sm';
@@ -58,13 +75,53 @@ export const columns = (
         }
     }
 
+    const getJalurDisplay = (jalur?: string | null) => {
+        let colorClass = 'text-gray-500';
+        let displayText = '-';
+
+        const jalurLower = jalur ? jalur.toLowerCase() : '';
+
+        if (jalurLower === 'hijau') {
+            colorClass = 'text-green-600';
+            displayText = trans.green || 'Hijau';
+        } else if (jalurLower === 'merah') {
+            colorClass = 'text-red-600';
+            displayText = trans.red || 'Merah';
+        } else if (jalurLower === 'kuning') {
+            colorClass = 'text-yellow-600';
+            displayText = trans.yellow || 'Kuning';
+        } else if (jalur) {
+            displayText = jalur;
+        }
+
+        return { colorClass, displayText };
+    };
+
+    const getFormattedSpkCode = (spkCode?: string | null, shipmentType?: string | null) => {
+        if (!spkCode) {
+            return '-';
+        }
+
+        const type = shipmentType?.toLowerCase() || '';
+
+        if (type.includes('import')) {
+            return `BL-${spkCode}`;
+        }
+
+        if (type.includes('export') || type.includes('eksport')) {
+            return `SI-${spkCode}`;
+        }
+
+        return spkCode;
+    };
+
     return [
         {
             id: 'view_documents',
             header: () => <div className="w-[100px] text-center"></div>,
             meta: {
-                headerClassName: stickyView,
-                cellClassName: stickyView,
+                headerClassName: stickyViewHeader,
+                cellClassName: stickyViewCell,
             },
             cell: ({ row }) => {
                 const shipping = row.original;
@@ -118,8 +175,8 @@ export const columns = (
         {
             accessorKey: 'nama_customer',
             meta: {
-                headerClassName: stickyCustomer,
-                cellClassName: stickyCustomer,
+                headerClassName: stickyCustomerHeader,
+                cellClassName: stickyCustomerCell,
             },
             header: ({ column }) => (
                 <div
@@ -137,8 +194,8 @@ export const columns = (
         {
             accessorKey: 'spk_code',
             meta: {
-                headerClassName: stickySpk,
-                cellClassName: stickySpk,
+                headerClassName: stickySpkHeader,
+                cellClassName: stickySpkCell,
             },
             header: ({ column }) => (
                 <div
@@ -149,13 +206,25 @@ export const columns = (
                     {trans.spk_number}
                 </div>
             ),
-            cell: ({ row }) => <div className="w-[150px] truncate px-3 py-3 text-left text-sm font-bold">{row.original.spk_code ?? '-'}</div>,
+            cell: ({ row }) => {
+                const { colorClass, displayText } = getJalurDisplay(row.original.jalur);
+
+                const formattedSpkCode = getFormattedSpkCode(row.original.spk_code, row.original.shipment_type);
+
+                return (
+                    <div className="flex w-[150px] flex-col gap-1 px-3 py-3 text-left">
+                        <span className="truncate text-sm font-bold">{formattedSpkCode}</span>
+
+                        <span className={`truncate text-xs font-bold ${colorClass}`}>{displayText}</span>
+                    </div>
+                );
+            },
         },
         {
             accessorKey: 'drafter',
             meta: {
-                headerClassName: stickyDrafter,
-                cellClassName: stickyDrafter,
+                headerClassName: stickyDrafterHeader,
+                cellClassName: stickyDrafterCell,
             },
             header: ({ column }) => (
                 <div
@@ -170,8 +239,8 @@ export const columns = (
         {
             accessorKey: 'eta_date',
             meta: {
-                headerClassName: stickyEta,
-                cellClassName: stickyEta,
+                headerClassName: stickyEtaHeader,
+                cellClassName: stickyEtaCell,
             },
             header: ({ column }) => (
                 <div
@@ -185,7 +254,7 @@ export const columns = (
                 const eta = row.original.eta_date;
 
                 if (!eta) {
-                    return <div className="text-sm md:px-2">-</div>;
+                    return <div className="flex h-full w-[180px] items-center px-3 py-3 text-sm">-</div>;
                 }
 
                 const date = new Date(eta);
@@ -207,7 +276,7 @@ export const columns = (
                 const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
                 return (
-                    <div className="flex w-[180px] flex-col justify-center gap-1 px-3 py-3 text-left">
+                    <div className="flex h-full w-[180px] flex-col justify-center gap-1 px-3 py-3 text-left">
                         <span className="text-sm leading-none">{formatted}</span>
 
                         <div
@@ -270,33 +339,33 @@ export const columns = (
             ),
             cell: ({ row }) => <div className={`${td} w-[260px] leading-snug whitespace-normal`}>{row.original.party_summary || '-'}</div>,
         },
-        {
-            accessorKey: 'jalur',
-            // 2. Gunakan trans
-            header: () => <div className={`${th} w-[130px]`}>{trans.channel}</div>,
-            cell: ({ row }) => {
-                const jalur = row.original.jalur;
-                let colorClass = 'text-gray-500';
-                let displayText = '-';
-                const jalurLower = jalur ? jalur.toLowerCase() : '';
+        // {
+        //     accessorKey: 'jalur',
+        //     // 2. Gunakan trans
+        //     header: () => <div className={`${th} w-[130px]`}>{trans.channel}</div>,
+        //     cell: ({ row }) => {
+        //         const jalur = row.original.jalur;
+        //         let colorClass = 'text-gray-500';
+        //         let displayText = '-';
+        //         const jalurLower = jalur ? jalur.toLowerCase() : '';
 
-                if (jalurLower === 'hijau') {
-                    colorClass = 'text-green-600';
-                    displayText = trans.green || 'Hijau';
-                } else if (jalurLower === 'merah') {
-                    colorClass = 'text-red-600';
-                    displayText = trans.red || 'Merah';
-                } else if (jalurLower === 'kuning') {
-                    colorClass = 'text-yellow-600';
-                    displayText = trans.yellow || 'Kuning';
-                } else if (jalur) {
-                    // Jika ada nilai lain, tampilkan as-is
-                    displayText = jalur;
-                }
+        //         if (jalurLower === 'hijau') {
+        //             colorClass = 'text-green-600';
+        //             displayText = trans.green || 'Hijau';
+        //         } else if (jalurLower === 'merah') {
+        //             colorClass = 'text-red-600';
+        //             displayText = trans.red || 'Merah';
+        //         } else if (jalurLower === 'kuning') {
+        //             colorClass = 'text-yellow-600';
+        //             displayText = trans.yellow || 'Kuning';
+        //         } else if (jalur) {
+        //             // Jika ada nilai lain, tampilkan as-is
+        //             displayText = jalur;
+        //         }
 
-                return <div className={`${td} w-[130px] font-bold ${colorClass}`}>{displayText}</div>;
-            },
-        },
+        //         return <div className={`${td} w-[130px] font-bold ${colorClass}`}>{displayText}</div>;
+        //     },
+        // },
         {
             accessorKey: 'deadline_date',
             header: () => <div className="text-sm font-medium md:px-2 md:py-2">{trans.deadline}</div>,
