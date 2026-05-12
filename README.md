@@ -118,6 +118,10 @@ php artisan tenant:cutoff alpha 2026
 # Force (skip confirmation)
 php artisan tenant:cutoff alpha 2026 --force
 ```
+## to migration when need after edit migration file on user database
+```bash
+php artisan migrate --database=tako-user --path=database/migrations/user
+```
 
 ## 11. If u want to update all database
 

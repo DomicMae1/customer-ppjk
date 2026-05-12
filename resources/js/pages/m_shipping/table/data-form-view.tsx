@@ -157,6 +157,7 @@ export default function ViewCustomerForm({
     const auth = (props.auth as any) || {};
     const isInternalUser = userRole !== 'eksternal';
     const isSupervisor = auth.user?.permissions?.includes('assign_staff-master-shipping');
+    const canDeleteFile = auth.user?.permissions?.includes('delete-shipping-document') || auth.user?.role === 'admin';
     const isNpdSection = (section: any) => section.section_name.toLowerCase().includes('npd');
     const [tempFiles, setTempFiles] = useState<Record<number, string>>({});
     const [activeSection, setActiveSection] = useState<number | null>(null);
@@ -298,6 +299,11 @@ export default function ViewCustomerForm({
     // New State for Verification Confirmation
     const [confirmVerifyModalOpen, setConfirmVerifyModalOpen] = useState(false);
     const [docToVerify, setDocToVerify] = useState<DocumentTrans | null>(null);
+
+    // New State for Remove Document from Section Confirmation
+    const [isRemoveDocumentModalOpen, setIsRemoveDocumentModalOpen] = useState(false);
+    const [documentToRemove, setDocumentToRemove] = useState<DocumentTrans | null>(null);
+    const [isRemovingDocument, setIsRemovingDocument] = useState(false);
 
     // ETA Date State
     const [etaDate, setEtaDate] = useState(shipmentDataProp?.eta_date ? shipmentDataProp.eta_date.split('T')[0].split(' ')[0] : '');
@@ -1203,6 +1209,31 @@ export default function ViewCustomerForm({
     // Download ZIP Handler
     const [isDownloadingZip, setIsDownloadingZip] = useState(false);
 
+    const handleRemoveDocumentClick = (doc: DocumentTrans) => {
+        setDocumentToRemove(doc);
+        setIsRemoveDocumentModalOpen(true);
+    };
+
+    const confirmRemoveDocument = async () => {
+        if (!documentToRemove) return;
+        
+        setIsRemovingDocument(true);
+        try {
+            const response = await axios.post(`/shipping/document/${documentToRemove.id}/remove`);
+            if (response.data.success || response.status === 200) {
+                toast.success('Dokumen berhasil dihapus dari section');
+                setIsRemoveDocumentModalOpen(false);
+                setDocumentToRemove(null);
+                router.reload({ only: ['sectionsTransProp'] });
+            }
+        } catch (error: any) {
+            toast.error(error.response?.data?.message || 'Gagal menghapus dokumen');
+            console.error(error);
+        } finally {
+            setIsRemovingDocument(false);
+        }
+    };
+
     const handleDownloadZip = async () => {
         setIsDownloadingZip(true);
         try {
@@ -1266,10 +1297,19 @@ export default function ViewCustomerForm({
                                 {idx + 1}. {doc.master_document?.nama_dokumen || doc.nama_file}
                             </span>
 
-                            <CircleHelp
-                                className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer text-gray-500 hover:text-gray-700 dark:text-zinc-500 dark:hover:text-zinc-300"
-                                onClick={() => handleOpenHelp(doc)}
-                            />
+                            <div className="flex items-center gap-1 mt-0.5">
+                                <CircleHelp
+                                    className="h-4 w-4 shrink-0 cursor-pointer text-gray-500 hover:text-gray-700 dark:text-zinc-500 dark:hover:text-zinc-300"
+                                    onClick={() => handleOpenHelp(doc)}
+                                />
+                                {canDeleteFile && (
+                                    <Trash2
+                                        className="h-4 w-4 shrink-0 cursor-pointer text-gray-400 hover:text-red-500 transition-colors"
+                                        title={trans.delete_document || 'Hapus Dokumen'}
+                                        onClick={() => handleRemoveDocumentClick(doc)}
+                                    />
+                                )}
+                            </div>
 
                             {!canVerify && doc.url_path_file && (
                                 <div className="flex shrink-0 gap-1">
@@ -3184,6 +3224,44 @@ export default function ViewCustomerForm({
                 idSpk={shipmentData?.id_spk}
                 sections={sectionsTransProp}
             />
+
+            <Dialog open={isRemoveDocumentModalOpen} onOpenChange={setIsRemoveDocumentModalOpen}>
+                <DialogContent className="max-w-md rounded-2xl p-6 dark:border-zinc-800 dark:bg-zinc-900">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-xl font-bold dark:text-white">
+                            <AlertTriangle className="h-6 w-6 text-rose-500" />
+                            {trans.confirm_removal || 'Konfirmasi Hapus'}
+                        </DialogTitle>
+                    </DialogHeader>
+
+                    <div className="py-4">
+                        <p className="text-slate-600 dark:text-zinc-400">
+                            Apakah Anda yakin ingin menghapus dokumen{' '}
+                            <span className="font-bold text-slate-900 dark:text-white">"{documentToRemove?.master_document?.nama_dokumen || documentToRemove?.nama_file}"</span>{' '}
+                            dari section ini?
+                        </p>
+                    </div>
+
+                    <DialogFooter className="flex gap-3 sm:justify-end">
+                        <Button
+                            variant="outline"
+                            className="rounded-xl border-slate-200 px-6 dark:border-zinc-700 dark:text-zinc-300"
+                            onClick={() => setIsRemoveDocumentModalOpen(false)}
+                            disabled={isRemovingDocument}
+                        >
+                            {trans.cancel || 'Batal'}
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            className="rounded-xl bg-rose-600 px-6 text-white hover:bg-rose-700 disabled:opacity-50"
+                            onClick={confirmRemoveDocument}
+                            disabled={isRemovingDocument}
+                        >
+                            {isRemovingDocument ? trans.removing || 'Menghapus...' : trans.confirm_delete || 'Hapus Sekarang'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             <Dialog open={isRemoveSectionModalOpen} onOpenChange={setIsRemoveSectionModalOpen}>
                 <DialogContent className="max-w-md rounded-2xl p-6 dark:border-zinc-800 dark:bg-zinc-900">
