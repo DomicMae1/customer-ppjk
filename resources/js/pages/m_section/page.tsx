@@ -51,6 +51,8 @@ export default function ManageSections() {
 
     const [sectionIdToEdit, setSectionIdToEdit] = useState<number | null>(null);
     const [sectionIdToDelete, setSectionIdToDelete] = useState<number | null>(null);
+    const [isProcessingEdit, setIsProcessingEdit] = useState(false);
+    const [isProcessingDelete, setIsProcessingDelete] = useState(false);
 
     const [editForm, setEditForm] = useState({
         section_name: '',
@@ -119,12 +121,17 @@ export default function ManageSections() {
             is_checklist: editForm.is_checklist,
         };
 
+        setIsProcessingEdit(true);
         router.post(`/section/${sectionIdToEdit}`, payload, {
             onSuccess: () => {
                 setOpenEdit(false);
                 setSectionIdToEdit(null);
+                setIsProcessingEdit(false);
             },
-            onError: (err) => console.error(err),
+            onError: (err) => {
+                console.error(err);
+                setIsProcessingEdit(false);
+            },
         });
     };
 
@@ -140,13 +147,16 @@ export default function ManageSections() {
     const handleConfirmDelete = () => {
         if (!sectionIdToDelete) return;
 
+        setIsProcessingDelete(true);
         router.delete(`/section/${sectionIdToDelete}`, {
             onSuccess: () => {
                 setOpenDelete(false);
                 setSectionIdToDelete(null);
+                setIsProcessingDelete(false);
             },
             onError: (errors) => {
                 console.error('Gagal menghapus:', errors);
+                setIsProcessingDelete(false);
             },
         });
     };
@@ -249,8 +259,8 @@ export default function ManageSections() {
                                     {trans_sec.btn_cancel || 'Batal'}
                                 </Button>
                             </DialogClose>
-                            <Button type="submit" className="bg-primary text-primary-foreground h-11 w-full font-bold shadow-md sm:h-10 sm:w-auto">
-                                {trans_sec.btn_save_changes || 'Simpan Perubahan'}
+                            <Button type="submit" disabled={isProcessingEdit} className="bg-primary text-primary-foreground h-11 w-full font-bold shadow-md sm:h-10 sm:w-auto">
+                                {isProcessingEdit ? 'Saving...' : (trans_sec.btn_save_changes || 'Simpan Perubahan')}
                             </Button>
                         </DialogFooter>
                     </form>
@@ -268,11 +278,11 @@ export default function ManageSections() {
                         </DialogDescription>
                     </DialogHeader>
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setOpenDelete(false)}>
+                        <Button variant="outline" onClick={() => setOpenDelete(false)} disabled={isProcessingDelete}>
                             {trans_sec.btn_cancel || 'Batal'}
                         </Button>
-                        <Button variant="destructive" className="text-white" onClick={handleConfirmDelete}>
-                            {trans_sec.btn_delete || 'Hapus'}
+                        <Button variant="destructive" className="text-white" onClick={handleConfirmDelete} disabled={isProcessingDelete}>
+                            {isProcessingDelete ? 'Deleting...' : (trans_sec.btn_delete || 'Hapus')}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

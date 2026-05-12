@@ -43,9 +43,13 @@ class DocumentController extends Controller
                     ->orderBy('id_dokumen', 'asc');
 
                 if ($attributeFilter === 'mandatory') {
-                    $query->where('attribute', true);
+                    $query->where(function ($q) {
+                        $q->where('import_mandatory', true)
+                          ->orWhere('export_mandatory', true);
+                    });
                 } elseif ($attributeFilter === 'non_mandatory') {
-                    $query->where('attribute', false);
+                    $query->where('import_mandatory', false)
+                          ->where('export_mandatory', false);
                 }
 
                 if (!empty($sectionFilter) && $sectionFilter !== 'all') {
@@ -62,7 +66,8 @@ class DocumentController extends Controller
                             'description_file' => $item->description_file,
                             'is_internal' => $item->is_internal,
                             'is_confirmed' => $item->is_confirmed,
-                            'attribute' => $item->attribute,
+                            'import_mandatory' => $item->import_mandatory,
+                            'export_mandatory' => $item->export_mandatory,
                             'is_ori' => $item->is_ori,
                             'is_print' => $item->is_print,
                             'is_send_email' => $item->is_send_email,
@@ -83,9 +88,13 @@ class DocumentController extends Controller
                 ->orderBy('id_dokumen', 'asc');
 
             if ($attributeFilter === 'mandatory') {
-                $query->where('attribute', true);
+                $query->where(function ($q) {
+                    $q->where('import_mandatory', true)
+                      ->orWhere('export_mandatory', true);
+                });
             } elseif ($attributeFilter === 'non_mandatory') {
-                $query->where('attribute', false);
+                $query->where('import_mandatory', false)
+                      ->where('export_mandatory', false);
             }
 
             if (!empty($sectionFilter) && $sectionFilter !== 'all') {
@@ -102,7 +111,8 @@ class DocumentController extends Controller
                         'description_file' => $item->description_file,
                         'is_internal' => $item->is_internal,
                         'is_confirmed' => $item->is_confirmed,
-                        'attribute' => $item->attribute,
+                        'import_mandatory' => $item->import_mandatory,
+                        'export_mandatory' => $item->export_mandatory,
                         'is_ori' => $item->is_ori ?? false,
                         'is_print' => $item->is_print ?? false,
                         'is_send_email' => $item->is_send_email ?? false,
@@ -152,7 +162,8 @@ class DocumentController extends Controller
             
             'is_internal' => 'boolean',
             'is_confirmed' => 'boolean',
-            'attribute' => 'boolean',
+            'import_mandatory' => 'boolean',
+            'export_mandatory' => 'boolean',
             'is_ori' => 'boolean',
             'is_print' => 'boolean',
             'is_send_email' => 'boolean',
@@ -161,7 +172,8 @@ class DocumentController extends Controller
         // Default value boolean
         $validated['is_internal'] = $request->boolean('is_internal', false);
         $validated['is_confirmed'] = $request->boolean('is_confirmed', false);
-        $validated['attribute'] = $request->boolean('attribute', false);
+        $validated['import_mandatory'] = $request->boolean('import_mandatory', false);
+        $validated['export_mandatory'] = $request->boolean('export_mandatory', false);
         $validated['is_ori'] = $request->boolean('is_ori', false);
         $validated['is_print'] = $request->boolean('is_print', false);
         $validated['is_send_email'] = $request->boolean('is_send_email', false);
@@ -255,7 +267,8 @@ class DocumentController extends Controller
             'description_file' => 'nullable|string',
             'is_internal' => 'boolean',
             'is_confirmed' => 'boolean',
-            'attribute' => 'boolean',
+            'import_mandatory' => 'boolean',
+            'export_mandatory' => 'boolean',
             'is_ori' => 'boolean',
             'is_print' => 'boolean',
             'is_send_email' => 'boolean',
@@ -268,7 +281,8 @@ class DocumentController extends Controller
 
         $validated['is_internal'] = $request->boolean('is_internal', false);
         $validated['is_confirmed'] = $request->boolean('is_confirmed', false);
-        $validated['attribute'] = $request->boolean('attribute', false);
+        $validated['import_mandatory'] = $request->boolean('import_mandatory', false);
+        $validated['export_mandatory'] = $request->boolean('export_mandatory', false);
         $validated['is_ori'] = $request->boolean('is_ori', false);
         $validated['is_print'] = $request->boolean('is_print', false); 
         $validated['is_send_email'] = $request->boolean('is_send_email', false);
@@ -322,7 +336,8 @@ class DocumentController extends Controller
             'description_file' => $validated['description_file'] ?? null,
             'is_internal' => $validated['is_internal'],
             'is_confirmed' => $validated['is_confirmed'],
-            'attribute' => $validated['attribute'],
+            'import_mandatory' => $validated['import_mandatory'],
+            'export_mandatory' => $validated['export_mandatory'],
             'is_ori' => $validated['is_ori'],
             'is_print' => $validated['is_print'],
             'is_send_email' => $validated['is_send_email'],

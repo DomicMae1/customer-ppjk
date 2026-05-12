@@ -68,7 +68,8 @@ interface DocumentTrans {
     url_path_file?: string;
     logs: string;
     link_url_video_file?: string;
-    attribute: boolean;
+    import_mandatory: boolean;
+    export_mandatory: boolean;
     created_at: string;
     master_document?: {
         id_dokumen: number;
@@ -112,7 +113,8 @@ interface MasterDocument {
     link_path_example_file?: string;
     link_path_template_file?: string;
     link_url_video_file?: string;
-    attribute: boolean;
+    import_mandatory: boolean;
+    export_mandatory: boolean;
 }
 
 interface MasterSection {
@@ -200,6 +202,9 @@ export default function ViewCustomerForm({
     const [useUnifiedDeadline, setUseUnifiedDeadline] = useState(true); // Checkbox: apply same deadline to all
     const [globalDeadlineDate, setGlobalDeadlineDate] = useState(''); // Global deadline (garis kuning)
     const [sectionDeadlines, setSectionDeadlines] = useState<Record<number, string>>({}); // Per-section deadlines (garis orange)
+    const [isSavingDeadline, setIsSavingDeadline] = useState(false);
+    const [isAssigningStaff, setIsAssigningStaff] = useState(false);
+    const [isProcessingHsCodesEdit, setIsProcessingHsCodesEdit] = useState(false);
     // Ref: tracks whether deadline states have been initialized from DB (so we don't override user edits on prop reload)
     const isDeadlineInitialized = useRef(false);
 
@@ -725,6 +730,7 @@ export default function ViewCustomerForm({
     };
 
     const handleSaveEdit = () => {
+        setIsProcessingHsCodesEdit(true);
         const formData = {
             hs_codes: hsCodes.map((item) => ({
                 id: typeof item.id === 'number' ? item.id : null, // Kirim ID jika numeric (lama), null jika string/nanoid (baru)
@@ -741,10 +747,12 @@ export default function ViewCustomerForm({
                 preserveScroll: true,
                 onSuccess: () => {
                     setIsEditingHsCodes(false);
+                    setIsProcessingHsCodesEdit(false);
                 },
                 onError: (errors) => {
                     toast.error('Gagal menyimpan perubahan. Periksa inputan Anda.');
                     console.error(errors);
+                    setIsProcessingHsCodesEdit(false);
                 },
             },
         );
@@ -830,7 +838,8 @@ export default function ViewCustomerForm({
                 link_path_example_file: undefined,
                 link_path_template_file: undefined,
                 link_url_video_file: undefined,
-                attribute: false,
+                import_mandatory: false,
+                export_mandatory: false,
             };
         }
 
@@ -1494,6 +1503,7 @@ export default function ViewCustomerForm({
     };
 
     const handleSaveGlobalDeadline = async () => {
+        setIsSavingDeadline(true);
         try {
             await axios.post('/shipping/update-deadline', {
                 spk_id: shipmentData.id_spk,
@@ -1505,6 +1515,8 @@ export default function ViewCustomerForm({
         } catch (error: any) {
             console.error('Error saving global deadline:', error);
             toast.error('Gagal menyimpan deadline global.');
+        } finally {
+            setIsSavingDeadline(false);
         }
     };
 
@@ -1514,6 +1526,7 @@ export default function ViewCustomerForm({
             return;
         }
 
+        setIsAssigningStaff(true);
         router.post(
             `/shipping/${shipmentData.id_spk}/assign-staff`,
             {
@@ -1523,11 +1536,13 @@ export default function ViewCustomerForm({
                 preserveScroll: true,
                 onSuccess: () => {
                     toast.success('Staff assigned successfully');
+                    setIsAssigningStaff(false);
                 },
                 onError: (errors: any) => {
                     const errorMessage = errors.assigned_pic || errors.error || 'Failed to assign staff';
                     toast.error(errorMessage);
                     console.error(errors);
+                    setIsAssigningStaff(false);
                 },
             },
         );
@@ -1760,7 +1775,8 @@ export default function ViewCustomerForm({
                                         </Select>
                                         <Button
                                             onClick={handleAssignStaff}
-                                            className="h-9 rounded-lg bg-slate-900 px-3 text-xs font-bold text-white shadow-sm transition-colors hover:bg-slate-800"
+                                            disabled={isAssigningStaff}
+                                            className="h-9 rounded-lg bg-slate-900 px-3 text-xs font-bold text-white shadow-sm transition-colors hover:bg-slate-800 disabled:opacity-50"
                                             title={trans.assign || 'Assign'}
                                         >
                                             <Save className="h-3.5 w-3.5" />
@@ -2339,8 +2355,8 @@ export default function ViewCustomerForm({
                                 >
                                     {trans.cancel}
                                 </Button>
-                                <Button onClick={handleSaveEdit} className="flex-1 bg-black text-white hover:bg-gray-800 dark:bg-zinc-100 dark:text-black dark:hover:bg-zinc-300">
-                                    {trans.save_changes}
+                                <Button onClick={handleSaveEdit} disabled={isProcessingHsCodesEdit} className="flex-1 bg-black text-white hover:bg-gray-800 dark:bg-zinc-100 dark:text-black dark:hover:bg-zinc-300">
+                                    {isProcessingHsCodesEdit ? 'Saving...' : trans.save_changes}
                                 </Button>
                             </DialogFooter>
                         </DialogContent>
@@ -2644,10 +2660,11 @@ export default function ViewCustomerForm({
                                 <div className="mt-2 flex justify-end">
                                     <Button
                                         onClick={handleSaveGlobalDeadline}
-                                        className="h-8 rounded bg-black px-4 text-xs font-bold text-white hover:bg-gray-800"
+                                        disabled={isSavingDeadline}
+                                        className="h-8 rounded bg-black px-4 text-xs font-bold text-white hover:bg-gray-800 disabled:opacity-50"
                                     >
                                         <Save className="mr-2 h-3 w-3" />
-                                        {trans.save_changes || 'Save Settings'}
+                                        {isSavingDeadline ? 'Saving...' : trans.save_changes || 'Save Settings'}
                                     </Button>
                                 </div>
                             </div>

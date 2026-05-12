@@ -34,7 +34,8 @@ interface DocumentData {
     description_file: string;
     is_internal: boolean;
     is_confirmed: boolean;
-    attribute: boolean;
+    import_mandatory: boolean;
+    export_mandatory: boolean;
     is_ori: boolean;
     is_print: boolean;
     is_send_email: boolean;
@@ -90,6 +91,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
 
     // State Form Create Document (Bukan Perusahaan lagi)
     const [openCreate, setOpenCreate] = React.useState(false);
+    const [isProcessing, setIsProcessing] = useState(false);
 
     const toTitleCase = (text: string) => {
         return text
@@ -124,7 +126,8 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
         description_file: '',
         is_internal: false,
         is_confirmed: false,
-        attribute: false,
+        import_mandatory: false,
+        export_mandatory: false,
         is_ori: false,
         is_print: false,
         is_send_email: false,
@@ -138,9 +141,9 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
         let result = [...(data as any[])];
 
         if (mandatoryFilter === 'mandatory') {
-            result = result.filter((item) => item.attribute === true);
+            result = result.filter((item) => item.import_mandatory === true || item.export_mandatory === true);
         } else if (mandatoryFilter === 'non_mandatory') {
-            result = result.filter((item) => item.attribute === false);
+            result = result.filter((item) => item.import_mandatory === false && item.export_mandatory === false);
         }
 
         if (sectionFilter !== 'all') {
@@ -180,9 +183,10 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
         const { name, value } = e.target;
         setForm((prev) => {
             const newState = { ...prev, [name]: value };
-            // Jika id_section diubah ke 6 (Global), otomatis matikan mandatory (attribute = false)
+            // Jika id_section diubah ke 6 (Global), otomatis matikan mandatory
             if (name === 'id_section' && value === '6') {
-                newState.attribute = false;
+                newState.import_mandatory = false;
+                newState.export_mandatory = false;
             }
             return newState;
         });
@@ -198,7 +202,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
     };
 
     // Helper Boolean
-    const handleBooleanChange = (field: 'is_internal' | 'attribute' | 'is_confirmed' | 'is_ori' | 'is_print' | 'is_send_email', value: boolean) => {
+    const handleBooleanChange = (field: 'is_internal' | 'import_mandatory' | 'export_mandatory' | 'is_confirmed' | 'is_ori' | 'is_print' | 'is_send_email', value: boolean) => {
         setForm((prev) => ({ ...prev, [field]: value }));
     };
 
@@ -218,10 +222,12 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
             nama_file: toTitleCase(form.nama_file),
         };
 
+        setIsProcessing(true);
         // Inertia otomatis menangani FormData jika ada file di dalam object payload
         router.post('/document', payload as any, {
             onSuccess: () => {
                 setOpenCreate(false);
+                setIsProcessing(false);
                 // Reset Form
                 setForm({
                     nama_file: '',
@@ -229,7 +235,8 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
                     description_file: '',
                     is_internal: false,
                     is_confirmed: false,
-                    attribute: false,
+                    import_mandatory: false,
+                    export_mandatory: false,
                     is_ori: false,
                     is_print: false,
                     is_send_email: false,
@@ -239,7 +246,10 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
                     file_template: null,
                 });
             },
-            onError: (errors) => console.error(errors),
+            onError: (errors) => {
+                setIsProcessing(false);
+                console.error(errors);
+            },
         });
     };
 
@@ -357,9 +367,14 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
                                         >
                                             {original.is_internal ? 'INTERNAL' : 'EXTERNAL / PUBLIC'}
                                         </span>
-                                        {original.attribute && (
+                                        {original.import_mandatory && (
                                             <span className="rounded bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-700 dark:bg-red-900/30 dark:text-red-400">
-                                                MANDATORY
+                                                MANDATORY (IMPORT)
+                                            </span>
+                                        )}
+                                        {original.export_mandatory && (
+                                            <span className="rounded bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-700 dark:bg-red-900/30 dark:text-red-400">
+                                                MANDATORY (EXPORT)
                                             </span>
                                         )}
                                         {original.is_confirmed && (
@@ -520,29 +535,56 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
                             </div>
 
                             {Number(form.id_section) !== 6 && (
-                                <div>
-                                    <FieldLabelWithTooltip
-                                        label={trans_doc.label_must_shipping}
-                                        tooltip={trans_doc.label_must_shipping_desc}
-                                        required
-                                    />
-                                    <div className="flex gap-2">
-                                        <Button
-                                            type="button"
-                                            variant={form.attribute ? 'default' : 'outline'}
-                                            onClick={() => handleBooleanChange('attribute', true)}
-                                            className="h-11 flex-1 sm:h-9"
-                                        >
-                                            {trans_doc.btn_yes || 'Ya'}
-                                        </Button>
-                                        <Button
-                                            type="button"
-                                            variant={!form.attribute ? 'default' : 'outline'}
-                                            onClick={() => handleBooleanChange('attribute', false)}
-                                            className="h-11 flex-1 sm:h-9"
-                                        >
-                                            {trans_doc.btn_no || 'Tidak'}
-                                        </Button>
+                                <div className="col-span-1 sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <FieldLabelWithTooltip
+                                            label={trans_doc.label_must_shipping_import || 'Must in Shipping (Import)'}
+                                            tooltip={trans_doc.label_must_shipping_import_desc || 'Determines whether this document is required in the import shipping process.'}
+                                            required
+                                        />
+                                        <div className="flex gap-2">
+                                            <Button
+                                                type="button"
+                                                variant={form.import_mandatory ? 'default' : 'outline'}
+                                                onClick={() => handleBooleanChange('import_mandatory', true)}
+                                                className="h-11 flex-1 sm:h-9"
+                                            >
+                                                {trans_doc.btn_yes || 'Ya'}
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                variant={!form.import_mandatory ? 'default' : 'outline'}
+                                                onClick={() => handleBooleanChange('import_mandatory', false)}
+                                                className="h-11 flex-1 sm:h-9"
+                                            >
+                                                {trans_doc.btn_no || 'Tidak'}
+                                            </Button>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <FieldLabelWithTooltip
+                                            label={trans_doc.label_must_shipping_export || 'Must in Shipping (Export)'}
+                                            tooltip={trans_doc.label_must_shipping_export_desc || 'Determines whether this document is required in the export shipping process.'}
+                                            required
+                                        />
+                                        <div className="flex gap-2">
+                                            <Button
+                                                type="button"
+                                                variant={form.export_mandatory ? 'default' : 'outline'}
+                                                onClick={() => handleBooleanChange('export_mandatory', true)}
+                                                className="h-11 flex-1 sm:h-9"
+                                            >
+                                                {trans_doc.btn_yes || 'Ya'}
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                variant={!form.export_mandatory ? 'default' : 'outline'}
+                                                onClick={() => handleBooleanChange('export_mandatory', false)}
+                                                className="h-11 flex-1 sm:h-9"
+                                            >
+                                                {trans_doc.btn_no || 'Tidak'}
+                                            </Button>
+                                        </div>
                                     </div>
                                 </div>
                             )}
@@ -718,9 +760,10 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
                         <Button
                             type="button"
                             onClick={handleSubmit}
+                            disabled={isProcessing}
                             className="bg-primary text-primary-foreground h-11 w-full font-bold shadow-md sm:h-10 sm:w-auto"
                         >
-                            {trans_doc.btn_save_doc}
+                            {isProcessing ? 'Saving...' : trans_doc.btn_save_doc}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
