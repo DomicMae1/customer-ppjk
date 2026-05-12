@@ -78,7 +78,6 @@ class ShippingController extends Controller
                     $join->on('external_users.id_customer', '=', 'customers.id_customer')
                         ->where('external_users.role', '=', 'eksternal');
                 })
-                ->where('customers.ownership', $user->id_perusahaan)
                 ->select(
                     'customers.id_customer',
                     'customers.nama_perusahaan as nama'
@@ -90,25 +89,19 @@ class ShippingController extends Controller
                 )
                 ->orderBy('customers.nama_perusahaan', 'asc');
 
-            /*
-            |--------------------------------------------------------------------------
-            | KHUSUS MARKETING
-            |--------------------------------------------------------------------------
-            | Marketing hanya boleh melihat customer yang dia tambahkan sendiri.
-            |
-            | Catatan:
-            | Sesuaikan kolom `customers.created_by` kalau di tabel kamu namanya beda,
-            | misalnya `created_user`, `id_user`, `created_by_user`, dll.
-            |--------------------------------------------------------------------------
-            */
             if ($user->role_internal === 'marketing') {
-                $customerQuery->where('customers.created_by', $user->id_user);
+                $customerQuery->whereNotNull('customers.uid_marketing')
+                    ->whereRaw("TRIM(CAST(customers.uid_marketing AS TEXT)) != ''")
+                    ->whereRaw("TRIM(CAST(customers.uid_marketing AS TEXT)) = ?", [trim((string) $user->uid)]);
+            } else {
+                $customerQuery->where(function ($query) use ($user) {
+                    $query->where('customers.ownership', $user->id_perusahaan)
+                        ->orWhereNull('customers.uid_marketing')
+                        ->orWhereRaw("TRIM(CAST(customers.uid_marketing AS TEXT)) = ''");
+                });
             }
 
             $externalCustomers = $customerQuery->get();
-
-            // Opsional: Jika ingin menghilangkan duplikasi (misal ada 2 user dari PT yang sama)
-            // $externalCustomers = $externalCustomers->unique('id_customer')->values();
         }
 
         if (!$user->can('view-master-shipping')) {
