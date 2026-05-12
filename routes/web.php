@@ -56,6 +56,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/shipping/available-sections', [ShippingController::class, 'availableSections']);
     Route::post('/shipping/add-sections-to-spk', [ShippingController::class, 'addSectionsToSpk']);
     Route::post('/shipping/remove-section', [ShippingController::class, 'removeSectionFromSpk']);
+    Route::post('/shipping/document/{id}/remove', [ShippingController::class, 'removeDocumentFromSection'])->name('shipping.removeDocumentFromSection');
 
     // Resource route AFTER specific routes
     Route::resource('shipping', ShippingController::class);

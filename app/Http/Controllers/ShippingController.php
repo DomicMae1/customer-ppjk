@@ -1890,6 +1890,17 @@ class ShippingController extends Controller
             'id_section' => 'nullable|integer',
         ]);
 
+        // Security Check: Prevent IDOR for external users
+        if ($user->role === 'eksternal') {
+            $spk = \App\Models\Spk::find($request->id_spk);
+            if ($spk && $spk->id_customer !== $user->id_customer) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized to access this SPK'
+                ], 403);
+            }
+        }
+
         try {
             $existingDocs = DocumentTrans::where('id_spk', $request->id_spk)
                 ->pluck('id_dokumen')
@@ -1906,8 +1917,7 @@ class ShippingController extends Controller
                 // Section-specific addable docs
                 if ($request->id_section) {
                     $query->orWhere(function ($sub) use ($request) {
-                        $sub->where('id_section', $request->id_section)
-                            ->where('attribute', 0);
+                        $sub->where('id_section', $request->id_section);
                     });
                 }
             })
@@ -3536,5 +3546,40 @@ class ShippingController extends Controller
         );
 
         return response()->json(['success' => true, 'queued' => true]);
+    }
+
+    public function removeDocumentFromSection(Request $request, $id)
+    {
+        $user = auth('web')->user();
+
+        if (!$user->can('delete-shipping-document') && !$user->hasRole('admin')) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        [$tenant, $idPerusahaan] = $this->resolveTenantAndPerusahaanId($user);
+
+        if (!$tenant) {
+            return redirect()->back()->withErrors(['error' => 'Tenant tidak ditemukan']);
+        }
+
+        tenancy()->initialize($tenant);
+
+        $document = \App\Models\DocumentTrans::find($id);
+
+        if (!$document) {
+            return redirect()->back()->withErrors(['error' => 'Dokumen tidak ditemukan']);
+        }
+
+        if ($document->url_path_file) {
+            $disk = Storage::disk('customers_external');
+            if ($disk->exists($document->url_path_file)) {
+                $disk->delete($document->url_path_file);
+            }
+        }
+
+        \App\Models\DocumentStatus::where('id_dokumen_trans', $document->id)->delete();
+        $document->delete();
+
+        return redirect()->back()->with('success', 'Dokumen berhasil dihapus dari section.');
     }
 }
