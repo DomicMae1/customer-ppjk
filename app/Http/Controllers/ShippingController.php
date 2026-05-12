@@ -272,6 +272,7 @@ class ShippingController extends Controller
                     'vessel'                => $item->vessel,
                     'origin'                => $item->origin,
                     'port'                  => $item->port,
+                    'port_of_loading'       => $item->port_of_loading,
                     'comodity'              => $item->comodity,
                     'party_summary' => $item->parties->map(function ($p) {
                         if ($p->party_type === 'LCL') {
@@ -3100,6 +3101,7 @@ class ShippingController extends Controller
                 'consignee',
                 'vessel',
                 'origin',
+                'port_of_loading',
                 'port',
                 'comodity',
                 'party_qty',

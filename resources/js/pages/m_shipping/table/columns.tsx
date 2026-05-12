@@ -280,13 +280,12 @@ export const columns = (
                         <span className="text-sm leading-none">{formatted}</span>
 
                         <div
-                            className={`mt-1 inline-flex w-fit items-center rounded-full px-2 py-0.5 text-[11px] font-bold ${
-                                diffDays > 0
-                                    ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400'
-                                    : diffDays === 0
-                                      ? 'bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400'
-                                      : 'bg-slate-100 text-slate-600 dark:bg-zinc-800 dark:text-zinc-300'
-                            }`}
+                            className={`mt-1 inline-flex w-fit items-center rounded-full px-2 py-0.5 text-[11px] font-bold ${diffDays > 0
+                                ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400'
+                                : diffDays === 0
+                                    ? 'bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400'
+                                    : 'bg-slate-100 text-slate-600 dark:bg-zinc-800 dark:text-zinc-300'
+                                }`}
                         >
                             {diffDays > 0 ? `H-${diffDays}` : diffDays === 0 ? 'ETA Hari Ini' : `Lewat ${Math.abs(diffDays)} Hari`}
                         </div>
@@ -320,6 +319,15 @@ export const columns = (
                 </div>
             ),
             cell: ({ row }) => <div className={`${td} w-[220px] min-w-[220px] truncate`}>{row.original.port || '-'}</div>,
+        },
+        {
+            accessorKey: 'port_of_loading',
+            header: ({ column }) => (
+                <div className={`${th} w-[220px] min-w-[220px]`} onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>
+                    {trans.port_of_loading?.toUpperCase() || 'PORT OF LOADING'}
+                </div>
+            ),
+            cell: ({ row }) => <div className={`${td} w-[220px] min-w-[220px] truncate`}>{row.original.port_of_loading || '-'}</div>,
         },
         {
             accessorKey: 'comodity',

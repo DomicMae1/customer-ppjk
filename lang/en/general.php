@@ -293,6 +293,7 @@ return [
     'consignee' => 'Consignee (C\'NEE)',
     'vessel' => 'Vessel',
     'origin' => 'Origin',
+    'port_of_loading' => 'Port Of Loading',
     'port' => 'Port Of Discharge',
     'comodity' => 'Commodity',
     'party' => 'Party',
