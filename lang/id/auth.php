@@ -20,8 +20,8 @@ return [
     // --- LOGIN PAGE ---
     'title' => 'Masuk ke akun Anda',
     'description' => 'Masukkan email dan kata sandi di bawah ini untuk masuk',
-    'email_label' => 'Alamat Email',
-    'email_placeholder' => 'email@contoh.com',
+    'email_label' => 'Email / UID',
+    'email_placeholder' => 'email@contoh.com atau UID',
     'password_label' => 'Kata Sandi',
     'password_placeholder' => 'Kata Sandi',
     'remember_me' => 'Ingat saya',

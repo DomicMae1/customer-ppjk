@@ -56,6 +56,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/shipping/available-sections', [ShippingController::class, 'availableSections']);
     Route::post('/shipping/add-sections-to-spk', [ShippingController::class, 'addSectionsToSpk']);
     Route::post('/shipping/remove-section', [ShippingController::class, 'removeSectionFromSpk']);
+    Route::post('/shipping/document/{id}/remove', [ShippingController::class, 'removeDocumentFromSection'])->name('shipping.removeDocumentFromSection');
 
     // Resource route AFTER specific routes
     Route::resource('shipping', ShippingController::class);
@@ -64,6 +65,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('perusahaan', PerusahaanController::class);
     Route::resource('document', DocumentController::class);
     Route::resource('section', SectionController::class);
+
+    // Notification Settings routes
+    Route::get('notification-settings', [\App\Http\Controllers\NotificationSettingController::class, 'index'])->name('notification_settings.index');
+    Route::get('notification-settings/companies/{id}/data', [\App\Http\Controllers\NotificationSettingController::class, 'getSettings'])->name('notification_settings.data');
+    Route::post('notification-settings/channel', [\App\Http\Controllers\NotificationSettingController::class, 'upsertChannel'])->name('notification_settings.upsertChannel');
+    Route::post('notification-settings/reminder', [\App\Http\Controllers\NotificationSettingController::class, 'upsertReminder'])->name('notification_settings.upsertReminder');
 
     // Notification routes
     Route::get('notifications', [NotificationController::class, 'index'])->name('notifications.index');

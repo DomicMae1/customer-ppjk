@@ -30,8 +30,10 @@ const quillModules = {
 
 export default function EmailModal({ open, onOpenChange, idCustomer, idSpk, sections = [] }: EmailModalProps) {
     const [emailsTo, setEmailsTo] = useState<string[]>([]);
+    const [dbEmailsTo, setDbEmailsTo] = useState<Set<string>>(new Set());
     const [inputTo, setInputTo] = useState('');
     const [emailsCc, setEmailsCc] = useState<string[]>([]);
+    const [dbEmailsCc, setDbEmailsCc] = useState<Set<string>>(new Set());
     const [inputCc, setInputCc] = useState('');
     const [loadingEmail, setLoadingEmail] = useState(false);
     const [subject, setSubject] = useState('');
@@ -104,7 +106,9 @@ export default function EmailModal({ open, onOpenChange, idCustomer, idSpk, sect
         setInputTo('');
         setInputCc('');
         setEmailsTo([]);
+        setDbEmailsTo(new Set());
         setEmailsCc([]);
+        setDbEmailsCc(new Set());
         setAttachments(defaultAttachments);
         setAttachPdfOverview(false);
         setAttachPdfKarantina(false);
@@ -119,8 +123,12 @@ export default function EmailModal({ open, onOpenChange, idCustomer, idSpk, sect
             try {
                 setLoadingEmail(true);
                 const res = await axios.get(`/customer/${idCustomer}/emails`);
-                setEmailsTo(res.data.email_to || []);
-                setEmailsCc(res.data.email_cc || []);
+                const fetchedTo: string[] = res.data.email_to || [];
+                const fetchedCc: string[] = res.data.email_cc || [];
+                setEmailsTo(fetchedTo);
+                setDbEmailsTo(new Set(fetchedTo));
+                setEmailsCc(fetchedCc);
+                setDbEmailsCc(new Set(fetchedCc));
             } catch (err) {
                 console.error(err);
             } finally {
@@ -155,7 +163,15 @@ export default function EmailModal({ open, onOpenChange, idCustomer, idSpk, sect
         setEmails((prev) => [...prev, email]);
     }, []);
 
-    const removeEmail = useCallback((_index: number, _emails: string[], setEmails: React.Dispatch<React.SetStateAction<string[]>>) => {
+    const removeEmail = useCallback((
+        _index: number,
+        _emails: string[],
+        setEmails: React.Dispatch<React.SetStateAction<string[]>>,
+        dbEmails: Set<string>,
+    ) => {
+        const emailToRemove = _emails[_index];
+        // DB-sourced emails are locked — cannot be removed
+        if (dbEmails.has(emailToRemove)) return;
         setEmails((prev) => prev.filter((_, i) => i !== _index));
     }, []);
 
@@ -270,9 +286,20 @@ export default function EmailModal({ open, onOpenChange, idCustomer, idSpk, sect
                                 <Label className="text-sm">To</Label>
                                 <div className="border p-2 rounded flex flex-wrap gap-2">
                                     {emailsTo.map((email, index) => (
-                                        <div key={index} className="dark:text-black bg-gray-200 px-2 py-1 rounded flex items-center gap-1 text-sm">
+                                        <div
+                                            key={index}
+                                            className={`px-2 py-1 rounded flex items-center gap-1 text-sm ${
+                                                dbEmailsTo.has(email)
+                                                    ? 'bg-gray-300 dark:bg-gray-600 dark:text-white text-gray-700'
+                                                    : 'dark:text-black bg-gray-200'
+                                            }`}
+                                        >
                                             <span>{email}</span>
-                                            <button type="button" onClick={() => removeEmail(index, emailsTo, setEmailsTo)}>x</button>
+                                            {dbEmailsTo.has(email) ? (
+                                                <span title="Email dari database, tidak bisa dihapus" className="text-gray-400 dark:text-gray-300 text-xs select-none">🔒</span>
+                                            ) : (
+                                                <button type="button" onClick={() => removeEmail(index, emailsTo, setEmailsTo, dbEmailsTo)}>x</button>
+                                            )}
                                         </div>
                                     ))}
 
@@ -297,9 +324,20 @@ export default function EmailModal({ open, onOpenChange, idCustomer, idSpk, sect
                                 <Label className="text-sm">Cc</Label>
                                 <div className="border p-2 rounded flex flex-wrap gap-2">
                                     {emailsCc.map((email, index) => (
-                                        <div key={index} className="dark:text-black bg-gray-200 px-2 py-1 rounded flex items-center gap-1 text-sm">
+                                        <div
+                                            key={index}
+                                            className={`px-2 py-1 rounded flex items-center gap-1 text-sm ${
+                                                dbEmailsCc.has(email)
+                                                    ? 'bg-gray-300 dark:bg-gray-600 dark:text-white text-gray-700'
+                                                    : 'dark:text-black bg-gray-200'
+                                            }`}
+                                        >
                                             <span>{email}</span>
-                                            <button type="button" onClick={() => removeEmail(index, emailsCc, setEmailsCc)}>x</button>
+                                            {dbEmailsCc.has(email) ? (
+                                                <span title="Email dari database, tidak bisa dihapus" className="text-gray-400 dark:text-gray-300 text-xs select-none">🔒</span>
+                                            ) : (
+                                                <button type="button" onClick={() => removeEmail(index, emailsCc, setEmailsCc, dbEmailsCc)}>x</button>
+                                            )}
                                         </div>
                                     ))}
 

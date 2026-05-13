@@ -32,6 +32,7 @@ class Spk extends Model
         'consignee',
         'vessel',
         'origin',
+        'port_of_loading',
         'port',
         'comodity',
         'aju',

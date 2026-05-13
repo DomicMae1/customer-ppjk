@@ -73,21 +73,35 @@ class ShippingController extends Controller
                 ->select('id_customer', 'nama_perusahaan as nama') // Alias 'nama' agar frontend konsisten
                 ->get();
         } else {
-            // Ambil daftar user yang role-nya 'eksternal'
-            // Ambil 'name' dari tabel users, tapi value-nya tetap id_customer
-            $externalCustomers = User::where('role', 'eksternal')
-                ->whereNotNull('users.id_customer')
-                ->where('users.id_perusahaan', $user->id_perusahaan)
-                ->join('customers', 'customers.id_customer', '=', 'users.id_customer')
+            $customerQuery = Customer::query()
+                ->leftJoin('users as external_users', function ($join) {
+                    $join->on('external_users.id_customer', '=', 'customers.id_customer')
+                        ->where('external_users.role', '=', 'eksternal');
+                })
                 ->select(
                     'customers.id_customer',
                     'customers.nama_perusahaan as nama'
                 )
-                ->distinct()
-                ->get();
+                ->selectRaw('CASE WHEN COUNT(external_users.id_user) > 0 THEN 1 ELSE 0 END as has_external_account')
+                ->groupBy(
+                    'customers.id_customer',
+                    'customers.nama_perusahaan'
+                )
+                ->orderBy('customers.nama_perusahaan', 'asc');
 
-            // Opsional: Jika ingin menghilangkan duplikasi (misal ada 2 user dari PT yang sama)
-            // $externalCustomers = $externalCustomers->unique('id_customer')->values();
+            if ($user->role_internal === 'marketing') {
+                $customerQuery->whereNotNull('customers.uid_marketing')
+                    ->whereRaw("TRIM(CAST(customers.uid_marketing AS TEXT)) != ''")
+                    ->whereRaw("TRIM(CAST(customers.uid_marketing AS TEXT)) = ?", [trim((string) $user->uid)]);
+            } else {
+                $customerQuery->where(function ($query) use ($user) {
+                    $query->where('customers.ownership', $user->id_perusahaan)
+                        ->orWhereNull('customers.uid_marketing')
+                        ->orWhereRaw("TRIM(CAST(customers.uid_marketing AS TEXT)) = ''");
+                });
+            }
+
+            $externalCustomers = $customerQuery->get();
         }
 
         if (!$user->can('view-master-shipping')) {
@@ -169,7 +183,17 @@ class ShippingController extends Controller
 
             // Mapping data agar sesuai dengan kolom Frontend
             $spkData = $spkItems->map(function ($item) use ($internalUsers) {
-                $minDeadline = $item->sections->pluck('deadline_date')->filter()->min();
+                $nearestDeadlineSection = $item->sections
+                    ->filter(function ($section) {
+                        return !empty($section->deadline_date);
+                    })
+                    ->sortBy(function ($section) {
+                        return \Carbon\Carbon::parse($section->deadline_date)->timestamp;
+                    })
+                    ->first();
+
+                $minDeadline = $nearestDeadlineSection?->deadline_date;
+                $deadlineSectionName = $nearestDeadlineSection?->section_name;
 
                 // --- PROGRESS CALCULATION ---
                 $totalDocs = 0;
@@ -216,6 +240,7 @@ class ShippingController extends Controller
                 return [
                     'id'                    => $item->id,
                     'spk_code'              => $item->spk_code,
+                    'shipment_type'         => $item->shipment_type,
                     'nama_customer'         => $item->customer->nama_perusahaan ?? '-',
                     'tanggal_status'        => $latestDocLog ? $latestDocLog->created_at : $item->created_at,
                     'status_label'          => $item->latestStatus->status ?? 'Draft/Pending',
@@ -235,10 +260,12 @@ class ShippingController extends Controller
                     'jalur'                 => $item->penjaluran,
                     'jalur_filter'          => $item->penjaluran,
                     'deadline_date'         => $minDeadline,
+                    'deadline_section_name' => $deadlineSectionName,
                     'progress'              => $progress,
                     'vessel'                => $item->vessel,
                     'origin'                => $item->origin,
                     'port'                  => $item->port,
+                    'port_of_loading'       => $item->port_of_loading,
                     'comodity'              => $item->comodity,
                     'party_summary' => $item->parties->map(function ($p) {
                         if ($p->party_type === 'LCL') {
@@ -274,7 +301,7 @@ class ShippingController extends Controller
         if ($user->role === 'internal') {
             $internalStaff = User::on('tako-user')
                 ->where('role', 'internal')
-                ->where('role_internal', 'ILIKE', '%staff%')
+                ->where('role_internal', 'staff')
                 ->where('id_perusahaan', $user->id_perusahaan)
                 ->select('id_user', 'name')
                 ->get();
@@ -494,6 +521,22 @@ class ShippingController extends Controller
             throw UnauthorizedException::forPermissions(['create-master-shipping']);
         }
 
+        $validated = $request->validate([
+            'tanggal_dokumen' => 'required|date',
+            'shipment_type'   => 'required|in:Import,Export',
+            'bl_number'       => 'required|string',
+            'id_customer'     => 'required|exists:customers,id_customer',
+            'hs_codes'        => 'required|array|min:1',
+            'hs_codes.*.code' => 'required|string',
+            'hs_codes.*.link' => 'nullable|string',
+            'hs_codes.*.file' => 'nullable|file|image|mimes:jpeg,png,jpg|max:5120',
+            'assigned_pic'    => 'nullable|integer|exists:users,id_user', // Validasi Assigned PIC
+            'vessel'          => 'nullable|string',
+            'origin'          => 'nullable|string',
+            'port'            => 'nullable|string',
+            'comodity'        => 'nullable|string',
+        ]);
+
         // --- Logic Tenant ---
         $tenant = null;
         if ($user->id_perusahaan) {
@@ -510,36 +553,6 @@ class ShippingController extends Controller
         }
 
         tenancy()->initialize($tenant);
-
-        $validated = $request->validate([
-            'tanggal_dokumen' => 'required|date',
-            'shipment_type'   => 'required|in:Import,Export',
-            'bl_number'       => 'required|string',
-            'id_customer'     => 'required|exists:App\Models\Customer,id_customer',
-            'hs_codes'        => 'required|array|min:1',
-            'hs_codes.*.code' => 'required|string',
-            'hs_codes.*.link' => 'nullable|string',
-            'hs_codes.*.file' => 'nullable|file|image|mimes:jpeg,png,jpg|max:5120',
-            'assigned_pic'    => 'nullable|integer|exists:App\Models\User,id_user', // Validasi Assigned PIC
-            'vessel'          => 'nullable|string',
-            'origin'          => 'nullable|string',
-            'port'            => 'nullable|string',
-            'comodity'        => 'nullable|string',
-        ], [
-            'tanggal_dokumen.required' => 'Tanggal dokumen wajib diisi.',
-            'shipment_type.required'   => 'Tipe shipment (Import/Export) wajib dipilih.',
-            'bl_number.required'       => 'Nomor BL/SI wajib diisi.',
-            'id_customer.required'     => 'Customer wajib dipilih.',
-            'hs_codes.required'        => 'Data HS Code minimal harus ada satu.',
-            'hs_codes.*.code.required' => 'Kode HS tidak boleh kosong.',
-        ]);
-
-        // Manual uniqueness check to avoid connection issues with Laravel's unique rule
-        if (Spk::where('spk_code', $validated['bl_number'])->exists()) {
-            return redirect()->back()->withErrors([
-                'bl_number' => 'Nomor BL/SI ini sudah pernah dibuat sebelumnya.'
-            ]);
-        }
 
         DB::beginTransaction();
 
@@ -626,11 +639,13 @@ class ShippingController extends Controller
             }
 
             // --- 4. GENERATE DOKUMEN TRANSAKSI (MANDATORY ONLY) ---
-            // Hanya dokumen dengan attribute = true yang otomatis ditambahkan saat SPK/Section dibuat.
+            // Hanya dokumen dengan import_mandatory/export_mandatory = true yang otomatis ditambahkan saat SPK/Section dibuat.
             $allowedSectionIds = $masterSections->pluck('id_section')->toArray();
 
+            $mandatoryColumn = $validated['shipment_type'] === 'Import' ? 'import_mandatory' : 'export_mandatory';
+
             $finalDocs = MasterDocumentTrans::where('is_active', true)
-                ->where('attribute', true)
+                ->where($mandatoryColumn, true)
                 ->whereIn('id_section', $allowedSectionIds)
                 ->orderBy('id_dokumen', 'asc')
                 ->get()
@@ -683,7 +698,7 @@ class ShippingController extends Controller
 
                     // Optional: Notification Logic to Assigned Staff can be added here
                     /* NotificationService::send([...]); */
-                } elseif (in_array($user->role_internal, ['staff', 'AML_Staff'])) {
+                } elseif (in_array($user->role_internal, ['staff', 'marketing'])) {
                     // STAFF & Marketing: Auto-assign to Self
                     $spk->update(['validated_by' => $userId]);
                 }
@@ -697,7 +712,7 @@ class ShippingController extends Controller
                 if ($user->role === 'eksternal') {
                     $internalUsers = \App\Models\User::on('tako-user')
                         ->where('role', 'internal')
-                        ->whereIn('role_internal', ['staff', 'marketing', 'supervisor', 'AML_Staff', 'AML_Marketing'])
+                        ->whereIn('role_internal', ['staff', 'marketing', 'supervisor'])
                         ->where('id_perusahaan', $tenant->perusahaan_id)
                         ->distinct()
                         ->get();
@@ -1073,7 +1088,7 @@ class ShippingController extends Controller
             $internalStaff = \App\Models\User::on('tako-user')
                 ->where('role', 'internal')
                 ->where('id_perusahaan', $user->id_perusahaan)
-                ->where('role_internal', 'ILIKE', '%staff%')
+                ->where('role_internal', 'staff')
                 ->select('id_user', 'name', 'role_internal', 'id_perusahaan')
                 ->get();
         }
@@ -1872,6 +1887,17 @@ class ShippingController extends Controller
             'id_section' => 'nullable|integer',
         ]);
 
+        // Security Check: Prevent IDOR for external users
+        if ($user->role === 'eksternal') {
+            $spk = \App\Models\Spk::find($request->id_spk);
+            if ($spk && $spk->id_customer !== $user->id_customer) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized to access this SPK'
+                ], 403);
+            }
+        }
+
         try {
             $existingDocs = DocumentTrans::where('id_spk', $request->id_spk)
                 ->pluck('id_dokumen')
@@ -1888,8 +1914,7 @@ class ShippingController extends Controller
                 // Section-specific addable docs
                 if ($request->id_section) {
                     $query->orWhere(function ($sub) use ($request) {
-                        $sub->where('id_section', $request->id_section)
-                            ->where('attribute', 0);
+                        $sub->where('id_section', $request->id_section);
                     });
                 }
             })
@@ -1903,7 +1928,8 @@ class ShippingController extends Controller
                 'description_file',
                 'is_internal',
                 'is_verification',
-                'attribute',
+                'import_mandatory',
+                'export_mandatory',
                 'link_path_example_file',
                 'link_path_template_file',
                 'link_url_video_file'
@@ -2738,9 +2764,10 @@ class ShippingController extends Controller
 
                 // NEW: Generate Dokumen Mandatory untuk section yang baru ditambahkan ini
                 // Mengambil template dokumen terbaru dari MasterDocumentTrans
+                $mandatoryColumn = $spk->shipment_type === 'Import' ? 'import_mandatory' : 'export_mandatory';
                 $masterDocs = MasterDocumentTrans::where('id_section', $masterSec->id_section)
                     ->where('is_active', true)
-                    ->where('attribute', true) // Hanya yang mandatory
+                    ->where($mandatoryColumn, true) // Hanya yang mandatory
                     ->get();
 
                 foreach ($masterDocs as $mDoc) {
@@ -3071,6 +3098,7 @@ class ShippingController extends Controller
                 'consignee',
                 'vessel',
                 'origin',
+                'port_of_loading',
                 'port',
                 'comodity',
                 'party_qty',
@@ -3168,6 +3196,9 @@ class ShippingController extends Controller
 
         tenancy()->initialize($tenant);
 
+        $spk = Spk::findOrFail($idSpk);
+        $mandatoryColumn = $spk->shipment_type === 'Import' ? 'import_mandatory' : 'export_mandatory';
+
         // Find NPD section (contains 'npd' case insensitive)
         $npdSection = MasterSectionTrans::whereRaw('LOWER(section_name) LIKE ?', ['%npd%'])->first();
 
@@ -3178,7 +3209,7 @@ class ShippingController extends Controller
         // Get mandatory documents for this section
         $mandatoryDocs = MasterDocumentTrans::where('id_section', $npdSection->id_section)
             ->where('is_active', true)
-            ->where('attribute', true)
+            ->where($mandatoryColumn, true)
             ->get();
 
         $existingDocs = DocumentTrans::where('id_spk', $idSpk)
@@ -3195,7 +3226,7 @@ class ShippingController extends Controller
 
         $additionalDocs = MasterDocumentTrans::whereIn('id_section', $sections)
             ->where('is_active', 1)
-            ->where('attribute', 0)
+            ->where($mandatoryColumn, false)
             ->when(!empty($existingDocs), function ($q) use ($existingDocs) {
                 $q->whereNotIn('id_dokumen', $existingDocs);
             })
@@ -3288,11 +3319,14 @@ class ShippingController extends Controller
                 }
 
                 if ($existingSection) {
+                    $spk = Spk::findOrFail($idSpk);
+                    $mandatoryColumn = $spk->shipment_type === 'Import' ? 'import_mandatory' : 'export_mandatory';
+
                     // Generate mandatory docs + selected additional docs
                     $masterDocs = MasterDocumentTrans::where('id_section', $request->id_section)
                         ->where('is_active', true)
-                        ->where(function ($query) use ($request) {
-                            $query->where('attribute', true);
+                        ->where(function ($query) use ($request, $mandatoryColumn) {
+                            $query->where($mandatoryColumn, true);
                             if (!empty($request->additional_documents) && is_array($request->additional_documents)) {
                                 $query->orWhereIn('id_dokumen', $request->additional_documents);
                             }
@@ -3341,44 +3375,6 @@ class ShippingController extends Controller
             }
 
             \Illuminate\Support\Facades\DB::commit();
-
-            // --- Kirim Email & Notifikasi ke Customer ---
-            if ($request->is_npd && $request->id_section) {
-                try {
-                    $spk = Spk::find($idSpk);
-                    if ($spk && $spk->id_customer) {
-                        // Ambil semua user dengan id_customer yang sama
-                        $recipients = User::where('id_customer', $spk->id_customer)->get();
-
-                        if ($recipients->isNotEmpty()) {
-                            $masterSec = MasterSectionTrans::where('id_section', $request->id_section)->first();
-                            $sectionName = $masterSec ? $masterSec->section_name : 'NPD';
-
-                            foreach ($recipients as $recipient) {
-                                // 1. Kirim Email (Antri di Queue)
-                                SectionReminderService::sendSectionAdded($spk, $sectionName, $user, $recipient, 1);
-
-                                // 2. Buat Notifikasi Database
-                                \App\Models\Notification::create([
-                                    'send_to'    => $recipient->id_user,
-                                    'created_by' => $user->id_user,
-                                    'role'       => $recipient->role,
-                                    'id_section' => $request->id_section,
-                                    'id_spk'     => $idSpk,
-                                    'data'       => [
-                                        'type'    => 'section_added',
-                                        'title'   => 'Section Baru Ditambahkan',
-                                        'message' => "Section {$sectionName} telah ditambahkan untuk SPK {$spk->spk_code}. Tolong segera dilengkapi.",
-                                        'url'     => "/shipping/{$idSpk}",
-                                    ],
-                                ]);
-                            }
-                        }
-                    }
-                } catch (\Exception $e) {
-                    Log::error("Failed to send NPD notifications: " . $e->getMessage());
-                }
-            }
 
             try {
                 \App\Events\ShippingDataUpdated::dispatch($idSpk, 'update');
@@ -3485,11 +3481,12 @@ class ShippingController extends Controller
         foreach ($attachIds as $idDokumen) {
             $doc = $latestDocs->get($idDokumen);
             if (!$doc || !$doc->url_path_file) continue;
-            if (!$disk->exists($doc->url_path_file)) {
+            $normPath = ltrim($doc->url_path_file, '/');
+            if (!$disk->exists($normPath)) {
                 return response()->json(['message' => 'Attachment dokumen tidak ditemukan di server'], 422);
             }
             try {
-                $totalBytes += (int) $disk->size($doc->url_path_file);
+                $totalBytes += (int) $disk->size($normPath);
             } catch (\Throwable $e) {
                 // ignore size calculation failures; mailer will validate at send time
             }
@@ -3556,5 +3553,40 @@ class ShippingController extends Controller
         );
 
         return response()->json(['success' => true, 'queued' => true]);
+    }
+
+    public function removeDocumentFromSection(Request $request, $id)
+    {
+        $user = auth('web')->user();
+
+        if (!$user->can('delete-shipping-document') && !$user->hasRole('admin')) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        [$tenant, $idPerusahaan] = $this->resolveTenantAndPerusahaanId($user);
+
+        if (!$tenant) {
+            return redirect()->back()->withErrors(['error' => 'Tenant tidak ditemukan']);
+        }
+
+        tenancy()->initialize($tenant);
+
+        $document = \App\Models\DocumentTrans::find($id);
+
+        if (!$document) {
+            return redirect()->back()->withErrors(['error' => 'Dokumen tidak ditemukan']);
+        }
+
+        if ($document->url_path_file) {
+            $disk = Storage::disk('customers_external');
+            if ($disk->exists($document->url_path_file)) {
+                $disk->delete($document->url_path_file);
+            }
+        }
+
+        \App\Models\DocumentStatus::where('id_dokumen_trans', $document->id)->delete();
+        $document->delete();
+
+        return redirect()->back()->with('success', 'Dokumen berhasil dihapus dari section.');
     }
 }

@@ -17,12 +17,14 @@ import { AlertCircle, Eye, MoreHorizontal, Pencil } from 'lucide-react';
 export type Shipping = {
     id: string | number;
     spk_code: string;
+    shipment_type?: string | null;
     nama_customer: string;
     tanggal_status: string;
     status_label: string;
     nama_user: string;
     jalur: string;
     deadline_date?: string | null;
+    deadline_section_name?: string | null;
     progress: number;
     eta_date?: string | null;
     vessel?: string | null;
@@ -33,6 +35,32 @@ export type Shipping = {
     validated_by?: number | string | null;
     drafter?: string | null;
 };
+
+const freezeHeaderBg = 'bg-slate-100 text-slate-700 dark:bg-zinc-800 dark:text-zinc-100';
+
+const stickyViewHeader = `sticky left-0 z-50 w-[100px] min-w-[100px] align-middle ${freezeHeaderBg}`;
+
+const stickyCustomerHeader = `sticky left-[100px] z-50 w-[130px] min-w-[130px] align-middle ${freezeHeaderBg}`;
+
+const stickySpkHeader = `sticky left-[230px] z-50 w-[150px] min-w-[150px] align-middle ${freezeHeaderBg}`;
+
+const stickyDrafterHeader = `sticky left-[380px] z-50 w-[150px] min-w-[150px] align-middle ${freezeHeaderBg}`;
+
+const stickyEtaHeader = `sticky left-[530px] z-40 w-[180px] min-w-[180px] bg-background align-middle shadow-[6px_0_12px_-10px_rgba(0,0,0,0.8)] ${freezeHeaderBg}`;
+
+const stickyViewCell = 'sticky left-0 z-40 w-[100px] min-w-[100px] bg-background align-middle';
+
+const stickyCustomerCell = 'sticky left-[100px] z-40 w-[130px] min-w-[130px] bg-background align-middle';
+
+const stickySpkCell = 'sticky left-[230px] z-40 w-[150px] min-w-[150px] bg-background align-middle';
+
+const stickyDrafterCell = 'sticky left-[380px] z-40 w-[150px] min-w-[150px] bg-background align-middle';
+
+const stickyEtaCell = 'sticky left-[530px] z-40 w-[180px] min-w-[180px] bg-background align-middle shadow-[6px_0_12px_-10px_rgba(0,0,0,0.8)]';
+
+const th = 'px-3 py-3 text-left align-middle text-sm font-medium whitespace-nowrap';
+const td = 'px-3 py-3 text-left align-middle text-sm';
+const tdCenter = 'px-3 py-3 text-center align-middle text-sm';
 
 export const columns = (
     trans: Record<string, string>, // <--- INI PENTING
@@ -47,10 +75,54 @@ export const columns = (
         }
     }
 
+    const getJalurDisplay = (jalur?: string | null) => {
+        let colorClass = 'text-gray-500';
+        let displayText = '-';
+
+        const jalurLower = jalur ? jalur.toLowerCase() : '';
+
+        if (jalurLower === 'hijau') {
+            colorClass = 'text-green-600';
+            displayText = trans.green || 'Hijau';
+        } else if (jalurLower === 'merah') {
+            colorClass = 'text-red-600';
+            displayText = trans.red || 'Merah';
+        } else if (jalurLower === 'kuning') {
+            colorClass = 'text-yellow-600';
+            displayText = trans.yellow || 'Kuning';
+        } else if (jalur) {
+            displayText = jalur;
+        }
+
+        return { colorClass, displayText };
+    };
+
+    const getFormattedSpkCode = (spkCode?: string | null, shipmentType?: string | null) => {
+        if (!spkCode) {
+            return '-';
+        }
+
+        const type = shipmentType?.toLowerCase() || '';
+
+        if (type.includes('import')) {
+            return `BL-${spkCode}`;
+        }
+
+        if (type.includes('export') || type.includes('eksport')) {
+            return `SI-${spkCode}`;
+        }
+
+        return spkCode;
+    };
+
     return [
         {
             id: 'view_documents',
-            header: () => <div className="w-[50px] md:px-2 md:py-2"></div>,
+            header: () => <div className="w-[100px] text-center"></div>,
+            meta: {
+                headerClassName: stickyViewHeader,
+                cellClassName: stickyViewCell,
+            },
             cell: ({ row }) => {
                 const shipping = row.original;
                 const { auth } = usePage().props as any;
@@ -102,6 +174,10 @@ export const columns = (
         },
         {
             accessorKey: 'nama_customer',
+            meta: {
+                headerClassName: stickyCustomerHeader,
+                cellClassName: stickyCustomerCell,
+            },
             header: ({ column }) => (
                 <div
                     className="cursor-pointer text-sm font-medium select-none md:px-2 md:py-2"
@@ -111,10 +187,16 @@ export const columns = (
                     {trans.customer_name}
                 </div>
             ),
-            cell: ({ row }) => <div className="text-sm md:min-w-[150px] md:truncate md:px-2">{row.original.nama_customer || '-'}</div>,
+            cell: ({ row }) => (
+                <div className="w-[130px] truncate px-3 py-3 text-left text-sm font-semibold">{row.original.nama_customer || '-'}</div>
+            ),
         },
         {
             accessorKey: 'spk_code',
+            meta: {
+                headerClassName: stickySpkHeader,
+                cellClassName: stickySpkCell,
+            },
             header: ({ column }) => (
                 <div
                     className="cursor-pointer text-sm font-medium select-none md:px-2 md:py-2"
@@ -124,10 +206,26 @@ export const columns = (
                     {trans.spk_number}
                 </div>
             ),
-            cell: ({ row }) => <div className="text-sm font-bold md:min-w-[150px] md:truncate md:px-2 md:py-2">{row.original.spk_code ?? '-'}</div>,
+            cell: ({ row }) => {
+                const { colorClass, displayText } = getJalurDisplay(row.original.jalur);
+
+                const formattedSpkCode = getFormattedSpkCode(row.original.spk_code, row.original.shipment_type);
+
+                return (
+                    <div className="flex w-[150px] flex-col gap-1 px-3 py-3 text-left">
+                        <span className="truncate text-sm font-bold">{formattedSpkCode}</span>
+
+                        <span className={`truncate text-xs font-bold ${colorClass}`}>{displayText}</span>
+                    </div>
+                );
+            },
         },
         {
             accessorKey: 'drafter',
+            meta: {
+                headerClassName: stickyDrafterHeader,
+                cellClassName: stickyDrafterCell,
+            },
             header: ({ column }) => (
                 <div
                     className="cursor-pointer text-sm font-medium select-none md:px-2 md:py-2"
@@ -136,18 +234,152 @@ export const columns = (
                     Drafter
                 </div>
             ),
-            cell: ({ row }) => <div className="text-sm md:min-w-[150px] md:truncate md:px-2 md:py-2">{row.original.drafter || '-'}</div>,
+            cell: ({ row }) => <div className="w-[150px] truncate px-3 py-3 text-left text-sm">{row.original.drafter || '-'}</div>,
         },
+        {
+            accessorKey: 'eta_date',
+            meta: {
+                headerClassName: stickyEtaHeader,
+                cellClassName: stickyEtaCell,
+            },
+            header: ({ column }) => (
+                <div
+                    className="cursor-pointer text-sm font-medium select-none md:px-2 md:py-2"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+                >
+                    ETA
+                </div>
+            ),
+            cell: ({ row }) => {
+                const eta = row.original.eta_date;
+
+                if (!eta) {
+                    return <div className="flex h-full w-[180px] items-center px-3 py-3 text-sm">-</div>;
+                }
+
+                const date = new Date(eta);
+
+                const formatted = date.toLocaleDateString('en-GB', {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric',
+                });
+
+                // Hitung H-
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+
+                const etaDate = new Date(eta);
+                etaDate.setHours(0, 0, 0, 0);
+
+                const diffTime = etaDate.getTime() - today.getTime();
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                return (
+                    <div className="flex h-full w-[180px] flex-col justify-center gap-1 px-3 py-3 text-left">
+                        <span className="text-sm leading-none">{formatted}</span>
+
+                        <div
+                            className={`mt-1 inline-flex w-fit items-center rounded-full px-2 py-0.5 text-[11px] font-bold ${diffDays > 0
+                                ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400'
+                                : diffDays === 0
+                                    ? 'bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400'
+                                    : 'bg-slate-100 text-slate-600 dark:bg-zinc-800 dark:text-zinc-300'
+                                }`}
+                        >
+                            {diffDays > 0 ? `H-${diffDays}` : diffDays === 0 ? 'ETA Hari Ini' : `Lewat ${Math.abs(diffDays)} Hari`}
+                        </div>
+                    </div>
+                );
+            },
+        },
+        {
+            accessorKey: 'vessel',
+            header: ({ column }) => (
+                <div className={`${th} w-[120px]`} onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>
+                    {trans.vessel?.toUpperCase() || 'VESSEL'}
+                </div>
+            ),
+            cell: ({ row }) => <div className={`${td} w-[120px] truncate`}>{row.original.vessel || '-'}</div>,
+        },
+        {
+            accessorKey: 'origin',
+            header: ({ column }) => (
+                <div className={`${th} w-[120px]`} onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>
+                    {trans.origin?.toUpperCase() || 'ORIGIN'}
+                </div>
+            ),
+            cell: ({ row }) => <div className={`${td} w-[120px] truncate`}>{row.original.origin || '-'}</div>,
+        },
+        {
+            accessorKey: 'port',
+            header: ({ column }) => (
+                <div className={`${th} w-[220px] min-w-[220px]`} onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>
+                    {trans.port?.toUpperCase() || 'PORT'}
+                </div>
+            ),
+            cell: ({ row }) => <div className={`${td} w-[220px] min-w-[220px] truncate`}>{row.original.port || '-'}</div>,
+        },
+        {
+            accessorKey: 'port_of_loading',
+            header: ({ column }) => (
+                <div className={`${th} w-[220px] min-w-[220px]`} onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>
+                    {trans.port_of_loading?.toUpperCase() || 'PORT OF LOADING'}
+                </div>
+            ),
+            cell: ({ row }) => <div className={`${td} w-[220px] min-w-[220px] truncate`}>{row.original.port_of_loading || '-'}</div>,
+        },
+        {
+            accessorKey: 'comodity',
+            header: ({ column }) => (
+                <div className={`${th} w-[150px]`} onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>
+                    {trans.comodity?.toUpperCase() || 'COMODITY'}
+                </div>
+            ),
+            cell: ({ row }) => <div className={`${td} w-[150px] truncate`}>{row.original.comodity || '-'}</div>,
+        },
+        {
+            accessorKey: 'party_summary',
+            header: ({ column }) => (
+                <div className={`${th} w-[260px]`} onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>
+                    {trans.party?.toUpperCase() || 'PARTY'}
+                </div>
+            ),
+            cell: ({ row }) => <div className={`${td} w-[260px] leading-snug whitespace-normal`}>{row.original.party_summary || '-'}</div>,
+        },
+        // {
+        //     accessorKey: 'jalur',
+        //     // 2. Gunakan trans
+        //     header: () => <div className={`${th} w-[130px]`}>{trans.channel}</div>,
+        //     cell: ({ row }) => {
+        //         const jalur = row.original.jalur;
+        //         let colorClass = 'text-gray-500';
+        //         let displayText = '-';
+        //         const jalurLower = jalur ? jalur.toLowerCase() : '';
+
+        //         if (jalurLower === 'hijau') {
+        //             colorClass = 'text-green-600';
+        //             displayText = trans.green || 'Hijau';
+        //         } else if (jalurLower === 'merah') {
+        //             colorClass = 'text-red-600';
+        //             displayText = trans.red || 'Merah';
+        //         } else if (jalurLower === 'kuning') {
+        //             colorClass = 'text-yellow-600';
+        //             displayText = trans.yellow || 'Kuning';
+        //         } else if (jalur) {
+        //             // Jika ada nilai lain, tampilkan as-is
+        //             displayText = jalur;
+        //         }
+
+        //         return <div className={`${td} w-[130px] font-bold ${colorClass}`}>{displayText}</div>;
+        //     },
+        // },
         {
             accessorKey: 'deadline_date',
             header: () => <div className="text-sm font-medium md:px-2 md:py-2">{trans.deadline}</div>,
             cell: ({ row }) => {
                 const deadline = row.original.deadline_date;
                 // Ambil data user dari usePage() di dalam cell render (aman)
-                const { props } = usePage();
-                const auth = props.auth as any;
-                const isUserExternal = auth.user?.role === 'eksternal';
-                const currentLocale = props.locale as string;
 
                 if (!deadline) {
                     return <div className="text-sm md:px-2">-</div>;
@@ -161,15 +393,20 @@ export const columns = (
                     year: 'numeric',
                 });
 
+                const sectionName = row.original.deadline_section_name;
+
                 return (
-                    <div className="flex flex-col justify-center md:min-w-[200px] md:px-2">
-                        {/* Tampilkan Warning Merah (Khusus External) */}
-                        {
-                            <div className="flex items-center gap-1 text-red-600">
-                                <AlertCircle className="h-3 w-3 shrink-0" />
-                                <span className="text-sm leading-none font-bold">{formatted}</span>
+                    <div className="flex w-[190px] flex-col gap-1 px-3 py-3 text-left align-middle">
+                        <div className="flex items-center gap-1 text-red-600">
+                            <AlertCircle className="h-3 w-3 shrink-0" />
+                            <span className="text-sm font-bold">{formatted}</span>
+                        </div>
+
+                        {sectionName && (
+                            <div className="w-fit rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-semibold text-red-700 dark:bg-red-500/10 dark:text-red-400">
+                                {sectionName}
                             </div>
-                        }
+                        )}
                     </div>
                 );
             },
@@ -210,131 +447,17 @@ export const columns = (
                 }
 
                 return (
-                    <div className="flex flex-col gap-1.5 md:min-w-[150px] md:px-2">
+                    <div className="flex w-[200px] flex-col gap-1.5 px-3 py-3 text-left">
                         <div className="flex items-center justify-between gap-2">
                             <span className={`text-[10px] font-bold tracking-wider uppercase ${textClass}`}>{statusText}</span>
-                            <span className="text-[11px] font-extrabold text-slate-700">{progress}%</span>
+                            <span className="text-[11px] font-extrabold text-slate-700 dark:text-slate-200">{progress}%</span>
                         </div>
-                        <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100 shadow-inner">
+
+                        <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100 shadow-inner dark:bg-zinc-800">
                             <div className={`h-full transition-all duration-1000 ease-out ${colorClass}`} style={{ width: `${progress}%` }} />
                         </div>
                     </div>
                 );
-            },
-        },
-        {
-            accessorKey: 'eta_date',
-            header: ({ column }) => (
-                <div
-                    className="cursor-pointer text-sm font-medium select-none md:px-2 md:py-2"
-                    onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-                >
-                    ETA
-                </div>
-            ),
-            cell: ({ row }) => {
-                const eta = row.original.eta_date;
-
-                if (!eta) {
-                    return <div className="text-sm md:px-2">-</div>;
-                }
-
-                const date = new Date(eta);
-
-                const formatted = date.toLocaleDateString('en-GB', {
-                    day: 'numeric',
-                    month: 'short',
-                    year: 'numeric',
-                });
-
-                return <div className="text-sm md:min-w-[150px] md:px-2">{formatted}</div>;
-            },
-        },
-        {
-            accessorKey: 'vessel',
-            header: ({ column }) => (
-                <div
-                    className="cursor-pointer text-sm font-medium select-none md:px-2 md:py-2"
-                    onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-                >
-                    {trans.vessel?.toUpperCase() || 'VESSEL'}
-                </div>
-            ),
-            cell: ({ row }) => <div className="text-center text-sm md:px-2">{row.original.vessel || '-'}</div>,
-        },
-        {
-            accessorKey: 'origin',
-            header: ({ column }) => (
-                <div
-                    className="cursor-pointer text-sm font-medium select-none md:px-2 md:py-2"
-                    onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-                >
-                    {trans.origin?.toUpperCase() || 'ORIGIN'}
-                </div>
-            ),
-            cell: ({ row }) => <div className="text-center text-sm md:px-2">{row.original.origin || '-'}</div>,
-        },
-        {
-            accessorKey: 'port',
-            header: ({ column }) => (
-                <div
-                    className="cursor-pointer text-sm font-medium select-none md:px-2 md:py-2"
-                    onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-                >
-                    {trans.port?.toUpperCase() || 'PORT'}
-                </div>
-            ),
-            cell: ({ row }) => <div className="text-center text-sm md:px-2">{row.original.port || '-'}</div>,
-        },
-        {
-            accessorKey: 'comodity',
-            header: ({ column }) => (
-                <div
-                    className="cursor-pointer text-sm font-medium select-none md:px-2 md:py-2"
-                    onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-                >
-                    {trans.comodity?.toUpperCase() || 'COMODITY'}
-                </div>
-            ),
-            cell: ({ row }) => <div className="text-center text-sm md:px-2">{row.original.comodity || '-'}</div>,
-        },
-        {
-            accessorKey: 'party_summary',
-            header: ({ column }) => (
-                <div
-                    className="cursor-pointer text-sm font-medium select-none md:px-2 md:py-2"
-                    onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-                >
-                    {trans.party?.toUpperCase() || 'PARTY'}
-                </div>
-            ),
-            cell: ({ row }) => <div className="text-left text-sm md:min-w-[220px] md:px-2">{row.original.party_summary || '-'}</div>,
-        },
-        {
-            accessorKey: 'jalur',
-            // 2. Gunakan trans
-            header: () => <div className="text-sm font-medium md:px-2 md:py-2">{trans.channel}</div>,
-            cell: ({ row }) => {
-                const jalur = row.original.jalur;
-                let colorClass = 'text-gray-500';
-                let displayText = '-';
-                const jalurLower = jalur ? jalur.toLowerCase() : '';
-
-                if (jalurLower === 'hijau') {
-                    colorClass = 'text-green-600';
-                    displayText = trans.green || 'Hijau';
-                } else if (jalurLower === 'merah') {
-                    colorClass = 'text-red-600';
-                    displayText = trans.red || 'Merah';
-                } else if (jalurLower === 'kuning') {
-                    colorClass = 'text-yellow-600';
-                    displayText = trans.yellow || 'Kuning';
-                } else if (jalur) {
-                    // Jika ada nilai lain, tampilkan as-is
-                    displayText = jalur;
-                }
-
-                return <div className={`text-sm font-bold ${colorClass} md:min-w-[100px] md:px-2`}>{displayText}</div>;
             },
         },
         {
@@ -346,7 +469,7 @@ export const columns = (
                 };
             },
             // 2. Gunakan trans
-            header: ({ column }) => <div className="cursor-pointer text-sm font-medium select-none md:px-2 md:py-2">{trans.status_description}</div>,
+            header: () => <div className={`${th} w-[380px]`}>{trans.status_description}</div>,
             cell: ({ row }) => {
                 const tanggal = row.original.tanggal_status;
                 const label = row.original.status_label;
@@ -375,7 +498,7 @@ export const columns = (
                     .replace('.', ':');
 
                 return (
-                    <div className="text-sm md:min-w-[200px] md:truncate md:px-2">
+                    <div className={`${td} w-[380px] leading-snug whitespace-normal`}>
                         <span>
                             {label} {trans.last_updated || 'updated'} {` ${trans.at || 'at'} `}
                             <strong>{`${tanggalFormat} ${jamMenit} WIB`}</strong>

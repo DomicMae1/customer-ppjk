@@ -20,8 +20,8 @@ return [
     // --- LOGIN PAGE ---
     'title' => 'Log in to your account',
     'description' => 'Enter your email and password below to log in',
-    'email_label' => 'Email address',
-    'email_placeholder' => 'email@example.com',
+    'email_label' => 'Email / UID',
+    'email_placeholder' => 'email@example.com or UID',
     'password_label' => 'Password',
     'password_placeholder' => 'Password',
     'remember_me' => 'Remember me',

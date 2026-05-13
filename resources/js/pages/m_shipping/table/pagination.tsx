@@ -14,7 +14,7 @@ export function DataTablePagination<TData>({ table }: DataTablePaginationProps<T
     const trans = props.trans_general as Record<string, string>;
 
     return (
-        <div className="w-full max-w-full min-w-0 overflow-hidden border-t px-2 py-4">
+        <div className="w-full max-w-full min-w-0 overflow-hidden px-2 py-4">
             {/* === MOBILE VERSION (Compact) === */}
             <div className="flex flex-col items-center gap-3 md:hidden">
                 {/* Page Indicator */}

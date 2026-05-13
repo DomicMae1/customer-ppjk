@@ -43,6 +43,7 @@ interface ShipmentData {
     consignee?: string;
     vessel?: string;
     origin?: string;
+    port_of_loading?: string;
     port?: string;
     comodity?: string;
     aju?: string;
@@ -67,7 +68,8 @@ interface DocumentTrans {
     url_path_file?: string;
     logs: string;
     link_url_video_file?: string;
-    attribute: boolean;
+    import_mandatory: boolean;
+    export_mandatory: boolean;
     created_at: string;
     master_document?: {
         id_dokumen: number;
@@ -111,7 +113,8 @@ interface MasterDocument {
     link_path_example_file?: string;
     link_path_template_file?: string;
     link_url_video_file?: string;
-    attribute: boolean;
+    import_mandatory: boolean;
+    export_mandatory: boolean;
 }
 
 interface MasterSection {
@@ -157,6 +160,7 @@ export default function ViewCustomerForm({
     const auth = (props.auth as any) || {};
     const isInternalUser = userRole !== 'eksternal';
     const isSupervisor = auth.user?.permissions?.includes('assign_staff-master-shipping');
+    const canDeleteFile = auth.user?.permissions?.includes('delete-shipping-document') || auth.user?.role === 'admin';
     const isNpdSection = (section: any) => section.section_name.toLowerCase().includes('npd');
     const [tempFiles, setTempFiles] = useState<Record<number, string>>({});
     const [activeSection, setActiveSection] = useState<number | null>(null);
@@ -198,6 +202,9 @@ export default function ViewCustomerForm({
     const [useUnifiedDeadline, setUseUnifiedDeadline] = useState(true); // Checkbox: apply same deadline to all
     const [globalDeadlineDate, setGlobalDeadlineDate] = useState(''); // Global deadline (garis kuning)
     const [sectionDeadlines, setSectionDeadlines] = useState<Record<number, string>>({}); // Per-section deadlines (garis orange)
+    const [isSavingDeadline, setIsSavingDeadline] = useState(false);
+    const [isAssigningStaff, setIsAssigningStaff] = useState(false);
+    const [isProcessingHsCodesEdit, setIsProcessingHsCodesEdit] = useState(false);
     // Ref: tracks whether deadline states have been initialized from DB (so we don't override user edits on prop reload)
     const isDeadlineInitialized = useRef(false);
 
@@ -228,6 +235,7 @@ export default function ViewCustomerForm({
     const [blNumForm, setBlNumForm] = useState<string>(shipmentDataProp?.spkNumber || '');
     const [vesselForm, setVesselForm] = useState<string>((shipmentDataProp as any)?.vessel || '');
     const [originForm, setOriginForm] = useState<string>((shipmentDataProp as any)?.origin || '');
+    const [portOfLoadingForm, setPortOfLoadingForm] = useState<string>((shipmentDataProp as any)?.port_of_loading || '');
     const [portForm, setPortForm] = useState<string>((shipmentDataProp as any)?.port || '');
     const [comodityForm, setComodityForm] = useState<string>((shipmentDataProp as any)?.comodity || '');
     const [parties, setParties] = useState<any[]>(
@@ -261,6 +269,7 @@ export default function ViewCustomerForm({
                 consignee: consigneeForm,
                 vessel: vesselForm,
                 origin: originForm,
+                port_of_loading: portOfLoadingForm,
                 port: portForm,
                 comodity: comodityForm,
                 parties: parties,
@@ -273,7 +282,7 @@ export default function ViewCustomerForm({
         }, 3000);
 
         return () => clearTimeout(timeoutId);
-    }, [shipmentDataProp.id_spk, shipperForm, consigneeForm, vesselForm, originForm, portForm, comodityForm, parties, ajuForm, joForm]);
+    }, [shipmentDataProp.id_spk, shipperForm, consigneeForm, vesselForm, originForm, portOfLoadingForm, portForm, comodityForm, parties, ajuForm, joForm]);
 
     // Batch Verification State
     const [pendingVerifications, setPendingVerifications] = useState<number[]>([]);
@@ -298,6 +307,11 @@ export default function ViewCustomerForm({
     // New State for Verification Confirmation
     const [confirmVerifyModalOpen, setConfirmVerifyModalOpen] = useState(false);
     const [docToVerify, setDocToVerify] = useState<DocumentTrans | null>(null);
+
+    // New State for Remove Document from Section Confirmation
+    const [isRemoveDocumentModalOpen, setIsRemoveDocumentModalOpen] = useState(false);
+    const [documentToRemove, setDocumentToRemove] = useState<DocumentTrans | null>(null);
+    const [isRemovingDocument, setIsRemovingDocument] = useState(false);
 
     // ETA Date State
     const [etaDate, setEtaDate] = useState(shipmentDataProp?.eta_date ? shipmentDataProp.eta_date.split('T')[0].split(' ')[0] : '');
@@ -716,6 +730,7 @@ export default function ViewCustomerForm({
     };
 
     const handleSaveEdit = () => {
+        setIsProcessingHsCodesEdit(true);
         const formData = {
             hs_codes: hsCodes.map((item) => ({
                 id: typeof item.id === 'number' ? item.id : null, // Kirim ID jika numeric (lama), null jika string/nanoid (baru)
@@ -732,10 +747,12 @@ export default function ViewCustomerForm({
                 preserveScroll: true,
                 onSuccess: () => {
                     setIsEditingHsCodes(false);
+                    setIsProcessingHsCodesEdit(false);
                 },
                 onError: (errors) => {
                     toast.error('Gagal menyimpan perubahan. Periksa inputan Anda.');
                     console.error(errors);
+                    setIsProcessingHsCodesEdit(false);
                 },
             },
         );
@@ -821,7 +838,8 @@ export default function ViewCustomerForm({
                 link_path_example_file: undefined,
                 link_path_template_file: undefined,
                 link_url_video_file: undefined,
-                attribute: false,
+                import_mandatory: false,
+                export_mandatory: false,
             };
         }
 
@@ -1203,6 +1221,31 @@ export default function ViewCustomerForm({
     // Download ZIP Handler
     const [isDownloadingZip, setIsDownloadingZip] = useState(false);
 
+    const handleRemoveDocumentClick = (doc: DocumentTrans) => {
+        setDocumentToRemove(doc);
+        setIsRemoveDocumentModalOpen(true);
+    };
+
+    const confirmRemoveDocument = async () => {
+        if (!documentToRemove) return;
+        
+        setIsRemovingDocument(true);
+        try {
+            const response = await axios.post(`/shipping/document/${documentToRemove.id}/remove`);
+            if (response.data.success || response.status === 200) {
+                toast.success('Dokumen berhasil dihapus dari section');
+                setIsRemoveDocumentModalOpen(false);
+                setDocumentToRemove(null);
+                router.reload({ only: ['sectionsTransProp'] });
+            }
+        } catch (error: any) {
+            toast.error(error.response?.data?.message || 'Gagal menghapus dokumen');
+            console.error(error);
+        } finally {
+            setIsRemovingDocument(false);
+        }
+    };
+
     const handleDownloadZip = async () => {
         setIsDownloadingZip(true);
         try {
@@ -1266,10 +1309,19 @@ export default function ViewCustomerForm({
                                 {idx + 1}. {doc.master_document?.nama_dokumen || doc.nama_file}
                             </span>
 
-                            <CircleHelp
-                                className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer text-gray-500 hover:text-gray-700 dark:text-zinc-500 dark:hover:text-zinc-300"
-                                onClick={() => handleOpenHelp(doc)}
-                            />
+                            <div className="flex items-center gap-1 mt-0.5">
+                                <CircleHelp
+                                    className="h-4 w-4 shrink-0 cursor-pointer text-gray-500 hover:text-gray-700 dark:text-zinc-500 dark:hover:text-zinc-300"
+                                    onClick={() => handleOpenHelp(doc)}
+                                />
+                                {canDeleteFile && (
+                                    <Trash2
+                                        className="h-4 w-4 shrink-0 cursor-pointer text-gray-400 hover:text-red-500 transition-colors"
+                                        title={trans.delete_document || 'Hapus Dokumen'}
+                                        onClick={() => handleRemoveDocumentClick(doc)}
+                                    />
+                                )}
+                            </div>
 
                             {!canVerify && doc.url_path_file && (
                                 <div className="flex shrink-0 gap-1">
@@ -1451,6 +1503,7 @@ export default function ViewCustomerForm({
     };
 
     const handleSaveGlobalDeadline = async () => {
+        setIsSavingDeadline(true);
         try {
             await axios.post('/shipping/update-deadline', {
                 spk_id: shipmentData.id_spk,
@@ -1462,6 +1515,8 @@ export default function ViewCustomerForm({
         } catch (error: any) {
             console.error('Error saving global deadline:', error);
             toast.error('Gagal menyimpan deadline global.');
+        } finally {
+            setIsSavingDeadline(false);
         }
     };
 
@@ -1471,6 +1526,7 @@ export default function ViewCustomerForm({
             return;
         }
 
+        setIsAssigningStaff(true);
         router.post(
             `/shipping/${shipmentData.id_spk}/assign-staff`,
             {
@@ -1480,11 +1536,13 @@ export default function ViewCustomerForm({
                 preserveScroll: true,
                 onSuccess: () => {
                     toast.success('Staff assigned successfully');
+                    setIsAssigningStaff(false);
                 },
                 onError: (errors: any) => {
                     const errorMessage = errors.assigned_pic || errors.error || 'Failed to assign staff';
                     toast.error(errorMessage);
                     console.error(errors);
+                    setIsAssigningStaff(false);
                 },
             },
         );
@@ -1717,7 +1775,8 @@ export default function ViewCustomerForm({
                                         </Select>
                                         <Button
                                             onClick={handleAssignStaff}
-                                            className="h-9 rounded-lg bg-slate-900 px-3 text-xs font-bold text-white shadow-sm transition-colors hover:bg-slate-800"
+                                            disabled={isAssigningStaff}
+                                            className="h-9 rounded-lg bg-slate-900 px-3 text-xs font-bold text-white shadow-sm transition-colors hover:bg-slate-800 disabled:opacity-50"
                                             title={trans.assign || 'Assign'}
                                         >
                                             <Save className="h-3.5 w-3.5" />
@@ -2296,8 +2355,8 @@ export default function ViewCustomerForm({
                                 >
                                     {trans.cancel}
                                 </Button>
-                                <Button onClick={handleSaveEdit} className="flex-1 bg-black text-white hover:bg-gray-800 dark:bg-zinc-100 dark:text-black dark:hover:bg-zinc-300">
-                                    {trans.save_changes}
+                                <Button onClick={handleSaveEdit} disabled={isProcessingHsCodesEdit} className="flex-1 bg-black text-white hover:bg-gray-800 dark:bg-zinc-100 dark:text-black dark:hover:bg-zinc-300">
+                                    {isProcessingHsCodesEdit ? 'Saving...' : trans.save_changes}
                                 </Button>
                             </DialogFooter>
                         </DialogContent>
@@ -2362,11 +2421,21 @@ export default function ViewCustomerForm({
                                         className="h-9 rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-900"
                                     />
                                 </div>
-                                {/* Port */}
+                                {/* Port Of Loading */}
+                                <div className="space-y-1.5">
+                                    <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.port_of_loading || 'Port Of Loading'}</Label>
+                                    <MemoizedInput
+                                        placeholder="Input Port Of Loading"
+                                        value={portOfLoadingForm}
+                                        onValueChange={(val) => setPortOfLoadingForm(val)}
+                                        className="h-9 rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-900"
+                                    />
+                                </div>
+                                {/* Port Of Discharge (Previously Port) */}
                                 <div className="space-y-1.5">
                                     <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.port}</Label>
                                     <MemoizedInput
-                                        placeholder="Input Port Of Destination"
+                                        placeholder="Input Port Of Discharge"
                                         value={portForm}
                                         onValueChange={(val) => setPortForm(val)}
                                         className="h-9 rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-900"
@@ -2503,7 +2572,7 @@ export default function ViewCustomerForm({
                                                 <div className="space-y-1">
                                                     <Label className="text-[9px] font-bold text-slate-400 uppercase">{party.party_type === 'FCL' ? 'Party' : 'Quantity'}</Label>
                                                     <MemoizedInput
-                                                        placeholder="Qty"
+                                                        placeholder="Size"
                                                         value={party.party_qty}
                                                         onValueChange={(val) => {
                                                             const newParties = [...parties];
@@ -2591,10 +2660,11 @@ export default function ViewCustomerForm({
                                 <div className="mt-2 flex justify-end">
                                     <Button
                                         onClick={handleSaveGlobalDeadline}
-                                        className="h-8 rounded bg-black px-4 text-xs font-bold text-white hover:bg-gray-800"
+                                        disabled={isSavingDeadline}
+                                        className="h-8 rounded bg-black px-4 text-xs font-bold text-white hover:bg-gray-800 disabled:opacity-50"
                                     >
                                         <Save className="mr-2 h-3 w-3" />
-                                        {trans.save_changes || 'Save Settings'}
+                                        {isSavingDeadline ? 'Saving...' : trans.save_changes || 'Save Settings'}
                                     </Button>
                                 </div>
                             </div>
@@ -3184,6 +3254,44 @@ export default function ViewCustomerForm({
                 idSpk={shipmentData?.id_spk}
                 sections={sectionsTransProp}
             />
+
+            <Dialog open={isRemoveDocumentModalOpen} onOpenChange={setIsRemoveDocumentModalOpen}>
+                <DialogContent className="max-w-md rounded-2xl p-6 dark:border-zinc-800 dark:bg-zinc-900">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-xl font-bold dark:text-white">
+                            <AlertTriangle className="h-6 w-6 text-rose-500" />
+                            {trans.confirm_removal || 'Konfirmasi Hapus'}
+                        </DialogTitle>
+                    </DialogHeader>
+
+                    <div className="py-4">
+                        <p className="text-slate-600 dark:text-zinc-400">
+                            Apakah Anda yakin ingin menghapus dokumen{' '}
+                            <span className="font-bold text-slate-900 dark:text-white">"{documentToRemove?.master_document?.nama_dokumen || documentToRemove?.nama_file}"</span>{' '}
+                            dari section ini?
+                        </p>
+                    </div>
+
+                    <DialogFooter className="flex gap-3 sm:justify-end">
+                        <Button
+                            variant="outline"
+                            className="rounded-xl border-slate-200 px-6 dark:border-zinc-700 dark:text-zinc-300"
+                            onClick={() => setIsRemoveDocumentModalOpen(false)}
+                            disabled={isRemovingDocument}
+                        >
+                            {trans.cancel || 'Batal'}
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            className="rounded-xl bg-rose-600 px-6 text-white hover:bg-rose-700 disabled:opacity-50"
+                            onClick={confirmRemoveDocument}
+                            disabled={isRemovingDocument}
+                        >
+                            {isRemovingDocument ? trans.removing || 'Menghapus...' : trans.confirm_delete || 'Hapus Sekarang'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             <Dialog open={isRemoveSectionModalOpen} onOpenChange={setIsRemoveSectionModalOpen}>
                 <DialogContent className="max-w-md rounded-2xl p-6 dark:border-zinc-800 dark:bg-zinc-900">

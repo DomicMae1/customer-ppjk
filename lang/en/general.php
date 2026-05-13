@@ -12,7 +12,7 @@ return [
     'delete' => 'Delete',
     'close' => 'Close',
 
-    'spk_number' => 'SPK Number',
+    'spk_number' => 'BL/SI',
     'customer_name' => 'Customer Name',
     'status_description' => 'Status Description',
     'channel' => 'Channel',
@@ -293,7 +293,8 @@ return [
     'consignee' => 'Consignee (C\'NEE)',
     'vessel' => 'Vessel',
     'origin' => 'Origin',
-    'port' => 'Port Of Destination',
+    'port_of_loading' => 'Port Of Loading',
+    'port' => 'Port Of Discharge',
     'comodity' => 'Commodity',
     'party' => 'Party',
     'aju' => 'AJU',

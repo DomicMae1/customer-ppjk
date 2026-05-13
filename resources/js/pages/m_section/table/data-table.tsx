@@ -63,6 +63,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'section_n
     const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
     const [rowSelection, setRowSelection] = React.useState({});
     const [openCreate, setOpenCreate] = React.useState(false);
+    const [isProcessing, setIsProcessing] = useState(false);
 
     const [form, setForm] = useState({
         section_name: '',
@@ -134,12 +135,17 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'section_n
             payload.deadline_date = form.deadline_date || null;
         }
 
+        setIsProcessing(true);
         router.post('/section', payload, {
             onSuccess: () => {
                 setOpenCreate(false);
                 resetForm();
+                setIsProcessing(false);
             },
-            onError: (errors) => console.error(errors),
+            onError: (errors) => {
+                console.error(errors);
+                setIsProcessing(false);
+            },
         });
     };
 
@@ -379,9 +385,10 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'section_n
                         <Button
                             type="button"
                             onClick={handleSubmit}
+                            disabled={isProcessing}
                             className="bg-primary text-primary-foreground h-11 w-full font-bold shadow-md sm:h-10 sm:w-auto"
                         >
-                            {trans_sec.btn_save || 'Simpan'}
+                            {isProcessing ? 'Saving...' : (trans_sec.btn_save || 'Simpan')}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

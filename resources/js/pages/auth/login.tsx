@@ -86,7 +86,7 @@ export default function Login({ status, canResetPassword, company, trans_auth, l
                         </Label>
                         <Input
                             id="email"
-                            type="email"
+                            type="text"
                             required
                             autoFocus
                             tabIndex={1}

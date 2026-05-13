@@ -11,7 +11,7 @@ return [
     'delete' => 'Hapus',
     'close' => 'Tutup',
 
-    'spk_number' => 'Nomor SPK',
+    'spk_number' => 'BL/SI',
     'customer_name' => 'Nama Customer',
     'status_description' => 'Keterangan Status',
     'channel' => 'Penjaluran', // Jalur
@@ -292,7 +292,8 @@ return [
     'consignee' => 'Consignee (C\'NEE)',
     'vessel' => 'Vessel',
     'origin' => 'Asal',
-    'port' => 'Pelabuhan Tujuan',
+    'port_of_loading' => 'Pelabuhan Muat',
+    'port' => 'Pelabuhan Bongkar',
     'comodity' => 'Komoditi',
     'party' => 'Party',
     'aju' => 'AJU',

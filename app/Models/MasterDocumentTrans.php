@@ -23,7 +23,8 @@ class MasterDocumentTrans extends Model
         'nama_file',
         'is_internal',
         'is_verification',
-        'attribute',
+        'import_mandatory',
+        'export_mandatory',
         'link_path_example_file',
         'link_path_template_file',
         'link_url_video_file',
@@ -42,7 +43,8 @@ class MasterDocumentTrans extends Model
         'is_internal' => 'boolean', // Added
         'is_verification' => 'boolean', // New
         'is_confirmed' => 'boolean',
-        'attribute' => 'boolean',
+        'import_mandatory' => 'boolean',
+        'export_mandatory' => 'boolean',
         'is_ori' => 'boolean',
         'is_print' => 'boolean',
         'deadline_document' => 'boolean',
