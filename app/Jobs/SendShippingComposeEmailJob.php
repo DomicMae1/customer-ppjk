@@ -59,26 +59,37 @@ class SendShippingComposeEmailJob implements ShouldQueue
         $attachedNames = [];
         $disk = Storage::disk('customers_external');
 
+        // Helper: normalise path for disk lookups (strip leading slash)
+        $normalisePath = function (string $path): string {
+            return ltrim($path, '/');
+        };
+
         // 1. Prepare DocumentTrans attachments & names
         foreach ($this->documentIds as $idDokumen) {
             $doc = $latestDocs->get((int) $idDokumen);
-            if ($doc && $doc->url_path_file && $disk->exists($doc->url_path_file)) {
-                $originalName = $doc->nama_file ?? $doc->masterDocument?->nama_dokumen ?? basename($doc->url_path_file);
+            if (!$doc || !$doc->url_path_file) continue;
+            $filePath = $normalisePath($doc->url_path_file);
+            if ($disk->exists($filePath)) {
+                $originalName = $doc->nama_file ?? $doc->masterDocument?->nama_dokumen ?? basename($filePath);
                 $safeName = str_replace(['/', '\\'], '-', $originalName);
                 
-                $pathExt = pathinfo($doc->url_path_file, PATHINFO_EXTENSION);
+                $pathExt = pathinfo($filePath, PATHINFO_EXTENSION);
                 if ($pathExt && !str_ends_with(strtolower($safeName), '.' . strtolower($pathExt))) {
                     $safeName .= '.' . $pathExt;
                 }
                 $attachedNames[] = $safeName;
+            } else {
+                Log::warning("[SendShippingComposeEmailJob] File tidak ditemukan di disk untuk id_dokumen={$idDokumen}, path={$filePath}, spk={$this->spkId}");
             }
         }
 
         // 2. Manual Uploads
         foreach ($this->tempFilePaths as $temp) {
             $path = $temp['path'] ?? null;
-            if ($path && $disk->exists($path)) {
-                $name = $temp['name'] ?? basename($path);
+            if (!$path) continue;
+            $normPath = $normalisePath($path);
+            if ($disk->exists($normPath)) {
+                $name = $temp['name'] ?? basename($normPath);
                 $attachedNames[] = str_replace(['/', '\\'], '-', $name);
             }
         }
@@ -95,29 +106,33 @@ class SendShippingComposeEmailJob implements ShouldQueue
         foreach ($this->documentIds as $idDokumen) {
             $doc = $latestDocs->get((int) $idDokumen);
             if (!$doc || !$doc->url_path_file) {
-                continue;
-            }
-            if (!$disk->exists($doc->url_path_file)) {
-                Log::warning("Job Attachment Missing: {$doc->url_path_file} for SPK {$this->spkId}");
+                Log::warning("[SendShippingComposeEmailJob] Dokumen id_dokumen={$idDokumen} tidak ditemukan di DocumentTrans atau url_path_file kosong, spk={$this->spkId}");
                 continue;
             }
 
-            $fileContent = $disk->get($doc->url_path_file);
-            
+            $filePath = $normalisePath($doc->url_path_file);
+
+            if (!$disk->exists($filePath)) {
+                Log::error("[SendShippingComposeEmailJob] File fisik tidak ada: id_dokumen={$idDokumen}, path={$filePath}, spk={$this->spkId}");
+                continue;
+            }
+
+            $fileContent = $disk->get($filePath);
+
             // Tentukan nama file: gunakan nama_file dari DB atau basename dari path
-            $originalName = $doc->nama_file ?? basename($doc->url_path_file);
-            
+            $originalName = $doc->nama_file ?? basename($filePath);
+
             // Bersihkan nama dari karakter bermasalah (seperti / di "Draft PIB/PEB")
             $safeName = str_replace(['/', '\\'], '-', $originalName);
 
             // Pastikan ada ekstensi jika di nama tidak ada tapi di path ada
-            $pathExt = pathinfo($doc->url_path_file, PATHINFO_EXTENSION);
+            $pathExt = pathinfo($filePath, PATHINFO_EXTENSION);
             if ($pathExt && !str_ends_with(strtolower($safeName), '.' . strtolower($pathExt))) {
                 $safeName .= '.' . $pathExt;
             }
 
             try {
-                $mime = $disk->mimeType($doc->url_path_file);
+                $mime = $disk->mimeType($filePath);
                 $mailable->attachData($fileContent, $safeName, ['mime' => $mime]);
             } catch (\Exception $e) {
                 $mailable->attachData($fileContent, $safeName);
@@ -128,14 +143,17 @@ class SendShippingComposeEmailJob implements ShouldQueue
         foreach ($this->tempFilePaths as $temp) {
             $path = $temp['path'] ?? null;
             $name = $temp['name'] ?? null;
-            if (!$path || !$disk->exists($path)) {
+            if (!$path) continue;
+            $normPath = $normalisePath($path);
+            if (!$disk->exists($normPath)) {
+                Log::warning("[SendShippingComposeEmailJob] Manual upload file tidak ditemukan: {$normPath}, spk={$this->spkId}");
                 continue;
             }
-            $fileContent = $disk->get($path);
-            $safeName = str_replace(['/', '\\'], '-', $name ?: basename($path));
-            
+            $fileContent = $disk->get($normPath);
+            $safeName = str_replace(['/', '\\'], '-', $name ?: basename($normPath));
+
             try {
-                $mime = $disk->mimeType($path);
+                $mime = $disk->mimeType($normPath);
                 $mailable->attachData($fileContent, $safeName, ['mime' => $mime]);
             } catch (\Exception $e) {
                 $mailable->attachData($fileContent, $safeName);
@@ -182,7 +200,7 @@ class SendShippingComposeEmailJob implements ShouldQueue
         foreach ($this->tempFilePaths as $temp) {
             $path = $temp['path'] ?? null;
             if ($path) {
-                $disk->delete($path);
+                $disk->delete($normalisePath($path));
             }
         }
     }

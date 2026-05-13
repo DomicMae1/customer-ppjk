@@ -3481,11 +3481,12 @@ class ShippingController extends Controller
         foreach ($attachIds as $idDokumen) {
             $doc = $latestDocs->get($idDokumen);
             if (!$doc || !$doc->url_path_file) continue;
-            if (!$disk->exists($doc->url_path_file)) {
+            $normPath = ltrim($doc->url_path_file, '/');
+            if (!$disk->exists($normPath)) {
                 return response()->json(['message' => 'Attachment dokumen tidak ditemukan di server'], 422);
             }
             try {
-                $totalBytes += (int) $disk->size($doc->url_path_file);
+                $totalBytes += (int) $disk->size($normPath);
             } catch (\Throwable $e) {
                 // ignore size calculation failures; mailer will validate at send time
             }
