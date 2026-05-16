@@ -38,25 +38,25 @@ export type Shipping = {
 
 const freezeHeaderBg = 'bg-slate-100 text-slate-700 dark:bg-zinc-800 dark:text-zinc-100';
 
-const stickyViewHeader = `sticky left-0 z-50 w-[100px] min-w-[100px] align-middle ${freezeHeaderBg}`;
+const stickyViewHeader = `sticky top-0 left-0 z-[60] w-[100px] min-w-[100px] align-middle ${freezeHeaderBg}`;
 
-const stickyCustomerHeader = `sticky left-[100px] z-50 w-[130px] min-w-[130px] align-middle ${freezeHeaderBg}`;
+const stickyCustomerHeader = `sticky top-0 left-[100px] z-[60] w-[130px] min-w-[130px] align-middle ${freezeHeaderBg}`;
 
-const stickySpkHeader = `sticky left-[230px] z-50 w-[150px] min-w-[150px] align-middle ${freezeHeaderBg}`;
+const stickySpkHeader = `sticky top-0 left-[230px] z-[60] w-[150px] min-w-[150px] align-middle ${freezeHeaderBg}`;
 
-const stickyDrafterHeader = `sticky left-[380px] z-50 w-[150px] min-w-[150px] align-middle ${freezeHeaderBg}`;
+const stickyDrafterHeader = `sticky top-0 left-[380px] z-[60] w-[150px] min-w-[150px] align-middle ${freezeHeaderBg}`;
 
-const stickyEtaHeader = `sticky left-[530px] z-40 w-[180px] min-w-[180px] bg-background align-middle shadow-[6px_0_12px_-10px_rgba(0,0,0,0.8)] ${freezeHeaderBg}`;
+const stickyEtaHeader = `sticky top-0 left-[530px] z-[60] w-[180px] min-w-[180px] align-middle shadow-[6px_0_12px_-10px_rgba(0,0,0,0.8)] ${freezeHeaderBg}`;
 
-const stickyViewCell = 'sticky left-0 z-40 w-[100px] min-w-[100px] bg-background align-middle';
+const stickyViewCell = 'sticky left-0 z-30 w-[100px] min-w-[100px] bg-background align-middle';
 
-const stickyCustomerCell = 'sticky left-[100px] z-40 w-[130px] min-w-[130px] bg-background align-middle';
+const stickyCustomerCell = 'sticky left-[100px] z-30 w-[130px] min-w-[130px] bg-background align-middle';
 
-const stickySpkCell = 'sticky left-[230px] z-40 w-[150px] min-w-[150px] bg-background align-middle';
+const stickySpkCell = 'sticky left-[230px] z-30 w-[150px] min-w-[150px] bg-background align-middle';
 
-const stickyDrafterCell = 'sticky left-[380px] z-40 w-[150px] min-w-[150px] bg-background align-middle';
+const stickyDrafterCell = 'sticky left-[380px] z-30 w-[150px] min-w-[150px] bg-background align-middle';
 
-const stickyEtaCell = 'sticky left-[530px] z-40 w-[180px] min-w-[180px] bg-background align-middle shadow-[6px_0_12px_-10px_rgba(0,0,0,0.8)]';
+const stickyEtaCell = 'sticky left-[530px] z-30 w-[180px] min-w-[180px] bg-background align-middle shadow-[6px_0_12px_-10px_rgba(0,0,0,0.8)]';
 
 const th = 'px-3 py-3 text-left align-middle text-sm font-medium whitespace-nowrap';
 const td = 'px-3 py-3 text-left align-middle text-sm';
@@ -280,12 +280,13 @@ export const columns = (
                         <span className="text-sm leading-none">{formatted}</span>
 
                         <div
-                            className={`mt-1 inline-flex w-fit items-center rounded-full px-2 py-0.5 text-[11px] font-bold ${diffDays > 0
-                                ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400'
-                                : diffDays === 0
-                                    ? 'bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400'
-                                    : 'bg-slate-100 text-slate-600 dark:bg-zinc-800 dark:text-zinc-300'
-                                }`}
+                            className={`mt-1 inline-flex w-fit items-center rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                                diffDays > 0
+                                    ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400'
+                                    : diffDays === 0
+                                      ? 'bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400'
+                                      : 'bg-slate-100 text-slate-600 dark:bg-zinc-800 dark:text-zinc-300'
+                            }`}
                         >
                             {diffDays > 0 ? `H-${diffDays}` : diffDays === 0 ? 'ETA Hari Ini' : `Lewat ${Math.abs(diffDays)} Hari`}
                         </div>

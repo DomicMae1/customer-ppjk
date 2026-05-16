@@ -1154,7 +1154,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                 )}
             </div>
 
-            <div className="border-border hidden w-full overflow-x-auto rounded-2xl border md:block">
+            <div className="border-border hidden w-full overflow-hidden rounded-2xl border md:block">
                 <Table className="min-w-[1700px]">
                     <TableHeader>
                         {table.getHeaderGroups().map((headerGroup) => (

@@ -153,7 +153,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_peru
             {/* --- DESKTOP TABLE --- */}
             <div className="border-border bg-card hidden overflow-hidden rounded-md border shadow-sm md:block">
                 <Table>
-                    <TableHeader className="bg-muted/50">
+                    <TableHeader className="bg-muted">
                         {' '}
                         {/* Menggunakan bg-muted agar adaptif di dark mode */}
                         {table.getHeaderGroups().map((headerGroup) => (

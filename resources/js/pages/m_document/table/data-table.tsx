@@ -202,7 +202,10 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
     };
 
     // Helper Boolean
-    const handleBooleanChange = (field: 'is_internal' | 'import_mandatory' | 'export_mandatory' | 'is_confirmed' | 'is_ori' | 'is_print' | 'is_send_email', value: boolean) => {
+    const handleBooleanChange = (
+        field: 'is_internal' | 'import_mandatory' | 'export_mandatory' | 'is_confirmed' | 'is_ori' | 'is_print' | 'is_send_email',
+        value: boolean,
+    ) => {
         setForm((prev) => ({ ...prev, [field]: value }));
     };
 
@@ -420,7 +423,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
             {/* --- DESKTOP VIEW (Table Layout) --- */}
             <div className="border-border bg-card hidden overflow-hidden rounded-md border md:block">
                 <Table>
-                    <TableHeader className="bg-muted/50">
+                    <TableHeader className="bg-muted">
                         {table.getHeaderGroups().map((headerGroup) => (
                             <TableRow key={headerGroup.id} className="border-border hover:bg-transparent">
                                 {headerGroup.headers.map((header) => (
@@ -535,11 +538,14 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
                             </div>
 
                             {Number(form.id_section) !== 6 && (
-                                <div className="col-span-1 sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div className="col-span-1 grid grid-cols-1 gap-4 sm:col-span-2 sm:grid-cols-2">
                                     <div>
                                         <FieldLabelWithTooltip
                                             label={trans_doc.label_must_shipping_import || 'Must in Shipping (Import)'}
-                                            tooltip={trans_doc.label_must_shipping_import_desc || 'Determines whether this document is required in the import shipping process.'}
+                                            tooltip={
+                                                trans_doc.label_must_shipping_import_desc ||
+                                                'Determines whether this document is required in the import shipping process.'
+                                            }
                                             required
                                         />
                                         <div className="flex gap-2">
@@ -564,7 +570,10 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
                                     <div>
                                         <FieldLabelWithTooltip
                                             label={trans_doc.label_must_shipping_export || 'Must in Shipping (Export)'}
-                                            tooltip={trans_doc.label_must_shipping_export_desc || 'Determines whether this document is required in the export shipping process.'}
+                                            tooltip={
+                                                trans_doc.label_must_shipping_export_desc ||
+                                                'Determines whether this document is required in the export shipping process.'
+                                            }
                                             required
                                         />
                                         <div className="flex gap-2">

@@ -219,11 +219,13 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="all">All Roles</SelectItem>
-                            {roles.filter((role) => role.role_type === 'internal').map((role) => (
-                                <SelectItem key={role.id} value={role.name}>
-                                    {role.name.charAt(0).toUpperCase() + role.name.slice(1)}
-                                </SelectItem>
-                            ))}
+                            {roles
+                                .filter((role) => role.role_type === 'internal')
+                                .map((role) => (
+                                    <SelectItem key={role.id} value={role.name}>
+                                        {role.name.charAt(0).toUpperCase() + role.name.slice(1)}
+                                    </SelectItem>
+                                ))}
                         </SelectContent>
                     </Select>
                 </div>
@@ -320,7 +322,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
             {/* --- DESKTOP VIEW: TABLE --- */}
             <div className="border-border bg-card hidden overflow-hidden rounded-md border md:block">
                 <Table>
-                    <TableHeader className="bg-muted/50">
+                    <TableHeader className="bg-muted">
                         {table.getHeaderGroups().map((headerGroup) => (
                             <TableRow key={headerGroup.id} className="border-border hover:bg-transparent">
                                 {headerGroup.headers.map((header) => (
