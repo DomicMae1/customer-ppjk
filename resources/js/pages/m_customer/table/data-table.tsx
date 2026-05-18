@@ -163,7 +163,7 @@ export function DataTable<TData, TValue>({ columns, data, onCreateClick }: DataT
             </div>
             <div className="border-border bg-card hidden overflow-hidden rounded-md border md:block">
                 <Table>
-                    <TableHeader className="bg-muted/50">
+                    <TableHeader className="bg-muted">
                         {table.getHeaderGroups().map((headerGroup) => (
                             <TableRow key={headerGroup.id} className="border-border hover:bg-transparent">
                                 {headerGroup.headers.map((header) => (

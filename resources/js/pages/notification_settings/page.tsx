@@ -1,12 +1,11 @@
-import { Head } from '@inertiajs/react';
-import AppSidebarLayout from '@/layouts/app/app-sidebar-layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import axios from 'axios';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import AppSidebarLayout from '@/layouts/app/app-sidebar-layout';
+import { Head } from '@inertiajs/react';
+import axios from 'axios';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
 interface Company {
@@ -32,7 +31,7 @@ const EVENT_TYPES = [
 export default function NotificationSettings({ companies, roles }: PageProps) {
     const [selectedCompany, setSelectedCompany] = useState<string>('');
     const [activeTab, setActiveTab] = useState<'channel' | 'reminder'>('channel');
-    
+
     const [channelSettings, setChannelSettings] = useState<any[]>([]);
     const [reminderSettings, setReminderSettings] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -101,21 +100,26 @@ export default function NotificationSettings({ companies, roles }: PageProps) {
 
     const getReminderValue = (role: string, type: 'deadline' | 'eta') => {
         const setting = reminderSettings.find((s) => s.role_internal === role && s.reminder_type === type);
-        return setting || {
-            is_active: false,
-            days_before: [],
-            send_email: true,
-            send_notification: true
-        };
+        return (
+            setting || {
+                is_active: false,
+                days_before: [],
+                send_email: true,
+                send_notification: true,
+            }
+        );
     };
 
     const handleReminderChange = async (role: string, type: 'deadline' | 'eta', field: string, value: any) => {
         const current = getReminderValue(role, type);
-        
+
         let processedValue = value;
         if (field === 'days_before') {
             // parse string "5, 3, 1" to array of integers
-            processedValue = value.split(',').map((v: string) => parseInt(v.trim())).filter((v: number) => !isNaN(v));
+            processedValue = value
+                .split(',')
+                .map((v: string) => parseInt(v.trim()))
+                .filter((v: number) => !isNaN(v));
         }
 
         const payload = {
@@ -148,7 +152,12 @@ export default function NotificationSettings({ companies, roles }: PageProps) {
     };
 
     return (
-        <AppSidebarLayout breadcrumbs={[{ title: 'Settings', url: '#' }, { title: 'Notification', url: '#' }]}>
+        <AppSidebarLayout
+            breadcrumbs={[
+                { title: 'Settings', url: '#' },
+                { title: 'Notification', url: '#' },
+            ]}
+        >
             <Head title="Notification Settings" />
             <div className="flex h-full flex-1 flex-col gap-4 p-4">
                 <div className="flex items-center justify-between">
@@ -173,16 +182,16 @@ export default function NotificationSettings({ companies, roles }: PageProps) {
                 <div className="flex gap-4 border-b">
                     <button
                         onClick={() => setActiveTab('channel')}
-                        className={`pb-2 px-4 font-medium transition-colors ${
-                            activeTab === 'channel' ? 'border-b-2 border-primary text-primary' : 'text-gray-500 hover:text-gray-700'
+                        className={`px-4 pb-2 font-medium transition-colors ${
+                            activeTab === 'channel' ? 'border-primary text-primary border-b-2' : 'text-gray-500 hover:text-gray-700'
                         }`}
                     >
                         Channel Settings (Email & In-App)
                     </button>
                     <button
                         onClick={() => setActiveTab('reminder')}
-                        className={`pb-2 px-4 font-medium transition-colors ${
-                            activeTab === 'reminder' ? 'border-b-2 border-primary text-primary' : 'text-gray-500 hover:text-gray-700'
+                        className={`px-4 pb-2 font-medium transition-colors ${
+                            activeTab === 'reminder' ? 'border-primary text-primary border-b-2' : 'text-gray-500 hover:text-gray-700'
                         }`}
                     >
                         Automated Reminders
@@ -197,41 +206,59 @@ export default function NotificationSettings({ companies, roles }: PageProps) {
                             <Card>
                                 <CardHeader>
                                     <CardTitle>Channel Toggles</CardTitle>
-                                    <CardDescription>Aktifkan atau nonaktifkan Email dan Notifikasi In-App untuk setiap aktivitas dan role.</CardDescription>
+                                    <CardDescription>
+                                        Aktifkan atau nonaktifkan Email dan Notifikasi In-App untuk setiap aktivitas dan role.
+                                    </CardDescription>
                                 </CardHeader>
                                 <CardContent>
-                                    <div className="overflow-x-auto rounded-md border">
-                                        <table className="w-full text-sm text-left">
-                                            <thead className="bg-muted text-muted-foreground uppercase text-xs">
+                                    <div className="max-h-[calc(100vh-18rem)] overflow-auto rounded-md border">
+                                        <table className="w-full text-left text-sm">
+                                            <thead className="bg-muted text-muted-foreground sticky top-0 z-20 text-xs uppercase">
                                                 <tr>
-                                                    <th className="p-4 font-medium border-r">Event Type</th>
+                                                    <th className="border-r p-4 font-medium">Event Type</th>
                                                     {roles.map((role) => (
-                                                        <th key={role} className="p-4 font-medium text-center border-r capitalize">{role}</th>
+                                                        <th key={role} className="border-r p-4 text-center font-medium capitalize">
+                                                            {role}
+                                                        </th>
                                                     ))}
                                                 </tr>
                                             </thead>
                                             <tbody>
                                                 {EVENT_TYPES.map((event) => (
                                                     <tr key={event.id} className="border-b last:border-b-0">
-                                                        <td className="p-4 font-medium border-r bg-muted/30">{event.label}</td>
+                                                        <td className="bg-muted/30 border-r p-4 font-medium">{event.label}</td>
                                                         {roles.map((role) => (
-                                                            <td key={`${event.id}-${role}`} className="p-4 border-r align-top">
-                                                                <div className="flex flex-col gap-3 items-center">
+                                                            <td key={`${event.id}-${role}`} className="border-r p-4 align-top">
+                                                                <div className="flex flex-col items-center gap-3">
                                                                     <div className="flex items-center gap-2">
-                                                                        <Checkbox 
+                                                                        <Checkbox
                                                                             checked={getChannelValue(role, event.id, 'email')}
-                                                                            onCheckedChange={(val) => handleChannelChange(role, event.id, 'email', val as boolean)}
+                                                                            onCheckedChange={(val) =>
+                                                                                handleChannelChange(role, event.id, 'email', val as boolean)
+                                                                            }
                                                                             id={`email-${event.id}-${role}`}
                                                                         />
-                                                                        <label htmlFor={`email-${event.id}-${role}`} className="text-xs cursor-pointer">Email</label>
+                                                                        <label
+                                                                            htmlFor={`email-${event.id}-${role}`}
+                                                                            className="cursor-pointer text-xs"
+                                                                        >
+                                                                            Email
+                                                                        </label>
                                                                     </div>
                                                                     <div className="flex items-center gap-2">
-                                                                        <Checkbox 
+                                                                        <Checkbox
                                                                             checked={getChannelValue(role, event.id, 'notification')}
-                                                                            onCheckedChange={(val) => handleChannelChange(role, event.id, 'notification', val as boolean)}
+                                                                            onCheckedChange={(val) =>
+                                                                                handleChannelChange(role, event.id, 'notification', val as boolean)
+                                                                            }
                                                                             id={`notif-${event.id}-${role}`}
                                                                         />
-                                                                        <label htmlFor={`notif-${event.id}-${role}`} className="text-xs cursor-pointer">In-App</label>
+                                                                        <label
+                                                                            htmlFor={`notif-${event.id}-${role}`}
+                                                                            className="cursor-pointer text-xs"
+                                                                        >
+                                                                            In-App
+                                                                        </label>
                                                                     </div>
                                                                 </div>
                                                             </td>
@@ -246,7 +273,7 @@ export default function NotificationSettings({ companies, roles }: PageProps) {
                         )}
 
                         {activeTab === 'reminder' && (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                                 {/* Deadline Reminders */}
                                 <Card>
                                     <CardHeader>
@@ -254,47 +281,61 @@ export default function NotificationSettings({ companies, roles }: PageProps) {
                                         <CardDescription>Notifikasi otomatis sebelum batas waktu section.</CardDescription>
                                     </CardHeader>
                                     <CardContent className="space-y-6">
-                                        {roles.map(role => {
+                                        {roles.map((role) => {
                                             const val = getReminderValue(role, 'deadline');
                                             return (
-                                                <div key={`dl-${role}`} className="flex flex-col gap-3 p-4 border rounded-md">
+                                                <div key={`dl-${role}`} className="flex flex-col gap-3 rounded-md border p-4">
                                                     <div className="flex items-center justify-between">
                                                         <h4 className="font-semibold capitalize">{role}</h4>
                                                         <div className="flex items-center gap-2">
-                                                            <Checkbox 
+                                                            <Checkbox
                                                                 checked={val.is_active}
                                                                 onCheckedChange={(c) => handleReminderChange(role, 'deadline', 'is_active', c)}
                                                                 id={`dl-active-${role}`}
                                                             />
-                                                            <label htmlFor={`dl-active-${role}`} className="text-sm">Active</label>
+                                                            <label htmlFor={`dl-active-${role}`} className="text-sm">
+                                                                Active
+                                                            </label>
                                                         </div>
                                                     </div>
                                                     {val.is_active && (
                                                         <>
                                                             <div className="flex flex-col gap-1">
-                                                                <label className="text-xs text-gray-500">Kirim Peringatan pada (H-x) Hari. Pisahkan dengan koma.</label>
-                                                                <Input 
+                                                                <label className="text-xs text-gray-500">
+                                                                    Kirim Peringatan pada (H-x) Hari. Pisahkan dengan koma.
+                                                                </label>
+                                                                <Input
                                                                     placeholder="e.g. 5, 3, 1"
                                                                     defaultValue={val.days_before?.join(', ')}
-                                                                    onBlur={(e) => handleReminderChange(role, 'deadline', 'days_before', e.target.value)}
+                                                                    onBlur={(e) =>
+                                                                        handleReminderChange(role, 'deadline', 'days_before', e.target.value)
+                                                                    }
                                                                 />
                                                             </div>
-                                                            <div className="flex items-center gap-4 mt-2">
+                                                            <div className="mt-2 flex items-center gap-4">
                                                                 <div className="flex items-center gap-2">
-                                                                    <Checkbox 
+                                                                    <Checkbox
                                                                         checked={val.send_email}
-                                                                        onCheckedChange={(c) => handleReminderChange(role, 'deadline', 'send_email', c)}
+                                                                        onCheckedChange={(c) =>
+                                                                            handleReminderChange(role, 'deadline', 'send_email', c)
+                                                                        }
                                                                         id={`dl-em-${role}`}
                                                                     />
-                                                                    <label htmlFor={`dl-em-${role}`} className="text-sm">Email</label>
+                                                                    <label htmlFor={`dl-em-${role}`} className="text-sm">
+                                                                        Email
+                                                                    </label>
                                                                 </div>
                                                                 <div className="flex items-center gap-2">
-                                                                    <Checkbox 
+                                                                    <Checkbox
                                                                         checked={val.send_notification}
-                                                                        onCheckedChange={(c) => handleReminderChange(role, 'deadline', 'send_notification', c)}
+                                                                        onCheckedChange={(c) =>
+                                                                            handleReminderChange(role, 'deadline', 'send_notification', c)
+                                                                        }
                                                                         id={`dl-notif-${role}`}
                                                                     />
-                                                                    <label htmlFor={`dl-notif-${role}`} className="text-sm">In-App</label>
+                                                                    <label htmlFor={`dl-notif-${role}`} className="text-sm">
+                                                                        In-App
+                                                                    </label>
                                                                 </div>
                                                             </div>
                                                         </>
@@ -312,47 +353,57 @@ export default function NotificationSettings({ companies, roles }: PageProps) {
                                         <CardDescription>Notifikasi otomatis sebelum kedatangan kapal.</CardDescription>
                                     </CardHeader>
                                     <CardContent className="space-y-6">
-                                        {roles.map(role => {
+                                        {roles.map((role) => {
                                             const val = getReminderValue(role, 'eta');
                                             return (
-                                                <div key={`eta-${role}`} className="flex flex-col gap-3 p-4 border rounded-md">
+                                                <div key={`eta-${role}`} className="flex flex-col gap-3 rounded-md border p-4">
                                                     <div className="flex items-center justify-between">
                                                         <h4 className="font-semibold capitalize">{role}</h4>
                                                         <div className="flex items-center gap-2">
-                                                            <Checkbox 
+                                                            <Checkbox
                                                                 checked={val.is_active}
                                                                 onCheckedChange={(c) => handleReminderChange(role, 'eta', 'is_active', c)}
                                                                 id={`eta-active-${role}`}
                                                             />
-                                                            <label htmlFor={`eta-active-${role}`} className="text-sm">Active</label>
+                                                            <label htmlFor={`eta-active-${role}`} className="text-sm">
+                                                                Active
+                                                            </label>
                                                         </div>
                                                     </div>
                                                     {val.is_active && (
                                                         <>
                                                             <div className="flex flex-col gap-1">
-                                                                <label className="text-xs text-gray-500">Kirim Peringatan pada (H-x) Hari. Pisahkan dengan koma.</label>
-                                                                <Input 
+                                                                <label className="text-xs text-gray-500">
+                                                                    Kirim Peringatan pada (H-x) Hari. Pisahkan dengan koma.
+                                                                </label>
+                                                                <Input
                                                                     placeholder="e.g. 5, 3, 1"
                                                                     defaultValue={val.days_before?.join(', ')}
                                                                     onBlur={(e) => handleReminderChange(role, 'eta', 'days_before', e.target.value)}
                                                                 />
                                                             </div>
-                                                            <div className="flex items-center gap-4 mt-2">
+                                                            <div className="mt-2 flex items-center gap-4">
                                                                 <div className="flex items-center gap-2">
-                                                                    <Checkbox 
+                                                                    <Checkbox
                                                                         checked={val.send_email}
                                                                         onCheckedChange={(c) => handleReminderChange(role, 'eta', 'send_email', c)}
                                                                         id={`eta-em-${role}`}
                                                                     />
-                                                                    <label htmlFor={`eta-em-${role}`} className="text-sm">Email</label>
+                                                                    <label htmlFor={`eta-em-${role}`} className="text-sm">
+                                                                        Email
+                                                                    </label>
                                                                 </div>
                                                                 <div className="flex items-center gap-2">
-                                                                    <Checkbox 
+                                                                    <Checkbox
                                                                         checked={val.send_notification}
-                                                                        onCheckedChange={(c) => handleReminderChange(role, 'eta', 'send_notification', c)}
+                                                                        onCheckedChange={(c) =>
+                                                                            handleReminderChange(role, 'eta', 'send_notification', c)
+                                                                        }
                                                                         id={`eta-notif-${role}`}
                                                                     />
-                                                                    <label htmlFor={`eta-notif-${role}`} className="text-sm">In-App</label>
+                                                                    <label htmlFor={`eta-notif-${role}`} className="text-sm">
+                                                                        In-App
+                                                                    </label>
                                                                 </div>
                                                             </div>
                                                         </>

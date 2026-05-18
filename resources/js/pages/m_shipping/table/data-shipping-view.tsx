@@ -350,9 +350,9 @@ export default function DataShippingFormView({ spk, documents = [], flash }: Pro
                         <h2 className="text-lg font-bold text-slate-900 dark:text-white">{trans.spk_document_list || 'List Dokumen SPK'}</h2>
                     </div>
 
-                    <div className="hidden overflow-x-auto md:block">
+                    <div className="hidden max-h-[calc(100vh-18rem)] overflow-auto md:block">
                         <table className="min-w-full border-collapse">
-                            <thead>
+                            <thead className="sticky top-0 z-20 bg-slate-50 dark:bg-zinc-800">
                                 <tr className="bg-slate-50 dark:bg-zinc-800/50">
                                     <th className="border-b px-4 py-3 text-center text-xs font-bold tracking-wide text-slate-500 uppercase dark:border-zinc-800">
                                         {trans.no || 'No'}

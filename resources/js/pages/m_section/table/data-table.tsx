@@ -21,9 +21,9 @@ import {
 import { Plus, Search } from 'lucide-react';
 import * as React from 'react';
 import { ChangeEvent, useState } from 'react';
+import { toast } from 'sonner';
 import { DataTableViewOptions } from './data-table-view-options';
 import { DataTablePagination } from './pagination';
-import { toast } from 'sonner';
 
 interface SectionData {
     id?: number;
@@ -76,9 +76,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'section_n
 
     const handleOpenCreate = () => {
         if (!auth.user.permissions.includes('create-section')) {
-            toast.error(
-                trans_sec.toast_create_permission_error || 'Anda tidak memiliki izin untuk menambahkan section.'
-            );
+            toast.error(trans_sec.toast_create_permission_error || 'Anda tidak memiliki izin untuk menambahkan section.');
             return;
         }
 
@@ -212,7 +210,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'section_n
                                                 : trans_sec.option_non_mandatory || 'Non Mandatory'}
                                         </span>
                                         {original.is_checklist && (
-                                            <span className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 rounded px-2 py-0.5 text-[10px] font-bold">
+                                            <span className="rounded bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
                                                 Special (Checklist)
                                             </span>
                                         )}
@@ -230,7 +228,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'section_n
             {/* Desktop */}
             <div className="border-border bg-card hidden overflow-hidden rounded-md border md:block">
                 <Table>
-                    <TableHeader className="bg-muted/50">
+                    <TableHeader className="bg-muted">
                         {table.getHeaderGroups().map((headerGroup) => (
                             <TableRow key={headerGroup.id} className="border-border hover:bg-transparent">
                                 {headerGroup.headers.map((header) => (
@@ -388,7 +386,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'section_n
                             disabled={isProcessing}
                             className="bg-primary text-primary-foreground h-11 w-full font-bold shadow-md sm:h-10 sm:w-auto"
                         >
-                            {isProcessing ? 'Saving...' : (trans_sec.btn_save || 'Simpan')}
+                            {isProcessing ? 'Saving...' : trans_sec.btn_save || 'Simpan'}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
