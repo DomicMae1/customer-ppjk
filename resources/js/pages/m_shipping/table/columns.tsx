@@ -38,15 +38,15 @@ export type Shipping = {
 
 const freezeHeaderBg = 'bg-slate-100 text-slate-700 dark:bg-zinc-800 dark:text-zinc-100';
 
-const stickyViewHeader = `sticky top-0 left-0 z-[60] w-[100px] min-w-[100px] align-middle ${freezeHeaderBg}`;
+const stickyViewHeader = `sticky top-0 left-0 z-40 w-[100px] min-w-[100px] align-middle ${freezeHeaderBg}`;
 
-const stickyCustomerHeader = `sticky top-0 left-[100px] z-[60] w-[130px] min-w-[130px] align-middle ${freezeHeaderBg}`;
+const stickyCustomerHeader = `sticky top-0 left-[100px] z-40 w-[130px] min-w-[130px] align-middle ${freezeHeaderBg}`;
 
-const stickySpkHeader = `sticky top-0 left-[230px] z-[60] w-[150px] min-w-[150px] align-middle ${freezeHeaderBg}`;
+const stickySpkHeader = `sticky top-0 left-[230px] z-40 w-[150px] min-w-[150px] align-middle ${freezeHeaderBg}`;
 
-const stickyDrafterHeader = `sticky top-0 left-[380px] z-[60] w-[150px] min-w-[150px] align-middle ${freezeHeaderBg}`;
+const stickyDrafterHeader = `sticky top-0 left-[380px] z-40 w-[150px] min-w-[150px] align-middle ${freezeHeaderBg}`;
 
-const stickyEtaHeader = `sticky top-0 left-[530px] z-[60] w-[180px] min-w-[180px] align-middle shadow-[6px_0_12px_-10px_rgba(0,0,0,0.8)] ${freezeHeaderBg}`;
+const stickyEtaHeader = `sticky top-0 left-[530px] z-40 w-[180px] min-w-[180px] align-middle shadow-[6px_0_12px_-10px_rgba(0,0,0,0.8)] ${freezeHeaderBg}`;
 
 const stickyViewCell = 'sticky left-0 z-30 w-[100px] min-w-[100px] bg-background align-middle';
 
