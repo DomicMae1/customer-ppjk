@@ -89,15 +89,24 @@ class ShippingController extends Controller
                 )
                 ->orderBy('customers.nama_perusahaan', 'asc');
 
-            if ($user->role_internal === 'marketing') {
-                $customerQuery->whereNotNull('customers.uid_marketing')
+            $roleInternal = strtolower(trim((string) $user->role_internal));
+            $isMarketingRole = Str::contains($roleInternal, 'marketing');
+
+            $customerQuery->where('customers.ownership', $user->id_perusahaan);
+
+            if ($isMarketingRole) {
+                $customerQuery
+                    ->whereNotNull('customers.uid_marketing')
                     ->whereRaw("TRIM(CAST(customers.uid_marketing AS TEXT)) != ''")
-                    ->whereRaw("TRIM(CAST(customers.uid_marketing AS TEXT)) = ?", [trim((string) $user->uid)]);
+                    ->whereRaw("TRIM(CAST(customers.uid_marketing AS TEXT)) = ?", [
+                        trim((string) $user->uid),
+                    ]);
             } else {
                 $customerQuery->where(function ($query) use ($user) {
-                    $query->where('customers.ownership', $user->id_perusahaan)
-                        ->orWhereNull('customers.uid_marketing')
-                        ->orWhereRaw("TRIM(CAST(customers.uid_marketing AS TEXT)) = ''");
+                    $query
+                        ->whereNull('customers.uid_marketing')
+                        ->orWhereRaw("TRIM(CAST(customers.uid_marketing AS TEXT)) = ''")
+                        ->orWhere('customers.created_by', $user->id_user);
                 });
             }
 
