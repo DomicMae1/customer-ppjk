@@ -93,16 +93,6 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
     const [openCreate, setOpenCreate] = React.useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
 
-    const toTitleCase = (text: string) => {
-        return text
-            .trim()
-            .toLowerCase()
-            .split(' ')
-            .filter(Boolean)
-            .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-            .join(' ');
-    };
-
     const handleOpenCreate = () => {
         if (!auth.user.permissions.includes('create-document')) {
             toast.error(trans_doc.toast_create_permission_error || 'Anda tidak memiliki izin untuk menambahkan document.');
@@ -110,13 +100,6 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
         }
 
         setOpenCreate(true);
-    };
-
-    const handleNamaFileBlur = () => {
-        setForm((prev) => ({
-            ...prev,
-            nama_file: toTitleCase(prev.nama_file),
-        }));
     };
 
     // Sesuaikan form state dengan kebutuhan Master Document
@@ -220,10 +203,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
             return;
         }
 
-        const payload = {
-            ...form,
-            nama_file: toTitleCase(form.nama_file),
-        };
+        const payload = { ...form };
 
         setIsProcessing(true);
         // Inertia otomatis menangani FormData jika ada file di dalam object payload
@@ -486,7 +466,6 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
                                 name="nama_file"
                                 value={form.nama_file}
                                 onChange={handleInputChange}
-                                onBlur={handleNamaFileBlur}
                                 placeholder={trans_doc.placeholder_doc_name}
                                 className="bg-background text-foreground h-11 sm:h-10"
                             />
