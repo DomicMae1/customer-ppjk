@@ -36,7 +36,7 @@ export type Shipping = {
     drafter?: string | null;
 };
 
-const freezeHeaderBg = 'bg-slate-100 text-slate-700 dark:bg-zinc-800 dark:text-zinc-100';
+const freezeHeaderBg = 'bg-blue-200 text-slate-800 dark:bg-zinc-800 dark:text-zinc-100';
 
 const stickyViewHeader = `sticky top-0 left-0 z-40 w-[100px] min-w-[100px] align-middle ${freezeHeaderBg}`;
 
@@ -46,7 +46,7 @@ const stickySpkHeader = `sticky top-0 left-[230px] z-40 w-[150px] min-w-[150px] 
 
 const stickyDrafterHeader = `sticky top-0 left-[380px] z-40 w-[150px] min-w-[150px] align-middle ${freezeHeaderBg}`;
 
-const stickyEtaHeader = `sticky top-0 left-[530px] z-40 w-[180px] min-w-[180px] align-middle shadow-[6px_0_12px_-10px_rgba(0,0,0,0.8)] ${freezeHeaderBg}`;
+const stickyEtaHeader = `sticky top-0 left-[530px] z-40 w-[180px] min-w-[180px] align-middle ${freezeHeaderBg} after:absolute after:top-0 after:right-0 after:h-full after:w-[1px] after:bg-slate-300 after:content-['']`;
 
 const stickyViewCell = 'sticky left-0 z-30 w-[100px] min-w-[100px] bg-background align-middle';
 
@@ -56,7 +56,7 @@ const stickySpkCell = 'sticky left-[230px] z-30 w-[150px] min-w-[150px] bg-backg
 
 const stickyDrafterCell = 'sticky left-[380px] z-30 w-[150px] min-w-[150px] bg-background align-middle';
 
-const stickyEtaCell = 'sticky left-[530px] z-30 w-[180px] min-w-[180px] bg-background align-middle shadow-[6px_0_12px_-10px_rgba(0,0,0,0.8)]';
+const stickyEtaCell = `sticky left-[530px] z-30 w-[180px] min-w-[180px] bg-background align-middle after:absolute after:top-0 after:right-0 after:h-full after:w-[1px] after:bg-slate-300 after:content-['']`;
 
 const th = 'px-3 py-3 text-left align-middle text-sm font-medium whitespace-nowrap';
 const td = 'px-3 py-3 text-left align-middle text-sm';
