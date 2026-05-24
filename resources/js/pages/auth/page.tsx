@@ -6,14 +6,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
-import { Role, User, type BreadcrumbItem } from '@/types';
+import { Role, type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { columns } from './table/columns';
 import { DataTable } from './table/data-table';
 
-export default function ManageUsers() {
+export function ManageUsersContent({ embedded = false }: { embedded?: boolean }) {
     const { users, roles, trans_auth, flash, auth } = usePage().props as any;
 
     useEffect(() => {
@@ -163,10 +163,9 @@ export default function ManageUsers() {
         setIsExternalUser(false);
     };
 
-    return (
-        <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Manage Users" />
-            <div className="p-4">
+    const pageContent = (
+        <>
+            <div className={embedded ? 'p-0' : 'p-4'}>
                 <DataTable columns={columns(onDeleteClick, onEditClick, trans_auth)} data={users} />
             </div>
 
@@ -267,6 +266,21 @@ export default function ManageUsers() {
                     </form>
                 </DialogContent>
             </Dialog>
+        </>
+    );
+
+    if (embedded) {
+        return pageContent;
+    }
+
+    return (
+        <AppLayout breadcrumbs={breadcrumbs}>
+            <Head title="Manage Users" />
+            {pageContent}
         </AppLayout>
     );
+}
+
+export default function ManageUsers() {
+    return <ManageUsersContent />;
 }

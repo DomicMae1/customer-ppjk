@@ -16,9 +16,13 @@ use App\Http\Controllers\FileController;
 use App\Http\Controllers\SectionController;
 use App\Http\Controllers\ShippingController;
 use App\Http\Controllers\NotificationController;
+use App\Models\Customer;
+use App\Models\Perusahaan;
+use App\Models\User as UserModel;
 use Illuminate\Support\Facades\Session;
 use App\Services\NotificationService;
 use Illuminate\Support\Facades\DB;
+use Spatie\Permission\Models\Role as PermissionRole;
 
 Route::get('/', function () {
     return redirect('shipping');
@@ -28,6 +32,49 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', function () {
         return redirect('shipping');
     })->name('dashboard');
+
+    Route::get('workspace', function () {
+        $user = auth('web')->user();
+        $canViewCustomers = $user->hasPermissionTo('view-customer');
+        $canViewUsers = $user->hasPermissionTo('view-user');
+
+        $customers = collect();
+
+        if ($canViewCustomers) {
+            $customerQuery = Customer::with(['perusahaan']);
+
+            if ($user->id_perusahaan) {
+                $customerQuery->where('ownership', $user->id_perusahaan);
+            }
+
+            $customers = $customerQuery
+                ->orderBy('id_customer', 'asc')
+                ->get()
+                ->map(function (Customer $customer) {
+                    return array_merge($customer->toArray(), [
+                        'id' => $customer->id_customer,
+                    ]);
+                });
+        }
+
+        $usersQuery = UserModel::with(['role_internal', 'roles']);
+        $companyQuery = Perusahaan::select(['id_perusahaan as id', 'nama_perusahaan']);
+
+        if (!$user->hasRole('admin')) {
+            $usersQuery->where('id_perusahaan', $user->id_perusahaan);
+            $companyQuery->where('id_perusahaan', $user->id_perusahaan);
+        }
+
+        return Inertia::render('workspace/page', [
+            'customers' => $customers,
+            'perusahaan_list' => $canViewCustomers ? Perusahaan::select('id_perusahaan', 'nama_perusahaan')->get() : collect(),
+            'users' => $canViewUsers ? $usersQuery->get() : collect(),
+            'roles' => $canViewUsers ? PermissionRole::all(['id', 'name', 'role_type']) : collect(),
+            'companies' => $canViewUsers ? $companyQuery->get() : collect(),
+            'isAdmin' => $user->hasRole('admin'),
+            'authCompanyId' => $user->id_perusahaan,
+        ]);
+    })->name('workspace');
 
     Route::resource('customer', CustomerController::class);
 

@@ -140,7 +140,7 @@ class UserController extends Controller
         // 4. Assign Role Spatie
         $user->assignRole($request->role);
 
-        return redirect()->route('users.index')->with('success', 'User created successfully.');
+        return redirect()->back()->with('success', 'User created successfully.');
     }
 
     /**
@@ -201,7 +201,7 @@ class UserController extends Controller
             // 5. Eksekusi update ke user yang dituju
             $user->update($data);
 
-            return redirect()->route('users.index')->with('success', 'User updated successfully.');
+            return redirect()->back()->with('success', 'User updated successfully.');
 
         } catch (\Exception $e) {
             return redirect()->back()->withErrors(['error' => 'Failed to update user: ' . $e->getMessage()]);
@@ -221,6 +221,6 @@ class UserController extends Controller
         }
         $user->delete(); 
         
-        return redirect()->route('users.index')->with('success', 'User deleted successfully.');
+        return redirect()->back()->with('success', 'User deleted successfully.');
     }
 }

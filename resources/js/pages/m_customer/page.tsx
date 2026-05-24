@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'; // Pastikan komponen ini ada
 import AppLayout from '@/layouts/app-layout';
-import { BreadcrumbItem, PageProps } from '@/types'; // Asumsi base types ada di sini
+import { BreadcrumbItem } from '@/types'; // Asumsi base types ada di sini
 import { Head, router, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
@@ -34,14 +34,7 @@ export interface Customer {
     created_at: string;
 }
 
-// Interface untuk Props yang dikirim dari Controller
-interface CustomerPageProps extends PageProps {
-    customers: Customer[]; // Pastikan di controller index() Anda me-return data ini
-    perusahaan_list?: { id_perusahaan: number; nama_perusahaan: string }[];
-    trans_customer: Record<string, string>;
-}
-
-export default function ManageCustomers() {
+export function ManageCustomersContent({ embedded = false }: { embedded?: boolean }) {
     // Ambil semua data sekaligus dari usePage
     const { customers, flash, perusahaan_list, auth, trans_customer, trans_general } = usePage<any>().props;
 
@@ -251,11 +244,9 @@ export default function ManageCustomers() {
         }
     };
 
-    return (
-        <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title={trans_customer.page_title || 'Manage Customers'} />
-
-            <div className="space-y-6 p-6">
+    const pageContent = (
+        <>
+            <div className={embedded ? 'space-y-6' : 'space-y-6 p-6'}>
                 {/* Header */}
                 <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
                     <div>
@@ -674,6 +665,21 @@ export default function ManageCustomers() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+        </>
+    );
+
+    if (embedded) {
+        return pageContent;
+    }
+
+    return (
+        <AppLayout breadcrumbs={breadcrumbs}>
+            <Head title={trans_customer.page_title || 'Manage Customers'} />
+            {pageContent}
         </AppLayout>
     );
+}
+
+export default function ManageCustomers() {
+    return <ManageCustomersContent />;
 }

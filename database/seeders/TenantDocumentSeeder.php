@@ -707,6 +707,17 @@ class TenantDocumentSeeder extends Seeder
             ],
         ];
 
+        $data = array_map(function (array $document) {
+            $mandatory = (bool) ($document['attribute'] ?? false);
+            unset($document['attribute']);
+
+            return [
+                ...$document,
+                'import_mandatory' => $mandatory,
+                'export_mandatory' => $mandatory,
+            ];
+        }, $data);
+
         // Seed into current tenant connection (tenant DB, NOT central)
         try {
             DB::connection('tenant')->statement('TRUNCATE TABLE master_documents_trans RESTART IDENTITY CASCADE');

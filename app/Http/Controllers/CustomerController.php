@@ -111,7 +111,7 @@ class CustomerController extends Controller
             // -------------------------------
 
             // Gunakan to_route / redirect untuk SPA experience yang lebih mulus dibanding Inertia::location
-            return to_route('customer.index')->with('success', 'Data Customer berhasil ditambahkan!');
+            return redirect()->back()->with('success', 'Data Customer berhasil ditambahkan!');
 
         } catch (\Throwable $th) {
             DB::rollBack(); // Batalkan perubahan jika ada error
@@ -167,7 +167,7 @@ class CustomerController extends Controller
 
             DB::commit();
 
-            return redirect()->route('customer.index')->with('success', 'Data Customer berhasil diperbarui!');
+            return redirect()->back()->with('success', 'Data Customer berhasil diperbarui!');
 
         } catch (\Throwable $th) {
             DB::rollBack();
@@ -190,14 +190,14 @@ class CustomerController extends Controller
 
             DB::commit();
 
-            return redirect()->route('customer.index')
+            return redirect()->back()
                 ->with('success', 'Data Customer berhasil dihapus!');
 
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error("Error Delete Customer: " . $e->getMessage());
             
-            return redirect()->route('customer.index')
+            return redirect()->back()
                 ->with('error', 'Gagal menghapus data: ' . $e->getMessage());
         }
     }

@@ -3,7 +3,7 @@ import { NavUser } from '@/components/nav-user';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { type NavItem, PageProps } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
-import { BookCheck, BookUser, Building2, Shield, SquareLibrary, SquareUserRound, Users, Bell } from 'lucide-react';
+import { Bell, BookCheck, BookUser, Building2, LayoutDashboard, Shield, SquareLibrary, SquareUserRound, Users } from 'lucide-react';
 import AppLogo from './app-logo';
 
 // interface ExtendedNavItem extends NavItem {
@@ -14,10 +14,21 @@ interface SharedProps extends PageProps {
     trans_nav: Record<string, string>;
 }
 
+type SidebarNavItem = NavItem & {
+    permission?: string;
+    subItems?: SidebarNavItem[];
+};
+
 export function AppSidebar() {
     const { auth, trans_nav } = usePage<SharedProps>().props;
 
-    const mainNavItems: any[] = [
+    const mainNavItems: SidebarNavItem[] = [
+        {
+            title: 'Workspace',
+            url: '/workspace',
+            icon: LayoutDashboard,
+            permission: 'view-master-shipping',
+        },
         {
             title: trans_nav.shipment,
             url: '/shipping',
@@ -79,7 +90,7 @@ export function AppSidebar() {
         .filter((item) => hasPermission(item.permission))
         .map((item) => {
             if (item.subItems) {
-                const filteredSubItems = item.subItems.filter((sub: any) => hasPermission(sub.permission));
+                const filteredSubItems = item.subItems.filter((sub) => hasPermission(sub.permission));
                 return { ...item, subItems: filteredSubItems };
             }
             return item;
