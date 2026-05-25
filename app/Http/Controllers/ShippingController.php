@@ -34,6 +34,7 @@ use Symfony\Component\Process\Process;
 use App\Services\SectionReminderService;
 use App\Services\ShippingGenerationService;
 use App\Services\NotificationService;
+use App\Services\AdminCompanyContextService;
 use App\Jobs\GhostscriptCompressionJob;
 use App\Jobs\SendShippingComposeEmailJob;
 use Illuminate\Support\Facades\Auth;
@@ -46,7 +47,12 @@ class ShippingController extends Controller
         $tenant = null;
         $idPerusahaan = null;
 
-        if ($user && $user->id_perusahaan) {
+        if ($user && $user->hasRole('admin')) {
+            $idPerusahaan = app(AdminCompanyContextService::class)->selectedCompanyIdForUser($user);
+            if ($idPerusahaan) {
+                $tenant = Tenant::where('perusahaan_id', $idPerusahaan)->first();
+            }
+        } elseif ($user && $user->id_perusahaan) {
             $idPerusahaan = (int) $user->id_perusahaan;
             $tenant = Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
         } elseif ($user && $user->id_customer) {
@@ -66,6 +72,7 @@ class ShippingController extends Controller
     {
         $user = auth('web')->user();
         $externalCustomers = [];
+        [$tenant, $idPerusahaan] = $this->resolveTenantAndPerusahaanId($user);
 
         // LOGIC 1: Jika User Adalah EKSTERNAL
         if ($user->role === 'eksternal') {
@@ -94,7 +101,9 @@ class ShippingController extends Controller
             $roleInternal = strtolower(trim((string) $user->role_internal));
             $isMarketingRole = Str::contains($roleInternal, 'marketing');
 
-            $customerQuery->where('customers.ownership', $user->id_perusahaan);
+            if ($idPerusahaan) {
+                $customerQuery->where('customers.ownership', $idPerusahaan);
+            }
 
             if ($isMarketingRole) {
                 $customerQuery
@@ -103,7 +112,7 @@ class ShippingController extends Controller
                     ->whereRaw("TRIM(CAST(customers.uid_marketing AS TEXT)) = ?", [
                         trim((string) $user->uid),
                     ]);
-            } else {
+            } elseif (!$user->hasRole('admin')) {
                 $customerQuery->where(function ($query) use ($user) {
                     $query
                         ->whereNull('customers.uid_marketing')
@@ -117,19 +126,6 @@ class ShippingController extends Controller
 
         if (!$user->can('view-master-shipping')) {
             abort(403);
-        }
-
-        $tenant = null;
-
-        if ($user->id_perusahaan) {
-            // Jika User Internal, ambil tenant dari id_perusahaan user
-            $tenant = \App\Models\Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
-        } elseif ($user->id_customer) {
-            // Jika User Eksternal, cari customer dulu, baru ambil tenant dari ownership
-            $customer = \App\Models\Customer::find($user->id_customer);
-            if ($customer && $customer->ownership) {
-                $tenant = \App\Models\Tenant::where('perusahaan_id', $customer->ownership)->first();
-            }
         }
 
         $spkData = [];
@@ -267,6 +263,7 @@ class ShippingController extends Controller
                         ? $internalUsers->get($item->validated_by)->name
                         : '-',
                     'eta_date'              => $item->eta_date ?? null,
+                    'etd_date'              => $item->etd_date ?? null,
 
                     'jalur'                 => $item->penjaluran,
                     'jalur_filter'          => $item->penjaluran,
@@ -314,11 +311,11 @@ class ShippingController extends Controller
 
         // NEW: Fetch Internal Staff for Supervisor Assignment
         $internalStaff = [];
-        if ($user->role === 'internal') {
+        if ($user->role === 'internal' && $idPerusahaan) {
             $internalStaff = User::on('tako-user')
                 ->where('role', 'internal')
                 ->where('role_internal', 'staff')
-                ->where('id_perusahaan', $user->id_perusahaan)
+                ->where('id_perusahaan', $idPerusahaan)
                 ->select('id_user', 'name')
                 ->get();
         }
@@ -367,16 +364,7 @@ class ShippingController extends Controller
     {
         $user = auth('web')->user();
 
-        $tenant = null;
-
-        if ($user->id_perusahaan) {
-            $tenant = \App\Models\Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
-        } elseif ($user->id_customer) {
-            $customer = \App\Models\Customer::find($user->id_customer);
-            if ($customer && $customer->ownership) {
-                $tenant = \App\Models\Tenant::where('perusahaan_id', $customer->ownership)->first();
-            }
-        }
+        [$tenant] = $this->resolveTenantAndPerusahaanId($user);
 
         if (!$tenant) {
             abort(404, 'Tenant tidak ditemukan');
@@ -494,19 +482,7 @@ class ShippingController extends Controller
     {
         $user = auth('web')->user();
 
-        $tenant = null;
-        $idPerusahaan = null;
-
-        if ($user->id_perusahaan) {
-            $idPerusahaan = $user->id_perusahaan;
-            $tenant = \App\Models\Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
-        } elseif ($user->id_customer) {
-            $customer = \App\Models\Customer::find($user->id_customer);
-            if ($customer && $customer->ownership) {
-                $idPerusahaan = $customer->ownership;
-                $tenant = \App\Models\Tenant::where('perusahaan_id', $customer->ownership)->first();
-            }
-        }
+        [$tenant, $idPerusahaan] = $this->resolveTenantAndPerusahaanId($user);
 
         if (!$tenant) {
             abort(404, 'Tenant tidak ditemukan');
@@ -555,19 +531,31 @@ class ShippingController extends Controller
             'comodity'        => 'nullable|string',
         ]);
 
-        // --- Logic Tenant ---
-        $tenant = null;
-        if ($user->id_perusahaan) {
-            $tenant = Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
-        } elseif ($user->id_customer) {
-            $customer = Customer::find($user->id_customer);
-            if ($customer && $customer->ownership) {
-                $tenant = Tenant::where('perusahaan_id', $customer->ownership)->first();
-            }
+        [$tenant, $idPerusahaan] = $this->resolveTenantAndPerusahaanId($user);
+
+        if (!$tenant || !$idPerusahaan) {
+            return redirect()->back()->withErrors(['error' => 'Gagal menentukan Tenant.']);
         }
 
-        if (!$tenant) {
-            return redirect()->back()->withErrors(['error' => 'Gagal menentukan Tenant.']);
+        $selectedCustomer = Customer::find($validated['id_customer']);
+        if (!$selectedCustomer || (int) $selectedCustomer->ownership !== (int) $idPerusahaan) {
+            return redirect()->back()->withErrors([
+                'id_customer' => 'Customer tidak valid untuk perusahaan aktif.',
+            ])->withInput();
+        }
+
+        if (!empty($validated['assigned_pic'])) {
+            $assignedPicExists = User::on('tako-user')
+                ->where('id_user', $validated['assigned_pic'])
+                ->where('role', 'internal')
+                ->where('id_perusahaan', $idPerusahaan)
+                ->exists();
+
+            if (!$assignedPicExists) {
+                return redirect()->back()->withErrors([
+                    'assigned_pic' => 'Staff tidak valid untuk perusahaan aktif.',
+                ])->withInput();
+            }
         }
 
         tenancy()->initialize($tenant);
@@ -595,7 +583,7 @@ class ShippingController extends Controller
                 'shipment_type'     => $validated['shipment_type'],
                 'shipping_package_id' => $shippingPackage?->id,
                 'tanggal_dokumen'   => $validated['tanggal_dokumen'],
-                'id_perusahaan_int' => $tenant->perusahaan_id ?? $user->id_perusahaan,
+                'id_perusahaan'     => $idPerusahaan,
                 'id_customer'       => $validated['id_customer'],
                 'created_by'        => $userId,
                 'penjaluran'        => null,
@@ -752,7 +740,7 @@ class ShippingController extends Controller
                         $supervisors = \App\Models\User::on('tako-user')
                             ->where('role', 'internal')
                             ->where('role_internal', 'supervisor')
-                            ->where('id_perusahaan', $user->id_perusahaan ?? (tenancy()->tenant->perusahaan_id ?? null))
+                            ->where('id_perusahaan', $idPerusahaan)
                             ->get();
 
                         foreach ($supervisors as $supervisor) {
@@ -842,15 +830,7 @@ class ShippingController extends Controller
             'hs_codes.*.file' => 'nullable',
         ]);
 
-        $tenant = null;
-        if ($user->id_perusahaan) {
-            $tenant = Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
-        } elseif ($user->id_customer) {
-            $customer = Customer::find($user->id_customer);
-            if ($customer && $customer->ownership) {
-                $tenant = Tenant::where('perusahaan_id', $customer->ownership)->first();
-            }
-        }
+        [$tenant] = $this->resolveTenantAndPerusahaanId($user);
 
         if (!$tenant) abort(404, 'Tenant not found');
         tenancy()->initialize($tenant);
@@ -1046,27 +1026,17 @@ class ShippingController extends Controller
         // NEW: Fetch Internal Staff for Supervisor Assignment (Consistent with index)
         // Moved here to ensure we query the CENTRAL database (tako-user) before tenancy context is switched.
         $internalStaff = [];
-        if ($user->role === 'internal') {
+        [$tenant, $idPerusahaan] = $this->resolveTenantAndPerusahaanId($user);
+
+        if ($user->role === 'internal' && $idPerusahaan) {
             $internalStaff = \App\Models\User::on('tako-user')
                 ->where('role', 'internal')
-                ->where('id_perusahaan', $user->id_perusahaan)
+                ->where('id_perusahaan', $idPerusahaan)
                 ->where('role_internal', 'staff')
                 ->select('id_user', 'name', 'role_internal', 'id_perusahaan')
                 ->get();
         }
 
-        // 2. LOGIKA MENCARI TENANT (Copy dari function store)
-        // Kita harus tahu dulu user ini milik tenant mana agar bisa buka databasenya
-        $tenant = null;
-
-        if ($user->id_perusahaan) {
-            $tenant = Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
-        } elseif ($user->id_customer) {
-            $customer = Customer::find($user->id_customer);
-            if ($customer && $customer->ownership) {
-                $tenant = Tenant::where('perusahaan_id', $customer->ownership)->first();
-            }
-        }
         if (!$tenant) {
             abort(404, 'Tenant tidak ditemukan untuk user ini.');
         }
@@ -1085,7 +1055,7 @@ class ShippingController extends Controller
 
                 $notificationsToRemove = collect([]);
 
-                DB::transaction(function () use ($spk, $user, &$notificationsToRemove) {
+                DB::transaction(function () use ($spk, $user, $idPerusahaan, $tenant, &$notificationsToRemove) {
                     // 1. Assign Validator
                     $spk->update(['validated_by' => $user->id_user]);
                      $spk->refresh();
@@ -1100,7 +1070,7 @@ class ShippingController extends Controller
                     // We exclude Supervisors from this deletion so they keep their history.
                     $staffIdsToCleanup = \App\Models\User::on('tako-user')
                         ->where('role', 'internal')
-                        ->where('id_perusahaan', $user->id_perusahaan ?? $tenant->perusahaan_id)
+                        ->where('id_perusahaan', $idPerusahaan ?? $tenant->perusahaan_id)
                         ->where('role_internal', 'staff')
                         ->where('id_user', '!=', $user->id_user)
                         ->pluck('id_user');
@@ -1207,6 +1177,7 @@ class ShippingController extends Controller
             'register_number' => $spk->register_number,
             'register_date' => $spk->register_date,
             'eta_date' => $spk->eta_date ? $spk->eta_date->toDateString() : null,
+            'etd_date' => $spk->etd_date ? $spk->etd_date->toDateString() : null,
             'shipper' => $spk->shipper,
             'consignee' => $spk->consignee,
             'vessel' => $spk->vessel,
@@ -1270,10 +1241,7 @@ class ShippingController extends Controller
         ]);
 
         // 2. Resolve Tenant
-        $tenant = null;
-        if ($user->id_perusahaan) {
-            $tenant = Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
-        }
+        [$tenant, $idPerusahaan] = $this->resolveTenantAndPerusahaanId($user);
 
         if (!$tenant) {
             return redirect()->back()->withErrors(['error' => 'Tenant not found']);
@@ -1291,7 +1259,10 @@ class ShippingController extends Controller
                 return redirect()->back()->withErrors(['assigned_pic' => 'User is already assigned.']);
             }
 
-            $assignedUser = User::on('tako-user')->find($validated['assigned_pic']);
+            $assignedUser = User::on('tako-user')
+                ->where('id_user', $validated['assigned_pic'])
+                ->where('id_perusahaan', $idPerusahaan)
+                ->first();
 
             if ($assignedUser) {
                 // 1. Update SPK assignment
@@ -1824,15 +1795,7 @@ class ShippingController extends Controller
     {
         $user = auth('web')->user();
         // Initialize tenant context FIRST
-        $tenant = null;
-        if ($user->id_perusahaan) {
-            $tenant = Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
-        } elseif ($user->id_customer) {
-            $customer = Customer::find($user->id_customer);
-            if ($customer && $customer->ownership) {
-                $tenant = Tenant::where('perusahaan_id', $customer->ownership)->first();
-            }
-        }
+        [$tenant] = $this->resolveTenantAndPerusahaanId($user);
 
         if (!$tenant) {
             return response()->json([
@@ -1923,15 +1886,7 @@ class ShippingController extends Controller
     {
         $user = auth('web')->user();
         // 1. Initialize Tenant Context
-        $tenant = null;
-        if ($user->id_perusahaan) {
-            $tenant = Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
-        } elseif ($user->id_customer) {
-            $customer = Customer::find($user->id_customer);
-            if ($customer && $customer->ownership) {
-                $tenant = Tenant::where('perusahaan_id', $customer->ownership)->first();
-            }
-        }
+        [$tenant] = $this->resolveTenantAndPerusahaanId($user);
 
         if (!$tenant) return response()->json(['success' => false, 'message' => 'Tenant not found'], 404);
         tenancy()->initialize($tenant);
@@ -2108,15 +2063,7 @@ class ShippingController extends Controller
         $sectionName = $request->section_name ?? 'Document';
 
         // 1. Initialize Tenancy
-        $tenant = null;
-        if ($user->id_perusahaan) {
-            $tenant = Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
-        } elseif ($user->id_customer) {
-            $customer = \App\Models\Customer::find($user->id_customer);
-            if ($customer && $customer->ownership) {
-                $tenant = Tenant::where('perusahaan_id', $customer->ownership)->first();
-            }
-        }
+        [$tenant] = $this->resolveTenantAndPerusahaanId($user);
         if (!$tenant) {
             if ($request->header('X-Inertia')) {
                 return back()->withErrors(['message' => 'Tenant not found']);
@@ -2299,15 +2246,7 @@ class ShippingController extends Controller
         $user = auth('web')->user();
 
         // 1. Initialize Tenancy
-        $tenant = null;
-        if ($user->id_perusahaan) {
-            $tenant = Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
-        } elseif ($user->id_customer) {
-            $customer = Customer::find($user->id_customer);
-            if ($customer && $customer->ownership) {
-                $tenant = Tenant::where('perusahaan_id', $customer->ownership)->first();
-            }
-        }
+        [$tenant] = $this->resolveTenantAndPerusahaanId($user);
 
         if (!$tenant) {
             return response()->json(['success' => false, 'message' => 'Tenant not found'], 404);
@@ -2372,15 +2311,7 @@ class ShippingController extends Controller
         }
 
         // Initialize tenant context FIRST
-        $tenant = null;
-        if ($user->id_perusahaan) {
-            $tenant = Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
-        } elseif ($user->id_customer) {
-            $customer = Customer::find($user->id_customer);
-            if ($customer && $customer->ownership) {
-                $tenant = Tenant::where('perusahaan_id', $customer->ownership)->first();
-            }
-        }
+        [$tenant] = $this->resolveTenantAndPerusahaanId($user);
 
         if (!$tenant) {
             return response()->json(['success' => false, 'message' => 'Tenant not found'], 404);
@@ -2428,15 +2359,7 @@ class ShippingController extends Controller
         $user = auth('web')->user();
 
         // Initialize tenant context FIRST
-        $tenant = null;
-        if ($user->id_perusahaan) {
-            $tenant = Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
-        } elseif ($user->id_customer) {
-            $customer = Customer::find($user->id_customer);
-            if ($customer && $customer->ownership) {
-                $tenant = Tenant::where('perusahaan_id', $customer->ownership)->first();
-            }
-        }
+        [$tenant] = $this->resolveTenantAndPerusahaanId($user);
 
         if (!$tenant) {
             return response()->json(['success' => false, 'message' => 'Tenant not found'], 404);
@@ -2483,15 +2406,7 @@ class ShippingController extends Controller
         $user = auth('web')->user();
 
         // Resolve tenant
-        $tenant = null;
-        if ($user->id_perusahaan) {
-            $tenant = Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
-        } elseif ($user->id_customer) {
-            $customer = Customer::find($user->id_customer);
-            if ($customer && $customer->ownership) {
-                $tenant = Tenant::where('perusahaan_id', $customer->ownership)->first();
-            }
-        }
+        [$tenant] = $this->resolveTenantAndPerusahaanId($user);
 
         if (!$tenant) {
             return response()->json(['error' => 'Tenant not found'], 404);
@@ -2585,16 +2500,7 @@ class ShippingController extends Controller
         ]);
 
         // Tentukan tenant
-        $tenant = null;
-
-        if ($user->id_perusahaan) {
-            $tenant = \App\Models\Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
-        } elseif ($user->id_customer) {
-            $customer = \App\Models\Customer::find($user->id_customer);
-            if ($customer && $customer->ownership) {
-                $tenant = \App\Models\Tenant::where('perusahaan_id', $customer->ownership)->first();
-            }
-        }
+        [$tenant] = $this->resolveTenantAndPerusahaanId($user);
 
         if (!$tenant) {
             return response()->json([
@@ -2655,16 +2561,7 @@ class ShippingController extends Controller
         ]);
 
         // Tentukan tenant
-        $tenant = null;
-
-        if ($user->id_perusahaan) {
-            $tenant = \App\Models\Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
-        } elseif ($user->id_customer) {
-            $customer = \App\Models\Customer::find($user->id_customer);
-            if ($customer && $customer->ownership) {
-                $tenant = \App\Models\Tenant::where('perusahaan_id', $customer->ownership)->first();
-            }
-        }
+        [$tenant] = $this->resolveTenantAndPerusahaanId($user);
 
         if (!$tenant) {
             return response()->json([
@@ -2834,16 +2731,8 @@ class ShippingController extends Controller
             'id' => 'required|integer', // This is the PK of SectionTrans
         ]);
 
-        // Resolve Tenant
-        $tenant = null;
-        if ($user->id_perusahaan) {
-            $tenant = \App\Models\Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
-        } elseif ($user->id_customer) {
-            $customer = \App\Models\Customer::find($user->id_customer);
-            if ($customer && $customer->ownership) {
-                $tenant = \App\Models\Tenant::where('perusahaan_id', $customer->ownership)->first();
-            }
-        }
+        // Resolve tenant from the active company context.
+        [$tenant] = $this->resolveTenantAndPerusahaanId($user);
 
         if (!$tenant) {
             return response()->json(['success' => false, 'message' => 'Tenant not found.'], 404);
@@ -2902,10 +2791,7 @@ class ShippingController extends Controller
             'eta_date' => 'required|date',
         ]);
 
-        $tenant = null;
-        if ($user->id_perusahaan) {
-            $tenant = Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
-        }
+        [$tenant] = $this->resolveTenantAndPerusahaanId($user);
 
         if (!$tenant) {
             abort(404, 'Tenant not found');
@@ -2939,6 +2825,49 @@ class ShippingController extends Controller
         }
     }
 
+    public function updateEtdDate(Request $request, $idSpk)
+    {
+        $user = auth('web')->user();
+        if ($user->role === 'eksternal') {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'etd_date' => 'required|date',
+        ]);
+
+        [$tenant] = $this->resolveTenantAndPerusahaanId($user);
+
+        if (!$tenant) {
+            abort(404, 'Tenant not found');
+        }
+
+        tenancy()->initialize($tenant);
+
+        try {
+            $spk = Spk::findOrFail($idSpk);
+
+            $date = \Carbon\Carbon::parse($validated['etd_date'])->startOfDay();
+
+            $spk->update([
+                'etd_date' => $date,
+            ]);
+
+            try {
+                \App\Events\ShippingDataUpdated::dispatch($spk->id, 'update');
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error('Realtime update failed: ' . $e->getMessage());
+            }
+
+            return response()->json([
+                'success' => true,
+                'etd_date' => $date->toDateString()
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
     public function updateJobDate(Request $request, $idSpk)
     {
         $user = auth('web')->user();
@@ -2950,10 +2879,7 @@ class ShippingController extends Controller
             'job_date' => 'required|date',
         ]);
 
-        $tenant = null;
-        if ($user->id_perusahaan) {
-            $tenant = Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
-        }
+        [$tenant] = $this->resolveTenantAndPerusahaanId($user);
 
         if (!$tenant) {
             abort(404, 'Tenant not found');
@@ -2995,10 +2921,7 @@ class ShippingController extends Controller
             'inspection_date' => 'required|date',
         ]);
 
-        $tenant = null;
-        if ($user->id_perusahaan) {
-            $tenant = Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
-        }
+        [$tenant] = $this->resolveTenantAndPerusahaanId($user);
 
         if (!$tenant) {
             abort(404, 'Tenant not found');
@@ -3036,15 +2959,7 @@ class ShippingController extends Controller
     {
         $user = auth('web')->user();
 
-        $tenant = null;
-        if ($user->id_perusahaan) {
-            $tenant = Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
-        } elseif ($user->id_customer) {
-            $customer = Customer::find($user->id_customer);
-            if ($customer && $customer->ownership) {
-                $tenant = Tenant::where('perusahaan_id', $customer->ownership)->first();
-            }
-        }
+        [$tenant] = $this->resolveTenantAndPerusahaanId($user);
 
         if (!$tenant) {
             return response()->json(['success' => false, 'message' => 'Tenant not found'], 404);
@@ -3099,15 +3014,7 @@ class ShippingController extends Controller
     {
         $user = auth('web')->user();
 
-        $tenant = null;
-        if ($user->id_perusahaan) {
-            $tenant = Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
-        } elseif ($user->id_customer) {
-            $customer = Customer::find($user->id_customer);
-            if ($customer && $customer->ownership) {
-                $tenant = Tenant::where('perusahaan_id', $customer->ownership)->first();
-            }
-        }
+        [$tenant] = $this->resolveTenantAndPerusahaanId($user);
 
         if (!$tenant) {
             return response()->json(['success' => false, 'message' => 'Tenant not found'], 404);
@@ -3142,15 +3049,7 @@ class ShippingController extends Controller
     {
         $user = auth('web')->user();
 
-        $tenant = null;
-        if ($user->id_perusahaan) {
-            $tenant = Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
-        } elseif ($user->id_customer) {
-            $customer = Customer::find($user->id_customer);
-            if ($customer && $customer->ownership) {
-                $tenant = Tenant::where('perusahaan_id', $customer->ownership)->first();
-            }
-        }
+        [$tenant] = $this->resolveTenantAndPerusahaanId($user);
 
         if (!$tenant) {
             return response()->json(['success' => false, 'message' => 'Tenant not found'], 404);
@@ -3215,15 +3114,7 @@ class ShippingController extends Controller
             'additional_documents' => 'nullable|array',
         ]);
 
-        $tenant = null;
-        if ($user->id_perusahaan) {
-            $tenant = Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
-        } elseif ($user->id_customer) {
-            $customer = Customer::find($user->id_customer);
-            if ($customer && $customer->ownership) {
-                $tenant = Tenant::where('perusahaan_id', $customer->ownership)->first();
-            }
-        }
+        [$tenant] = $this->resolveTenantAndPerusahaanId($user);
 
         if (!$tenant) {
             return response()->json(['success' => false, 'message' => 'Tenant not found'], 404);

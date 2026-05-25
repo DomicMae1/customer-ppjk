@@ -39,6 +39,7 @@ interface ShipmentData {
     penjaluran: string | null;
     register_date?: string;
     eta_date?: string;
+    etd_date?: string;
     shipper?: string;
     consignee?: string;
     vessel?: string;
@@ -316,6 +317,8 @@ export default function ViewCustomerForm({
     // ETA Date State
     const [etaDate, setEtaDate] = useState(shipmentDataProp?.eta_date ? shipmentDataProp.eta_date.split('T')[0].split(' ')[0] : '');
     const [isSavingEtaDate, setIsSavingEtaDate] = useState(false);
+    const [etdDate, setEtdDate] = useState(shipmentDataProp?.etd_date ? shipmentDataProp.etd_date.split('T')[0].split(' ')[0] : '');
+    const [isSavingEtdDate, setIsSavingEtdDate] = useState(false);
 
     // Job Date & Inspection Date States
     const [jobDate, setJobDate] = useState(shipmentDataProp?.job_date ? shipmentDataProp.job_date.split('T')[0].split(' ')[0] : '');
@@ -599,6 +602,12 @@ export default function ViewCustomerForm({
         }
     }, [shipmentDataProp?.eta_date]);
 
+    useEffect(() => {
+        if (shipmentDataProp?.etd_date) {
+            setEtdDate(shipmentDataProp.etd_date.split('T')[0].split(' ')[0]);
+        }
+    }, [shipmentDataProp?.etd_date]);
+
     // NEW: Sync Job Date for real-time updates
     useEffect(() => {
         if (shipmentDataProp?.job_date) {
@@ -631,6 +640,24 @@ export default function ViewCustomerForm({
 
         return () => clearTimeout(timeoutId);
     }, [etaDate]);
+
+    // AUTO-SAVE: ETD Date
+    const isEtdInitialMount = useRef(true);
+    useEffect(() => {
+        if (isEtdInitialMount.current) {
+            isEtdInitialMount.current = false;
+            return;
+        }
+
+        const propValue = shipmentDataProp?.etd_date ? shipmentDataProp.etd_date.split('T')[0].split(' ')[0] : '';
+        if (etdDate === propValue) return;
+
+        const timeoutId = setTimeout(() => {
+            handleSaveEtdDate();
+        }, 500);
+
+        return () => clearTimeout(timeoutId);
+    }, [etdDate]);
 
     // AUTO-SAVE: Job Date
     const isJobInitialMount = useRef(true);
@@ -1654,6 +1681,25 @@ export default function ViewCustomerForm({
         }
     };
 
+    const handleSaveEtdDate = async () => {
+        setIsSavingEtdDate(true);
+        try {
+            const response = await axios.post(`/shipping/${shipmentData.id_spk}/update-etd-date`, {
+                etd_date: etdDate,
+            });
+            if (response.data.success) {
+                toast.success('ETD Date berhasil diperbarui');
+            } else {
+                toast.error(response.data.message || 'Gagal memperbarui ETD Date');
+            }
+        } catch (error: any) {
+            console.error('Error updating etd date:', error);
+            toast.error(error.response?.data?.message || 'Gagal memperbarui ETD Date');
+        } finally {
+            setIsSavingEtdDate(false);
+        }
+    };
+
     const handleSaveJobDate = async () => {
         setIsSavingJobDate(true);
         try {
@@ -1922,6 +1968,29 @@ export default function ViewCustomerForm({
                                         onChange={(e) => setEtaDate(e.target.value)}
                                         className="date-input-dark h-9 rounded-lg border-slate-200 bg-white text-xs text-slate-700 focus:ring-blue-500/20 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300"
                                         disabled={!isInternalUser || isSavingEtaDate}
+                                    />
+                                </div>
+                            </div>
+                            {/* ETD Date Field */}
+                            <div className="col-span-2 mt-2 space-y-1.5 border-t border-slate-200/60 pt-3 dark:border-zinc-800">
+                                <div className="flex items-center justify-between">
+                                    <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
+                                        {trans.etd_date || 'ETD Date'}
+                                    </div>
+                                    {isSavingEtdDate && (
+                                        <div className="flex items-center gap-1.5 text-[9px] font-medium text-blue-500 animate-pulse">
+                                            <div className="h-1 w-1 rounded-full bg-blue-500"></div>
+                                            Saving...
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <Input
+                                        type="date"
+                                        value={etdDate}
+                                        onChange={(e) => setEtdDate(e.target.value)}
+                                        className="date-input-dark h-9 rounded-lg border-slate-200 bg-white text-xs text-slate-700 focus:ring-blue-500/20 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300"
+                                        disabled={!isInternalUser || isSavingEtdDate}
                                     />
                                 </div>
                             </div>

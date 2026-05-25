@@ -27,6 +27,7 @@ export type Shipping = {
     deadline_section_name?: string | null;
     progress: number;
     eta_date?: string | null;
+    etd_date?: string | null;
     vessel?: string | null;
     origin?: string | null;
     port?: string | null;
@@ -46,7 +47,8 @@ const stickySpkHeader = `sticky top-0 left-[230px] z-40 w-[150px] min-w-[150px] 
 
 const stickyDrafterHeader = `sticky top-0 left-[380px] z-40 w-[150px] min-w-[150px] align-middle ${freezeHeaderBg}`;
 
-const stickyEtaHeader = `sticky top-0 left-[530px] z-40 w-[180px] min-w-[180px] align-middle ${freezeHeaderBg} after:absolute after:top-0 after:right-0 after:h-full after:w-[1px] after:bg-slate-300 after:content-['']`;
+const stickyEtaHeader = `sticky top-0 left-[530px] z-40 w-[180px] min-w-[180px] align-middle ${freezeHeaderBg}`;
+const stickyEtdHeader = `sticky top-0 left-[710px] z-40 w-[180px] min-w-[180px] align-middle ${freezeHeaderBg} after:absolute after:top-0 after:right-0 after:h-full after:w-[1px] after:bg-slate-300 after:content-['']`;
 
 const stickyViewCell = 'sticky left-0 z-30 w-[100px] min-w-[100px] bg-background align-middle';
 
@@ -56,7 +58,8 @@ const stickySpkCell = 'sticky left-[230px] z-30 w-[150px] min-w-[150px] bg-backg
 
 const stickyDrafterCell = 'sticky left-[380px] z-30 w-[150px] min-w-[150px] bg-background align-middle';
 
-const stickyEtaCell = `sticky left-[530px] z-30 w-[180px] min-w-[180px] bg-background align-middle after:absolute after:top-0 after:right-0 after:h-full after:w-[1px] after:bg-slate-300 after:content-['']`;
+const stickyEtaCell = 'sticky left-[530px] z-30 w-[180px] min-w-[180px] bg-background align-middle';
+const stickyEtdCell = `sticky left-[710px] z-30 w-[180px] min-w-[180px] bg-background align-middle after:absolute after:top-0 after:right-0 after:h-full after:w-[1px] after:bg-slate-300 after:content-['']`;
 
 const th = 'px-3 py-3 text-left align-middle text-sm font-medium whitespace-nowrap';
 const td = 'px-3 py-3 text-left align-middle text-sm';
@@ -289,6 +292,63 @@ export const columns = (
                             }`}
                         >
                             {diffDays > 0 ? `H-${diffDays}` : diffDays === 0 ? 'ETA Hari Ini' : `Lewat ${Math.abs(diffDays)} Hari`}
+                        </div>
+                    </div>
+                );
+            },
+        },
+        {
+            accessorKey: 'etd_date',
+            meta: {
+                headerClassName: stickyEtdHeader,
+                cellClassName: stickyEtdCell,
+            },
+            header: ({ column }) => (
+                <div
+                    className="cursor-pointer text-sm font-medium select-none md:px-2 md:py-2"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+                >
+                    ETD
+                </div>
+            ),
+            cell: ({ row }) => {
+                const etd = row.original.etd_date;
+
+                if (!etd) {
+                    return <div className="flex h-full w-[180px] items-center px-3 py-3 text-sm">-</div>;
+                }
+
+                const date = new Date(etd);
+
+                const formatted = date.toLocaleDateString('en-GB', {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric',
+                });
+
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+
+                const etdDate = new Date(etd);
+                etdDate.setHours(0, 0, 0, 0);
+
+                const diffTime = etdDate.getTime() - today.getTime();
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                return (
+                    <div className="flex h-full w-[180px] flex-col justify-center gap-1 px-3 py-3 text-left">
+                        <span className="text-sm leading-none">{formatted}</span>
+
+                        <div
+                            className={`mt-1 inline-flex w-fit items-center rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                                diffDays > 0
+                                    ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400'
+                                    : diffDays === 0
+                                      ? 'bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400'
+                                      : 'bg-slate-100 text-slate-600 dark:bg-zinc-800 dark:text-zinc-300'
+                            }`}
+                        >
+                            {diffDays > 0 ? `H-${diffDays}` : diffDays === 0 ? 'ETD Hari Ini' : `Lewat ${Math.abs(diffDays)} Hari`}
                         </div>
                     </div>
                 );

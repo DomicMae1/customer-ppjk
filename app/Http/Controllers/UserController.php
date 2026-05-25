@@ -28,9 +28,15 @@ class UserController extends Controller
 
         $usersQuery = User::with(['role_internal', 'roles']);
         $companyQuery = Perusahaan::select(['id_perusahaan as id', 'nama_perusahaan']);
+        $isAdmin = $user->hasRole('admin');
+        $selectedCompanyId = $isAdmin
+            ? app(AdminCompanyContextService::class)->selectedCompanyIdForUser($user)
+            : ($user->id_perusahaan ? (int) $user->id_perusahaan : null);
 
-        if ($user->hasRole('admin')) {
-            //
+        if ($isAdmin) {
+            if ($selectedCompanyId) {
+                $usersQuery->where('id_perusahaan', $selectedCompanyId);
+            }
         } elseif ($user->hasRole(['manager', 'supervisor'])) {
             $usersQuery->where('id_perusahaan', $user->id_perusahaan);
             $companyQuery->where('id_perusahaan', $user->id_perusahaan);
@@ -43,7 +49,7 @@ class UserController extends Controller
             ->select(['id', 'name', 'role_type', 'id_perusahaan'])
             ->whereNotNull('id_perusahaan')
             ->whereIn('role_type', ['internal', 'eksternal'])
-            ->when(!$user->hasRole('admin'), fn ($query) => $query->where('id_perusahaan', $user->id_perusahaan))
+            ->when($selectedCompanyId, fn ($query) => $query->where('id_perusahaan', $selectedCompanyId))
             ->orderBy('id_perusahaan')
             ->orderBy('role_type')
             ->orderBy('name')
@@ -52,12 +58,14 @@ class UserController extends Controller
         $users = $usersQuery->get();
         $perusahaan = $companyQuery->get();
 
-        if ($user->hasRole('admin')) {
+        if ($isAdmin && $selectedCompanyId) {
             $customers = Customer::select([
                 'id_customer as id',
                 'nama_perusahaan',
                 'ownership',
-            ])->get();
+            ])
+                ->where('ownership', $selectedCompanyId)
+                ->get();
         } else {
             $customers = Customer::select([
                 'id_customer as id',
@@ -73,11 +81,9 @@ class UserController extends Controller
             'roles' => $roles,
             'companies' => $perusahaan,
             'customers' => $customers,
-            'isAdmin' => $user->hasRole('admin'),
+            'isAdmin' => $isAdmin,
             'authCompanyId' => $user->id_perusahaan,
-            'selectedCompanyId' => $user->hasRole('admin')
-                ? app(AdminCompanyContextService::class)->selectedCompanyIdForUser($user)
-                : $user->id_perusahaan,
+            'selectedCompanyId' => $selectedCompanyId,
         ]);
     }
 
@@ -217,9 +223,20 @@ class UserController extends Controller
 
     private function companyIdForUserPayload(Request $request, User $actor): int
     {
-        $companyId = $actor->hasRole('admin')
-            ? $request->integer('id_perusahaan')
-            : (int) $actor->id_perusahaan;
+        if ($actor->hasRole('admin')) {
+            $selectedCompanyId = app(AdminCompanyContextService::class)->selectedCompanyIdForUser($actor);
+            $requestedCompanyId = $request->integer('id_perusahaan') ?: null;
+
+            if ($selectedCompanyId && $requestedCompanyId && $requestedCompanyId !== $selectedCompanyId) {
+                throw ValidationException::withMessages([
+                    'id_perusahaan' => 'Perusahaan tidak sesuai dengan pilihan header.',
+                ]);
+            }
+
+            $companyId = $requestedCompanyId ?: $selectedCompanyId;
+        } else {
+            $companyId = (int) $actor->id_perusahaan;
+        }
 
         if (!$companyId) {
             throw ValidationException::withMessages([

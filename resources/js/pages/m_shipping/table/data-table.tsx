@@ -1151,6 +1151,13 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                   year: 'numeric',
                               })
                             : '-';
+                        const etdFormatted = original.etd_date
+                            ? new Date(original.etd_date).toLocaleDateString('en-GB', {
+                                  day: '2-digit',
+                                  month: '2-digit',
+                                  year: 'numeric',
+                              })
+                            : '-';
 
                         const statusLabel = original.status_label || '-';
 
@@ -1197,9 +1204,15 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                         <p className="text-card-foreground mt-1 text-sm font-bold break-words">{original.nama_customer || '-'}</p>
                                     </div>
 
-                                    <div className="min-w-[90px] text-right">
-                                        <p className="text-muted-foreground text-xs font-semibold uppercase">ETA</p>
-                                        <p className="text-card-foreground mt-1 text-sm font-bold whitespace-nowrap">{etaFormatted}</p>
+                                    <div className="flex min-w-[90px] flex-col gap-3 text-right">
+                                        <div>
+                                            <p className="text-muted-foreground text-xs font-semibold uppercase">ETA</p>
+                                            <p className="text-card-foreground mt-1 text-sm font-bold whitespace-nowrap">{etaFormatted}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-muted-foreground text-xs font-semibold uppercase">ETD</p>
+                                            <p className="text-card-foreground mt-1 text-sm font-bold whitespace-nowrap">{etdFormatted}</p>
+                                        </div>
                                     </div>
 
                                     <div className="min-w-0">
@@ -1227,7 +1240,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
             </div>
 
             <div className="hidden w-full overflow-x-auto md:block">
-                <Table className="min-w-[1700px]">
+                <Table className="min-w-[1880px]">
                     <TableHeader>
                         {table.getHeaderGroups().map((headerGroup) => (
                             <TableRow key={headerGroup.id}>
