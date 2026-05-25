@@ -11,6 +11,7 @@ class Role extends SpatieRole
 
     // Definisikan ulang fillable
     protected $fillable = [
+        'id_perusahaan',
         'name',
         'guard_name',
         'role_type',
@@ -22,5 +23,10 @@ class Role extends SpatieRole
     public function userUploadPermission(): BelongsTo
     {   
         return $this->belongsTo(User::class, 'change_upload_permission', 'id_user');
+    }
+
+    public function perusahaan(): BelongsTo
+    {
+        return $this->belongsTo(Perusahaan::class, 'id_perusahaan', 'id_perusahaan');
     }
 }

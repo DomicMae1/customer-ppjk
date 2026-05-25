@@ -33,6 +33,7 @@ interface DataTableProps<TData, TValue> {
 
 interface Role {
     id: number;
+    id_perusahaan: number | null;
     name: string;
     role_type: string;
 }
@@ -44,6 +45,7 @@ interface Perusahaan {
 interface Customer {
     id: number;
     nama_perusahaan: string;
+    ownership: number;
 }
 
 export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData, TValue>) {
@@ -76,6 +78,37 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
 
     const [filterValue, setFilterValue] = React.useState('');
     const [roleFilter, setRoleFilter] = React.useState('all');
+    const effectiveCompanyId = isAdmin ? selectedCompany : authCompanyId ? String(authCompanyId) : '';
+
+    const internalRolesForSelectedCompany = React.useMemo(
+        () => roles.filter((role) => role.role_type === 'internal' && String(role.id_perusahaan) === effectiveCompanyId),
+        [roles, effectiveCompanyId],
+    );
+
+    const customersForSelectedCompany = React.useMemo(
+        () => customers.filter((customer) => String(customer.ownership) === effectiveCompanyId),
+        [customers, effectiveCompanyId],
+    );
+
+    const roleFilterOptions = React.useMemo(() => {
+        const roleNames = new Set<string>();
+
+        return roles
+            .filter((role) => role.role_type === 'internal')
+            .filter((role) => {
+                if (roleNames.has(role.name)) {
+                    return false;
+                }
+
+                roleNames.add(role.name);
+                return true;
+            });
+    }, [roles]);
+
+    React.useEffect(() => {
+        setSelectedRoleInternal('');
+        setSelectedCustomer('');
+    }, [effectiveCompanyId]);
 
     const handleOpenCreate = () => {
         if (!auth.user.permissions.includes('create-user')) {
@@ -152,6 +185,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
 
         // 3. Specific Validation based on User Type
         let roleNameToSend = '';
+        const companyIdToSend = isAdmin ? Number(selectedCompany) : authCompanyId;
 
         if (selectedRole === 'internal') {
             if (!selectedRoleInternal) {
@@ -178,11 +212,12 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
             password_confirmation: passwordConfirmation,
 
             // Relational Data
-            id_perusahaan: isAdmin ? Number(selectedCompany) : authCompanyId,
+            id_perusahaan: companyIdToSend,
             id_customer: selectedRole === 'external' ? Number(selectedCustomer) : null, // Send customer ID only if external
 
             // Role Data
             role: roleNameToSend, // Sends 'staff'/'manager'/'supervisor' OR 'customer'
+            role_id: selectedRole === 'internal' ? Number(selectedRoleInternal) : null,
 
             // Optional: Send type helper if backend needs it
             user_type: selectedRole,
@@ -219,13 +254,11 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="all">All Roles</SelectItem>
-                            {roles
-                                .filter((role) => role.role_type === 'internal')
-                                .map((role) => (
-                                    <SelectItem key={role.id} value={role.name}>
-                                        {role.name.charAt(0).toUpperCase() + role.name.slice(1)}
-                                    </SelectItem>
-                                ))}
+                            {roleFilterOptions.map((role) => (
+                                <SelectItem key={role.id} value={role.name}>
+                                    {role.name.charAt(0).toUpperCase() + role.name.slice(1)}
+                                </SelectItem>
+                            ))}
                         </SelectContent>
                     </Select>
                 </div>
@@ -244,7 +277,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                     </SelectTrigger>
                     <SelectContent>
                         <SelectItem value="all">All</SelectItem>
-                        {roles.map((role) => (
+                        {roleFilterOptions.map((role) => (
                             <SelectItem key={role.id} value={role.name}>
                                 {role.name}
                             </SelectItem>
@@ -441,13 +474,11 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                             <SelectValue placeholder={trans_auth.placeholder_role_internal} />
                                         </SelectTrigger>
                                         <SelectContent className="bg-popover text-popover-foreground">
-                                            {roles
-                                                .filter((role) => role.role_type === 'internal')
-                                                .map((role) => (
-                                                    <SelectItem key={role.id} value={String(role.id)}>
-                                                        {role.name.charAt(0).toUpperCase() + role.name.slice(1)}
-                                                    </SelectItem>
-                                                ))}
+                                            {internalRolesForSelectedCompany.map((role) => (
+                                                <SelectItem key={role.id} value={String(role.id)}>
+                                                    {role.name.charAt(0).toUpperCase() + role.name.slice(1)}
+                                                </SelectItem>
+                                            ))}
                                         </SelectContent>
                                     </Select>
                                 </div>
@@ -464,8 +495,8 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                             <SelectValue placeholder={trans_auth.placeholder_customer} />
                                         </SelectTrigger>
                                         <SelectContent className="bg-popover text-popover-foreground">
-                                            {customers.length > 0 ? (
-                                                customers.map((cust) => (
+                                            {customersForSelectedCompany.length > 0 ? (
+                                                customersForSelectedCompany.map((cust) => (
                                                     <SelectItem key={cust.id} value={String(cust.id)}>
                                                         {cust.nama_perusahaan}
                                                     </SelectItem>

@@ -66,6 +66,7 @@ export interface User {
 
 export interface Role {
     id: number;
+    id_perusahaan?: number | null;
     name: string;
     role_type?: string;
     permissions: Permission[];

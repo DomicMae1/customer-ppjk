@@ -4,24 +4,19 @@ namespace App\Http\Controllers;
 
 use App\Models\Customer;
 use App\Models\Perusahaan;
+use App\Models\Role;
 use App\Models\User;
+use App\Services\RolePermissionService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Inertia\Inertia;
-use App\Http\Controllers\Controller;
-use Illuminate\Support\Facades\Hash;
-use Spatie\Permission\Exceptions\UnauthorizedException;
-use Illuminate\Validation\Rules;
-use Inertia\Response;
 use Illuminate\Support\Facades\Auth;
-use Spatie\Permission\Models\Role;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rules;
+use Illuminate\Validation\ValidationException;
+use Inertia\Inertia;
 
 class UserController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
     public function index()
     {
         $user = Auth::user();
@@ -31,40 +26,43 @@ class UserController extends Controller
         }
 
         $usersQuery = User::with(['role_internal', 'roles']);
-    
         $companyQuery = Perusahaan::select(['id_perusahaan as id', 'nama_perusahaan']);
 
         if ($user->hasRole('admin')) {
-            
-        } 
-        elseif ($user->hasRole(['manager', 'supervisor'])) {
+            //
+        } elseif ($user->hasRole(['manager', 'supervisor'])) {
             $usersQuery->where('id_perusahaan', $user->id_perusahaan);
-
+            $companyQuery->where('id_perusahaan', $user->id_perusahaan);
+        } else {
+            $usersQuery->where('id_perusahaan', $user->id_perusahaan);
             $companyQuery->where('id_perusahaan', $user->id_perusahaan);
         }
-        else {
-            $usersQuery->where('id_perusahaan', $user->id_perusahaan);
-        }
+
+        $roles = Role::query()
+            ->select(['id', 'name', 'role_type', 'id_perusahaan'])
+            ->whereNotNull('id_perusahaan')
+            ->whereIn('role_type', ['internal', 'eksternal'])
+            ->when(!$user->hasRole('admin'), fn ($query) => $query->where('id_perusahaan', $user->id_perusahaan))
+            ->orderBy('id_perusahaan')
+            ->orderBy('role_type')
+            ->orderBy('name')
+            ->get();
 
         $users = $usersQuery->get();
-
-        $roles = Role::all(['id', 'name', 'role_type']);
-            
         $perusahaan = $companyQuery->get();
-        
+
         if ($user->hasRole('admin')) {
             $customers = Customer::select([
-                    'id_customer as id',
-                    'nama_perusahaan',
-                    'ownership',
-                ])
-                ->get();
+                'id_customer as id',
+                'nama_perusahaan',
+                'ownership',
+            ])->get();
         } else {
             $customers = Customer::select([
-                    'id_customer as id',
-                    'nama_perusahaan',
-                    'ownership',
-                ])
+                'id_customer as id',
+                'nama_perusahaan',
+                'ownership',
+            ])
                 ->where('ownership', $user->id_perusahaan)
                 ->get();
         }
@@ -79,102 +77,92 @@ class UserController extends Controller
         ]);
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
     public function create()
     {
-        // 
+        //
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request): RedirectResponse
     {
-        $user = Auth::user();
+        $actor = Auth::user();
 
-        if (!$user->can('create-user')) {
+        if (!$actor->can('create-user')) {
             return back()->with('error', 'Anda tidak memiliki hak akses untuk membuat user.');
         }
 
         $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|lowercase|email|max:255|unique:' . User::class,
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:' . User::class],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
-            'role' => 'required|string|exists:roles,name', 
-            'user_type' => 'required|string|max:255',
-            'id_perusahaan' => 'nullable|exists:perusahaan,id_perusahaan',
-            'id_customer' => 'nullable|exists:customers,id_customer',
+            'role' => ['nullable', 'string'],
+            'role_id' => ['nullable', 'integer'],
+            'user_type' => ['required', 'string', 'max:255'],
+            'id_perusahaan' => ['nullable', 'exists:perusahaan,id_perusahaan'],
+            'id_customer' => ['nullable', 'exists:customers,id_customer'],
         ]);
 
-        // 1. Normalisasi 'role' (User Type)
-        $userType = $request->user_type;
-        if ($userType === 'external') {
-            $userType = 'eksternal'; // Ubah ke Bahasa Indonesia sesuai Constraint Database
-        }
+        $userType = $request->user_type === 'external' ? 'eksternal' : $request->user_type;
+        $companyId = $this->companyIdForUserPayload($request, $actor);
+        $roleService = app(RolePermissionService::class);
 
-        // 2. Tentukan Logic role_internal
         $roleInternal = null;
-        if ($userType === 'internal') {
-            $roleInternal = $request->role; 
-        }
-        // Jika eksternal, $roleInternal tetap null (sesuai aturan database)
+        $roleToAssign = null;
 
-        $user = User::create([
+        if ($userType === 'internal') {
+            $roleToAssign = $this->resolveScopedRole($request, $companyId, 'internal');
+            $roleInternal = $roleToAssign->name;
+        } elseif ($userType === 'eksternal') {
+            $this->ensureCustomerBelongsToCompany($request->integer('id_customer'), $companyId);
+            $roleToAssign = $roleService->findRoleForCompany('customer', $companyId);
+        } else {
+            throw ValidationException::withMessages([
+                'user_type' => 'Tipe user tidak valid.',
+            ]);
+        }
+
+        $newUser = User::create([
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
-            
-            // --- PERBAIKAN DISINI ---
-            // Gunanakan variabel yang sudah diolah ($userType), JANGAN $request->user_type
-            'role' => $userType, 
-            
-            // Gunakan variabel yang sudah diolah ($roleInternal), JANGAN $request->role
-            'role_internal' => $roleInternal, 
-            
-            'id_perusahaan' => $request->id_perusahaan,
-            'id_customer' => $request->id_customer,
+            'role' => $userType,
+            'role_internal' => $roleInternal,
+            'id_perusahaan' => $companyId,
+            'id_customer' => $userType === 'eksternal' ? $request->integer('id_customer') : null,
         ]);
 
-        // 4. Assign Role Spatie
-        $user->assignRole($request->role);
+        if ($roleToAssign) {
+            $roleService->assignRoleModelToUser($newUser, $roleToAssign);
+        }
 
         return redirect()->route('users.index')->with('success', 'User created successfully.');
     }
 
-    /**
-     * Display the specified resource.
-     */
     public function show(User $user)
     {
         //
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
     public function edit(User $user)
     {
         //
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
-   public function update(Request $request, User $user): RedirectResponse
+    public function update(Request $request, User $user): RedirectResponse
     {
-        // 1. Cek permission menggunakan user yang sedang LOGIN
-        if (!auth()->user()->hasPermissionTo('update-user')) {
+        $actor = Auth::user();
+
+        if (!$actor->hasPermissionTo('update-user')) {
             abort(403);
         }
 
-        // 2. Validasi (Gunakan $user->id_user dari parameter route untuk exception unique)
+        $this->authorizeUserCompanyAccess($actor, $user);
+
         $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|lowercase|email|max:255|unique:users,email,' . $user->id_user . ',id_user',
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:users,email,' . $user->id_user . ',id_user'],
             'password' => ['nullable', 'confirmed', Rules\Password::defaults()],
-            'role_internal' => 'nullable|exists:roles,name', 
+            'role_internal' => ['nullable', 'string'],
+            'role_id' => ['nullable', 'integer'],
         ]);
 
         try {
@@ -183,44 +171,117 @@ class UserController extends Controller
                 'email' => $request->email,
             ];
 
-            // 3. Update Password jika diisi
             if ($request->filled('password')) {
                 $data['password'] = Hash::make($request->password);
             }
 
-            // 4. Update Role untuk si TARGET user
-            if ($user->role === 'internal') {
-                if ($request->filled('role_internal')) {
-                    $data['role_internal'] = $request->role_internal;
-                    
-                    // Sinkronisasi role spatie ke user yang sedang diedit
-                    $user->syncRoles($request->role_internal);
-                }
-            } 
+            $roleToAssign = null;
 
-            // 5. Eksekusi update ke user yang dituju
+            if ($user->role === 'internal' && $user->role_internal !== 'admin' && $user->id_perusahaan) {
+                $roleToAssign = $this->resolveScopedRole($request, (int) $user->id_perusahaan, 'internal');
+                $data['role_internal'] = $roleToAssign->name;
+            }
+
             $user->update($data);
 
-            return redirect()->route('users.index')->with('success', 'User updated successfully.');
+            if ($roleToAssign) {
+                app(RolePermissionService::class)->assignRoleModelToUser($user, $roleToAssign);
+            }
 
+            return redirect()->route('users.index')->with('success', 'User updated successfully.');
+        } catch (ValidationException $e) {
+            throw $e;
         } catch (\Exception $e) {
             return redirect()->back()->withErrors(['error' => 'Failed to update user: ' . $e->getMessage()]);
         }
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
     public function destroy(User $user)
     {
-        // Ambil user yang sedang login untuk cek permission
         $me = Auth::user();
 
         if (!$me->hasPermissionTo('delete-user')) {
             abort(403);
         }
-        $user->delete(); 
-        
+
+        $this->authorizeUserCompanyAccess($me, $user);
+
+        $user->delete();
+
         return redirect()->route('users.index')->with('success', 'User deleted successfully.');
+    }
+
+    private function companyIdForUserPayload(Request $request, User $actor): int
+    {
+        $companyId = $actor->hasRole('admin')
+            ? $request->integer('id_perusahaan')
+            : (int) $actor->id_perusahaan;
+
+        if (!$companyId) {
+            throw ValidationException::withMessages([
+                'id_perusahaan' => 'Perusahaan wajib dipilih.',
+            ]);
+        }
+
+        if (!Perusahaan::whereKey($companyId)->exists()) {
+            throw ValidationException::withMessages([
+                'id_perusahaan' => 'Perusahaan tidak ditemukan.',
+            ]);
+        }
+
+        return $companyId;
+    }
+
+    private function resolveScopedRole(Request $request, int $companyId, string $roleType): Role
+    {
+        $roleService = app(RolePermissionService::class);
+        $role = null;
+
+        if ($request->integer('role_id')) {
+            $role = $roleService->findRoleByIdForCompany($request->integer('role_id'), $companyId, $roleType);
+        } elseif ($request->filled('role') || $request->filled('role_internal')) {
+            $roleName = (string) ($request->input('role') ?: $request->input('role_internal'));
+            $role = $roleService->findRoleForCompany($roleName, $companyId);
+
+            if ($role && $role->role_type !== $roleType) {
+                $role = null;
+            }
+        }
+
+        if (!$role) {
+            throw ValidationException::withMessages([
+                'role_id' => 'Role tidak valid untuk perusahaan ini.',
+            ]);
+        }
+
+        return $role;
+    }
+
+    private function ensureCustomerBelongsToCompany(?int $customerId, int $companyId): void
+    {
+        if (!$customerId) {
+            throw ValidationException::withMessages([
+                'id_customer' => 'Customer wajib dipilih.',
+            ]);
+        }
+
+        $customer = Customer::whereKey($customerId)->first();
+
+        if (!$customer || (int) $customer->ownership !== $companyId) {
+            throw ValidationException::withMessages([
+                'id_customer' => 'Customer tidak valid untuk perusahaan ini.',
+            ]);
+        }
+    }
+
+    private function authorizeUserCompanyAccess(User $actor, User $targetUser): void
+    {
+        if ($actor->hasRole('admin')) {
+            return;
+        }
+
+        if ((int) $actor->id_perusahaan !== (int) $targetUser->id_perusahaan) {
+            abort(403);
+        }
     }
 }
