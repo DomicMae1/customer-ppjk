@@ -25,6 +25,7 @@ class RoleAndPermissionSeeder extends Seeder
             'document',
             'role',
             'master-shipping',
+            'shipping-package',
             'section',
 
         ];
@@ -98,6 +99,7 @@ class RoleAndPermissionSeeder extends Seeder
             'view-user', 'create-user', 'update-user', 'delete-user',
             'view-document', 'create-document', 'update-document', 'delete-document',
             'view-master-shipping', 'create-master-shipping', 'update-master-shipping', 'delete-master-shipping',
+            'view-shipping-package', 'create-shipping-package', 'update-shipping-package', 'delete-shipping-package',
             'upload-document', 'verify-document',
             'view-section', 'create-section', 'update-section', 'delete-section',
             'assign_staff-master-shipping',

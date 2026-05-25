@@ -1,9 +1,9 @@
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
-import { type NavItem, PageProps } from '@/types';
+import { PageProps } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
-import { BookCheck, BookUser, Building2, Shield, SquareLibrary, SquareUserRound, Users, Bell } from 'lucide-react';
+import { Bell, BookCheck, BookUser, Building2, PackageCheck, Shield, SquareLibrary, SquareUserRound, Users } from 'lucide-react';
 import AppLogo from './app-logo';
 
 // interface ExtendedNavItem extends NavItem {
@@ -47,6 +47,12 @@ export function AppSidebar() {
             url: '/section',
             icon: SquareLibrary,
             permission: 'view-section', // Sesuaikan jika ada permission khusus section
+        },
+        {
+            title: 'Master Package Shipping',
+            url: '/shipping-packages',
+            icon: PackageCheck,
+            permission: 'view-shipping-package',
         },
         {
             title: trans_nav.manage_role,

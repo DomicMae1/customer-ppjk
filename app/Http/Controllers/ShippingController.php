@@ -15,6 +15,7 @@ use App\Models\User;
 use App\Models\MasterSection;
 use App\Models\MasterSectionTrans;
 use App\Models\SectionTrans;
+use App\Models\ShippingPackage;
 use App\Models\DocumentStatus;
 use App\Events\ShippingDataUpdated;
 use App\Models\SpkStatus;
@@ -31,6 +32,7 @@ use Illuminate\Support\Str;
 use Spatie\Browsershot\Browsershot;
 use Symfony\Component\Process\Process;
 use App\Services\SectionReminderService;
+use App\Services\ShippingGenerationService;
 use App\Services\NotificationService;
 use App\Jobs\GhostscriptCompressionJob;
 use App\Jobs\SendShippingComposeEmailJob;
@@ -303,6 +305,11 @@ class ShippingController extends Controller
                 ->orderBy('section_order', 'asc')
                 ->select('id_section', 'section_name')
                 ->get();
+
+            $shippingPackages = ShippingPackage::where('is_active', true)
+                ->orderBy('shipment_type', 'asc')
+                ->orderBy('name', 'asc')
+                ->get(['id', 'name', 'shipment_type']);
         }
 
         // NEW: Fetch Internal Staff for Supervisor Assignment
@@ -326,6 +333,7 @@ class ShippingController extends Controller
                 'logo' => session('company_logo'),
             ],
             'checklistSections' => $checklistSections ?? [], // Pass to frontend
+            'shippingPackages' => $shippingPackages ?? [],
             'flash' => [
                 'success' => session('success'),
                 'error' => session('error'),
@@ -540,6 +548,7 @@ class ShippingController extends Controller
             'hs_codes.*.link' => 'nullable|string',
             'hs_codes.*.file' => 'nullable|file|image|mimes:jpeg,png,jpg|max:5120',
             'assigned_pic'    => 'nullable|integer|exists:users,id_user', // Validasi Assigned PIC
+            'shipping_package_id' => 'nullable|integer',
             'vessel'          => 'nullable|string',
             'origin'          => 'nullable|string',
             'port'            => 'nullable|string',
@@ -563,6 +572,20 @@ class ShippingController extends Controller
 
         tenancy()->initialize($tenant);
 
+        $shippingPackage = null;
+        if (!empty($validated['shipping_package_id'])) {
+            $shippingPackage = ShippingPackage::where('id', $validated['shipping_package_id'])
+                ->where('shipment_type', $validated['shipment_type'])
+                ->where('is_active', true)
+                ->first();
+
+            if (!$shippingPackage) {
+                return redirect()->back()->withErrors([
+                    'shipping_package_id' => 'Package shipping tidak valid untuk tipe shipment ini.',
+                ])->withInput();
+            }
+        }
+
         DB::beginTransaction();
 
         try {
@@ -570,6 +593,7 @@ class ShippingController extends Controller
             $spk = Spk::create([
                 'spk_code'          => $validated['bl_number'],
                 'shipment_type'     => $validated['shipment_type'],
+                'shipping_package_id' => $shippingPackage?->id,
                 'tanggal_dokumen'   => $validated['tanggal_dokumen'],
                 'id_perusahaan_int' => $tenant->perusahaan_id ?? $user->id_perusahaan,
                 'id_customer'       => $validated['id_customer'],
@@ -618,87 +642,16 @@ class ShippingController extends Controller
                 ]);
             }
 
-            // --- 3. GENERATE SECTION TRANSAKSI ---
-            // Simpan yang Core Mandatory (is_checklist false & attribute_section true)
-            // PLUS yang dicentang user di modal (selected_sections)
-            $selectedChecklistIds = $request->input('selected_sections', []); // Array of id_section
-
-            $masterSections = MasterSectionTrans::where(function ($q) use ($selectedChecklistIds) {
-                $q->where(function ($sq) {
-                    $sq->where('is_checklist', false)
-                        ->where('id_section', '!=', 6)
-                        ->where('attribute_section', true);
-                })
-                    ->orWhereIn('id_section', $selectedChecklistIds);
-            })
-                ->where('id_section', '!=', 6)
-                ->orderBy('section_order', 'asc')
-                ->get();
-
-            foreach ($masterSections as $masterSec) {
-                SectionTrans::create([
-                    'id_section'    => $masterSec->id_section,
-                    'id_spk'        => $spk->id,
-                    'section_name'  => $masterSec->section_name,
-                    'section_order' => $masterSec->section_order,
-                    'deadline'      => false,
-                    'created_at'    => now(),
-                    'updated_at'    => now(),
-                ]);
-            }
-
-            // --- 4. GENERATE DOKUMEN TRANSAKSI (MANDATORY ONLY) ---
-            // Hanya dokumen dengan import_mandatory/export_mandatory = true yang otomatis ditambahkan saat SPK/Section dibuat.
-            $allowedSectionIds = $masterSections->pluck('id_section')->toArray();
-
-            $mandatoryColumn = $validated['shipment_type'] === 'Import' ? 'import_mandatory' : 'export_mandatory';
-
-            $finalDocs = MasterDocumentTrans::where('is_active', true)
-                ->where($mandatoryColumn, true)
-                ->whereIn('id_section', $allowedSectionIds)
-                ->orderBy('id_dokumen', 'asc')
-                ->get()
-                ->unique(function ($doc) {
-                    return $doc->id_section . '|' . \Illuminate\Support\Str::lower(trim($doc->nama_file));
-                })
-                ->sortBy([
-                    ['id_section', 'asc'],
-                    ['id_dokumen', 'asc'],
-                ])
-                ->values();
-
-            foreach ($finalDocs as $doc) {
-                $section = MasterSectionTrans::where('id_section', $doc->id_section)
-                    ->first();
-
-                $sectionName = $section ? $section->section_name : 'Unknown Section';
-                $logMessage = "Document {$sectionName} requested " . now()->format('d-m-Y H:i') . " WIB";
-
-                $newDocTrans = DocumentTrans::create([
-                    'id_spk'                => $spk->id,
-                    'id_dokumen'            => $doc->id_dokumen,
-                    'id_section'            => $doc->id_section,
-                    'nama_file'             => $doc->nama_file,
-                    'is_internal'           => $doc->is_internal ?? false,
-                    'is_verification'       => $doc->is_verification ?? true,
-                    'url_path_file'         => null,
-                    'verify'                => false,
-                    'correction_attachment' => false,
-                    'kuota_revisi'          => $doc->kuota_revisi ?: 3,
-                    'updated_by'            => $userId,
-                    'logs'                  => $logMessage,
-                    'created_at'            => now(),
-                    'updated_at'            => now(),
-                ]);
-
-                DocumentStatus::create([
-                    'id_dokumen_trans' => $newDocTrans->id,
-                    'status'           => $logMessage,
-                    'by'               => $userName,
-                    'created_at'       => now(),
-                    'updated_at'       => now(),
-                ]);
-            }
+            // --- 3. GENERATE SECTION & DOKUMEN TRANSAKSI ---
+            // Jika package dipilih, semua rule awal berasal dari Master Package Shipping.
+            // Jika tidak ada package, fallback ke flow mandatory lama agar data lama tetap aman.
+            app(ShippingGenerationService::class)->generateInitialRules(
+                $spk,
+                $shippingPackage,
+                $request->input('selected_sections', []),
+                $userId,
+                $userName
+            );
 
             if ($user->role === 'internal') {
                 if ($user->can('assign_staff-master-shipping') && !empty($validated['assigned_pic'])) {

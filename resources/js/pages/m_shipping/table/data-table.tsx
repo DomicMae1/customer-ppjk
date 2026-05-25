@@ -39,12 +39,22 @@ interface HsCodeItem {
     file: File | null;
 }
 
+interface ShippingPackageOption {
+    id: number;
+    name: string;
+    shipment_type: 'Import' | 'Export';
+}
+
 export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData, TValue>) {
     const { props } = usePage();
     const auth = (props.auth as any) || {};
     const userRole = auth.user?.roles?.[0]?.name ?? '';
     const externalCustomers = (props.externalCustomers as any[]) || [];
     const internalStaff = (props.internalStaff as any[]) || []; // NEW: Retrieve Internal Staff
+    const shippingPackages = React.useMemo(
+        () => ((props.shippingPackages as ShippingPackageOption[]) || []).filter((item) => item.id && item.name),
+        [props.shippingPackages],
+    );
     const isUserExternal = auth.user?.role === 'eksternal';
 
     const trans = props.trans_general as Record<string, string>;
@@ -62,6 +72,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
     const [tanggalDokumen, setTanggalDokumen] = useState('');
     const [shipmentType, setShipmentType] = useState<'Import' | 'Export'>('Import');
     const [blNumber, setBlNumber] = useState('');
+    const [selectedShippingPackage, setSelectedShippingPackage] = useState('');
     const [selectedCustomer, setSelectedCustomer] = useState('');
     const [selectedStaff, setSelectedStaff] = useState(''); // NEW: Selected Staff State
     const [hsCodes, setHsCodes] = useState<HsCodeItem[]>([{ id: nanoid(), code: '', link: '', file: null }]);
@@ -84,6 +95,11 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
     const selectedCustomerHasExternalAccount = Number(selectedCustomerData?.has_external_account) === 1;
 
     const shouldShowExternalAccountWarning = selectedCustomerData && Number(selectedCustomerData.has_external_account) !== 1;
+
+    const packageOptions = React.useMemo(
+        () => shippingPackages.filter((item) => item.shipment_type === shipmentType),
+        [shippingPackages, shipmentType],
+    );
 
     const filteredData = React.useMemo(() => {
         let result = [...(data as any[])];
@@ -195,6 +211,18 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
         }
     }, [isUserExternal, externalCustomers]);
 
+    useEffect(() => {
+        if (packageOptions.length === 0) {
+            setSelectedShippingPackage('');
+            return;
+        }
+
+        const selectedStillValid = packageOptions.some((item) => String(item.id) === selectedShippingPackage);
+        if (!selectedStillValid) {
+            setSelectedShippingPackage(String(packageOptions[0].id));
+        }
+    }, [packageOptions, selectedShippingPackage]);
+
     const handleReset = () => {
         setFilterValue('');
         setFilterColumn('handler_name');
@@ -253,6 +281,10 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
             }
             return;
         }
+        if (packageOptions.length > 0 && !selectedShippingPackage) {
+            toast.error('Package shipping wajib dipilih');
+            return;
+        }
 
         const invalidHs = hsCodes.find((item) => !item.code);
         if (invalidHs) {
@@ -268,6 +300,9 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
         formData.append('shipment_type', shipmentType);
         formData.append('bl_number', blNumber);
         formData.append('id_customer', selectedCustomer);
+        if (selectedShippingPackage) {
+            formData.append('shipping_package_id', selectedShippingPackage);
+        }
 
         // NEW: Append Assigned PIC if selected
         if (selectedStaff) {
@@ -304,6 +339,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                 setTanggalDokumen('');
                 setBlNumber('');
                 setHsCodes([{ id: nanoid(), code: '', link: '', file: null }]);
+                setSelectedShippingPackage('');
                 setSelectedSections([]); // Reset selected sections
                 toast.success(trans.alert_save_success || 'Data berhasil disimpan');
             },
@@ -437,6 +473,24 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                         </div>
                                     </div>
 
+                                    {packageOptions.length > 0 && (
+                                        <div className="space-y-2">
+                                            <Label className="text-foreground font-semibold">Package Shipping</Label>
+                                            <Select value={selectedShippingPackage} onValueChange={setSelectedShippingPackage}>
+                                                <SelectTrigger className="bg-background border-input text-foreground">
+                                                    <SelectValue placeholder="Pilih package shipping" />
+                                                </SelectTrigger>
+                                                <SelectContent className="bg-popover border-border text-popover-foreground">
+                                                    {packageOptions.map((item) => (
+                                                        <SelectItem key={item.id} value={String(item.id)}>
+                                                            {item.name}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    )}
+
                                     {/* Input Dynamic Label (BL vs SI) */}
                                     <div className="space-y-2">
                                         <Label className="text-foreground font-semibold">
@@ -504,7 +558,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                     )}
 
                                     {/* Checklist Sections (Optional) */}
-                                    {!isUserExternal && (props.checklistSections as any[])?.length > 0 && (
+                                    {!isUserExternal && packageOptions.length === 0 && (props.checklistSections as any[])?.length > 0 && (
                                         <div className="space-y-3">
                                             <Label className="text-foreground font-semibold">
                                                 {trans.optional_sections || 'Tambahkan Section Opsional?'}
@@ -775,6 +829,24 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                         </div>
                                     </div>
 
+                                    {packageOptions.length > 0 && (
+                                        <div className="space-y-2">
+                                            <Label className="text-foreground font-semibold">Package Shipping</Label>
+                                            <Select value={selectedShippingPackage} onValueChange={setSelectedShippingPackage}>
+                                                <SelectTrigger className="bg-background border-input text-foreground">
+                                                    <SelectValue placeholder="Pilih package shipping" />
+                                                </SelectTrigger>
+                                                <SelectContent className="bg-popover border-border text-popover-foreground">
+                                                    {packageOptions.map((item) => (
+                                                        <SelectItem key={item.id} value={String(item.id)}>
+                                                            {item.name}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    )}
+
                                     {/* Input Dynamic Label (BL vs SI) */}
                                     <div className="space-y-2">
                                         <Label className="text-foreground font-semibold">
@@ -839,7 +911,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                     )}
 
                                     {/* Checklist Sections (Optional) */}
-                                    {!isUserExternal && (props.checklistSections as any[])?.length > 0 && (
+                                    {!isUserExternal && packageOptions.length === 0 && (props.checklistSections as any[])?.length > 0 && (
                                         <div className="space-y-3">
                                             <Label className="text-foreground font-semibold">
                                                 {trans.optional_sections || 'Tambahkan Section Opsional?'}
