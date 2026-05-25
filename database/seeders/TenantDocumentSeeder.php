@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Carbon\Carbon;
 
 class TenantDocumentSeeder extends Seeder
@@ -706,6 +707,22 @@ class TenantDocumentSeeder extends Seeder
                 'is_print' => 0,
             ],
         ];
+
+        $oriDateDocuments = ['Bill of Lading', 'Packing List', 'Asuransi'];
+        $sendEmailDocuments = ['Draft PIB/PEB'];
+        $columns = array_flip(Schema::connection('tenant')->getColumnListing('master_documents_trans'));
+
+        $data = array_map(function (array $document) use ($columns, $oriDateDocuments, $sendEmailDocuments) {
+            $mandatory = (bool) ($document['attribute'] ?? false);
+
+            $document['import_mandatory'] = $document['import_mandatory'] ?? $mandatory;
+            $document['export_mandatory'] = $document['export_mandatory'] ?? $mandatory;
+            $document['is_ori'] = $document['is_ori'] ?? in_array($document['nama_file'], $oriDateDocuments, true);
+            $document['is_send_email'] = $document['is_send_email'] ?? in_array($document['nama_file'], $sendEmailDocuments, true);
+            $document['kuota_revisi'] = $document['kuota_revisi'] ?? 3;
+
+            return array_intersect_key($document, $columns);
+        }, $data);
 
         // Seed into current tenant connection (tenant DB, NOT central)
         try {
