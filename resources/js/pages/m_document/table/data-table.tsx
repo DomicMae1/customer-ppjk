@@ -238,20 +238,20 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
     );
 
     return (
-        <div className="w-full space-y-4">
+        <div className="bg-background w-full overflow-hidden rounded-2xl border shadow-sm">
             {/* --- HEADER RESPONSIVE --- */}
-            <div className="flex flex-col gap-4 pb-2 md:flex-row md:items-center md:justify-between">
+            <div className="flex flex-col gap-4 border-b p-4 md:flex-row md:items-center md:justify-between">
                 {/* Search Input */}
                 <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:items-center">
                     {/* Baris 1 mobile: search + tombol tambah */}
                     <div className="flex w-full items-center gap-2 md:w-[720px]">
                         <div className="relative flex-1">
-                            <Search className="absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-gray-500" />
+                            <Search className="text-muted-foreground absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2" />
                             <Input
                                 placeholder={trans_doc.search_placeholder || 'Search document name...'}
                                 value={(table.getColumn(filterKey)?.getFilterValue() as string) ?? ''}
                                 onChange={(event) => table.getColumn(filterKey)?.setFilterValue(event.target.value)}
-                                className="h-10 w-full pl-9"
+                                className="bg-background border-input text-foreground h-10 w-full pl-9"
                             />
                         </div>
 
@@ -287,7 +287,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
             </div>
 
             {/* --- MOBILE VIEW (Card Layout) --- */}
-            <div className="flex flex-col gap-4 md:hidden">
+            <div className="flex flex-col gap-4 p-4 md:hidden">
                 {table.getRowModel().rows.length > 0 ? (
                     table.getRowModel().rows.map((row) => {
                         const original = row.original as unknown as DocumentData;
@@ -366,7 +366,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
             </div>
 
             {/* --- DESKTOP VIEW (Table Layout) --- */}
-            <div className="border-border bg-card hidden overflow-hidden rounded-md border md:block">
+            <div className="hidden overflow-x-auto md:block">
                 <Table>
                     <TableHeader className="bg-muted">
                         {table.getHeaderGroups().map((headerGroup) => (
@@ -405,7 +405,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
                 </Table>
             </div>
 
-            <div className="py-4">
+            <div className="border-t">
                 <DataTablePagination table={table} />
             </div>
 

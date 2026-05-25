@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Perusahaan;
 use App\Models\Permission;
 use App\Models\Role;
+use App\Services\AdminCompanyContextService;
 use App\Services\RolePermissionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -23,22 +24,21 @@ class RoleController extends Controller
         }
 
         $isAdmin = $user->hasRole('admin');
-        $companies = Perusahaan::select('id_perusahaan', 'nama_perusahaan')
-            ->when(!$isAdmin, fn ($query) => $query->where('id_perusahaan', $user->id_perusahaan))
-            ->orderBy('nama_perusahaan')
-            ->get();
-
-        $selectedCompanyId = $this->selectedCompanyId($request, $companies);
+        $selectedCompanyId = $isAdmin
+            ? app(AdminCompanyContextService::class)->selectedCompanyIdForUser($user)
+            : ($user->id_perusahaan ? (int) $user->id_perusahaan : null);
 
         if ($selectedCompanyId !== null) {
             app(RolePermissionService::class)->ensureCompanyRoles($selectedCompanyId);
-        }
 
-        $roles = Role::with('permissions')
-            ->where('id_perusahaan', $selectedCompanyId)
-            ->orderBy('role_type')
-            ->orderBy('name')
-            ->get();
+            $roles = Role::with('permissions')
+                ->where('id_perusahaan', $selectedCompanyId)
+                ->orderBy('role_type')
+                ->orderBy('name')
+                ->get();
+        } else {
+            $roles = collect();
+        }
 
         $allPermissions = Permission::all()->sortBy(function ($perm) {
             $order = ['view' => 1, 'create' => 2, 'update' => 3, 'delete' => 4];
@@ -77,7 +77,6 @@ class RoleController extends Controller
         return Inertia::render('role/page', [
             'roles' => $roles,
             'permissions' => $permissions,
-            'companies' => $companies,
             'selectedCompanyId' => $selectedCompanyId,
             'isAdmin' => $isAdmin,
             'trans_role' => $trans_role,
@@ -115,7 +114,7 @@ class RoleController extends Controller
         $role->syncPermissions($validated['permissions'] ?? []);
 
         return redirect()
-            ->route('role-manager.index', ['company' => $companyId])
+            ->route('role-manager.index')
             ->with('success', 'Role created successfully.');
     }
 
@@ -154,7 +153,7 @@ class RoleController extends Controller
         $role->syncPermissions($validated['permissions'] ?? []);
 
         return redirect()
-            ->route('role-manager.index', ['company' => $companyId])
+            ->route('role-manager.index')
             ->with('success', 'Role updated successfully.');
     }
 
@@ -176,19 +175,8 @@ class RoleController extends Controller
         $role->delete();
 
         return redirect()
-            ->route('role-manager.index', ['company' => $companyId])
+            ->route('role-manager.index')
             ->with('success', 'Role deleted successfully.');
-    }
-
-    private function selectedCompanyId(Request $request, $companies): ?int
-    {
-        $requestedCompanyId = $request->integer('company');
-
-        if ($requestedCompanyId && $companies->contains('id_perusahaan', $requestedCompanyId)) {
-            return $requestedCompanyId;
-        }
-
-        return $companies->first()?->id_perusahaan ? (int) $companies->first()->id_perusahaan : null;
     }
 
     private function companyIdForMutation(Request $request): int
@@ -196,7 +184,7 @@ class RoleController extends Controller
         $user = Auth::user();
 
         $companyId = $user->hasRole('admin')
-            ? $request->integer('id_perusahaan')
+            ? ($request->integer('id_perusahaan') ?: app(AdminCompanyContextService::class)->selectedCompanyIdForUser($user))
             : (int) $user->id_perusahaan;
 
         if (!$companyId) {

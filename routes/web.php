@@ -3,6 +3,7 @@
 use App\Http\Controllers\CustomerAttachController;
 use App\Http\Controllers\CustomerLinkController;
 use App\Http\Controllers\CustomersStatusController;
+use App\Http\Controllers\AdminCompanyContextController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\PerusahaanController;
@@ -29,6 +30,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', function () {
         return redirect('shipping');
     })->name('dashboard');
+
+    Route::post('admin/company-context', [AdminCompanyContextController::class, 'update'])->name('admin.company-context.update');
 
     Route::resource('customer', CustomerController::class);
 

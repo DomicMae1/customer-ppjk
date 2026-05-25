@@ -355,8 +355,8 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
     };
 
     return (
-        <div className="w-full min-w-0 overflow-hidden md:w-[calc(100vw-8rem)] md:max-w-full group-data-[state=expanded]/sidebar-wrapper:md:w-[calc(100vw-2rem)]">
-            <div className="hidden items-center gap-2 pb-4 md:flex">
+        <div className="bg-background w-full min-w-0 overflow-hidden rounded-2xl border shadow-sm md:w-[calc(100vw-8rem)] md:max-w-full group-data-[state=expanded]/sidebar-wrapper:md:w-[calc(100vw-2rem)]">
+            <div className="hidden items-center gap-2 border-b p-4 md:flex">
                 <div className="flex flex-wrap items-center gap-2">
                     <Select value={filterColumn} onValueChange={(val) => setFilterColumn(val as any)}>
                         <SelectTrigger className="w-[250px]">
@@ -773,7 +773,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
             </div>
 
             {/* --- MOBILE TOP SECTION --- */}
-            <div className="mx-auto mb-5 flex w-full max-w-[420px] flex-col gap-4 px-4 pt-4 md:hidden">
+            <div className="mx-auto flex w-full max-w-[420px] flex-col gap-4 border-b p-4 md:hidden">
                 <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
                         <h1 className="text-foreground text-xl leading-tight font-bold">Shipment Data</h1>
@@ -1139,7 +1139,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
             </div>
 
             {/* --- MOBILE VIEW: CARD LAYOUT --- */}
-            <div className="mx-auto flex w-full max-w-[420px] flex-col gap-4 px-4 md:hidden">
+            <div className="mx-auto flex w-full max-w-[420px] flex-col gap-4 p-4 md:hidden">
                 {table.getRowModel().rows.length > 0 ? (
                     table.getRowModel().rows.map((row) => {
                         const original = row.original as any;
@@ -1226,7 +1226,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                 )}
             </div>
 
-            <div className="border-border hidden w-full overflow-hidden rounded-2xl border md:block">
+            <div className="hidden w-full overflow-x-auto md:block">
                 <Table className="min-w-[1700px]">
                     <TableHeader>
                         {table.getHeaderGroups().map((headerGroup) => (
@@ -1273,7 +1273,9 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                 </Table>
             </div>
 
-            <DataTablePagination table={table} />
+            <div className="border-t">
+                <DataTablePagination table={table} />
+            </div>
         </div>
     );
 }

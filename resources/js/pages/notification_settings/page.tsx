@@ -1,7 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import AppSidebarLayout from '@/layouts/app/app-sidebar-layout';
 import { Head } from '@inertiajs/react';
 import axios from 'axios';
@@ -16,6 +15,7 @@ interface Company {
 interface PageProps {
     companies: Company[];
     roles: string[];
+    selectedCompanyId?: number | null;
 }
 
 const EVENT_TYPES = [
@@ -28,8 +28,8 @@ const EVENT_TYPES = [
     { id: 'document_added', label: 'Document Added' },
 ];
 
-export default function NotificationSettings({ companies, roles }: PageProps) {
-    const [selectedCompany, setSelectedCompany] = useState<string>('');
+export default function NotificationSettings({ companies, roles, selectedCompanyId }: PageProps) {
+    const [selectedCompany, setSelectedCompany] = useState<string>(selectedCompanyId ? String(selectedCompanyId) : '');
     const [activeTab, setActiveTab] = useState<'channel' | 'reminder'>('channel');
 
     const [channelSettings, setChannelSettings] = useState<any[]>([]);
@@ -37,10 +37,15 @@ export default function NotificationSettings({ companies, roles }: PageProps) {
     const [isLoading, setIsLoading] = useState(false);
 
     useEffect(() => {
+        if (selectedCompanyId) {
+            setSelectedCompany(String(selectedCompanyId));
+            return;
+        }
+
         if (companies.length > 0 && !selectedCompany) {
             setSelectedCompany(companies[0].id_perusahaan.toString());
         }
-    }, [companies]);
+    }, [companies, selectedCompanyId]);
 
     useEffect(() => {
         if (selectedCompany) {
@@ -162,21 +167,6 @@ export default function NotificationSettings({ companies, roles }: PageProps) {
             <div className="flex h-full flex-1 flex-col gap-4 p-4">
                 <div className="flex items-center justify-between">
                     <h1 className="text-2xl font-bold tracking-tight">Notification Settings</h1>
-                    <div className="flex items-center gap-2">
-                        <span className="text-sm text-gray-500">Perusahaan:</span>
-                        <Select value={selectedCompany} onValueChange={setSelectedCompany}>
-                            <SelectTrigger className="w-[250px]">
-                                <SelectValue placeholder="Pilih Perusahaan" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {companies.map((c) => (
-                                    <SelectItem key={c.id_perusahaan} value={c.id_perusahaan.toString()}>
-                                        {c.nama_perusahaan}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
                 </div>
 
                 <div className="flex gap-4 border-b">

@@ -6,6 +6,7 @@ use App\Models\Customer;
 use App\Models\Perusahaan;
 use App\Models\Role;
 use App\Models\User;
+use App\Services\AdminCompanyContextService;
 use App\Services\RolePermissionService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -74,6 +75,9 @@ class UserController extends Controller
             'customers' => $customers,
             'isAdmin' => $user->hasRole('admin'),
             'authCompanyId' => $user->id_perusahaan,
+            'selectedCompanyId' => $user->hasRole('admin')
+                ? app(AdminCompanyContextService::class)->selectedCompanyIdForUser($user)
+                : $user->id_perusahaan,
         ]);
     }
 

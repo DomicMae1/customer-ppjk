@@ -12,7 +12,7 @@ export function DataTablePagination<TData>({ table }: DataTablePaginationProps<T
     const { props } = usePage();
     const trans = (props.trans_role || props.trans_company || props.trans_doc || props.trans_customer || {}) as Record<string, string>;
     return (
-        <div className="flex flex-col items-center justify-between gap-4 px-2 py-4 text-black sm:flex-row">
+        <div className="text-foreground flex flex-col items-center justify-between gap-4 px-2 py-4 sm:flex-row">
             {/* Bagian Baris Terpilih */}
             <div className="text-muted-foreground hidden flex-1 text-sm sm:block">
                 {table.getFilteredSelectedRowModel().rows.length} {trans.label_of || 'of'} {table.getFilteredRowModel().rows.length}{' '}
@@ -22,7 +22,7 @@ export function DataTablePagination<TData>({ table }: DataTablePaginationProps<T
             <div className="flex flex-col items-center gap-4 sm:flex-row sm:gap-6 lg:gap-8">
                 {/* Rows Per Page */}
                 <div className="flex items-center space-x-2">
-                    <p className="text-sm font-medium">{trans.label_rows_per_page || 'Rows'}</p>
+                    <p className="text-muted-foreground text-sm font-medium">{trans.label_rows_per_page || 'Rows'}</p>
                     <Select
                         value={`${table.getState().pagination.pageSize}`}
                         onValueChange={(value) => {
@@ -43,7 +43,7 @@ export function DataTablePagination<TData>({ table }: DataTablePaginationProps<T
                 </div>
 
                 {/* Page Info */}
-                <div className="flex items-center justify-center text-sm font-medium">
+                <div className="text-muted-foreground flex items-center justify-center text-sm font-medium">
                     {trans.label_page || 'Page'} {table.getState().pagination.pageIndex + 1} {trans.label_of || 'of'} {table.getPageCount()}
                 </div>
 

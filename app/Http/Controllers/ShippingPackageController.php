@@ -7,6 +7,7 @@ use App\Models\MasterSectionTrans;
 use App\Models\Perusahaan;
 use App\Models\ShippingPackage;
 use App\Models\Tenant;
+use App\Services\AdminCompanyContextService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -25,6 +26,9 @@ class ShippingPackageController extends Controller
         $companies = $isAdmin
             ? Perusahaan::select('id_perusahaan', 'nama_perusahaan')->orderBy('nama_perusahaan')->get()
             : collect();
+        $activeCompanyId = $isAdmin
+            ? app(AdminCompanyContextService::class)->selectedCompanyIdForUser($user)
+            : ($user->id_perusahaan ? (int) $user->id_perusahaan : null);
 
         $initialData = [
             'packages' => [],
@@ -32,15 +36,15 @@ class ShippingPackageController extends Controller
             'documents' => [],
         ];
 
-        if (!$isAdmin && $user->id_perusahaan) {
-            $this->initializeTenant((int) $user->id_perusahaan);
+        if ($activeCompanyId) {
+            $this->initializeTenant($activeCompanyId);
             $initialData = $this->buildEditorData();
         }
 
         return Inertia::render('shipping_packages/page', [
             'companies' => $companies,
             'canSelectCompany' => $isAdmin,
-            'initialCompanyId' => $isAdmin ? null : $user->id_perusahaan,
+            'initialCompanyId' => $activeCompanyId,
             'initialData' => $initialData,
             'flash' => [
                 'success' => session('success'),

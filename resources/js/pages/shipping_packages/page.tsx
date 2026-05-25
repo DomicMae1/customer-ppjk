@@ -100,10 +100,22 @@ export default function ShippingPackagesPage({ companies, canSelectCompany, init
     const hasRowActions = canUpdate || canDelete;
 
     useEffect(() => {
+        if (initialCompanyId) {
+            setSelectedCompany(String(initialCompanyId));
+            return;
+        }
+
         if (canSelectCompany && companies.length > 0 && !selectedCompany) {
             setSelectedCompany(String(companies[0].id_perusahaan));
         }
-    }, [canSelectCompany, companies, selectedCompany]);
+    }, [canSelectCompany, companies, initialCompanyId]);
+
+    useEffect(() => {
+        setPackages(initialData.packages || []);
+        setSections(initialData.sections || []);
+        setDocuments(initialData.documents || []);
+        setForm(emptyForm);
+    }, [initialData]);
 
     useEffect(() => {
         if (canSelectCompany && selectedCompany) {
@@ -305,24 +317,6 @@ export default function ShippingPackagesPage({ companies, canSelectCompany, init
                         <h1 className="text-xl font-semibold">Master Package Shipping</h1>
                         <p className="text-muted-foreground text-sm">Atur section dan dokumen yang digenerate saat shipping dibuat.</p>
                     </div>
-
-                    {canSelectCompany && (
-                        <div className="flex min-w-0 flex-col gap-1 md:w-[320px]">
-                            <Label>Perusahaan</Label>
-                            <Select value={selectedCompany} onValueChange={setSelectedCompany}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Pilih perusahaan" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {companies.map((company) => (
-                                        <SelectItem key={company.id_perusahaan} value={String(company.id_perusahaan)}>
-                                            {company.nama_perusahaan}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    )}
                 </div>
 
                 <div className="grid gap-4 lg:grid-cols-[minmax(320px,0.8fr)_minmax(0,1.4fr)]">

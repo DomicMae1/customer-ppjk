@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\NotificationChannelSetting;
 use App\Models\NotificationReminderSetting;
 use App\Models\Perusahaan;
+use App\Services\AdminCompanyContextService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\DB;
@@ -39,6 +40,7 @@ class NotificationSettingController extends Controller
         return Inertia::render('notification_settings/page', [
             'companies' => $companies,
             'roles' => $roles,
+            'selectedCompanyId' => app(AdminCompanyContextService::class)->selectedCompanyIdForUser($user),
             'flash' => [
                 'success' => session('success'),
                 'error' => session('error')

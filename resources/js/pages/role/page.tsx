@@ -14,8 +14,7 @@ import { columns } from './table/columns';
 import { DataTable } from './table/data-table';
 
 export default function ManageRoles() {
-    const { roles, permissions, flash, trans_role, errors, companies = [], selectedCompanyId, isAdmin } = usePage().props as any;
-    const selectedCompanyValue = selectedCompanyId ? String(selectedCompanyId) : '';
+    const { roles, permissions, flash, trans_role, errors, selectedCompanyId } = usePage().props as any;
 
     const breadcrumbs: BreadcrumbItem[] = [
         {
@@ -52,10 +51,6 @@ export default function ManageRoles() {
         setSelectedRoleType('');
         setSelectedPermissions([]);
         setOpenForm(true);
-    };
-
-    const handleCompanyChange = (companyId: string) => {
-        router.get('/role-manager', { company: companyId }, { preserveScroll: true, preserveState: false });
     };
 
     const onDeleteClick = (id: number) => {
@@ -183,28 +178,7 @@ export default function ManageRoles() {
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={trans_role.page_title_manage || 'Manage Roles'} />
             <div className="space-y-6 p-4 sm:p-8">
-                {isAdmin && (
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-                        <span className="text-muted-foreground text-sm">Perusahaan:</span>
-                        <Select value={selectedCompanyValue} onValueChange={handleCompanyChange}>
-                            <SelectTrigger className="bg-background w-full sm:w-[280px]">
-                                <SelectValue placeholder="Pilih Perusahaan" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {companies.map((company: any) => (
-                                    <SelectItem key={company.id_perusahaan} value={String(company.id_perusahaan)}>
-                                        {company.nama_perusahaan}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                )}
-
-                {/* Header & Table Section */}
-                <div className="bg-background overflow-hidden rounded-2xl border shadow-sm">
-                    <DataTable columns={columns(onEditClick, onDeleteClick, trans_role)} data={roles} onCreateClick={handleCreateClick} />
-                </div>
+                <DataTable columns={columns(onEditClick, onDeleteClick, trans_role)} data={roles} onCreateClick={handleCreateClick} />
             </div>
 
             <Dialog open={openDelete} onOpenChange={setOpenDelete}>

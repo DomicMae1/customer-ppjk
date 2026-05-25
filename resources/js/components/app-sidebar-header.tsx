@@ -1,3 +1,4 @@
+import { AdminCompanySwitcher } from '@/components/admin-company-switcher';
 import { Breadcrumbs } from '@/components/breadcrumbs';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
 import { SidebarTrigger } from '@/components/ui/sidebar';
@@ -15,6 +16,8 @@ export function AppSidebarHeader({ breadcrumbs = [] }: { breadcrumbs?: Breadcrum
                     <Breadcrumbs breadcrumbs={breadcrumbs} />
                 </div>
                 <div className="flex items-center gap-4">
+                    <AdminCompanySwitcher />
+
                     {/* --- LANGUAGE SWITCHER --- */}
                     <div className="flex items-center gap-2 text-sm font-medium">
                         <a

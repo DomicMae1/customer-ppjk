@@ -37,10 +37,6 @@ interface Role {
     name: string;
     role_type: string;
 }
-interface Perusahaan {
-    id: number;
-    nama_perusahaan: string;
-}
 
 interface Customer {
     id: number;
@@ -49,14 +45,14 @@ interface Customer {
 }
 
 export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData, TValue>) {
-    const { roles, companies, customers, trans_auth, auth, isAdmin, authCompanyId } = usePage().props as unknown as {
+    const { roles, customers, trans_auth, auth, isAdmin, authCompanyId, selectedCompanyId } = usePage().props as unknown as {
         roles: Role[];
-        companies: Perusahaan[];
         customers: Customer[];
         trans_auth: Record<string, string>;
         auth: any;
         isAdmin: boolean;
         authCompanyId: number | null;
+        selectedCompanyId: number | null;
     };
 
     const [sorting, setSorting] = React.useState<SortingState>([]);
@@ -71,7 +67,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
     const [passwordConfirmation, setPasswordConfirmation] = React.useState('');
     const [selectedRole, setSelectedRole] = React.useState<string>('');
     const [selectedRoleInternal, setSelectedRoleInternal] = React.useState<string>('');
-    const [selectedCompany, setSelectedCompany] = React.useState<string>('');
+    const [selectedCompany, setSelectedCompany] = React.useState<string>(selectedCompanyId ? String(selectedCompanyId) : '');
     const [selectedCustomer, setSelectedCustomer] = React.useState<string>('');
     const [showPassword, setShowPassword] = useState(false);
     const [showPasswordConfirmation, setShowPasswordConfirmation] = useState(false);
@@ -109,6 +105,12 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
         setSelectedRoleInternal('');
         setSelectedCustomer('');
     }, [effectiveCompanyId]);
+
+    React.useEffect(() => {
+        if (!openCreate) {
+            setSelectedCompany(selectedCompanyId ? String(selectedCompanyId) : '');
+        }
+    }, [openCreate, selectedCompanyId]);
 
     const handleOpenCreate = () => {
         if (!auth.user.permissions.includes('create-user')) {
@@ -232,7 +234,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                 setEmail('');
                 setPassword('');
                 setPasswordConfirmation('');
-                setSelectedCompany('');
+                setSelectedCompany(selectedCompanyId ? String(selectedCompanyId) : '');
                 setSelectedRole(''); // Reset User Type
                 setSelectedRoleInternal('');
                 setSelectedCustomer('');
@@ -245,8 +247,8 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
     };
 
     return (
-        <div>
-            <div className="hidden items-center gap-2 pb-4 md:flex">
+        <div className="bg-background overflow-hidden rounded-2xl border shadow-sm">
+            <div className="hidden items-center gap-2 border-b p-4 md:flex">
                 <div className="flex gap-2">
                     <Select value={roleFilter} onValueChange={setRoleFilter}>
                         <SelectTrigger className="w-[180px]">
@@ -264,13 +266,14 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                 </div>
 
                 <DataTableViewOptions table={table} />
-                <Button className="h-9" onClick={handleOpenCreate}>
+                <Button className="h-9 font-semibold" onClick={handleOpenCreate}>
+                    <Plus className="mr-2 h-4 w-4" />
                     {trans_auth.add_button} {/* Translate */}
                 </Button>
             </div>
 
             {/* --- MOBILE HEADER (Compact) --- */}
-            <div className="flex items-center justify-between gap-2 pb-4 md:hidden">
+            <div className="flex items-center justify-between gap-2 border-b p-4 md:hidden">
                 <Select value={roleFilter} onValueChange={setRoleFilter}>
                     <SelectTrigger className="w-[160px] shrink-0">
                         <SelectValue placeholder="Role" />
@@ -290,7 +293,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
             </div>
 
             {/* --- MOBILE CARD VIEW --- */}
-            <div className="flex flex-col gap-4 md:hidden">
+            <div className="flex flex-col gap-4 p-4 md:hidden">
                 {table.getRowModel().rows.length > 0 ? (
                     table.getRowModel().rows.map((row) => {
                         const original = row.original as any;
@@ -317,30 +320,6 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                         <span className="text-muted-foreground/70 text-xs">{trans_auth.label_email}</span>
                                         <span className="text-foreground font-medium">{original.email}</span>
                                     </div>
-
-                                    {isAdmin && (
-                                        <div className="grid gap-2">
-                                            <Label htmlFor="company" className="text-foreground font-semibold">
-                                                {trans_auth.label_company}
-                                            </Label>
-                                            <Select onValueChange={setSelectedCompany} value={selectedCompany}>
-                                                <SelectTrigger className="border-input bg-background text-foreground h-11 w-full sm:h-10">
-                                                    <SelectValue placeholder={trans_auth.placeholder_company} />
-                                                </SelectTrigger>
-                                                <SelectContent className="bg-popover text-popover-foreground">
-                                                    {companies.length > 0 ? (
-                                                        companies.map((company) => (
-                                                            <SelectItem key={company.id} value={String(company.id)}>
-                                                                {company.nama_perusahaan}
-                                                            </SelectItem>
-                                                        ))
-                                                    ) : (
-                                                        <div className="text-muted-foreground p-2 text-sm">{trans_auth.no_data_company}</div>
-                                                    )}
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                    )}
                                 </div>
                             </div>
                         );
@@ -353,7 +332,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
             </div>
 
             {/* --- DESKTOP VIEW: TABLE --- */}
-            <div className="border-border bg-card hidden overflow-hidden rounded-md border md:block">
+            <div className="hidden overflow-x-auto md:block">
                 <Table>
                     <TableHeader className="bg-muted">
                         {table.getHeaderGroups().map((headerGroup) => (
@@ -391,7 +370,9 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                     </TableBody>
                 </Table>
             </div>
-            <DataTablePagination table={table} />
+            <div className="border-t">
+                <DataTablePagination table={table} />
+            </div>
 
             {/* Dialog Tambah User */}
             <Dialog
@@ -404,7 +385,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                         setPassword('');
                         setPasswordConfirmation('');
                         setSelectedRole('');
-                        setSelectedCompany('');
+                        setSelectedCompany(selectedCompanyId ? String(selectedCompanyId) : '');
                         setSelectedRoleInternal('');
                         setSelectedCustomer('');
                     }
@@ -420,33 +401,6 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                         {/* --- Bagian Relasi --- */}
                         {/* bg-muted/50 memberikan kontras tipis yang elegan di mode terang maupun gelap */}
                         <div className="bg-muted/50 space-y-4 rounded-lg p-3 sm:bg-transparent sm:p-0">
-                            {/* Company Select */}
-                            <div className="grid gap-2">
-                                {isAdmin && (
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="company" className="text-foreground font-semibold">
-                                            {trans_auth.label_company}
-                                        </Label>
-                                        <Select onValueChange={setSelectedCompany} value={selectedCompany}>
-                                            <SelectTrigger className="border-input bg-background text-foreground h-11 w-full sm:h-10">
-                                                <SelectValue placeholder={trans_auth.placeholder_company} />
-                                            </SelectTrigger>
-                                            <SelectContent className="bg-popover text-popover-foreground">
-                                                {companies.length > 0 ? (
-                                                    companies.map((company) => (
-                                                        <SelectItem key={company.id} value={String(company.id)}>
-                                                            {company.nama_perusahaan}
-                                                        </SelectItem>
-                                                    ))
-                                                ) : (
-                                                    <div className="text-muted-foreground p-2 text-sm">{trans_auth.no_data_company}</div>
-                                                )}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                )}
-                            </div>
-
                             {/* User Type Select */}
                             <div className="grid gap-2">
                                 <Label htmlFor="role" className="text-foreground font-semibold">
