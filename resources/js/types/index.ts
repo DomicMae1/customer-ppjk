@@ -45,6 +45,15 @@ export interface SharedData {
     name: string;
     quote: { message: string; author: string };
     auth: Auth;
+    adminCompanyContext?: {
+        canSwitch: boolean;
+        selectedCompanyId: number | null;
+        companies: {
+            id_perusahaan: number;
+            nama_perusahaan: string;
+            path_company_logo?: string | null;
+        }[];
+    };
     [key: string]: unknown;
 }
 
@@ -66,6 +75,7 @@ export interface User {
 
 export interface Role {
     id: number;
+    id_perusahaan?: number | null;
     name: string;
     role_type?: string;
     permissions: Permission[];

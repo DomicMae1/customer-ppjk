@@ -61,18 +61,18 @@ export function DataTable<TData, TValue>({ columns, data, onCreateClick }: DataT
     }, [filterValue, table]);
 
     return (
-        <div>
+        <div className="bg-background overflow-hidden rounded-2xl border shadow-sm">
             {/* --- HEADER --- */}
-            <div className="flex flex-col gap-4 pb-4 md:flex-row md:items-center md:justify-between">
+            <div className="flex flex-col gap-4 border-b p-4 md:flex-row md:items-center md:justify-between">
                 {/* Input Pencarian (Full width di mobile, auto di desktop) */}
                 <div className="flex w-full items-center gap-2 md:w-auto">
                     <div className="relative w-full md:w-[300px]">
-                        <Search className="absolute top-2.5 left-2.5 h-4 w-4 text-gray-500" />
+                        <Search className="text-muted-foreground absolute top-2.5 left-2.5 h-4 w-4" />
                         <Input
                             placeholder={trans.placeholder_company_name || 'Cari...'}
                             value={filterValue}
                             onChange={(event) => setFilterValue(event.target.value)}
-                            className="w-full pl-9"
+                            className="bg-background border-input text-foreground w-full pl-9"
                         />
                     </div>
                     {onCreateClick && (
@@ -94,7 +94,7 @@ export function DataTable<TData, TValue>({ columns, data, onCreateClick }: DataT
             </div>
 
             {/* --- MOBILE VIEW (Card Layout) --- */}
-            <div className="flex flex-col gap-4 md:hidden">
+            <div className="flex flex-col gap-4 p-4 md:hidden">
                 {table.getRowModel().rows.length > 0 ? (
                     table.getRowModel().rows.map((row) => {
                         const original = row.original as any;
@@ -161,7 +161,7 @@ export function DataTable<TData, TValue>({ columns, data, onCreateClick }: DataT
                     </div>
                 )}
             </div>
-            <div className="border-border bg-card hidden overflow-hidden rounded-md border md:block">
+            <div className="hidden overflow-x-auto md:block">
                 <Table>
                     <TableHeader className="bg-muted">
                         {table.getHeaderGroups().map((headerGroup) => (
@@ -199,7 +199,7 @@ export function DataTable<TData, TValue>({ columns, data, onCreateClick }: DataT
                     </TableBody>
                 </Table>
             </div>
-            <div className="py-4">
+            <div className="border-t">
                 <DataTablePagination table={table} />
             </div>
         </div>

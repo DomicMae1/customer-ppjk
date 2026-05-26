@@ -55,9 +55,9 @@ export function DataTable<TData, TValue>({ columns, data, onCreateClick, filterK
     });
 
     return (
-        <div className="w-full max-w-full space-y-4 overflow-hidden text-black">
+        <div className="bg-background text-foreground w-full max-w-full overflow-hidden rounded-2xl border shadow-sm">
             {/* --- DESKTOP VIEW: HEADER & FILTER --- */}
-            <div className="hidden items-center justify-between gap-2 md:flex">
+            <div className="hidden items-center justify-between gap-3 border-b p-4 md:flex">
                 <div className="flex flex-1 items-center gap-2">
                     <div className="relative w-full max-w-sm">
                         <Search className="text-muted-foreground absolute top-2.5 left-2.5 h-4 w-4" />
@@ -77,7 +77,7 @@ export function DataTable<TData, TValue>({ columns, data, onCreateClick, filterK
             </div>
 
             {/* --- MOBILE VIEW: HEADER & FILTER --- */}
-            <div className="flex flex-col gap-3 px-1 md:hidden">
+            <div className="flex flex-col gap-3 border-b p-4 md:hidden">
                 <div className="flex items-center justify-between gap-2">
                     {/* Ganti text-gray-900 ke text-foreground */}
                     <h2 className="text-foreground text-xl font-bold">{trans.page_title_manage || 'Manage Roles'}</h2>
@@ -108,7 +108,7 @@ export function DataTable<TData, TValue>({ columns, data, onCreateClick, filterK
             </div>
 
             {/* --- DESKTOP TABLE --- */}
-            <div className="border-border bg-card hidden overflow-hidden rounded-md border shadow-sm md:block">
+            <div className="hidden overflow-x-auto md:block">
                 <Table>
                     <TableHeader className="bg-muted">
                         {table.getHeaderGroups().map((headerGroup) => (
@@ -148,7 +148,7 @@ export function DataTable<TData, TValue>({ columns, data, onCreateClick, filterK
             </div>
 
             {/* --- MOBILE CARD VIEW --- */}
-            <div className="flex flex-col gap-4 md:hidden">
+            <div className="flex flex-col gap-4 p-4 md:hidden">
                 {table.getRowModel().rows.length > 0 ? (
                     table.getRowModel().rows.map((row) => {
                         const original = row.original as any;
@@ -209,7 +209,9 @@ export function DataTable<TData, TValue>({ columns, data, onCreateClick, filterK
                 )}
             </div>
 
-            <DataTablePagination table={table} />
+            <div className="border-t">
+                <DataTablePagination table={table} />
+            </div>
         </div>
     );
 }

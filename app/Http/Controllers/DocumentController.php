@@ -5,10 +5,15 @@ namespace App\Http\Controllers;
 use App\Models\MasterDocument;
 use App\Models\MasterSection; // Asumsi ada model ini
 use App\Models\MasterDocumentTrans;
+use App\Models\MasterSectionTrans;
+use App\Models\Tenant;
+use App\Models\User;
+use App\Services\AdminCompanyContextService;
 use Spatie\Permission\Exceptions\UnauthorizedException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
 class DocumentController extends Controller
@@ -28,13 +33,11 @@ class DocumentController extends Controller
         $attributeFilter = $request->get('attribute');
         $sectionFilter = $request->get('section');
 
-        // --- 1. LOGIC MANAGER/SUPERVISOR (TENANT) ---
-        if ($user->hasRole(['manager', 'supervisor'])) {
-            $tenant = null;
-            if ($user->id_perusahaan) {
-                $tenant = \App\Models\Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
-            }
+        $usesTenantDocuments = $user->hasRole(['admin', 'manager', 'supervisor']);
+        $tenant = $usesTenantDocuments ? $this->tenantForUser($user) : null;
 
+        // --- 1. LOGIC COMPANY CONTEXT (TENANT) ---
+        if ($usesTenantDocuments) {
             if ($tenant) {
                 tenancy()->initialize($tenant);
 
@@ -81,7 +84,7 @@ class DocumentController extends Controller
                     });
             }
 
-        // --- 2. LOGIC ADMIN (GLOBAL) ---
+        // --- 2. LEGACY FALLBACK (GLOBAL) ---
         } elseif ($user->hasRole('admin')) {
             $query = MasterDocument::with('section')
                 ->orderBy('id_section', 'asc')
@@ -127,7 +130,7 @@ class DocumentController extends Controller
         }
 
         $sections = [];
-        if ($user->hasRole(['manager', 'supervisor'])) {
+        if ($usesTenantDocuments && $tenant) {
             $sections = \App\Models\MasterSectionTrans::orderBy('section_order', 'asc')->get();
         } else {
             $sections = MasterSection::on('tako-user')->orderBy('section_order', 'asc')->get();
@@ -231,18 +234,18 @@ class DocumentController extends Controller
 
         // --- Logic Store Berdasarkan Role ---
 
-        if ($user->hasRole('admin')) {
-            // ADMIN -> Master Document (Global)
-            $request->validate(['id_section' => 'exists:tako-user.master_sections,id_section']);
-            MasterDocument::create($validated);
-
-        } elseif ($user->hasRole(['manager', 'supervisor'])) {
-            // MANAGER -> Master Document Trans (Tenant)
-            $tenant = \App\Models\Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
+        if ($user->hasRole(['admin', 'manager', 'supervisor'])) {
+            $tenant = $this->tenantForUser($user);
             if (!$tenant) {
                 return redirect()->back()->withErrors(['error' => 'Tenant tidak ditemukan.']);
             }
             tenancy()->initialize($tenant);
+
+            if (!MasterSectionTrans::whereKey($validated['id_section'])->exists()) {
+                throw ValidationException::withMessages([
+                    'id_section' => 'Section tidak ditemukan untuk perusahaan aktif.',
+                ]);
+            }
 
             MasterDocumentTrans::create($validated);
 
@@ -290,16 +293,19 @@ class DocumentController extends Controller
         $document = null;
 
         // --- 1. GET DOCUMENT & CHECK PERMISSION ---
-        if ($user->hasRole('admin')) {
-            $document = MasterDocument::findOrFail($id);
-            $request->validate([
-                'id_section' => 'exists:tako-user.master_sections,id_section'
-            ]);
-        } elseif ($user->hasRole(['manager', 'supervisor'])) {
-            $tenant = \App\Models\Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
-            if ($tenant) {
-                tenancy()->initialize($tenant);
+        if ($user->hasRole(['admin', 'manager', 'supervisor'])) {
+            $tenant = $this->tenantForUser($user);
+            if (!$tenant) {
+                return redirect()->back()->withErrors(['error' => 'Tenant perusahaan tidak ditemukan.']);
             }
+            tenancy()->initialize($tenant);
+
+            if (!MasterSectionTrans::whereKey($validated['id_section'])->exists()) {
+                throw ValidationException::withMessages([
+                    'id_section' => 'Section tidak ditemukan untuk perusahaan aktif.',
+                ]);
+            }
+
             $document = MasterDocumentTrans::findOrFail($id);
         } else {
             abort(403, 'Unauthorized action.');
@@ -418,17 +424,9 @@ class DocumentController extends Controller
 
         // --- 1. Tentukan Model & Context Berdasarkan Role ---
 
-        if ($user->hasRole('admin')) {
-            // ADMIN: Hapus dari Master Document (Global/Central)
-            // Tidak perlu inisialisasi tenancy karena ada di DB Central
-            $document = MasterDocument::findOrFail($id);
+        if ($user->hasRole(['admin', 'manager', 'supervisor'])) {
+            $tenant = $this->tenantForUser($user);
 
-        } elseif ($user->hasRole(['manager', 'supervisor'])) {
-            // MANAGER: Hapus dari Master Document Trans (Tenant)
-            
-            // A. Cari Tenant berdasarkan user
-            $tenant = \App\Models\Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
-            
             if (!$tenant) {
                 return redirect()->back()->withErrors(['error' => 'Tenant perusahaan tidak ditemukan.']);
             }
@@ -520,5 +518,18 @@ class DocumentController extends Controller
             'nama_file' => $filename,
             'is_temp'   => true,
         ]);
+    }
+
+    private function tenantForUser(User $user): ?Tenant
+    {
+        $companyId = $user->hasRole('admin')
+            ? app(AdminCompanyContextService::class)->selectedCompanyIdForUser($user)
+            : ($user->id_perusahaan ? (int) $user->id_perusahaan : null);
+
+        if (!$companyId) {
+            return null;
+        }
+
+        return Tenant::where('perusahaan_id', $companyId)->first();
     }
 }

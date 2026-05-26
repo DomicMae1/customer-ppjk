@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Tenant;
+use App\Services\AdminCompanyContextService;
 use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -15,8 +17,12 @@ class NotificationController extends Controller
     {
         $user = auth('web')->user();
         
-        if ($user && $user->id_perusahaan) {
-            $tenant = \App\Models\Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
+        if ($user) {
+            $companyId = $user->hasRole('admin')
+                ? app(AdminCompanyContextService::class)->selectedCompanyIdForUser($user)
+                : ($user->id_perusahaan ? (int) $user->id_perusahaan : null);
+
+            $tenant = $companyId ? Tenant::where('perusahaan_id', $companyId)->first() : null;
             if ($tenant) {
                 tenancy()->initialize($tenant);
             }

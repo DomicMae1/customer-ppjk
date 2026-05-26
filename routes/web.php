@@ -3,6 +3,7 @@
 use App\Http\Controllers\CustomerAttachController;
 use App\Http\Controllers\CustomerLinkController;
 use App\Http\Controllers\CustomersStatusController;
+use App\Http\Controllers\AdminCompanyContextController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\PerusahaanController;
@@ -15,6 +16,7 @@ use Inertia\Inertia;
 use App\Http\Controllers\FileController;
 use App\Http\Controllers\SectionController;
 use App\Http\Controllers\ShippingController;
+use App\Http\Controllers\ShippingPackageController;
 use App\Http\Controllers\NotificationController;
 use Illuminate\Support\Facades\Session;
 use App\Services\NotificationService;
@@ -29,6 +31,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         return redirect('shipping');
     })->name('dashboard');
 
+    Route::post('admin/company-context', [AdminCompanyContextController::class, 'update'])->name('admin.company-context.update');
+
     Route::resource('customer', CustomerController::class);
 
     // Shipping-specific routes MUST be before resource route to avoid conflicts
@@ -36,6 +40,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('shipping/{id}/update-hs-codes', [ShippingController::class, 'updateHsCodes'])
         ->name('shipping.update-hs-codes');
     Route::post('shipping/{id}/update-eta-date', [ShippingController::class, 'updateEtaDate'])->name('shipping.update-eta-date');
+    Route::post('shipping/{id}/update-etd-date', [ShippingController::class, 'updateEtdDate'])->name('shipping.update-etd-date');
     Route::post('shipping/{id}/update-job-date', [ShippingController::class, 'updateJobDate'])->name('shipping.update-job-date');
     Route::post('shipping/{id}/update-inspection-date', [ShippingController::class, 'updateInspectionDate'])->name('shipping.update-inspection-date');
     Route::post('shipping/{id}/assign-staff', [ShippingController::class, 'assignStaff'])->name('shipping.assignStaff');
@@ -65,6 +70,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('perusahaan', PerusahaanController::class);
     Route::resource('document', DocumentController::class);
     Route::resource('section', SectionController::class);
+
+    Route::get('shipping-packages', [ShippingPackageController::class, 'index'])->name('shipping-packages.index');
+    Route::get('shipping-packages/companies/{idPerusahaan}/data', [ShippingPackageController::class, 'companyData'])->name('shipping-packages.company-data');
+    Route::post('shipping-packages', [ShippingPackageController::class, 'store'])->name('shipping-packages.store');
+    Route::put('shipping-packages/{id}', [ShippingPackageController::class, 'update'])->name('shipping-packages.update');
+    Route::delete('shipping-packages/{id}', [ShippingPackageController::class, 'destroy'])->name('shipping-packages.destroy');
 
     // Notification Settings routes
     Route::get('notification-settings', [\App\Http\Controllers\NotificationSettingController::class, 'index'])->name('notification_settings.index');
