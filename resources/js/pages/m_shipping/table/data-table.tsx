@@ -39,12 +39,22 @@ interface HsCodeItem {
     file: File | null;
 }
 
+interface ShippingPackageOption {
+    id: number;
+    name: string;
+    shipment_type: 'Import' | 'Export';
+}
+
 export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData, TValue>) {
     const { props } = usePage();
     const auth = (props.auth as any) || {};
     const userRole = auth.user?.roles?.[0]?.name ?? '';
     const externalCustomers = (props.externalCustomers as any[]) || [];
     const internalStaff = (props.internalStaff as any[]) || []; // NEW: Retrieve Internal Staff
+    const shippingPackages = React.useMemo(
+        () => ((props.shippingPackages as ShippingPackageOption[]) || []).filter((item) => item.id && item.name),
+        [props.shippingPackages],
+    );
     const isUserExternal = auth.user?.role === 'eksternal';
 
     const trans = props.trans_general as Record<string, string>;
@@ -62,6 +72,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
     const [tanggalDokumen, setTanggalDokumen] = useState('');
     const [shipmentType, setShipmentType] = useState<'Import' | 'Export'>('Import');
     const [blNumber, setBlNumber] = useState('');
+    const [selectedShippingPackage, setSelectedShippingPackage] = useState('');
     const [selectedCustomer, setSelectedCustomer] = useState('');
     const [selectedStaff, setSelectedStaff] = useState(''); // NEW: Selected Staff State
     const [hsCodes, setHsCodes] = useState<HsCodeItem[]>([{ id: nanoid(), code: '', link: '', file: null }]);
@@ -84,6 +95,11 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
     const selectedCustomerHasExternalAccount = Number(selectedCustomerData?.has_external_account) === 1;
 
     const shouldShowExternalAccountWarning = selectedCustomerData && Number(selectedCustomerData.has_external_account) !== 1;
+
+    const packageOptions = React.useMemo(
+        () => shippingPackages.filter((item) => item.shipment_type === shipmentType),
+        [shippingPackages, shipmentType],
+    );
 
     const filteredData = React.useMemo(() => {
         let result = [...(data as any[])];
@@ -195,6 +211,18 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
         }
     }, [isUserExternal, externalCustomers]);
 
+    useEffect(() => {
+        if (packageOptions.length === 0) {
+            setSelectedShippingPackage('');
+            return;
+        }
+
+        const selectedStillValid = packageOptions.some((item) => String(item.id) === selectedShippingPackage);
+        if (!selectedStillValid) {
+            setSelectedShippingPackage(String(packageOptions[0].id));
+        }
+    }, [packageOptions, selectedShippingPackage]);
+
     const handleReset = () => {
         setFilterValue('');
         setFilterColumn('handler_name');
@@ -253,6 +281,10 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
             }
             return;
         }
+        if (packageOptions.length > 0 && !selectedShippingPackage) {
+            toast.error('Package shipping wajib dipilih');
+            return;
+        }
 
         const invalidHs = hsCodes.find((item) => !item.code);
         if (invalidHs) {
@@ -268,6 +300,9 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
         formData.append('shipment_type', shipmentType);
         formData.append('bl_number', blNumber);
         formData.append('id_customer', selectedCustomer);
+        if (selectedShippingPackage) {
+            formData.append('shipping_package_id', selectedShippingPackage);
+        }
 
         // NEW: Append Assigned PIC if selected
         if (selectedStaff) {
@@ -304,6 +339,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                 setTanggalDokumen('');
                 setBlNumber('');
                 setHsCodes([{ id: nanoid(), code: '', link: '', file: null }]);
+                setSelectedShippingPackage('');
                 setSelectedSections([]); // Reset selected sections
                 toast.success(trans.alert_save_success || 'Data berhasil disimpan');
             },
@@ -319,8 +355,8 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
     };
 
     return (
-        <div className="w-full min-w-0 overflow-hidden md:w-[calc(100vw-8rem)] md:max-w-full group-data-[state=expanded]/sidebar-wrapper:md:w-[calc(100vw-2rem)]">
-            <div className="hidden items-center gap-2 pb-4 md:flex">
+        <div className="bg-background w-full min-w-0 overflow-hidden rounded-2xl border shadow-sm md:w-[calc(100vw-8rem)] md:max-w-full group-data-[state=expanded]/sidebar-wrapper:md:w-[calc(100vw-2rem)]">
+            <div className="hidden items-center gap-2 border-b p-4 md:flex">
                 <div className="flex flex-wrap items-center gap-2">
                     <Select value={filterColumn} onValueChange={(val) => setFilterColumn(val as any)}>
                         <SelectTrigger className="w-[250px]">
@@ -437,6 +473,24 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                         </div>
                                     </div>
 
+                                    {packageOptions.length > 0 && (
+                                        <div className="space-y-2">
+                                            <Label className="text-foreground font-semibold">Package Shipping</Label>
+                                            <Select value={selectedShippingPackage} onValueChange={setSelectedShippingPackage}>
+                                                <SelectTrigger className="bg-background border-input text-foreground">
+                                                    <SelectValue placeholder="Pilih package shipping" />
+                                                </SelectTrigger>
+                                                <SelectContent className="bg-popover border-border text-popover-foreground">
+                                                    {packageOptions.map((item) => (
+                                                        <SelectItem key={item.id} value={String(item.id)}>
+                                                            {item.name}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    )}
+
                                     {/* Input Dynamic Label (BL vs SI) */}
                                     <div className="space-y-2">
                                         <Label className="text-foreground font-semibold">
@@ -504,7 +558,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                     )}
 
                                     {/* Checklist Sections (Optional) */}
-                                    {!isUserExternal && (props.checklistSections as any[])?.length > 0 && (
+                                    {!isUserExternal && packageOptions.length === 0 && (props.checklistSections as any[])?.length > 0 && (
                                         <div className="space-y-3">
                                             <Label className="text-foreground font-semibold">
                                                 {trans.optional_sections || 'Tambahkan Section Opsional?'}
@@ -719,7 +773,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
             </div>
 
             {/* --- MOBILE TOP SECTION --- */}
-            <div className="mx-auto mb-5 flex w-full max-w-[420px] flex-col gap-4 px-4 pt-4 md:hidden">
+            <div className="mx-auto flex w-full max-w-[420px] flex-col gap-4 border-b p-4 md:hidden">
                 <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
                         <h1 className="text-foreground text-xl leading-tight font-bold">Shipment Data</h1>
@@ -774,6 +828,24 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                             </Button>
                                         </div>
                                     </div>
+
+                                    {packageOptions.length > 0 && (
+                                        <div className="space-y-2">
+                                            <Label className="text-foreground font-semibold">Package Shipping</Label>
+                                            <Select value={selectedShippingPackage} onValueChange={setSelectedShippingPackage}>
+                                                <SelectTrigger className="bg-background border-input text-foreground">
+                                                    <SelectValue placeholder="Pilih package shipping" />
+                                                </SelectTrigger>
+                                                <SelectContent className="bg-popover border-border text-popover-foreground">
+                                                    {packageOptions.map((item) => (
+                                                        <SelectItem key={item.id} value={String(item.id)}>
+                                                            {item.name}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    )}
 
                                     {/* Input Dynamic Label (BL vs SI) */}
                                     <div className="space-y-2">
@@ -839,7 +911,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                     )}
 
                                     {/* Checklist Sections (Optional) */}
-                                    {!isUserExternal && (props.checklistSections as any[])?.length > 0 && (
+                                    {!isUserExternal && packageOptions.length === 0 && (props.checklistSections as any[])?.length > 0 && (
                                         <div className="space-y-3">
                                             <Label className="text-foreground font-semibold">
                                                 {trans.optional_sections || 'Tambahkan Section Opsional?'}
@@ -1067,13 +1139,20 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
             </div>
 
             {/* --- MOBILE VIEW: CARD LAYOUT --- */}
-            <div className="mx-auto flex w-full max-w-[420px] flex-col gap-4 px-4 md:hidden">
+            <div className="mx-auto flex w-full max-w-[420px] flex-col gap-4 p-4 md:hidden">
                 {table.getRowModel().rows.length > 0 ? (
                     table.getRowModel().rows.map((row) => {
                         const original = row.original as any;
 
                         const etaFormatted = original.eta_date
                             ? new Date(original.eta_date).toLocaleDateString('en-GB', {
+                                  day: '2-digit',
+                                  month: '2-digit',
+                                  year: 'numeric',
+                              })
+                            : '-';
+                        const etdFormatted = original.etd_date
+                            ? new Date(original.etd_date).toLocaleDateString('en-GB', {
                                   day: '2-digit',
                                   month: '2-digit',
                                   year: 'numeric',
@@ -1125,9 +1204,15 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                                         <p className="text-card-foreground mt-1 text-sm font-bold break-words">{original.nama_customer || '-'}</p>
                                     </div>
 
-                                    <div className="min-w-[90px] text-right">
-                                        <p className="text-muted-foreground text-xs font-semibold uppercase">ETA</p>
-                                        <p className="text-card-foreground mt-1 text-sm font-bold whitespace-nowrap">{etaFormatted}</p>
+                                    <div className="flex min-w-[90px] flex-col gap-3 text-right">
+                                        <div>
+                                            <p className="text-muted-foreground text-xs font-semibold uppercase">ETA</p>
+                                            <p className="text-card-foreground mt-1 text-sm font-bold whitespace-nowrap">{etaFormatted}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-muted-foreground text-xs font-semibold uppercase">ETD</p>
+                                            <p className="text-card-foreground mt-1 text-sm font-bold whitespace-nowrap">{etdFormatted}</p>
+                                        </div>
                                     </div>
 
                                     <div className="min-w-0">
@@ -1154,8 +1239,8 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                 )}
             </div>
 
-            <div className="border-border hidden w-full overflow-hidden rounded-2xl border md:block">
-                <Table className="min-w-[1700px]">
+            <div className="hidden w-full overflow-x-auto md:block">
+                <Table className="min-w-[1880px]">
                     <TableHeader>
                         {table.getHeaderGroups().map((headerGroup) => (
                             <TableRow key={headerGroup.id}>
@@ -1201,7 +1286,9 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
                 </Table>
             </div>
 
-            <DataTablePagination table={table} />
+            <div className="border-t">
+                <DataTablePagination table={table} />
+            </div>
         </div>
     );
 }

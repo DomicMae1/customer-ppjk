@@ -12,6 +12,9 @@ use Spatie\Permission\Exceptions\UnauthorizedException;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use App\Models\Perusahaan;
+use App\Models\User;
+use App\Services\AdminCompanyContextService;
+use Illuminate\Validation\ValidationException;
 
 
 class CustomerController extends Controller
@@ -32,20 +35,21 @@ class CustomerController extends Controller
             'perusahaan',
         ]);
 
-        // 2. LOGIC FILTER PERUSAHAAN (TENANCY)
-        // Jika user terikat dengan perusahaan tertentu (bukan Super Admin Global)
-        if ($user->id_perusahaan) {
-            // Filter customer yang 'ownership'-nya sama dengan perusahaan user
-            $query->where('ownership', $user->id_perusahaan);
+        $selectedCompanyId = $this->selectedCompanyId($user);
+
+        if ($selectedCompanyId) {
+            $query->where('ownership', $selectedCompanyId);
         }
 
         // 3. Urutkan dan Ambil data
-        // (Jika user tidak punya id_perusahaan/Super Admin, dia akan melihat semua data)
         $customers = $query->orderBy('id_customer', 'asc')->get();
 
         return Inertia::render('m_customer/page', [
             'customers' => $customers,
-            'perusahaan_list' => Perusahaan::select('id_perusahaan', 'nama_perusahaan')->get(),
+            'perusahaan_list' => Perusahaan::select('id_perusahaan', 'nama_perusahaan')
+                ->when($selectedCompanyId, fn ($query) => $query->where('id_perusahaan', $selectedCompanyId))
+                ->get(),
+            'selectedCompanyId' => $selectedCompanyId,
             'company' => [
                 'id' => session('company_id'),
                 'name' => session('company_name'),
@@ -85,12 +89,25 @@ class CustomerController extends Controller
 
         try {
             $roles = $user->getRoleNames();
-            $ownership = null;
-
             if ($roles->contains('admin')) {
-                $ownership = $request->id_perusahaan;
-            } else{
-                $ownership = $user->id_perusahaan;
+                $selectedCompanyId = $this->selectedCompanyId($user);
+                $requestedCompanyId = $request->integer('id_perusahaan') ?: null;
+
+                if ($selectedCompanyId && $requestedCompanyId && $requestedCompanyId !== $selectedCompanyId) {
+                    throw ValidationException::withMessages([
+                        'id_perusahaan' => 'Perusahaan tidak sesuai dengan pilihan header.',
+                    ]);
+                }
+
+                $ownership = $requestedCompanyId ?: $selectedCompanyId;
+            } else {
+                $ownership = (int) $user->id_perusahaan;
+            }
+
+            if (!$ownership) {
+                throw ValidationException::withMessages([
+                    'id_perusahaan' => 'Perusahaan wajib dipilih.',
+                ]);
             }
             
             Customer::create([
@@ -113,6 +130,9 @@ class CustomerController extends Controller
             // Gunakan to_route / redirect untuk SPA experience yang lebih mulus dibanding Inertia::location
             return to_route('customer.index')->with('success', 'Data Customer berhasil ditambahkan!');
 
+        } catch (ValidationException $th) {
+            DB::rollBack();
+            throw $th;
         } catch (\Throwable $th) {
             DB::rollBack(); // Batalkan perubahan jika ada error
             Log::error("Error Store Customer: " . $th->getMessage());
@@ -126,6 +146,8 @@ class CustomerController extends Controller
     public function update(Request $request, $id)
     {
         $customer = Customer::findOrFail($id);
+        $user = auth('web')->user();
+        $this->authorizeCustomerScope($user, $customer);
 
         // Validasi Update
         $validated = $request->validate([
@@ -138,18 +160,26 @@ class CustomerController extends Controller
             'nama'            => 'required|string|max:255',
             'no_npwp'         => 'nullable|string|max:50',
             'no_npwp_16'      => 'nullable|string|max:50',
-            'id_perusahaan'   => 'nullable|numeric',
+            'id_perusahaan'   => 'nullable|exists:perusahaan,id_perusahaan',
         ]);
 
         try {
             DB::beginTransaction();
 
-            $user = auth('web')->user();
             $roles = $user->getRoleNames();
             $ownership = $customer->ownership;
 
             if ($roles->contains('admin')) {
-                $ownership = $validated['id_perusahaan'] ?? $customer->ownership;
+                $selectedCompanyId = $this->selectedCompanyId($user);
+                $requestedCompanyId = isset($validated['id_perusahaan']) ? (int) $validated['id_perusahaan'] : null;
+
+                if ($selectedCompanyId && $requestedCompanyId && $requestedCompanyId !== $selectedCompanyId) {
+                    throw ValidationException::withMessages([
+                        'id_perusahaan' => 'Perusahaan tidak sesuai dengan pilihan header.',
+                    ]);
+                }
+
+                $ownership = $requestedCompanyId ?: $selectedCompanyId ?: $customer->ownership;
             } else {
                 $ownership = $user->id_perusahaan;
             }
@@ -169,6 +199,9 @@ class CustomerController extends Controller
 
             return redirect()->route('customer.index')->with('success', 'Data Customer berhasil diperbarui!');
 
+        } catch (ValidationException $th) {
+            DB::rollBack();
+            throw $th;
         } catch (\Throwable $th) {
             DB::rollBack();
             Log::error("Error Update Customer: " . $th->getMessage());
@@ -182,6 +215,8 @@ class CustomerController extends Controller
     public function destroy($id)
     {
         $customer = Customer::findOrFail($id);
+        $user = auth('web')->user();
+        $this->authorizeCustomerScope($user, $customer);
 
         try {
             DB::beginTransaction();
@@ -205,9 +240,40 @@ class CustomerController extends Controller
     public function getEmails($id)
     {
         $customer = Customer::findOrFail($id);
+        $user = auth('web')->user();
+        $this->authorizeCustomerScope($user, $customer);
+
         return response()->json([
             'email_to' => $customer->email_to ?? [],
             'email_cc' => $customer->email_cc ?? [],
         ]);
+    }
+
+    private function selectedCompanyId(User $user): ?int
+    {
+        if ($user->hasRole('admin')) {
+            return app(AdminCompanyContextService::class)->selectedCompanyIdForUser($user);
+        }
+
+        if ($user->id_perusahaan) {
+            return (int) $user->id_perusahaan;
+        }
+
+        if ($user->id_customer) {
+            $ownership = Customer::whereKey($user->id_customer)->value('ownership');
+
+            return $ownership ? (int) $ownership : null;
+        }
+
+        return null;
+    }
+
+    private function authorizeCustomerScope(User $user, Customer $customer): void
+    {
+        $selectedCompanyId = $this->selectedCompanyId($user);
+
+        if ($selectedCompanyId && (int) $customer->ownership !== $selectedCompanyId) {
+            abort(404);
+        }
     }
 }

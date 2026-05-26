@@ -15,6 +15,7 @@ export type MasterDocument = {
     export_mandatory: boolean;
     is_ori: boolean;
     is_print: boolean;
+    is_send_email: boolean;
     link_path_example_file: string | null;
     link_path_template_file: string | null;
     link_url_video_file: string | null;
@@ -103,16 +104,6 @@ export const columns = (
         cell: ({ row }) => {
             return <BooleanBadge active={row.original.is_internal} />;
         },
-    },
-    {
-        accessorKey: 'import_mandatory',
-        header: trans.label_must_shipping_import || 'Must in Shipping (Import)',
-        cell: ({ row }) => <BooleanBadge active={row.original.import_mandatory} />,
-    },
-    {
-        accessorKey: 'export_mandatory',
-        header: trans.label_must_shipping_export || 'Must in Shipping (Export)',
-        cell: ({ row }) => <BooleanBadge active={row.original.export_mandatory} />,
     },
     {
         accessorKey: 'is_confirmed',

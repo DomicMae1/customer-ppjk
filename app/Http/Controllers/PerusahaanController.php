@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
+use App\Services\RolePermissionService;
 use Stancl\Tenancy\Database\Models\Domain;
 
 class PerusahaanController extends Controller
@@ -109,6 +110,7 @@ class PerusahaanController extends Controller
 
             // 5. Update relasi id_domain di tabel perusahaan
             $perusahaan->update(['id_domain' => $domainRecord->id]);
+            app(RolePermissionService::class)->ensureCompanyRoles((int) $perusahaan->id_perusahaan);
 
             return back()->with('success', "Perusahaan {$validated['nama_perusahaan']} berhasil dibuat.");
 

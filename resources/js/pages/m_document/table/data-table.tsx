@@ -83,9 +83,6 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
     const [sorting, setSorting] = React.useState<SortingState>([]);
     const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
     const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
-    const [mandatoryFilter, setMandatoryFilter] = useState<'all' | 'mandatory' | 'non_mandatory'>(
-        (filters?.attribute as 'all' | 'mandatory' | 'non_mandatory') || 'all',
-    );
     const [sectionFilter, setSectionFilter] = useState<string>(filters?.section || 'all');
     const [rowSelection, setRowSelection] = React.useState({});
 
@@ -123,12 +120,6 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
     const filteredData = React.useMemo(() => {
         let result = [...(data as any[])];
 
-        if (mandatoryFilter === 'mandatory') {
-            result = result.filter((item) => item.import_mandatory === true || item.export_mandatory === true);
-        } else if (mandatoryFilter === 'non_mandatory') {
-            result = result.filter((item) => item.import_mandatory === false && item.export_mandatory === false);
-        }
-
         if (sectionFilter !== 'all') {
             result = result.filter((item) => String(item.id_section) === String(sectionFilter));
         }
@@ -143,7 +134,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
         });
 
         return result;
-    }, [data, mandatoryFilter, sectionFilter]);
+    }, [data, sectionFilter]);
 
     const table = useReactTable({
         // Gunakan data dari props 'data' yang dilempar dari parent component (index.tsx)
@@ -165,13 +156,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
     const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
         setForm((prev) => {
-            const newState = { ...prev, [name]: value };
-            // Jika id_section diubah ke 6 (Global), otomatis matikan mandatory
-            if (name === 'id_section' && value === '6') {
-                newState.import_mandatory = false;
-                newState.export_mandatory = false;
-            }
-            return newState;
+            return { ...prev, [name]: value };
         });
     };
 
@@ -253,20 +238,20 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
     );
 
     return (
-        <div className="w-full space-y-4">
+        <div className="bg-background w-full overflow-hidden rounded-2xl border shadow-sm">
             {/* --- HEADER RESPONSIVE --- */}
-            <div className="flex flex-col gap-4 pb-2 md:flex-row md:items-center md:justify-between">
+            <div className="flex flex-col gap-4 border-b p-4 md:flex-row md:items-center md:justify-between">
                 {/* Search Input */}
                 <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:items-center">
                     {/* Baris 1 mobile: search + tombol tambah */}
                     <div className="flex w-full items-center gap-2 md:w-[720px]">
                         <div className="relative flex-1">
-                            <Search className="absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-gray-500" />
+                            <Search className="text-muted-foreground absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2" />
                             <Input
                                 placeholder={trans_doc.search_placeholder || 'Search document name...'}
                                 value={(table.getColumn(filterKey)?.getFilterValue() as string) ?? ''}
                                 onChange={(event) => table.getColumn(filterKey)?.setFilterValue(event.target.value)}
-                                className="h-10 w-full pl-9"
+                                className="bg-background border-input text-foreground h-10 w-full pl-9"
                             />
                         </div>
 
@@ -276,17 +261,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
                     </div>
 
                     {/* Baris 2 mobile: filter */}
-                    <div className="grid w-full grid-cols-2 gap-2 md:flex md:w-auto md:items-center">
-                        <select
-                            value={mandatoryFilter}
-                            onChange={(e) => setMandatoryFilter(e.target.value as 'all' | 'mandatory' | 'non_mandatory')}
-                            className="border-input bg-background text-foreground focus:ring-primary h-10 w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none md:min-w-[160px]"
-                        >
-                            <option value="all">{trans_doc.filter_all_attribute || 'Semua Attribute'}</option>
-                            <option value="mandatory">{trans_doc.filter_mandatory || 'Mandatory'}</option>
-                            <option value="non_mandatory">{trans_doc.filter_non_mandatory || 'Non Mandatory'}</option>
-                        </select>
-
+                    <div className="grid w-full grid-cols-1 gap-2 md:flex md:w-auto md:items-center">
                         <select
                             value={sectionFilter}
                             onChange={(e) => setSectionFilter(e.target.value)}
@@ -312,7 +287,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
             </div>
 
             {/* --- MOBILE VIEW (Card Layout) --- */}
-            <div className="flex flex-col gap-4 md:hidden">
+            <div className="flex flex-col gap-4 p-4 md:hidden">
                 {table.getRowModel().rows.length > 0 ? (
                     table.getRowModel().rows.map((row) => {
                         const original = row.original as unknown as DocumentData;
@@ -350,16 +325,6 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
                                         >
                                             {original.is_internal ? 'INTERNAL' : 'EXTERNAL / PUBLIC'}
                                         </span>
-                                        {original.import_mandatory && (
-                                            <span className="rounded bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-700 dark:bg-red-900/30 dark:text-red-400">
-                                                MANDATORY (IMPORT)
-                                            </span>
-                                        )}
-                                        {original.export_mandatory && (
-                                            <span className="rounded bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-700 dark:bg-red-900/30 dark:text-red-400">
-                                                MANDATORY (EXPORT)
-                                            </span>
-                                        )}
                                         {original.is_confirmed && (
                                             <span className="bg-destructive/10 text-destructive rounded px-2 py-0.5 text-[10px] font-bold">
                                                 NEED CONFIRM
@@ -401,7 +366,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
             </div>
 
             {/* --- DESKTOP VIEW (Table Layout) --- */}
-            <div className="border-border bg-card hidden overflow-hidden rounded-md border md:block">
+            <div className="hidden overflow-x-auto md:block">
                 <Table>
                     <TableHeader className="bg-muted">
                         {table.getHeaderGroups().map((headerGroup) => (
@@ -440,7 +405,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
                 </Table>
             </div>
 
-            <div className="py-4">
+            <div className="border-t">
                 <DataTablePagination table={table} />
             </div>
 
@@ -515,67 +480,6 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_file
                                     </Button>
                                 </div>
                             </div>
-
-                            {Number(form.id_section) !== 6 && (
-                                <div className="col-span-1 grid grid-cols-1 gap-4 sm:col-span-2 sm:grid-cols-2">
-                                    <div>
-                                        <FieldLabelWithTooltip
-                                            label={trans_doc.label_must_shipping_import || 'Must in Shipping (Import)'}
-                                            tooltip={
-                                                trans_doc.label_must_shipping_import_desc ||
-                                                'Determines whether this document is required in the import shipping process.'
-                                            }
-                                            required
-                                        />
-                                        <div className="flex gap-2">
-                                            <Button
-                                                type="button"
-                                                variant={form.import_mandatory ? 'default' : 'outline'}
-                                                onClick={() => handleBooleanChange('import_mandatory', true)}
-                                                className="h-11 flex-1 sm:h-9"
-                                            >
-                                                {trans_doc.btn_yes || 'Ya'}
-                                            </Button>
-                                            <Button
-                                                type="button"
-                                                variant={!form.import_mandatory ? 'default' : 'outline'}
-                                                onClick={() => handleBooleanChange('import_mandatory', false)}
-                                                className="h-11 flex-1 sm:h-9"
-                                            >
-                                                {trans_doc.btn_no || 'Tidak'}
-                                            </Button>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <FieldLabelWithTooltip
-                                            label={trans_doc.label_must_shipping_export || 'Must in Shipping (Export)'}
-                                            tooltip={
-                                                trans_doc.label_must_shipping_export_desc ||
-                                                'Determines whether this document is required in the export shipping process.'
-                                            }
-                                            required
-                                        />
-                                        <div className="flex gap-2">
-                                            <Button
-                                                type="button"
-                                                variant={form.export_mandatory ? 'default' : 'outline'}
-                                                onClick={() => handleBooleanChange('export_mandatory', true)}
-                                                className="h-11 flex-1 sm:h-9"
-                                            >
-                                                {trans_doc.btn_yes || 'Ya'}
-                                            </Button>
-                                            <Button
-                                                type="button"
-                                                variant={!form.export_mandatory ? 'default' : 'outline'}
-                                                onClick={() => handleBooleanChange('export_mandatory', false)}
-                                                className="h-11 flex-1 sm:h-9"
-                                            >
-                                                {trans_doc.btn_no || 'Tidak'}
-                                            </Button>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
 
                             <div>
                                 <FieldLabelWithTooltip

@@ -2,19 +2,20 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\User;
+use App\Models\Perusahaan;
+use App\Models\Permission;
+use App\Models\Role;
+use App\Services\AdminCompanyContextService;
+use App\Services\RolePermissionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
-use Spatie\Permission\Models\Role;
-use Spatie\Permission\Models\Permission;
 
 class RoleController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
-    public function index()
+    public function index(Request $request)
     {
         $user = Auth::user();
 
@@ -22,10 +23,24 @@ class RoleController extends Controller
             abort(403, 'Unauthorized access. You do not have permission to view roles.');
         }
 
-        $roles = Role::with('permissions')->get();
+        $isAdmin = $user->hasRole('admin');
+        $selectedCompanyId = $isAdmin
+            ? app(AdminCompanyContextService::class)->selectedCompanyIdForUser($user)
+            : ($user->id_perusahaan ? (int) $user->id_perusahaan : null);
 
-        // Sort permissions: view first, then create, update, delete
-        $allPermissions = Permission::all()->sortBy(function($perm) {
+        if ($selectedCompanyId !== null) {
+            app(RolePermissionService::class)->ensureCompanyRoles($selectedCompanyId);
+
+            $roles = Role::with('permissions')
+                ->where('id_perusahaan', $selectedCompanyId)
+                ->orderBy('role_type')
+                ->orderBy('name')
+                ->get();
+        } else {
+            $roles = collect();
+        }
+
+        $allPermissions = Permission::all()->sortBy(function ($perm) {
             $order = ['view' => 1, 'create' => 2, 'update' => 3, 'delete' => 4];
             $parts = explode('-', $perm->name);
             $action = $parts[0];
@@ -62,69 +77,57 @@ class RoleController extends Controller
         return Inertia::render('role/page', [
             'roles' => $roles,
             'permissions' => $permissions,
+            'selectedCompanyId' => $selectedCompanyId,
+            'isAdmin' => $isAdmin,
             'trans_role' => $trans_role,
             'flash' => [
                 'success' => session('success'),
-                'error' => session('error')
-            ]
+                'error' => session('error'),
+            ],
         ]);
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
     public function create()
     {
         //
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request)
     {
         if (!Auth::user()->can('create-role')) {
             abort(403, 'Unauthorized access.');
         }
 
-        $request->validate([
-            'name' => 'required|string|unique:roles,name',
-            'role_type' => 'required|string|in:internal,eksternal',
-            'permissions' => 'array',
-            'permissions.*' => 'string|exists:permissions,name',
-        ]);
+        $companyId = $this->companyIdForMutation($request);
+        $this->authorizeCompanyAccess($companyId);
+
+        $validated = $this->validateRolePayload($request);
+        $this->ensureUniqueRoleName($validated['name'], $companyId);
 
         $role = Role::create([
-            'name' => $request->name,
-            'role_type' => $request->role_type,
-            'guard_name' => 'web'
+            'id_perusahaan' => $companyId,
+            'name' => $validated['name'],
+            'role_type' => $validated['role_type'],
+            'guard_name' => 'web',
         ]);
-        if ($request->permissions) {
-            $role->syncPermissions($request->permissions);
-        }
 
-        return redirect()->route('role-manager.index')->with('success', 'Role created successfully.');
+        $role->syncPermissions($validated['permissions'] ?? []);
+
+        return redirect()
+            ->route('role-manager.index')
+            ->with('success', 'Role created successfully.');
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(User $user)
+    public function show(Role $role)
     {
         //
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(User $user)
+    public function edit(Role $role)
     {
         //
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
     public function update(Request $request, $id)
     {
         if (!Auth::user()->can('update-role')) {
@@ -133,25 +136,27 @@ class RoleController extends Controller
 
         $role = Role::findOrFail($id);
 
-        $request->validate([
-            'name' => 'required|string|unique:roles,name,' . $id,
-            'role_type' => 'required|string|in:internal,eksternal',
-            'permissions' => 'array',
-            'permissions.*' => 'string|exists:permissions,name',
-        ]);
+        if ($role->id_perusahaan === null) {
+            abort(403, 'Global roles cannot be edited here.');
+        }
+
+        $companyId = (int) $role->id_perusahaan;
+        $this->authorizeCompanyAccess($companyId);
+
+        $validated = $this->validateRolePayload($request);
+        $this->ensureUniqueRoleName($validated['name'], $companyId, $role->id);
 
         $role->update([
-            'name' => $request->name,
-            'role_type' => $request->role_type
+            'name' => $validated['name'],
+            'role_type' => $validated['role_type'],
         ]);
-        $role->syncPermissions($request->permissions);
+        $role->syncPermissions($validated['permissions'] ?? []);
 
-        return redirect()->route('role-manager.index')->with('success', 'Role updated successfully.');
+        return redirect()
+            ->route('role-manager.index')
+            ->with('success', 'Role updated successfully.');
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
     public function destroy($id)
     {
         if (!Auth::user()->can('delete-role')) {
@@ -160,7 +165,80 @@ class RoleController extends Controller
 
         $role = Role::findOrFail($id);
 
+        if ($role->id_perusahaan === null) {
+            abort(403, 'Global roles cannot be deleted here.');
+        }
+
+        $companyId = (int) $role->id_perusahaan;
+        $this->authorizeCompanyAccess($companyId);
+
         $role->delete();
-        return redirect()->route('role-manager.index')->with('success', 'Role deleted successfully.');
+
+        return redirect()
+            ->route('role-manager.index')
+            ->with('success', 'Role deleted successfully.');
+    }
+
+    private function companyIdForMutation(Request $request): int
+    {
+        $user = Auth::user();
+
+        $companyId = $user->hasRole('admin')
+            ? ($request->integer('id_perusahaan') ?: app(AdminCompanyContextService::class)->selectedCompanyIdForUser($user))
+            : (int) $user->id_perusahaan;
+
+        if (!$companyId) {
+            throw ValidationException::withMessages([
+                'id_perusahaan' => 'Perusahaan wajib dipilih.',
+            ]);
+        }
+
+        return $companyId;
+    }
+
+    private function authorizeCompanyAccess(int $companyId): void
+    {
+        $user = Auth::user();
+
+        if (!$user->hasRole('admin') && (int) $user->id_perusahaan !== $companyId) {
+            abort(403, 'Unauthorized company access.');
+        }
+
+        if (!Perusahaan::whereKey($companyId)->exists()) {
+            throw ValidationException::withMessages([
+                'id_perusahaan' => 'Perusahaan tidak ditemukan.',
+            ]);
+        }
+    }
+
+    private function validateRolePayload(Request $request): array
+    {
+        $permissionNames = Permission::pluck('name')->all();
+
+        return $request->validate([
+            'id_perusahaan' => ['nullable', 'integer'],
+            'name' => ['required', 'string', 'max:255'],
+            'role_type' => ['required', 'string', Rule::in(['internal', 'eksternal'])],
+            'permissions' => ['nullable', 'array'],
+            'permissions.*' => ['string', Rule::in($permissionNames)],
+        ]);
+    }
+
+    private function ensureUniqueRoleName(string $name, int $companyId, ?int $ignoreRoleId = null): void
+    {
+        $query = Role::query()
+            ->where('id_perusahaan', $companyId)
+            ->where('guard_name', 'web')
+            ->whereRaw('LOWER(name) = ?', [strtolower($name)]);
+
+        if ($ignoreRoleId !== null) {
+            $query->whereKeyNot($ignoreRoleId);
+        }
+
+        if ($query->exists()) {
+            throw ValidationException::withMessages([
+                'name' => 'Nama role sudah digunakan untuk perusahaan ini.',
+            ]);
+        }
     }
 }

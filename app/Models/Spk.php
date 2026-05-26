@@ -20,6 +20,7 @@ class Spk extends Model
         'id_customer',       // ID Customer (External)
         'spk_code',          // Keterangan / BL Number / SI Number
         'shipment_type',     // Import / Export
+        'shipping_package_id',
         'created_by',        // ID User pembuat
         'validated_by',      // ID User validator
         'penjaluran',
@@ -28,6 +29,7 @@ class Spk extends Model
         'register_date',
         'tanggal_dokumen',
         'eta_date',
+        'etd_date',
         'shipper',
         'consignee',
         'vessel',
@@ -53,11 +55,13 @@ class Spk extends Model
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
         'eta_date' => 'date:Y-m-d',
+        'etd_date' => 'date:Y-m-d',
         'tanggal_dokumen' => 'date:Y-m-d',
         'job_date' => 'date:Y-m-d',
         'inspection_date' => 'date:Y-m-d',
         'npd_date' => 'date:Y-m-d',
         'is_npd' => 'boolean',
+        'shipping_package_id' => 'integer',
     ];
 
     /**
@@ -130,6 +134,11 @@ class Spk extends Model
     {
         // Relasi SPK ke Section Transaksi
         return $this->hasMany(SectionTrans::class, 'id_spk', 'id');
+    }
+
+    public function shippingPackage(): BelongsTo
+    {
+        return $this->belongsTo(ShippingPackage::class, 'shipping_package_id', 'id');
     }
 
     /**

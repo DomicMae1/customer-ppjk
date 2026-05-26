@@ -38,12 +38,13 @@ export interface Customer {
 interface CustomerPageProps extends PageProps {
     customers: Customer[]; // Pastikan di controller index() Anda me-return data ini
     perusahaan_list?: { id_perusahaan: number; nama_perusahaan: string }[];
+    selectedCompanyId?: number | null;
     trans_customer: Record<string, string>;
 }
 
 export default function ManageCustomers() {
     // Ambil semua data sekaligus dari usePage
-    const { customers, flash, perusahaan_list, auth, trans_customer, trans_general } = usePage<any>().props;
+    const { customers, flash, perusahaan_list, selectedCompanyId, auth, trans_customer, trans_general } = usePage<CustomerPageProps & any>().props;
 
     const trans = trans_general as Record<string, string>;
     const isAdmin = auth.user?.roles?.some((role: any) => role.name === 'admin');
@@ -83,7 +84,7 @@ export default function ManageCustomers() {
         nama: '',
         no_npwp: '',
         no_npwp_16: '',
-        id_perusahaan: '',
+        id_perusahaan: selectedCompanyId ? String(selectedCompanyId) : '',
     };
     const [emailsTo, setEmailsTo] = useState<string[]>([]);
     const [inputTo, setInputTo] = useState('');
@@ -198,7 +199,7 @@ export default function ManageCustomers() {
             nama: customer.nama || '',
             no_npwp: customer.no_npwp || '',
             no_npwp_16: customer.no_npwp_16 || '',
-            id_perusahaan: customer.perusahaan?.id_perusahaan?.toString() || '',
+            id_perusahaan: customer.perusahaan?.id_perusahaan?.toString() || (selectedCompanyId ? String(selectedCompanyId) : ''),
         });
         setOpenEdit(true);
     };
