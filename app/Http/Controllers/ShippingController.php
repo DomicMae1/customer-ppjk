@@ -958,6 +958,138 @@ class ShippingController extends Controller
         ]);
     }
 
+    public function uploadMergedPdf(Request $request)
+    {
+        $user = auth('web')->user();
+
+        if (!$user || $user->role === 'eksternal') {
+            return response()->json(['success' => false, 'message' => 'Hanya user internal yang dapat mengunggah merged PDF.'], 403);
+        }
+
+        if (!$user->can('upload-document')) {
+            return response()->json(['success' => false, 'message' => 'Anda tidak memiliki izin untuk mengunggah dokumen.'], 403);
+        }
+
+        [$tenant] = $this->resolveTenantAndPerusahaanId($user);
+        if (!$tenant) {
+            return response()->json(['success' => false, 'message' => 'Tenant not found'], 404);
+        }
+
+        tenancy()->initialize($tenant);
+
+        $validated = $request->validate([
+            'spk_id' => 'required|integer',
+            'document_ids' => 'required|array|min:1',
+            'document_ids.*' => 'integer',
+            'file' => 'required|file|mimes:pdf|max:51200',
+        ]);
+
+        $documentIds = collect($validated['document_ids'])
+            ->map(fn ($id) => (int) $id)
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($documentIds->isEmpty()) {
+            return response()->json(['success' => false, 'message' => 'Pilih minimal satu dokumen.'], 422);
+        }
+
+        $spk = Spk::findOrFail($validated['spk_id']);
+        $documents = DocumentTrans::where('id_spk', $spk->id)
+            ->whereIn('id', $documentIds)
+            ->get();
+
+        if ($documents->count() !== $documentIds->count()) {
+            return response()->json(['success' => false, 'message' => 'Ada dokumen yang tidak terdaftar pada SPK ini.'], 422);
+        }
+
+        $disk = Storage::disk('customers_external');
+        $finalRelPath = null;
+
+        try {
+            $file = $request->file('file');
+            $shippingFolder = 'shipping/' . date('Y/m') . "/{$spk->spk_code}";
+            if (!$disk->exists($shippingFolder)) {
+                $disk->makeDirectory($shippingFolder);
+            }
+
+            $cleanSpkCode = preg_replace('/[^A-Za-z0-9]/', '_', $spk->spk_code);
+            $fileName = 'Merged_PDF_' . $cleanSpkCode . '_' . now()->format('YmdHis') . '_' . Str::random(6) . '.pdf';
+            $finalRelPath = "{$shippingFolder}/{$fileName}";
+
+            $stream = fopen($file->getRealPath(), 'r');
+            if ($stream === false) {
+                throw new \RuntimeException('Gagal membaca file PDF.');
+            }
+
+            try {
+                $disk->put($finalRelPath, $stream);
+            } finally {
+                if (is_resource($stream)) {
+                    fclose($stream);
+                }
+            }
+
+            DB::connection('tenant-transaction')->beginTransaction();
+
+            foreach ($documents as $doc) {
+                $doc->update([
+                    'url_path_file' => $finalRelPath,
+                    'verify' => true,
+                    'correction_attachment' => false,
+                    'correction_attachment_file' => null,
+                    'correction_description' => null,
+                    'upload_date' => now(),
+                    'verified_date' => now(),
+                ]);
+
+                DocumentStatus::create(['id_dokumen_trans' => $doc->id, 'status' => 'Uploaded', 'by' => $user->name]);
+                DocumentStatus::create(['id_dokumen_trans' => $doc->id, 'status' => 'Verified', 'by' => $user->name]);
+            }
+
+            SpkStatus::create([
+                'id_spk' => $spk->id,
+                'id_status' => 2,
+                'status' => 'Merged PDF Verified (' . $documents->count() . ' dokumen)',
+            ]);
+
+            DB::connection('tenant-transaction')->commit();
+
+            $absPath = $disk->path($finalRelPath);
+            if (file_exists($absPath) && filesize($absPath) > 2 * 1024 * 1024) {
+                GhostscriptCompressionJob::dispatch($absPath, $finalRelPath);
+            }
+
+            try {
+                ShippingDataUpdated::dispatch($spk->id, 'merged_pdf_upload');
+            } catch (\Exception $e) {
+                Log::error('Realtime update failed: ' . $e->getMessage());
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Merged PDF berhasil disimpan untuk ' . $documents->count() . ' dokumen.',
+                'path' => $finalRelPath,
+                'document_count' => $documents->count(),
+            ]);
+        } catch (\Throwable $e) {
+            if (DB::connection('tenant-transaction')->transactionLevel() > 0) {
+                DB::connection('tenant-transaction')->rollBack();
+            }
+
+            if ($finalRelPath && $disk->exists($finalRelPath)) {
+                $disk->delete($finalRelPath);
+            }
+
+            Log::error('Merged PDF upload failed: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal menyimpan merged PDF: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
     public function submit(Request $request)
     {
         return back()->with('success', 'Data berhasil disubmit.');

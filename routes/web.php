@@ -37,6 +37,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Shipping-specific routes MUST be before resource route to avoid conflicts
     Route::post('shipping/upload-temp', [ShippingController::class, 'upload'])->name('shipping.upload');
+    Route::post('shipping/merged-pdf-upload', [ShippingController::class, 'uploadMergedPdf'])->name('shipping.uploadMergedPdf');
     Route::post('shipping/{id}/update-hs-codes', [ShippingController::class, 'updateHsCodes'])
         ->name('shipping.update-hs-codes');
     Route::post('shipping/{id}/update-eta-date', [ShippingController::class, 'updateEtaDate'])->name('shipping.update-eta-date');
