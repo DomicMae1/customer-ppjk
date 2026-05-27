@@ -1,26 +1,18 @@
 <?php
 
-use App\Http\Controllers\CustomerAttachController;
-use App\Http\Controllers\CustomerLinkController;
-use App\Http\Controllers\CustomersStatusController;
 use App\Http\Controllers\AdminCompanyContextController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\DocumentController;
+use App\Http\Controllers\FileController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PerusahaanController;
 use App\Http\Controllers\RoleController;
-use App\Http\Controllers\SecureFileController;
-use App\Http\Controllers\UserController;
-use App\Models\Customers_Status;
-use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
-use App\Http\Controllers\FileController;
 use App\Http\Controllers\SectionController;
 use App\Http\Controllers\ShippingController;
 use App\Http\Controllers\ShippingPackageController;
-use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\UserController;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Session;
-use App\Services\NotificationService;
-use Illuminate\Support\Facades\DB;
 
 Route::get('/', function () {
     return redirect('shipping');
@@ -100,7 +92,7 @@ Route::get('/file/view/{path}', [FileController::class, 'view'])->middleware('au
     ->where('path', '.*')
     ->name('file.view');
 
-Route::get('/shipping/{path}', [FileController::class, 'view'])
+Route::get('/shipping/{path}', [FileController::class, 'view'])->middleware('auth')
     ->where('path', '.*')
     ->name('file.view');
 
@@ -108,8 +100,9 @@ Route::get('lang/{locale}', function ($locale) {
     if (in_array($locale, ['en', 'id'])) {
         Session::put('locale', $locale);
     }
+
     return redirect()->back();
 })->name('switch.language');
 
-require __DIR__ . '/settings.php';
-require __DIR__ . '/auth.php';
+require __DIR__.'/settings.php';
+require __DIR__.'/auth.php';
