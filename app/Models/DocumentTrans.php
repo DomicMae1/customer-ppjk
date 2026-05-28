@@ -12,6 +12,7 @@ class DocumentTrans extends Model
 
     // Nama Tabel
     protected $connection = 'tenant-transaction';
+
     protected $table = 'document_trans';
 
     protected $primaryKey = 'id';
@@ -63,6 +64,11 @@ class DocumentTrans extends Model
     public function statuses(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(DocumentStatus::class, 'id_dokumen_trans');
+    }
+
+    public function ceisaExtractionAudits(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(CeisaDocumentExtractionAudit::class, 'id_dokumen_trans');
     }
 
     /**

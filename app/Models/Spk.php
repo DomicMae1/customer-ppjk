@@ -13,6 +13,7 @@ class Spk extends Model
 
     // protected $connection = 'tako-user';
     protected $connection = 'tenant-transaction';
+
     protected $table = 'spk';
 
     protected $fillable = [
@@ -114,6 +115,16 @@ class Spk extends Model
     {
         // Parameter: Model Tujuan, Foreign Key di tabel tujuan, Local Key di tabel ini
         return $this->hasMany(HsCode::class, 'id_spk', 'id');
+    }
+
+    public function ceisaSubmissions(): HasMany
+    {
+        return $this->hasMany(CeisaSubmission::class, 'id_spk', 'id');
+    }
+
+    public function ceisaExtractionAudits(): HasMany
+    {
+        return $this->hasMany(CeisaDocumentExtractionAudit::class, 'id_spk', 'id');
     }
 
     public function statuses(): HasMany

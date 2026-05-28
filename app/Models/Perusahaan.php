@@ -2,10 +2,8 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Stancl\Tenancy\Database\Models\Domain;
 
@@ -14,9 +12,11 @@ class Perusahaan extends Model
     use HasFactory;
 
     protected $connection = 'tako-user';
+
     protected $table = 'perusahaan';
 
     protected $primaryKey = 'id_perusahaan';
+
     public $incrementing = true;
 
     protected $fillable = [
@@ -26,7 +26,7 @@ class Perusahaan extends Model
         'notify_2',
         'sla',
         'sla_timer',
-        'uid'
+        'uid',
     ];
 
     protected $casts = [
@@ -50,6 +50,22 @@ class Perusahaan extends Model
     {
         return $this->hasMany(Customer::class, 'ownership', 'id_perusahaan');
     }
+
+    public function ceisaConfigs(): HasMany
+    {
+        return $this->hasMany(CeisaCompanyConfig::class, 'id_perusahaan', 'id_perusahaan');
+    }
+
+    public function ceisaImportirPresets(): HasMany
+    {
+        return $this->hasMany(CeisaImportirPreset::class, 'id_perusahaan', 'id_perusahaan');
+    }
+
+    public function ceisaReferenceCache(): HasMany
+    {
+        return $this->hasMany(CeisaReferenceCache::class, 'id_perusahaan', 'id_perusahaan');
+    }
+
     public function spk(): HasMany
     {
         // Asumsi model SPK nanti bernama 'Spk'
