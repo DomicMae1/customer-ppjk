@@ -211,7 +211,7 @@ class CeisaDraftPayloadBuilder
                 ->keyBy('id_dokumen')
             : collect();
 
-        return $documents->values()->map(function (DocumentTrans $document, int $index) use ($mappings, $today, &$warnings) {
+        return $documents->values()->map(function (DocumentTrans $document, int $index) use ($mappings, $spk, $today, &$warnings) {
             $mapping = $mappings->get($document->id_dokumen);
             $name = (string) ($document->masterDocument?->nama_file ?: $document->nama_file);
             $kodeDokumen = $mapping?->ceisa_document_code ?: $this->guessDocumentCode($name);
