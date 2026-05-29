@@ -11,7 +11,6 @@ return new class extends Migration
         Schema::create('ceisa_submissions', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('id_spk');
-            $table->unsignedBigInteger('id_perusahaan');
             $table->unsignedBigInteger('ceisa_company_config_id');
             $table->string('shipment_type', 20);
             $table->string('document_type', 20);
@@ -37,7 +36,7 @@ return new class extends Migration
 
             $table->unique('nomor_aju', 'ceisa_submissions_nomor_aju_unique');
             $table->index(['id_spk', 'status'], 'ceisa_submissions_spk_status_index');
-            $table->index(['id_perusahaan', 'ceisa_company_config_id'], 'ceisa_submissions_company_config_index');
+            $table->index(['ceisa_company_config_id', 'status'], 'ceisa_submissions_config_status_index');
         });
 
         Schema::create('ceisa_status_logs', function (Blueprint $table) {

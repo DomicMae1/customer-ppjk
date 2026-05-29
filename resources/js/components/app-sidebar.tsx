@@ -3,7 +3,7 @@ import { NavUser } from '@/components/nav-user';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { PageProps } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
-import { Bell, BookCheck, BookUser, Building2, PackageCheck, Shield, SquareLibrary, SquareUserRound, Users } from 'lucide-react';
+import { Bell, BookCheck, BookUser, Building2, KeyRound, PackageCheck, Shield, SquareLibrary, SquareUserRound, Users } from 'lucide-react';
 import AppLogo from './app-logo';
 
 // interface ExtendedNavItem extends NavItem {
@@ -71,6 +71,12 @@ export function AppSidebar() {
             url: '/notification-settings',
             icon: Bell,
             permission: 'view-role', // Restricting it with view-role for admin as other admin pages use this
+        },
+        {
+            title: 'CEISA Settings',
+            url: '/ceisa-settings',
+            icon: KeyRound,
+            permission: 'view-role',
         },
     ];
 

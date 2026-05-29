@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AdminCompanyContextController;
+use App\Http\Controllers\CeisaSettingController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\FileController;
@@ -75,6 +76,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('notification-settings/companies/{id}/data', [\App\Http\Controllers\NotificationSettingController::class, 'getSettings'])->name('notification_settings.data');
     Route::post('notification-settings/channel', [\App\Http\Controllers\NotificationSettingController::class, 'upsertChannel'])->name('notification_settings.upsertChannel');
     Route::post('notification-settings/reminder', [\App\Http\Controllers\NotificationSettingController::class, 'upsertReminder'])->name('notification_settings.upsertReminder');
+
+    Route::get('ceisa-settings', [CeisaSettingController::class, 'index'])->name('ceisa-settings.index');
+    Route::get('ceisa-settings/companies/{idPerusahaan}', [CeisaSettingController::class, 'show'])->name('ceisa-settings.show');
+    Route::post('ceisa-settings', [CeisaSettingController::class, 'upsert'])->name('ceisa-settings.upsert');
+    Route::post('ceisa-settings/test', [CeisaSettingController::class, 'test'])->name('ceisa-settings.test');
 
     // Notification routes
     Route::get('notifications', [NotificationController::class, 'index'])->name('notifications.index');

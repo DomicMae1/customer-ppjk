@@ -13,7 +13,6 @@ return new class extends Migration
         Schema::create('ceisa_company_configs', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('id_perusahaan');
-            $table->string('tenant_id')->nullable();
             $table->string('environment', 20)->default('production');
             $table->string('base_url')->default('https://apis-gw.beacukai.go.id');
             $table->string('origin_url')->nullable();
@@ -49,11 +48,6 @@ return new class extends Migration
                 ->references('id_perusahaan')
                 ->on('perusahaan')
                 ->onDelete('cascade');
-
-            $table->foreign('tenant_id')
-                ->references('id')
-                ->on('tenants')
-                ->nullOnDelete();
 
             $table->unique(['id_perusahaan', 'environment'], 'ceisa_company_configs_company_env_unique');
             $table->index(['environment', 'is_active'], 'ceisa_company_configs_env_active_index');

@@ -66,10 +66,13 @@ class CeisaTokenService
         }
 
         $item = $this->tokenItem($payload);
-        $accessToken = Arr::get($item, 'access_token', Arr::get($item, 'accessToken'));
+        $accessToken = $this->tokenValue($item, ['access_token', 'accessToken']);
 
         if (! is_string($accessToken) || trim($accessToken) === '') {
-            $this->storeLastError($config, $payload, $response->status());
+            $this->storeLastError($config, [
+                'message' => 'Login CEISA berhasil, tetapi access_token tidak ditemukan pada response.',
+                'response_keys' => $this->payloadKeys($payload),
+            ], $response->status());
 
             throw new CeisaCredentialException('Login CEISA tidak mengembalikan access token.');
         }
@@ -108,15 +111,18 @@ class CeisaTokenService
         }
 
         $item = $this->tokenItem($payload);
-        $accessToken = Arr::get($item, 'access_token', Arr::get($item, 'accessToken'));
+        $accessToken = $this->tokenValue($item, ['access_token', 'accessToken']);
 
         if (! is_string($accessToken) || trim($accessToken) === '') {
-            $this->storeTokenError($tokenCache, $payload, $response->status());
+            $this->storeTokenError($tokenCache, [
+                'message' => 'Refresh token CEISA berhasil, tetapi access_token tidak ditemukan pada response.',
+                'response_keys' => $this->payloadKeys($payload),
+            ], $response->status());
 
             throw new CeisaCredentialException('Refresh token CEISA tidak mengembalikan access token.');
         }
 
-        $item['refresh_token'] = Arr::get($item, 'refresh_token', Arr::get($item, 'refreshToken', $refreshToken));
+        $item['refresh_token'] = $this->tokenValue($item, ['refresh_token', 'refreshToken']) ?? $refreshToken;
         $this->saveTokenCache($config, $item);
 
         return $accessToken;
@@ -155,9 +161,9 @@ class CeisaTokenService
         return CeisaTokenCache::updateOrCreate(
             ['ceisa_company_config_id' => $config->id],
             [
-                'access_token' => Arr::get($item, 'access_token', Arr::get($item, 'accessToken')),
-                'refresh_token' => Arr::get($item, 'refresh_token', Arr::get($item, 'refreshToken')),
-                'token_type' => Arr::get($item, 'token_type', Arr::get($item, 'tokenType', 'Bearer')),
+                'access_token' => $this->tokenValue($item, ['access_token', 'accessToken']),
+                'refresh_token' => $this->tokenValue($item, ['refresh_token', 'refreshToken']),
+                'token_type' => $this->tokenValue($item, ['token_type', 'tokenType']) ?: 'Bearer',
                 'expires_at' => $this->accessTokenExpiry($item),
                 'refresh_expires_at' => $this->refreshTokenExpiry($item),
                 'last_refreshed_at' => now(),
@@ -210,9 +216,52 @@ class CeisaTokenService
 
     private function tokenItem(array $payload): array
     {
-        $item = Arr::get($payload, 'item', $payload);
+        $item = Arr::get($payload, 'item')
+            ?? Arr::get($payload, 'data.item')
+            ?? Arr::get($payload, 'data')
+            ?? Arr::get($payload, 'result')
+            ?? $payload;
+
+        if (is_string($item)) {
+            $decoded = json_decode($item, true);
+            $item = is_array($decoded) ? $decoded : [];
+        }
 
         return is_array($item) ? $item : [];
+    }
+
+    private function tokenValue(array $item, array $keys): mixed
+    {
+        foreach ($keys as $key) {
+            $value = Arr::get($item, $key);
+
+            if ($value !== null && $value !== '') {
+                return $value;
+            }
+        }
+
+        foreach ($item as $key => $value) {
+            if (is_string($key) && in_array(strtolower($key), array_map('strtolower', $keys), true) && $value !== '') {
+                return $value;
+            }
+
+            if (is_array($value)) {
+                $nestedValue = $this->tokenValue($value, $keys);
+
+                if ($nestedValue !== null && $nestedValue !== '') {
+                    return $nestedValue;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private function payloadKeys(array $payload): string
+    {
+        $keys = array_keys($payload);
+
+        return implode(', ', array_slice(array_map('strval', $keys), 0, 20));
     }
 
     private function storeLastError(CeisaCompanyConfig $config, array $payload, int $status): void

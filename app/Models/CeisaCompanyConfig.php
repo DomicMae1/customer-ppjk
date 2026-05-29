@@ -19,7 +19,6 @@ class CeisaCompanyConfig extends Model
 
     protected $fillable = [
         'id_perusahaan',
-        'tenant_id',
         'environment',
         'base_url',
         'origin_url',
@@ -71,11 +70,6 @@ class CeisaCompanyConfig extends Model
     public function perusahaan(): BelongsTo
     {
         return $this->belongsTo(Perusahaan::class, 'id_perusahaan', 'id_perusahaan');
-    }
-
-    public function tenant(): BelongsTo
-    {
-        return $this->belongsTo(Tenant::class, 'tenant_id', 'id');
     }
 
     public function tokenCache(): HasOne

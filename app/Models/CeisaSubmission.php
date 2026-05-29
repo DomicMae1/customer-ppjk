@@ -17,7 +17,6 @@ class CeisaSubmission extends Model
 
     protected $fillable = [
         'id_spk',
-        'id_perusahaan',
         'ceisa_company_config_id',
         'shipment_type',
         'document_type',

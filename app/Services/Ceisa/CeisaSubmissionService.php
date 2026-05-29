@@ -38,7 +38,6 @@ class CeisaSubmissionService
 
         $submission->fill([
             'id_spk' => $spk->id,
-            'id_perusahaan' => $spk->id_perusahaan,
             'ceisa_company_config_id' => $config->id,
             'shipment_type' => $shipmentType,
             'document_type' => $documentType,
