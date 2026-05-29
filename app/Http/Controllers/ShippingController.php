@@ -5,6 +5,10 @@ namespace App\Http\Controllers;
 use App\Events\ShippingDataUpdated;
 use App\Jobs\GhostscriptCompressionJob;
 use App\Jobs\SendShippingComposeEmailJob;
+use App\Models\CeisaCompanyConfig;
+use App\Models\CeisaResponseDocument;
+use App\Models\CeisaStatusLog;
+use App\Models\CeisaSubmission;
 use App\Models\Customer;
 use App\Models\DocumentStatus;
 use App\Models\DocumentTrans;
@@ -19,6 +23,7 @@ use App\Models\SpkStatus;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Services\AdminCompanyContextService;
+use App\Services\Ceisa\CeisaStatusSyncService;
 use App\Services\NotificationService;
 use App\Services\SectionReminderService;
 use App\Services\ShippingGenerationService;
@@ -31,6 +36,7 @@ use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Spatie\Permission\Exceptions\UnauthorizedException;
 use Symfony\Component\Process\Process;
+use Throwable;
 
 class ShippingController extends Controller
 {
@@ -133,6 +139,91 @@ class ShippingController extends Controller
     private function isAdminUser($user): bool
     {
         return $user && ($user->role_internal === 'admin' || $user->hasRole('admin'));
+    }
+
+    private function activeCeisaConfigForCompany(int $idPerusahaan): ?CeisaCompanyConfig
+    {
+        return CeisaCompanyConfig::where('id_perusahaan', $idPerusahaan)
+            ->where('is_active', true)
+            ->orderByRaw("CASE WHEN environment = 'production' THEN 0 WHEN environment = 'development' THEN 1 ELSE 2 END")
+            ->latest('updated_at')
+            ->first();
+    }
+
+    private function ceisaDocumentTypeForShipment(?string $shipmentType): string
+    {
+        return Str::contains(Str::lower((string) $shipmentType), ['export', 'ekspor']) ? 'BC30' : 'BC20';
+    }
+
+    private function serializeCeisaSubmission(CeisaSubmission $submission): array
+    {
+        $latestLog = $submission->statusLogs
+            ->sortByDesc(fn (CeisaStatusLog $log) => $log->waktu_status ?? $log->waktu_respon ?? $log->created_at)
+            ->first();
+
+        return [
+            'id' => $submission->id,
+            'nomor_aju' => $submission->nomor_aju,
+            'shipment_type' => $submission->shipment_type,
+            'document_type' => $submission->document_type,
+            'mode' => $submission->mode,
+            'is_final' => $submission->is_final,
+            'is_revision' => $submission->is_revision,
+            'status' => $submission->status,
+            'id_header' => $submission->id_header,
+            'error_code' => $submission->error_code,
+            'error_message' => $submission->error_message,
+            'submitted_at' => optional($submission->submitted_at)->toIso8601String(),
+            'last_synced_at' => optional($submission->last_synced_at)->toIso8601String(),
+            'latest_log' => $latestLog ? $this->serializeCeisaStatusLog($latestLog) : null,
+            'status_logs' => $submission->statusLogs
+                ->sortByDesc(fn (CeisaStatusLog $log) => $log->waktu_status ?? $log->waktu_respon ?? $log->created_at)
+                ->take(8)
+                ->values()
+                ->map(fn (CeisaStatusLog $log) => $this->serializeCeisaStatusLog($log))
+                ->all(),
+            'response_documents' => $submission->responseDocuments
+                ->sortByDesc('created_at')
+                ->values()
+                ->map(fn (CeisaResponseDocument $document) => [
+                    'id' => $document->id,
+                    'response_type' => $document->response_type,
+                    'kode_respon' => $document->kode_respon,
+                    'nomor_respon' => $document->nomor_respon,
+                    'file_name' => $document->file_name,
+                    'size_bytes' => $document->size_bytes,
+                    'created_at' => optional($document->created_at)->toIso8601String(),
+                ])
+                ->all(),
+        ];
+    }
+
+    private function serializeCeisaStatusLog(CeisaStatusLog $log): array
+    {
+        return [
+            'id' => $log->id,
+            'source' => $log->source,
+            'kode_status' => $log->kode_status,
+            'kode_respon' => $log->kode_respon,
+            'nomor_daftar' => $log->nomor_daftar,
+            'tanggal_daftar' => optional($log->tanggal_daftar)->toDateString(),
+            'nomor_respon' => $log->nomor_respon,
+            'tanggal_respon' => optional($log->tanggal_respon)->toDateString(),
+            'waktu_status' => optional($log->waktu_status)->toIso8601String(),
+            'waktu_respon' => optional($log->waktu_respon)->toIso8601String(),
+            'keterangan' => $log->keterangan,
+            'pesan' => $log->pesan,
+        ];
+    }
+
+    private function ceisaSubmissionsForSpk(int $idSpk)
+    {
+        return CeisaSubmission::where('id_spk', $idSpk)
+            ->with(['statusLogs', 'responseDocuments'])
+            ->latest()
+            ->get()
+            ->map(fn (CeisaSubmission $submission) => $this->serializeCeisaSubmission($submission))
+            ->values();
     }
 
     // buildShippingPdf has been moved to App\Services\ShippingPdfService
@@ -1440,8 +1531,168 @@ class ShippingController extends Controller
             'customer' => $spk->customer,
             'shipmentDataProp' => $shipmentData,
             'sectionsTransProp' => $sectionsTrans,
+            'ceisaSubmissions' => $this->ceisaSubmissionsForSpk($spk->id),
             'internalStaff' => $internalStaff, // Pass staff list
         ]);
+    }
+
+    public function trackCeisaSubmission(Request $request, int $id, CeisaStatusSyncService $statusSync)
+    {
+        $user = auth('web')->user();
+
+        if (! $user || ! $user->can('update-master-shipping')) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'nomor_aju' => ['required', 'string', 'max:32'],
+        ]);
+
+        [$tenant, $idPerusahaan] = $this->resolveTenantAndPerusahaanId($user);
+
+        if (! $tenant || ! $idPerusahaan) {
+            return response()->json(['message' => 'Tenant/perusahaan tidak ditemukan.'], 404);
+        }
+
+        tenancy()->initialize($tenant);
+
+        $spk = $this->findAccessibleSpkOrFail($id, $user, $idPerusahaan);
+        $config = $this->activeCeisaConfigForCompany($idPerusahaan);
+
+        if (! $config) {
+            return response()->json(['message' => 'Konfigurasi CEISA aktif belum tersedia untuk perusahaan ini.'], 422);
+        }
+
+        $nomorAju = preg_replace('/\s+/', '', (string) $validated['nomor_aju']);
+        $existing = CeisaSubmission::where('nomor_aju', $nomorAju)->first();
+
+        if ($existing && (int) $existing->id_spk !== (int) $spk->id) {
+            return response()->json([
+                'message' => 'Nomor aju ini sudah terikat ke SPK lain di tenant yang sama.',
+            ], 422);
+        }
+
+        $submission = $existing ?: new CeisaSubmission;
+        $submission->fill([
+            'id_spk' => $spk->id,
+            'ceisa_company_config_id' => $config->id,
+            'shipment_type' => Str::contains(Str::lower((string) $spk->shipment_type), ['export', 'ekspor']) ? 'export' : 'import',
+            'document_type' => $this->ceisaDocumentTypeForShipment($spk->shipment_type),
+            'mode' => $submission->exists ? $submission->mode : 'tracking',
+            'is_final' => $submission->exists ? $submission->is_final : false,
+            'is_revision' => $submission->exists ? $submission->is_revision : false,
+            'nomor_aju' => $nomorAju,
+            'status' => $submission->exists ? $submission->status : 'tracking',
+            'submitted_by' => $submission->submitted_by ?: $user->id_user,
+        ])->save();
+
+        try {
+            $submission = $statusSync->syncSubmission($submission->fresh(['statusLogs', 'responseDocuments']), $config);
+        } catch (Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'message' => $e->getMessage() ?: 'Cek status CEISA gagal.',
+                'submission' => $this->serializeCeisaSubmission($submission->fresh(['statusLogs', 'responseDocuments'])),
+                'submissions' => $this->ceisaSubmissionsForSpk($spk->id),
+            ], 422);
+        }
+
+        if ($submission->error_message) {
+            return response()->json([
+                'message' => $submission->error_message,
+                'submission' => $this->serializeCeisaSubmission($submission->fresh(['statusLogs', 'responseDocuments'])),
+                'submissions' => $this->ceisaSubmissionsForSpk($spk->id),
+            ], 422);
+        }
+
+        return response()->json([
+            'message' => 'Nomor aju tersimpan dan status CEISA sudah disync.',
+            'submission' => $this->serializeCeisaSubmission($submission->fresh(['statusLogs', 'responseDocuments'])),
+            'submissions' => $this->ceisaSubmissionsForSpk($spk->id),
+        ]);
+    }
+
+    public function syncCeisaSubmission(Request $request, int $id, int $submission, CeisaStatusSyncService $statusSync)
+    {
+        $user = auth('web')->user();
+
+        if (! $user || ! $user->can('update-master-shipping')) {
+            abort(403);
+        }
+
+        [$tenant, $idPerusahaan] = $this->resolveTenantAndPerusahaanId($user);
+
+        if (! $tenant || ! $idPerusahaan) {
+            return response()->json(['message' => 'Tenant/perusahaan tidak ditemukan.'], 404);
+        }
+
+        tenancy()->initialize($tenant);
+
+        $spk = $this->findAccessibleSpkOrFail($id, $user, $idPerusahaan);
+        $ceisaSubmission = CeisaSubmission::where('id_spk', $spk->id)->findOrFail($submission);
+        $config = CeisaCompanyConfig::where('id', $ceisaSubmission->ceisa_company_config_id)
+            ->where('id_perusahaan', $idPerusahaan)
+            ->first();
+
+        if (! $config) {
+            return response()->json(['message' => 'Konfigurasi CEISA untuk submission ini tidak ditemukan.'], 422);
+        }
+
+        try {
+            $ceisaSubmission = $statusSync->syncSubmission($ceisaSubmission->fresh(['statusLogs', 'responseDocuments']), $config);
+        } catch (Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'message' => $e->getMessage() ?: 'Sync status CEISA gagal.',
+                'submission' => $this->serializeCeisaSubmission($ceisaSubmission->fresh(['statusLogs', 'responseDocuments'])),
+                'submissions' => $this->ceisaSubmissionsForSpk($spk->id),
+            ], 422);
+        }
+
+        if ($ceisaSubmission->error_message) {
+            return response()->json([
+                'message' => $ceisaSubmission->error_message,
+                'submission' => $this->serializeCeisaSubmission($ceisaSubmission->fresh(['statusLogs', 'responseDocuments'])),
+                'submissions' => $this->ceisaSubmissionsForSpk($spk->id),
+            ], 422);
+        }
+
+        return response()->json([
+            'message' => 'Status CEISA berhasil disync.',
+            'submission' => $this->serializeCeisaSubmission($ceisaSubmission->fresh(['statusLogs', 'responseDocuments'])),
+            'submissions' => $this->ceisaSubmissionsForSpk($spk->id),
+        ]);
+    }
+
+    public function downloadCeisaResponseDocument(Request $request, int $id, int $document)
+    {
+        $user = auth('web')->user();
+
+        if (! $user || ! $user->can('update-master-shipping')) {
+            abort(403);
+        }
+
+        [$tenant, $idPerusahaan] = $this->resolveTenantAndPerusahaanId($user);
+
+        if (! $tenant || ! $idPerusahaan) {
+            abort(404, 'Tenant/perusahaan tidak ditemukan.');
+        }
+
+        tenancy()->initialize($tenant);
+
+        $spk = $this->findAccessibleSpkOrFail($id, $user, $idPerusahaan);
+        $responseDocument = CeisaResponseDocument::whereHas('submission', function ($query) use ($spk) {
+            $query->where('id_spk', $spk->id);
+        })->findOrFail($document);
+
+        if (! Storage::disk($responseDocument->storage_disk)->exists($responseDocument->storage_path)) {
+            abort(404, 'File response CEISA tidak ditemukan.');
+        }
+
+        return Storage::disk($responseDocument->storage_disk)
+            ->download($responseDocument->storage_path, $responseDocument->file_name ?: 'ceisa-response.pdf');
     }
 
     /**

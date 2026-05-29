@@ -6,13 +6,28 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { MemoizedInput } from '@/components/ui/memoized-input';
 import { Label } from '@/components/ui/label';
+import { MemoizedInput } from '@/components/ui/memoized-input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { router, usePage } from '@inertiajs/react';
 import axios from 'axios';
-import { AlertTriangle, Archive, ChevronDown, ChevronUp, CircleHelp, FileText, Play, Plus, Save, Search, Trash2, Undo2, UploadCloud, X } from 'lucide-react';
+import {
+    AlertTriangle,
+    Archive,
+    ChevronDown,
+    ChevronUp,
+    CircleHelp,
+    Download,
+    FileText,
+    Play,
+    Plus,
+    RefreshCw,
+    Save,
+    Search,
+    Trash2,
+    UploadCloud,
+} from 'lucide-react';
 import { nanoid } from 'nanoid';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -107,6 +122,43 @@ interface SectionTrans {
     documents: DocumentTrans[];
 }
 
+interface CeisaStatusLog {
+    id: number;
+    source?: string | null;
+    kode_status?: string | null;
+    kode_respon?: string | null;
+    nomor_daftar?: string | null;
+    tanggal_daftar?: string | null;
+    nomor_respon?: string | null;
+    tanggal_respon?: string | null;
+    waktu_status?: string | null;
+    waktu_respon?: string | null;
+    keterangan?: string | null;
+}
+
+interface CeisaResponseDocument {
+    id: number;
+    response_type?: string | null;
+    kode_respon?: string | null;
+    nomor_respon?: string | null;
+    file_name?: string | null;
+    size_bytes?: number | null;
+    created_at?: string | null;
+}
+
+interface CeisaSubmission {
+    id: number;
+    nomor_aju: string;
+    document_type?: string | null;
+    mode?: string | null;
+    status?: string | null;
+    error_message?: string | null;
+    last_synced_at?: string | null;
+    latest_log?: CeisaStatusLog | null;
+    status_logs?: CeisaStatusLog[];
+    response_documents?: CeisaResponseDocument[];
+}
+
 interface MasterDocument {
     id_dokumen: number;
     nama_file: string;
@@ -131,6 +183,7 @@ interface Props {
     sectionsTransProp: SectionTrans[];
     masterDocProp?: MasterDocument[];
     masterSecProp?: MasterSection[];
+    ceisaSubmissionsProp?: CeisaSubmission[];
     userRole?: string;
     internalStaff?: any[];
 }
@@ -148,10 +201,11 @@ export default function ViewCustomerForm({
     shipmentDataProp,
     sectionsTransProp, // Data Section Transaksional
     masterDocProp, // Data Master Document (opsional, untuk fallback help)
+    ceisaSubmissionsProp = [],
     userRole, // NEW: User role for role-based visibility
     internalStaff = [], // NEW: Internal Staff list for supervisor
 }: Props) {
-    console.log("RENDER PARENT");
+    console.log('RENDER PARENT');
     const { props } = usePage();
     const trans = props.trans_general as Record<string, string>;
     const currentLocale = props.locale as string;
@@ -170,13 +224,21 @@ export default function ViewCustomerForm({
 
     const [openEmailModal, setOpenEmailModal] = useState(false);
 
-    const additionalSection = useMemo(() => sectionsTransProp?.find(
-        (s: SectionTrans) => s.section_name.toLowerCase().includes('additional') || s.section_name.toLowerCase().includes('tambahan'),
-    ), [sectionsTransProp]);
+    const additionalSection = useMemo(
+        () =>
+            sectionsTransProp?.find(
+                (s: SectionTrans) => s.section_name.toLowerCase().includes('additional') || s.section_name.toLowerCase().includes('tambahan'),
+            ),
+        [sectionsTransProp],
+    );
 
-    const mainSections = useMemo(() => sectionsTransProp?.filter(
-        (s: SectionTrans) => !s.section_name.toLowerCase().includes('additional') && !s.section_name.toLowerCase().includes('tambahan'),
-    ), [sectionsTransProp]);
+    const mainSections = useMemo(
+        () =>
+            sectionsTransProp?.filter(
+                (s: SectionTrans) => !s.section_name.toLowerCase().includes('additional') && !s.section_name.toLowerCase().includes('tambahan'),
+            ),
+        [sectionsTransProp],
+    );
 
     const [isEditingHsCodes, setIsEditingHsCodes] = useState(false);
     const [hsCodes, setHsCodes] = useState<any[]>([]);
@@ -250,10 +312,24 @@ export default function ViewCustomerForm({
     const [parties, setParties] = useState<any[]>(
         (shipmentDataProp as any)?.parties?.length > 0
             ? (shipmentDataProp as any).parties
-            : [{ party_type: 'FCL', party_category: '1 - GENERAL / DRY CARGO', party_qty: '', party_size: '20 ft' }]
+            : [{ party_type: 'FCL', party_category: '1 - GENERAL / DRY CARGO', party_qty: '', party_size: '20 ft' }],
     );
     const [ajuForm, setAjuForm] = useState<string>((shipmentDataProp as any)?.aju || '');
     const [joForm, setJoForm] = useState<string>((shipmentDataProp as any)?.j_o || '');
+    const [ceisaSubmissions, setCeisaSubmissions] = useState<CeisaSubmission[]>(ceisaSubmissionsProp || []);
+    const [ceisaAjuInput, setCeisaAjuInput] = useState<string>((shipmentDataProp as any)?.aju || ceisaSubmissionsProp?.[0]?.nomor_aju || '');
+    const [isTrackingCeisa, setIsTrackingCeisa] = useState(false);
+    const [syncingCeisaId, setSyncingCeisaId] = useState<number | null>(null);
+
+    useEffect(() => {
+        setCeisaSubmissions(ceisaSubmissionsProp || []);
+    }, [ceisaSubmissionsProp]);
+
+    useEffect(() => {
+        if (!ceisaAjuInput && (shipmentDataProp as any)?.aju) {
+            setCeisaAjuInput((shipmentDataProp as any).aju);
+        }
+    }, [ceisaAjuInput, shipmentDataProp]);
 
     useEffect(() => {
         if (flash?.success) {
@@ -273,25 +349,38 @@ export default function ViewCustomerForm({
         }
 
         const timeoutId = setTimeout(() => {
-            axios.post(`/shipping/${shipmentDataProp.id_spk}/update-form-fields`, {
-                shipper: shipperForm,
-                consignee: consigneeForm,
-                vessel: vesselForm,
-                origin: originForm,
-                port_of_loading: portOfLoadingForm,
-                port: portForm,
-                comodity: comodityForm,
-                parties: parties,
-                aju: ajuForm,
-                j_o: joForm
-            })
-                .catch(error => {
-                    console.error("Auto-save formulir penerimaan dokumen gagal", error);
+            axios
+                .post(`/shipping/${shipmentDataProp.id_spk}/update-form-fields`, {
+                    shipper: shipperForm,
+                    consignee: consigneeForm,
+                    vessel: vesselForm,
+                    origin: originForm,
+                    port_of_loading: portOfLoadingForm,
+                    port: portForm,
+                    comodity: comodityForm,
+                    parties: parties,
+                    aju: ajuForm,
+                    j_o: joForm,
+                })
+                .catch((error) => {
+                    console.error('Auto-save formulir penerimaan dokumen gagal', error);
                 });
         }, 3000);
 
         return () => clearTimeout(timeoutId);
-    }, [shipmentDataProp.id_spk, shipperForm, consigneeForm, vesselForm, originForm, portOfLoadingForm, portForm, comodityForm, parties, ajuForm, joForm]);
+    }, [
+        shipmentDataProp.id_spk,
+        shipperForm,
+        consigneeForm,
+        vesselForm,
+        originForm,
+        portOfLoadingForm,
+        portForm,
+        comodityForm,
+        parties,
+        ajuForm,
+        joForm,
+    ]);
 
     // Batch Verification State
     const [pendingVerifications, setPendingVerifications] = useState<number[]>([]);
@@ -331,7 +420,9 @@ export default function ViewCustomerForm({
     // Job Date & Inspection Date States
     const [jobDate, setJobDate] = useState(shipmentDataProp?.job_date ? shipmentDataProp.job_date.split('T')[0].split(' ')[0] : '');
     const [isSavingJobDate, setIsSavingJobDate] = useState(false);
-    const [inspectionDate, setInspectionDate] = useState(shipmentDataProp?.inspection_date ? shipmentDataProp.inspection_date.split('T')[0].split(' ')[0] : '');
+    const [inspectionDate, setInspectionDate] = useState(
+        shipmentDataProp?.inspection_date ? shipmentDataProp.inspection_date.split('T')[0].split(' ')[0] : '',
+    );
     const [isSavingInspectionDate, setIsSavingInspectionDate] = useState(false);
 
     // NPD States
@@ -354,7 +445,7 @@ export default function ViewCustomerForm({
                     is_npd: false,
                     npd_date: null,
                     id_section: null,
-                    attachments: {}
+                    attachments: {},
                 });
                 if (response.data.success) {
                     setIsNpd(false);
@@ -405,7 +496,7 @@ export default function ViewCustomerForm({
                 npd_date: npdDate,
                 id_section: npdSectionId,
                 attachments: npdTempFiles,
-                additional_documents: npdSelectedAdditionalDocs
+                additional_documents: npdSelectedAdditionalDocs,
             });
 
             if (response.data.success) {
@@ -439,7 +530,7 @@ export default function ViewCustomerForm({
                 .map((doc) => ({
                     ...doc,
                     sectionName: section.section_name,
-                }))
+                })),
         );
 
         // Group by id_dokumen and take the newest one (highest ID)
@@ -467,9 +558,7 @@ export default function ViewCustomerForm({
     };
 
     const toggleOriDocSelection = (docId: number) => {
-        setSelectedOriDocIds((prev) =>
-            prev.includes(docId) ? prev.filter((id) => id !== docId) : [...prev, docId]
-        );
+        setSelectedOriDocIds((prev) => (prev.includes(docId) ? prev.filter((id) => id !== docId) : [...prev, docId]));
     };
 
     const toggleSelectAllOriDocs = () => {
@@ -718,6 +807,69 @@ export default function ViewCustomerForm({
         spkNumber: '-',
         hsCodes: [],
         is_created_by_internal: false,
+    };
+
+    const formatCeisaDateTime = (value?: string | null) => {
+        if (!value) return '-';
+
+        const date = new Date(value);
+
+        if (Number.isNaN(date.getTime())) return value;
+
+        return date.toLocaleString('id-ID', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+        });
+    };
+
+    const handleTrackCeisaSubmission = async () => {
+        const nomorAju = ceisaAjuInput.trim();
+
+        if (!nomorAju) {
+            toast.error('Nomor aju wajib diisi');
+            return;
+        }
+
+        setIsTrackingCeisa(true);
+
+        try {
+            const response = await axios.post(`/shipping/${shipmentData.id_spk}/ceisa-track`, {
+                nomor_aju: nomorAju,
+            });
+
+            setCeisaSubmissions(response.data.submissions || []);
+            toast.success(response.data.message || 'Status CEISA berhasil disync');
+        } catch (error: any) {
+            if (error?.response?.data?.submissions) {
+                setCeisaSubmissions(error.response.data.submissions);
+            }
+
+            toast.error(error?.response?.data?.message || 'Gagal cek status CEISA');
+        } finally {
+            setIsTrackingCeisa(false);
+        }
+    };
+
+    const handleSyncCeisaSubmission = async (submissionId: number) => {
+        setSyncingCeisaId(submissionId);
+
+        try {
+            const response = await axios.post(`/shipping/${shipmentData.id_spk}/ceisa-submissions/${submissionId}/sync`);
+
+            setCeisaSubmissions(response.data.submissions || []);
+            toast.success(response.data.message || 'Status CEISA berhasil disync');
+        } catch (error: any) {
+            if (error?.response?.data?.submissions) {
+                setCeisaSubmissions(error.response.data.submissions);
+            }
+
+            toast.error(error?.response?.data?.message || 'Gagal sync status CEISA');
+        } finally {
+            setSyncingCeisaId(null);
+        }
     };
 
     const additionalDocsList = [
@@ -1001,16 +1153,12 @@ export default function ViewCustomerForm({
                     }
 
                     if (docsToVerify.length > 0) {
-                        setPendingVerifications((prev) =>
-                            prev.filter((id) => !docsToVerify.includes(id))
-                        );
+                        setPendingVerifications((prev) => prev.filter((id) => !docsToVerify.includes(id)));
                     }
 
                     if (rejectionsToProcess.length > 0) {
                         const processedIds = rejectionsToProcess.map((r) => r.docId);
-                        setPendingRejections((prev) =>
-                            prev.filter((r) => !processedIds.includes(r.docId))
-                        );
+                        setPendingRejections((prev) => prev.filter((r) => !processedIds.includes(r.docId)));
                     }
 
                     // FEEDBACK KE USER
@@ -1023,10 +1171,7 @@ export default function ViewCustomerForm({
                 onError: (errors) => {
                     console.error('Save errors:', errors);
 
-                    const message =
-                        errors.message ||
-                        Object.values(errors)[0]?.[0] ||
-                        'Terjadi kesalahan.';
+                    const message = errors.message || Object.values(errors)[0]?.[0] || 'Terjadi kesalahan.';
 
                     toast.error(message);
                 },
@@ -1160,8 +1305,7 @@ export default function ViewCustomerForm({
         return mergedPdfDocumentGroups.flatMap((group) => group.documents.map((doc) => doc.id));
     }, [mergedPdfDocumentGroups]);
 
-    const allVisibleMergedDocsSelected =
-        visibleMergedDocIds.length > 0 && visibleMergedDocIds.every((docId) => selectedMergedDocIds.includes(docId));
+    const allVisibleMergedDocsSelected = visibleMergedDocIds.length > 0 && visibleMergedDocIds.every((docId) => selectedMergedDocIds.includes(docId));
 
     useEffect(() => {
         if (!mergedPdfFile) {
@@ -1396,7 +1540,7 @@ export default function ViewCustomerForm({
 
     const confirmRemoveDocument = async () => {
         if (!documentToRemove) return;
-        
+
         setIsRemovingDocument(true);
         try {
             const response = await axios.post(`/shipping/document/${documentToRemove.id}/remove`);
@@ -1477,14 +1621,14 @@ export default function ViewCustomerForm({
                                 {idx + 1}. {doc.master_document?.nama_dokumen || doc.nama_file}
                             </span>
 
-                            <div className="flex items-center gap-1 mt-0.5">
+                            <div className="mt-0.5 flex items-center gap-1">
                                 <CircleHelp
                                     className="h-4 w-4 shrink-0 cursor-pointer text-gray-500 hover:text-gray-700 dark:text-zinc-500 dark:hover:text-zinc-300"
                                     onClick={() => handleOpenHelp(doc)}
                                 />
                                 {canDeleteFile && (
                                     <Trash2
-                                        className="h-4 w-4 shrink-0 cursor-pointer text-gray-400 hover:text-red-500 transition-colors"
+                                        className="h-4 w-4 shrink-0 cursor-pointer text-gray-400 transition-colors hover:text-red-500"
                                         title={trans.delete_document || 'Hapus Dokumen'}
                                         onClick={() => handleRemoveDocumentClick(doc)}
                                     />
@@ -1901,7 +2045,9 @@ export default function ViewCustomerForm({
                     <div className="rounded-2xl border border-slate-200/60 bg-white/80 p-5 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] backdrop-blur-xl transition-all duration-300 hover:shadow-[0_8px_30px_-4px_rgba(0,0,0,0.1)] sm:p-6 dark:border-zinc-800/80 dark:bg-zinc-900/80">
                         <div className="mb-4 flex items-center justify-between">
                             <div className="space-y-1">
-                                <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.status || 'Shipment Status'}</div>
+                                <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
+                                    {trans.status || 'Shipment Status'}
+                                </div>
                                 <div className="text-xl font-extrabold tracking-tight text-slate-900 dark:text-white">
                                     {shipmentData.status ? shipmentData.status.toUpperCase() : 'UNKNOWN'}
                                 </div>
@@ -1956,7 +2102,9 @@ export default function ViewCustomerForm({
                             <div className="mt-5 space-y-4 border-t border-slate-100 pt-4">
                                 {/* Assign Staff */}
                                 <div>
-                                    <Label className="mb-2 block text-[11px] font-bold tracking-wider text-slate-500 uppercase">{trans.assign_staff}</Label>
+                                    <Label className="mb-2 block text-[11px] font-bold tracking-wider text-slate-500 uppercase">
+                                        {trans.assign_staff}
+                                    </Label>
                                     <div className="flex items-center gap-2">
                                         <Select value={selectedStaff} onValueChange={setSelectedStaff}>
                                             <SelectTrigger className="h-9 flex-1 rounded-lg border-slate-200 text-xs focus:ring-blue-500/20">
@@ -1974,7 +2122,9 @@ export default function ViewCustomerForm({
                                                         </SelectItem>
                                                     ))
                                                 ) : (
-                                                    <div className="p-2 text-center text-xs text-slate-500">{trans.data_not_found || 'No staff found'}</div>
+                                                    <div className="p-2 text-center text-xs text-slate-500">
+                                                        {trans.data_not_found || 'No staff found'}
+                                                    </div>
                                                 )}
                                             </SelectContent>
                                         </Select>
@@ -1991,21 +2141,25 @@ export default function ViewCustomerForm({
 
                                 {/* Upload Mode Toggle */}
                                 <div>
-                                    <Label className="mb-2 block text-[11px] font-bold tracking-wider text-slate-500 uppercase">{trans.upload_mode}</Label>
+                                    <Label className="mb-2 block text-[11px] font-bold tracking-wider text-slate-500 uppercase">
+                                        {trans.upload_mode}
+                                    </Label>
                                     <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 p-1">
                                         <button
                                             onClick={() => !isUpdatingUploadMode && handleToggleInternalCanUpload(true)}
                                             disabled={isUpdatingUploadMode}
-                                            className={`flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition-all duration-200 ${internalCanUpload ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                                                } disabled:opacity-50`}
+                                            className={`flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition-all duration-200 ${
+                                                internalCanUpload ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                                            } disabled:opacity-50`}
                                         >
                                             {trans.staff_upload}
                                         </button>
                                         <button
                                             onClick={() => !isUpdatingUploadMode && handleToggleInternalCanUpload(false)}
                                             disabled={isUpdatingUploadMode}
-                                            className={`flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition-all duration-200 ${!internalCanUpload ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                                                } disabled:opacity-50`}
+                                            className={`flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition-all duration-200 ${
+                                                !internalCanUpload ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                                            } disabled:opacity-50`}
                                         >
                                             {trans.dual_upload}
                                         </button>
@@ -2016,7 +2170,7 @@ export default function ViewCustomerForm({
                                 </div>
                             </div>
                         )}
-                        <div className="mt-5 space-y-1.5 border-t border-slate-200/60 pt-4 dark:border-zinc-800 pt-4 grid grid-cols-2 gap-x-1 gap-y-2">
+                        <div className="mt-5 grid grid-cols-2 space-y-1.5 gap-x-1 gap-y-2 border-t border-slate-200/60 pt-4 dark:border-zinc-800">
                             {/* Shipment Type */}
                             <div className="space-y-1">
                                 <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.shipment_type}</div>
@@ -2029,10 +2183,11 @@ export default function ViewCustomerForm({
                                     <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.channel}</div>
                                     <div>
                                         <span
-                                            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold tracking-tight uppercase ring-1 ring-inset ${shipmentData.penjaluran === 'merah'
-                                                ? 'bg-rose-50 text-rose-700 ring-rose-600/20'
-                                                : 'bg-green-50 text-green-700 ring-green-600/20'
-                                                }`}
+                                            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold tracking-tight uppercase ring-1 ring-inset ${
+                                                shipmentData.penjaluran === 'merah'
+                                                    ? 'bg-rose-50 text-rose-700 ring-rose-600/20'
+                                                    : 'bg-green-50 text-green-700 ring-green-600/20'
+                                            }`}
                                         >
                                             {trans[shipmentData.penjaluran] || shipmentData.penjaluran}
                                         </span>
@@ -2070,7 +2225,10 @@ export default function ViewCustomerForm({
                                 <div className="flex items-center justify-between">
                                     <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.hs_code || 'HS Code'}</div>
                                     {shipmentData.hsCodes.length > 0 && (
-                                        <button onClick={enableEditMode} className="text-xs font-semibold text-blue-500 hover:text-blue-600 hover:underline dark:text-blue-400 dark:hover:text-blue-300">
+                                        <button
+                                            onClick={enableEditMode}
+                                            className="text-xs font-semibold text-blue-500 hover:text-blue-600 hover:underline dark:text-blue-400 dark:hover:text-blue-300"
+                                        >
                                             {trans.edit || 'Edit'}
                                         </button>
                                     )}
@@ -2091,9 +2249,7 @@ export default function ViewCustomerForm({
                                                             [INSW]
                                                         </a>
                                                     ) : (
-                                                        <span className="cursor-not-allowed font-bold text-gray-400">
-                                                            [INSW]
-                                                        </span>
+                                                        <span className="cursor-not-allowed font-bold text-gray-400">[INSW]</span>
                                                     )}
                                                 </div>
                                             ))
@@ -2114,7 +2270,7 @@ export default function ViewCustomerForm({
                                 <div className="flex items-center justify-between">
                                     <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.eta_date}</div>
                                     {isSavingEtaDate && (
-                                        <div className="flex items-center gap-1.5 text-[9px] font-medium text-blue-500 animate-pulse">
+                                        <div className="flex animate-pulse items-center gap-1.5 text-[9px] font-medium text-blue-500">
                                             <div className="h-1 w-1 rounded-full bg-blue-500"></div>
                                             Saving...
                                         </div>
@@ -2137,7 +2293,7 @@ export default function ViewCustomerForm({
                                         {trans.etd_date || 'ETD Date'}
                                     </div>
                                     {isSavingEtdDate && (
-                                        <div className="flex items-center gap-1.5 text-[9px] font-medium text-blue-500 animate-pulse">
+                                        <div className="flex animate-pulse items-center gap-1.5 text-[9px] font-medium text-blue-500">
                                             <div className="h-1 w-1 rounded-full bg-blue-500"></div>
                                             Saving...
                                         </div>
@@ -2157,9 +2313,11 @@ export default function ViewCustomerForm({
                             {sectionsTransProp?.some((s) => s.id_section === 7) && (
                                 <div className="col-span-2 mt-2 space-y-1.5 border-t border-slate-200/60 pt-3 dark:border-zinc-800">
                                     <div className="flex items-center justify-between">
-                                        <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.job_date || 'Job Date'}</div>
+                                        <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
+                                            {trans.job_date || 'Job Date'}
+                                        </div>
                                         {isSavingJobDate && (
-                                            <div className="flex items-center gap-1.5 text-[9px] font-medium text-blue-500 animate-pulse">
+                                            <div className="flex animate-pulse items-center gap-1.5 text-[9px] font-medium text-blue-500">
                                                 <div className="h-1 w-1 rounded-full bg-blue-500"></div>
                                                 Saving...
                                             </div>
@@ -2181,9 +2339,11 @@ export default function ViewCustomerForm({
                             {sectionsTransProp?.some((s) => s.id_section === 7) && (
                                 <div className="col-span-2 mt-2 space-y-1.5 border-t border-slate-200/60 pt-3 dark:border-zinc-800">
                                     <div className="flex items-center justify-between">
-                                        <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.inspection_date || 'Inspection Date'}</div>
+                                        <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
+                                            {trans.inspection_date || 'Inspection Date'}
+                                        </div>
                                         {isSavingInspectionDate && (
-                                            <div className="flex items-center gap-1.5 text-[9px] font-medium text-blue-500 animate-pulse">
+                                            <div className="flex animate-pulse items-center gap-1.5 text-[9px] font-medium text-blue-500">
                                                 <div className="h-1 w-1 rounded-full bg-blue-500"></div>
                                                 Saving...
                                             </div>
@@ -2212,13 +2372,17 @@ export default function ViewCustomerForm({
                                             disabled={!isInternalUser || isUpdatingNpd}
                                             className="border-slate-300 data-[state=checked]:border-blue-600 data-[state=checked]:bg-blue-600 dark:border-zinc-700"
                                         />
-                                        <Label htmlFor="is-npd" className="cursor-pointer text-[10px] font-bold tracking-wider text-slate-500 uppercase dark:text-zinc-400">
+                                        <Label
+                                            htmlFor="is-npd"
+                                            className="cursor-pointer text-[10px] font-bold tracking-wider text-slate-500 uppercase dark:text-zinc-400"
+                                        >
                                             {trans.need_npd || 'Apakah SPK Ini Membutuhkan NPD?'}
                                         </Label>
                                     </div>
                                     {isNpd && npdDate && (
                                         <div className="mt-1 text-xs font-semibold text-slate-700 dark:text-zinc-300">
-                                            NPD Date: {new Date(npdDate).toLocaleDateString(`${trans.locale || 'id-ID'}`, {
+                                            NPD Date:{' '}
+                                            {new Date(npdDate).toLocaleDateString(`${trans.locale || 'id-ID'}`, {
                                                 day: 'numeric',
                                                 month: 'long',
                                                 year: 'numeric',
@@ -2244,13 +2408,145 @@ export default function ViewCustomerForm({
                             )}
                         </div>
                         {isInternalUser && (
-                            <div className="flex items-center justify-center mt-2">
-                                <Button onClick={() => setOpenEmailModal(true)}>
-                                    Kirim Email Pemberitahuan
-                                </Button>
+                            <div className="mt-2 flex items-center justify-center">
+                                <Button onClick={() => setOpenEmailModal(true)}>Kirim Email Pemberitahuan</Button>
                             </div>
                         )}
                     </div>
+
+                    {isInternalUser && (
+                        <div className="rounded-2xl border border-slate-200/60 bg-white/80 p-5 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] backdrop-blur-xl sm:p-6 dark:border-zinc-800/80 dark:bg-zinc-900/80">
+                            <div className="mb-4 flex items-start justify-between gap-3">
+                                <div>
+                                    <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">CEISA</div>
+                                    <div className="mt-1 text-sm font-bold text-slate-900 dark:text-white">Status Aju</div>
+                                </div>
+                                <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-600 dark:bg-zinc-800 dark:text-zinc-300">
+                                    {ceisaSubmissions.length} Aju
+                                </span>
+                            </div>
+
+                            <div className="flex flex-col gap-2 sm:flex-row">
+                                <Input
+                                    value={ceisaAjuInput}
+                                    onChange={(e) => setCeisaAjuInput(e.target.value)}
+                                    placeholder="Nomor aju"
+                                    className="h-9 rounded-lg border-slate-200 bg-white text-xs dark:border-zinc-700 dark:bg-zinc-950"
+                                />
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={handleTrackCeisaSubmission}
+                                    disabled={isTrackingCeisa}
+                                    className="h-9 shrink-0 gap-2 rounded-lg text-xs font-bold"
+                                >
+                                    {isTrackingCeisa ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
+                                    Cek Aju
+                                </Button>
+                            </div>
+
+                            <div className="mt-4 space-y-3">
+                                {ceisaSubmissions.length === 0 ? (
+                                    <div className="rounded-xl border border-dashed border-slate-200 p-4 text-center text-xs text-slate-500 dark:border-zinc-800 dark:text-zinc-400">
+                                        Belum ada nomor aju yang ditrack untuk SPK ini.
+                                    </div>
+                                ) : (
+                                    ceisaSubmissions.map((submission) => (
+                                        <div key={submission.id} className="rounded-xl border border-slate-200/70 p-3 dark:border-zinc-800">
+                                            <div className="flex items-start justify-between gap-3">
+                                                <div className="min-w-0">
+                                                    <div className="truncate text-sm font-bold text-slate-900 dark:text-white">
+                                                        {submission.nomor_aju}
+                                                    </div>
+                                                    <div className="mt-1 flex flex-wrap gap-1.5">
+                                                        <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
+                                                            {submission.document_type || '-'}
+                                                        </span>
+                                                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600 dark:bg-zinc-800 dark:text-zinc-300">
+                                                            {submission.status || 'tracking'}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => handleSyncCeisaSubmission(submission.id)}
+                                                    disabled={syncingCeisaId === submission.id}
+                                                    className="h-8 shrink-0 px-2"
+                                                    title="Sync status CEISA"
+                                                >
+                                                    <RefreshCw className={`h-4 w-4 ${syncingCeisaId === submission.id ? 'animate-spin' : ''}`} />
+                                                </Button>
+                                            </div>
+
+                                            <div className="mt-3 grid grid-cols-2 gap-2 text-[11px]">
+                                                <div>
+                                                    <div className="text-slate-400">Last sync</div>
+                                                    <div className="font-semibold text-slate-700 dark:text-zinc-200">
+                                                        {formatCeisaDateTime(submission.last_synced_at)}
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <div className="text-slate-400">Kode/status</div>
+                                                    <div className="font-semibold text-slate-700 dark:text-zinc-200">
+                                                        {submission.latest_log?.kode_status || submission.latest_log?.kode_respon || '-'}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {submission.latest_log?.keterangan && (
+                                                <div className="mt-3 rounded-lg bg-slate-50 p-2 text-xs font-semibold text-slate-700 dark:bg-zinc-950 dark:text-zinc-200">
+                                                    {submission.latest_log.keterangan}
+                                                </div>
+                                            )}
+
+                                            {submission.error_message && (
+                                                <div className="mt-3 rounded-lg bg-rose-50 p-2 text-xs font-semibold text-rose-700 dark:bg-rose-950/30 dark:text-rose-300">
+                                                    {submission.error_message}
+                                                </div>
+                                            )}
+
+                                            {(submission.status_logs || []).length > 0 && (
+                                                <div className="mt-3 space-y-2 border-t border-slate-100 pt-3 dark:border-zinc-800">
+                                                    {(submission.status_logs || []).slice(0, 4).map((log) => (
+                                                        <div key={log.id} className="grid grid-cols-[64px_1fr] gap-2 text-[11px]">
+                                                            <span className="font-bold text-slate-400 uppercase">{log.source || '-'}</span>
+                                                            <div className="min-w-0">
+                                                                <div className="truncate font-semibold text-slate-700 dark:text-zinc-200">
+                                                                    {[log.kode_status, log.kode_respon, log.keterangan].filter(Boolean).join(' - ') ||
+                                                                        '-'}
+                                                                </div>
+                                                                <div className="text-slate-400">
+                                                                    {log.nomor_daftar ? `Daftar ${log.nomor_daftar}` : 'Belum ada nomor daftar'} ·{' '}
+                                                                    {formatCeisaDateTime(log.waktu_status || log.waktu_respon)}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            {(submission.response_documents || []).length > 0 && (
+                                                <div className="mt-3 flex flex-wrap gap-2 border-t border-slate-100 pt-3 dark:border-zinc-800">
+                                                    {(submission.response_documents || []).map((document) => (
+                                                        <a
+                                                            key={document.id}
+                                                            href={`/shipping/${shipmentData.id_spk}/ceisa-response-documents/${document.id}/download`}
+                                                            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-[11px] font-bold text-slate-700 hover:bg-slate-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                                                        >
+                                                            <Download className="h-3.5 w-3.5" />
+                                                            {document.response_type || document.file_name || 'Response PDF'}
+                                                        </a>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+                    )}
 
                     {/* Ori Date Modal */}
                     <Dialog open={isOriDateModalOpen} onOpenChange={setIsOriDateModalOpen}>
@@ -2264,10 +2560,10 @@ export default function ViewCustomerForm({
                             {/* Bulk Apply Section */}
                             {allDocumentsForOriDate.length > 0 && (
                                 <div className="border-b border-slate-200/60 bg-slate-50/80 px-6 py-3 dark:border-zinc-800 dark:bg-zinc-950/50">
-                                    <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-2">
+                                    <div className="mb-2 text-[10px] font-bold tracking-wider text-slate-400 uppercase">
                                         {trans.bulk_apply_ori_date || 'Terapkan Tanggal Sekaligus'}
                                     </div>
-                                    <div className="flex items-center gap-2 flex-wrap">
+                                    <div className="flex flex-wrap items-center gap-2">
                                         <Input
                                             type="date"
                                             value={bulkOriDate}
@@ -2279,7 +2575,7 @@ export default function ViewCustomerForm({
                                             variant="outline"
                                             onClick={() => applyBulkOriDate('all')}
                                             disabled={!bulkOriDate}
-                                            className="h-9 rounded-lg text-[10px] font-bold uppercase tracking-wide dark:border-zinc-700 dark:text-zinc-300"
+                                            className="h-9 rounded-lg text-[10px] font-bold tracking-wide uppercase dark:border-zinc-700 dark:text-zinc-300"
                                         >
                                             {trans.apply_to_all || 'Terapkan Semua'}
                                         </Button>
@@ -2288,7 +2584,7 @@ export default function ViewCustomerForm({
                                             variant="outline"
                                             onClick={() => applyBulkOriDate('selected')}
                                             disabled={!bulkOriDate || selectedOriDocIds.length === 0}
-                                            className="h-9 rounded-lg text-[10px] font-bold uppercase tracking-wide dark:border-zinc-700 dark:text-zinc-300"
+                                            className="h-9 rounded-lg text-[10px] font-bold tracking-wide uppercase dark:border-zinc-700 dark:text-zinc-300"
                                         >
                                             {trans.apply_to_selected || 'Terapkan Terpilih'}
                                             {selectedOriDocIds.length > 0 && (
@@ -2312,10 +2608,15 @@ export default function ViewCustomerForm({
                                         <div className="flex items-center gap-2 rounded-lg bg-slate-100/50 px-3 py-2 dark:bg-zinc-900/50">
                                             <Checkbox
                                                 id="select-all-ori"
-                                                checked={selectedOriDocIds.length === allDocumentsForOriDate.length && allDocumentsForOriDate.length > 0}
+                                                checked={
+                                                    selectedOriDocIds.length === allDocumentsForOriDate.length && allDocumentsForOriDate.length > 0
+                                                }
                                                 onCheckedChange={toggleSelectAllOriDocs}
                                             />
-                                            <label htmlFor="select-all-ori" className="cursor-pointer text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
+                                            <label
+                                                htmlFor="select-all-ori"
+                                                className="cursor-pointer text-[10px] font-bold tracking-wider text-slate-500 uppercase dark:text-zinc-400"
+                                            >
                                                 {trans.select_all || 'Pilih Semua'} ({selectedOriDocIds.length}/{allDocumentsForOriDate.length})
                                             </label>
                                         </div>
@@ -2323,10 +2624,11 @@ export default function ViewCustomerForm({
                                         {allDocumentsForOriDate.map((doc) => (
                                             <div
                                                 key={doc.id}
-                                                className={`flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors ${selectedOriDocIds.includes(doc.id)
-                                                    ? 'border-blue-300 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-950/20'
-                                                    : 'border-slate-200/60 bg-slate-50/50 dark:border-zinc-800 dark:bg-zinc-950/50'
-                                                    }`}
+                                                className={`flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors ${
+                                                    selectedOriDocIds.includes(doc.id)
+                                                        ? 'border-blue-300 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-950/20'
+                                                        : 'border-slate-200/60 bg-slate-50/50 dark:border-zinc-800 dark:bg-zinc-950/50'
+                                                }`}
                                             >
                                                 <Checkbox
                                                     id={`ori-doc-${doc.id}`}
@@ -2378,14 +2680,17 @@ export default function ViewCustomerForm({
                     </Dialog>
 
                     {/* NPD Modal */}
-                    <Dialog open={isNpdModalOpen} onOpenChange={(val) => {
-                        if (!val && !isUpdatingNpd) {
-                            setIsNpdModalOpen(false);
-                            if (!shipmentDataProp?.is_npd) {
-                                setIsNpd(false);
+                    <Dialog
+                        open={isNpdModalOpen}
+                        onOpenChange={(val) => {
+                            if (!val && !isUpdatingNpd) {
+                                setIsNpdModalOpen(false);
+                                if (!shipmentDataProp?.is_npd) {
+                                    setIsNpd(false);
+                                }
                             }
-                        }
-                    }}>
+                        }}
+                    >
                         <DialogContent className="max-w-85 rounded-xl p-0 sm:max-w-100">
                             <DialogHeader className="px-4 py-3">
                                 <DialogTitle className="text-left text-lg font-bold">{trans.npd_setup || 'Pengaturan NPD'}</DialogTitle>
@@ -2410,15 +2715,18 @@ export default function ViewCustomerForm({
 
                                         {npdMandatoryDocs.length > 0 && (
                                             <div className="space-y-3">
-                                                <Label className="text-sm font-semibold text-slate-700 dark:text-zinc-300 mb-1">
+                                                <Label className="mb-1 text-sm font-semibold text-slate-700 dark:text-zinc-300">
                                                     {trans.mandatory_npd_docs || 'Dokumen Wajib NPD'}
                                                 </Label>
                                                 <div className="flex flex-col gap-3">
                                                     {npdMandatoryDocs.map((doc) => (
-                                                        <div key={doc.id_dokumen} className="flex flex-col sm:flex-row sm:items-center justify-between rounded-lg border border-gray-200 bg-slate-50/50 p-3 dark:border-zinc-700 dark:bg-zinc-800/30">
-                                                            <div className="flex-1 mb-2 sm:mb-0">
-                                                                <div className="text-sm font-semibold text-slate-800 dark:text-zinc-200 flex items-center gap-2">
-                                                                    <div className="h-1.5 w-1.5 rounded-full bg-blue-500 hidden sm:block" />
+                                                        <div
+                                                            key={doc.id_dokumen}
+                                                            className="flex flex-col justify-between rounded-lg border border-gray-200 bg-slate-50/50 p-3 sm:flex-row sm:items-center dark:border-zinc-700 dark:bg-zinc-800/30"
+                                                        >
+                                                            <div className="mb-2 flex-1 sm:mb-0">
+                                                                <div className="flex items-center gap-2 text-sm font-semibold text-slate-800 dark:text-zinc-200">
+                                                                    <div className="hidden h-1.5 w-1.5 rounded-full bg-blue-500 sm:block" />
                                                                     {doc.nama_file}
                                                                 </div>
                                                             </div>
@@ -2457,7 +2765,7 @@ export default function ViewCustomerForm({
 
                                         {npdAdditionalDocs.length > 0 && (
                                             <div className="space-y-3">
-                                                <Label className="text-sm font-semibold text-slate-700 dark:text-zinc-300 mb-1">
+                                                <Label className="mb-1 text-sm font-semibold text-slate-700 dark:text-zinc-300">
                                                     {trans.additional_npd_docs || 'Dokumen Tambahan'}
                                                 </Label>
                                                 <div className="space-y-4">
@@ -2470,7 +2778,7 @@ export default function ViewCustomerForm({
                                                                     setNpdSelectedAdditionalDocs((prev) =>
                                                                         checked
                                                                             ? [...prev, doc.id_dokumen]
-                                                                            : prev.filter((id) => id !== doc.id_dokumen)
+                                                                            : prev.filter((id) => id !== doc.id_dokumen),
                                                                     );
                                                                 }}
                                                                 disabled={isUpdatingNpd}
@@ -2554,9 +2862,9 @@ export default function ViewCustomerForm({
                                                         existingFile={
                                                             !item.file && item.link
                                                                 ? {
-                                                                    nama_file: item.link,
-                                                                    path: `/file/view/${item.link}`,
-                                                                }
+                                                                      nama_file: item.link,
+                                                                      path: `/file/view/${item.link}`,
+                                                                  }
                                                                 : undefined
                                                         }
                                                         onFileChange={(file) => {
@@ -2569,21 +2877,25 @@ export default function ViewCustomerForm({
                                     ))}
 
                                     {/* Tombol Tambah Item Baru */}
-                                    <Button variant="outline" onClick={addHsCodeField} className="w-full border-dashed border-slate-300 dark:border-zinc-700">
+                                    <Button
+                                        variant="outline"
+                                        onClick={addHsCodeField}
+                                        className="w-full border-dashed border-slate-300 dark:border-zinc-700"
+                                    >
                                         <Plus className="mr-2 h-4 w-4" /> {trans.add_another_hs}
                                     </Button>
                                 </div>
                             </div>
 
                             <DialogFooter className="flex gap-2 rounded-b-2xl border-t bg-slate-50/50 px-6 py-4 dark:border-zinc-800 dark:bg-zinc-900/80">
-                                <Button
-                                    onClick={cancelEditMode}
-                                    variant="outline"
-                                    className="flex-1"
-                                >
+                                <Button onClick={cancelEditMode} variant="outline" className="flex-1">
                                     {trans.cancel}
                                 </Button>
-                                <Button onClick={handleSaveEdit} disabled={isProcessingHsCodesEdit} className="flex-1 bg-black text-white hover:bg-gray-800 dark:bg-zinc-100 dark:text-black dark:hover:bg-zinc-300">
+                                <Button
+                                    onClick={handleSaveEdit}
+                                    disabled={isProcessingHsCodesEdit}
+                                    className="flex-1 bg-black text-white hover:bg-gray-800 dark:bg-zinc-100 dark:text-black dark:hover:bg-zinc-300"
+                                >
                                     {isProcessingHsCodesEdit ? 'Saving...' : trans.save_changes}
                                 </Button>
                             </DialogFooter>
@@ -2593,7 +2905,9 @@ export default function ViewCustomerForm({
                     {/* --- Formulir Penerimaan Dokumen --- */}
                     {isInternalUser && (
                         <div className="rounded-2xl border border-slate-200/60 bg-white/80 p-5 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] backdrop-blur-xl sm:p-6 dark:border-zinc-800/80 dark:bg-zinc-900/80">
-                            <div className="mb-5 text-xs font-bold tracking-wider text-slate-500 uppercase">{trans.document_receipt_form || 'Formulir Penerimaan Dokumen'}</div>
+                            <div className="mb-5 text-xs font-bold tracking-wider text-slate-500 uppercase">
+                                {trans.document_receipt_form || 'Formulir Penerimaan Dokumen'}
+                            </div>
                             <div className="flex flex-col gap-4">
                                 {/* Shipper */}
                                 <div className="space-y-1.5">
@@ -2619,7 +2933,11 @@ export default function ViewCustomerForm({
                                 {/* B/L NUM / S/I NUM / SPK NUM */}
                                 <div className="space-y-1.5">
                                     <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
-                                        {shipmentDataProp?.type === 'Export' ? 'S/I NUM' : shipmentDataProp?.type === 'Import' ? 'B/L NUM' : 'SPK NUM'}
+                                        {shipmentDataProp?.type === 'Export'
+                                            ? 'S/I NUM'
+                                            : shipmentDataProp?.type === 'Import'
+                                              ? 'B/L NUM'
+                                              : 'SPK NUM'}
                                     </Label>
                                     <MemoizedInput
                                         placeholder="Input B/L / S/I NUM"
@@ -2651,7 +2969,9 @@ export default function ViewCustomerForm({
                                 </div>
                                 {/* Port Of Loading */}
                                 <div className="space-y-1.5">
-                                    <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">{trans.port_of_loading || 'Port Of Loading'}</Label>
+                                    <Label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
+                                        {trans.port_of_loading || 'Port Of Loading'}
+                                    </Label>
                                     <MemoizedInput
                                         placeholder="Input Port Of Loading"
                                         value={portOfLoadingForm}
@@ -2686,7 +3006,17 @@ export default function ViewCustomerForm({
                                         <Button
                                             variant="ghost"
                                             size="sm"
-                                            onClick={() => setParties([...parties, { party_type: 'FCL', party_category: '1 - GENERAL / DRY CARGO', party_qty: '', party_size: '20 ft' }])}
+                                            onClick={() =>
+                                                setParties([
+                                                    ...parties,
+                                                    {
+                                                        party_type: 'FCL',
+                                                        party_category: '1 - GENERAL / DRY CARGO',
+                                                        party_qty: '',
+                                                        party_size: '20 ft',
+                                                    },
+                                                ])
+                                            }
                                             className="h-6 px-2 text-[10px] font-bold text-blue-600 hover:bg-blue-50 hover:text-blue-700"
                                         >
                                             <Plus className="mr-1 h-3 w-3" /> Add Party
@@ -2695,7 +3025,10 @@ export default function ViewCustomerForm({
 
                                     <div className="space-y-3">
                                         {parties.map((party, index) => (
-                                            <div key={index} className="relative space-y-2 rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-3 transition-colors hover:border-slate-300 dark:border-zinc-800 dark:bg-zinc-950/30">
+                                            <div
+                                                key={index}
+                                                className="relative space-y-2 rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-3 transition-colors hover:border-slate-300 dark:border-zinc-800 dark:bg-zinc-950/30"
+                                            >
                                                 {parties.length > 1 && (
                                                     <button
                                                         onClick={() => setParties(parties.filter((_, i) => i !== index))}
@@ -2728,8 +3061,12 @@ export default function ViewCustomerForm({
                                                                 <SelectValue />
                                                             </SelectTrigger>
                                                             <SelectContent className="dark:bg-zinc-900">
-                                                                <SelectItem value="FCL" className="text-xs">FCL</SelectItem>
-                                                                <SelectItem value="LCL" className="text-xs">LCL</SelectItem>
+                                                                <SelectItem value="FCL" className="text-xs">
+                                                                    FCL
+                                                                </SelectItem>
+                                                                <SelectItem value="LCL" className="text-xs">
+                                                                    LCL
+                                                                </SelectItem>
                                                             </SelectContent>
                                                         </Select>
                                                     </div>
@@ -2749,15 +3086,17 @@ export default function ViewCustomerForm({
                                                                 <SelectValue />
                                                             </SelectTrigger>
                                                             <SelectContent className="dark:bg-zinc-900">
-                                                                {party.party_type === 'FCL' ? (
-                                                                    ['20 ft', '40 ft', '45 ft', '60 ft'].map(s => (
-                                                                        <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
-                                                                    ))
-                                                                ) : (
-                                                                    ['CBM', 'KG'].map(s => (
-                                                                        <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
-                                                                    ))
-                                                                )}
+                                                                {party.party_type === 'FCL'
+                                                                    ? ['20 ft', '40 ft', '45 ft', '60 ft'].map((s) => (
+                                                                          <SelectItem key={s} value={s} className="text-xs">
+                                                                              {s}
+                                                                          </SelectItem>
+                                                                      ))
+                                                                    : ['CBM', 'KG'].map((s) => (
+                                                                          <SelectItem key={s} value={s} className="text-xs">
+                                                                              {s}
+                                                                          </SelectItem>
+                                                                      ))}
                                                             </SelectContent>
                                                         </Select>
                                                     </div>
@@ -2780,16 +3119,18 @@ export default function ViewCustomerForm({
                                                             </SelectTrigger>
                                                             <SelectContent className="dark:bg-zinc-900">
                                                                 {[
-                                                                    "1 - GENERAL / DRY CARGO",
-                                                                    "2 - TUNNE TYPE",
-                                                                    "3 - OPEN TOP STEEL",
-                                                                    "4 - FLAT RACK",
-                                                                    "5 - REEFER/REFREGETE",
-                                                                    "6 - BARGE CONTAINER",
-                                                                    "7 - BULK CONTAINER",
-                                                                    "8 - ISOTANK"
-                                                                ].map(cat => (
-                                                                    <SelectItem key={cat} value={cat} className="text-xs">{cat}</SelectItem>
+                                                                    '1 - GENERAL / DRY CARGO',
+                                                                    '2 - TUNNE TYPE',
+                                                                    '3 - OPEN TOP STEEL',
+                                                                    '4 - FLAT RACK',
+                                                                    '5 - REEFER/REFREGETE',
+                                                                    '6 - BARGE CONTAINER',
+                                                                    '7 - BULK CONTAINER',
+                                                                    '8 - ISOTANK',
+                                                                ].map((cat) => (
+                                                                    <SelectItem key={cat} value={cat} className="text-xs">
+                                                                        {cat}
+                                                                    </SelectItem>
                                                                 ))}
                                                             </SelectContent>
                                                         </Select>
@@ -2798,7 +3139,9 @@ export default function ViewCustomerForm({
 
                                                 {/* Quantity */}
                                                 <div className="space-y-1">
-                                                    <Label className="text-[9px] font-bold text-slate-400 uppercase">{party.party_type === 'FCL' ? 'Party' : 'Quantity'}</Label>
+                                                    <Label className="text-[9px] font-bold text-slate-400 uppercase">
+                                                        {party.party_type === 'FCL' ? 'Party' : 'Quantity'}
+                                                    </Label>
                                                     <MemoizedInput
                                                         placeholder="Size"
                                                         value={party.party_qty}
@@ -2841,18 +3184,22 @@ export default function ViewCustomerForm({
 
                 {/* --- RIGHT DESKTOP COLUMN --- */}
                 <div className="flex w-full flex-1 flex-col gap-6">
-
                     {/* NEW: Global Deadline Section - ONLY for Internal Users */}
                     {isSupervisor && (
                         <div className="mb-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:mb-5 sm:p-5 dark:border-zinc-800 dark:bg-zinc-900">
                             <div className="flex flex-col gap-3">
                                 {/* Garis Kuning: Global Deadline Field */}
                                 <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:gap-3">
-                                    <label className="text-sm font-semibold whitespace-nowrap text-slate-700 dark:text-zinc-300">{trans.set_deadline}:</label>
+                                    <label className="text-sm font-semibold whitespace-nowrap text-slate-700 dark:text-zinc-300">
+                                        {trans.set_deadline}:
+                                    </label>
                                     <Input
                                         type="date"
-                                        className={`date-input-dark h-9 flex-1 rounded-lg border-slate-300 transition-all duration-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 ${!useUnifiedDeadline ? 'cursor-not-allowed bg-slate-100 opacity-50 dark:bg-zinc-800' : 'bg-white dark:bg-zinc-950'
-                                            } dark:border-zinc-800 dark:text-white`}
+                                        className={`date-input-dark h-9 flex-1 rounded-lg border-slate-300 transition-all duration-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 ${
+                                            !useUnifiedDeadline
+                                                ? 'cursor-not-allowed bg-slate-100 opacity-50 dark:bg-zinc-800'
+                                                : 'bg-white dark:bg-zinc-950'
+                                        } dark:border-zinc-800 dark:text-white`}
                                         value={globalDeadlineDate}
                                         onChange={(e) => setGlobalDeadlineDate(e.target.value)}
                                         disabled={!useUnifiedDeadline}
@@ -3021,10 +3368,11 @@ export default function ViewCustomerForm({
                                                             </label>
                                                             <Input
                                                                 type="date"
-                                                                className={`date-input-light h-9 flex-1 rounded-lg border-slate-300 text-sm transition-all duration-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 ${useUnifiedDeadline
-                                                                    ? 'cursor-not-allowed bg-slate-50 text-slate-900 opacity-50'
-                                                                    : 'bg-white text-slate-900'
-                                                                    } dark:border-zinc-700`}
+                                                                className={`date-input-light h-9 flex-1 rounded-lg border-slate-300 text-sm transition-all duration-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 ${
+                                                                    useUnifiedDeadline
+                                                                        ? 'cursor-not-allowed bg-slate-50 text-slate-900 opacity-50'
+                                                                        : 'bg-white text-slate-900'
+                                                                } dark:border-zinc-700`}
                                                                 value={useUnifiedDeadline ? globalDeadlineDate : sectionDeadlines[section.id] || ''}
                                                                 onChange={(e) => {
                                                                     if (!useUnifiedDeadline) {
@@ -3144,7 +3492,9 @@ export default function ViewCustomerForm({
                         <DialogContent className="max-w-sm rounded-2xl p-0">
                             <DialogHeader className="px-6 pt-6 pb-2">
                                 <DialogTitle className="flex items-center gap-2 text-base font-bold">
-                                    <span className={`inline-block h-3 w-3 rounded-full ${pendingJalur === 'merah' ? 'bg-rose-500' : 'bg-green-500'}`} />
+                                    <span
+                                        className={`inline-block h-3 w-3 rounded-full ${pendingJalur === 'merah' ? 'bg-rose-500' : 'bg-green-500'}`}
+                                    />
                                     {pendingJalur === 'merah' ? trans.red_line : trans.green_line}
                                 </DialogTitle>
                             </DialogHeader>
@@ -3176,14 +3526,20 @@ export default function ViewCustomerForm({
                             </div>
 
                             <DialogFooter className="flex gap-2 rounded-b-2xl border-t bg-slate-50 px-6 py-4">
-                                <Button variant="outline" onClick={() => setPenjaluranModalOpen(false)} className="flex-1" disabled={isUpdatingPenjaluran}>
+                                <Button
+                                    variant="outline"
+                                    onClick={() => setPenjaluranModalOpen(false)}
+                                    className="flex-1"
+                                    disabled={isUpdatingPenjaluran}
+                                >
                                     {trans.cancel}
                                 </Button>
                                 <Button
                                     onClick={handleUpdatePenjaluran}
                                     disabled={isUpdatingPenjaluran || !registerNumber || !registerDate}
-                                    className={`flex-1 text-white ${pendingJalur === 'merah' ? 'bg-rose-500 hover:bg-rose-600' : 'bg-green-500 hover:bg-green-600'
-                                        }`}
+                                    className={`flex-1 text-white ${
+                                        pendingJalur === 'merah' ? 'bg-rose-500 hover:bg-rose-600' : 'bg-green-500 hover:bg-green-600'
+                                    }`}
                                 >
                                     {isUpdatingPenjaluran ? trans.saving : trans.save}
                                 </Button>
@@ -3217,7 +3573,6 @@ export default function ViewCustomerForm({
                             </div>
                         );
                     })()}
-
                 </div>
             </div>
 
@@ -3259,13 +3614,11 @@ export default function ViewCustomerForm({
                             </div>
                         </div>
 
-                        <div className="flex min-h-[360px] flex-col rounded-lg border border-slate-200 bg-white dark:border-zinc-800 dark:bg-zinc-900 lg:min-h-0">
+                        <div className="flex min-h-[360px] flex-col rounded-lg border border-slate-200 bg-white lg:min-h-0 dark:border-zinc-800 dark:bg-zinc-900">
                             <div className="shrink-0 space-y-3 border-b p-3">
                                 <div className="flex items-center justify-between gap-2">
                                     <div>
-                                        <div className="text-sm font-bold text-slate-900 dark:text-zinc-100">
-                                            {trans.documents || 'Dokumen'}
-                                        </div>
+                                        <div className="text-sm font-bold text-slate-900 dark:text-zinc-100">{trans.documents || 'Dokumen'}</div>
                                         <div className="text-xs text-slate-500">
                                             {selectedMergedDocIds.length} / {mergedPdfDocumentCount} selected
                                         </div>
@@ -3317,7 +3670,9 @@ export default function ViewCustomerForm({
                                                                 <Checkbox
                                                                     id={checkboxId}
                                                                     checked={selectedMergedDocIds.includes(doc.id)}
-                                                                    onCheckedChange={(checked) => handleMergedDocCheckboxChange(doc.id, checked as boolean)}
+                                                                    onCheckedChange={(checked) =>
+                                                                        handleMergedDocCheckboxChange(doc.id, checked as boolean)
+                                                                    }
                                                                     className="mt-0.5 h-5 w-5 rounded border-2 border-slate-400 data-[state=checked]:border-blue-600 data-[state=checked]:bg-blue-600 data-[state=checked]:text-white"
                                                                 />
                                                                 <span className="min-w-0 flex-1">
@@ -3325,7 +3680,9 @@ export default function ViewCustomerForm({
                                                                         {docName}
                                                                     </span>
                                                                     <span className="text-[11px] text-slate-400">
-                                                                        {doc.url_path_file ? trans.will_replace || 'Will replace existing file' : trans.no_file || 'No file uploaded'}
+                                                                        {doc.url_path_file
+                                                                            ? trans.will_replace || 'Will replace existing file'
+                                                                            : trans.no_file || 'No file uploaded'}
                                                                     </span>
                                                                 </span>
                                                             </label>
@@ -3639,7 +3996,9 @@ export default function ViewCustomerForm({
                     <div className="py-4">
                         <p className="text-slate-600 dark:text-zinc-400">
                             Apakah Anda yakin ingin menghapus dokumen{' '}
-                            <span className="font-bold text-slate-900 dark:text-white">"{documentToRemove?.master_document?.nama_dokumen || documentToRemove?.nama_file}"</span>{' '}
+                            <span className="font-bold text-slate-900 dark:text-white">
+                                "{documentToRemove?.master_document?.nama_dokumen || documentToRemove?.nama_file}"
+                            </span>{' '}
                             dari section ini?
                         </p>
                     </div>
@@ -3789,12 +4148,7 @@ function RejectionDialog({ open, onOpenChange, onSubmit, trans, isProcessing }: 
                     <Button variant="outline" onClick={() => onOpenChange(false)}>
                         {trans.cancel}
                     </Button>
-                    <Button
-                        style={{ color: 'white' }}
-                        variant="destructive"
-                        onClick={() => onSubmit(note, file)}
-                        disabled={isProcessing}
-                    >
+                    <Button style={{ color: 'white' }} variant="destructive" onClick={() => onSubmit(note, file)} disabled={isProcessing}>
                         {isProcessing ? trans.rejecting || 'Rejecting...' : trans.confirm_rejection || 'Confirm Rejection'}
                     </Button>
                 </DialogFooter>

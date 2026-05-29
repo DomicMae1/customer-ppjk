@@ -96,6 +96,43 @@ interface SectionTrans {
     documents: DocumentTrans[];
 }
 
+interface CeisaStatusLog {
+    id: number;
+    source?: string | null;
+    kode_status?: string | null;
+    kode_respon?: string | null;
+    nomor_daftar?: string | null;
+    tanggal_daftar?: string | null;
+    nomor_respon?: string | null;
+    tanggal_respon?: string | null;
+    waktu_status?: string | null;
+    waktu_respon?: string | null;
+    keterangan?: string | null;
+}
+
+interface CeisaResponseDocument {
+    id: number;
+    response_type?: string | null;
+    kode_respon?: string | null;
+    nomor_respon?: string | null;
+    file_name?: string | null;
+    size_bytes?: number | null;
+    created_at?: string | null;
+}
+
+interface CeisaSubmission {
+    id: number;
+    nomor_aju: string;
+    document_type?: string | null;
+    mode?: string | null;
+    status?: string | null;
+    error_message?: string | null;
+    last_synced_at?: string | null;
+    latest_log?: CeisaStatusLog | null;
+    status_logs?: CeisaStatusLog[];
+    response_documents?: CeisaResponseDocument[];
+}
+
 interface PageProps {
     customer: MasterCustomer;
     shipmentDataProp: ShipmentData;
@@ -103,6 +140,7 @@ interface PageProps {
     sectionsTransProp: SectionTrans[];
     masterDocProp: MasterDocument[];
     docsTransProp: DocumentTrans[];
+    ceisaSubmissions?: CeisaSubmission[];
     internalStaff?: any[];
     auth: {
         user: {
@@ -114,7 +152,8 @@ interface PageProps {
 
 export default function PaymentsEdit() {
     const { props } = usePage();
-    const { customer, shipmentDataProp, masterSecProp, sectionsTransProp, masterDocProp, auth, internalStaff } = props as unknown as PageProps;
+    const { customer, shipmentDataProp, masterSecProp, sectionsTransProp, masterDocProp, ceisaSubmissions, auth, internalStaff } =
+        props as unknown as PageProps;
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -126,6 +165,7 @@ export default function PaymentsEdit() {
                     masterSecProp={masterSecProp}
                     sectionsTransProp={sectionsTransProp}
                     masterDocProp={masterDocProp}
+                    ceisaSubmissionsProp={ceisaSubmissions}
                     userRole={auth?.user?.role}
                     internalStaff={internalStaff} // Pass to Child Component
                 />
