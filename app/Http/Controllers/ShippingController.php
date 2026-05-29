@@ -23,12 +23,17 @@ use App\Models\SpkStatus;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Services\AdminCompanyContextService;
+use App\Services\Ceisa\CeisaDraftPayloadBuilder;
+use App\Services\Ceisa\CeisaNomorAjuGenerator;
+use App\Services\Ceisa\CeisaNomorAjuSequenceService;
 use App\Services\Ceisa\CeisaStatusSyncService;
+use App\Services\Ceisa\CeisaSubmissionService;
 use App\Services\NotificationService;
 use App\Services\SectionReminderService;
 use App\Services\ShippingGenerationService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -1533,6 +1538,158 @@ class ShippingController extends Controller
             'sectionsTransProp' => $sectionsTrans,
             'ceisaSubmissions' => $this->ceisaSubmissionsForSpk($spk->id),
             'internalStaff' => $internalStaff, // Pass staff list
+        ]);
+    }
+
+    public function prepareCeisaDraft(
+        Request $request,
+        int $id,
+        CeisaDraftPayloadBuilder $payloadBuilder,
+        CeisaNomorAjuGenerator $nomorAjuGenerator,
+        CeisaNomorAjuSequenceService $nomorAjuSequences
+    ) {
+        $user = auth('web')->user();
+
+        if (! $user || ! $user->can('update-master-shipping')) {
+            abort(403);
+        }
+
+        $request->validate([
+            'fresh' => ['sometimes', 'boolean'],
+        ]);
+
+        [$tenant, $idPerusahaan] = $this->resolveTenantAndPerusahaanId($user);
+
+        if (! $tenant || ! $idPerusahaan) {
+            return response()->json(['message' => 'Tenant/perusahaan tidak ditemukan.'], 404);
+        }
+
+        tenancy()->initialize($tenant);
+
+        $spk = $this->findAccessibleSpkOrFail($id, $user, $idPerusahaan, ['customer', 'hsCodes', 'parties']);
+        $config = $this->activeCeisaConfigForCompany($idPerusahaan);
+
+        if (! $config) {
+            return response()->json(['message' => 'Konfigurasi CEISA aktif belum tersedia untuk perusahaan ini.'], 422);
+        }
+
+        $documentType = $this->ceisaDocumentTypeForShipment($spk->shipment_type);
+        $nomorAju = preg_replace('/\s+/', '', (string) $spk->aju);
+
+        if ($request->boolean('fresh') || ! $nomorAjuGenerator->isValid($nomorAju)) {
+            try {
+                $nomorAju = $nomorAjuSequences->next($config, $documentType);
+                $spk->forceFill(['aju' => $nomorAju])->save();
+            } catch (Throwable $e) {
+                report($e);
+
+                return response()->json([
+                    'message' => $e->getMessage() ?: 'Gagal membuat nomor aju CEISA.',
+                ], 422);
+            }
+        }
+
+        $existingDraft = CeisaSubmission::where('id_spk', $spk->id)
+            ->where('nomor_aju', $nomorAju)
+            ->where('is_final', false)
+            ->latest()
+            ->first();
+
+        $preview = $payloadBuilder->build($config, $spk->fresh(['customer', 'hsCodes', 'parties']), $nomorAju);
+
+        if ($existingDraft && is_array($existingDraft->request_payload) && $existingDraft->request_payload !== []) {
+            $preview['payload'] = $existingDraft->request_payload;
+            $preview['warnings'][] = 'Payload diambil dari draft terakhir yang sudah pernah dikirim untuk nomor aju ini.';
+        }
+
+        return response()->json([
+            'message' => 'Draft CEISA siap diedit.',
+            'nomor_aju' => $nomorAju,
+            'document_type' => $documentType,
+            'payload' => $preview['payload'],
+            'warnings' => array_values(array_unique($preview['warnings'] ?? [])),
+            'source_documents' => $preview['source_documents'] ?? [],
+            'submissions' => $this->ceisaSubmissionsForSpk($spk->id),
+        ]);
+    }
+
+    public function submitCeisaDraft(
+        Request $request,
+        int $id,
+        CeisaNomorAjuGenerator $nomorAjuGenerator,
+        CeisaSubmissionService $submissionService
+    ) {
+        $user = auth('web')->user();
+
+        if (! $user || ! $user->can('update-master-shipping')) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'payload' => ['required', 'array'],
+            'document_type' => ['nullable', 'string', 'max:20'],
+        ]);
+
+        [$tenant, $idPerusahaan] = $this->resolveTenantAndPerusahaanId($user);
+
+        if (! $tenant || ! $idPerusahaan) {
+            return response()->json(['message' => 'Tenant/perusahaan tidak ditemukan.'], 404);
+        }
+
+        tenancy()->initialize($tenant);
+
+        $spk = $this->findAccessibleSpkOrFail($id, $user, $idPerusahaan);
+        $config = $this->activeCeisaConfigForCompany($idPerusahaan);
+
+        if (! $config) {
+            return response()->json(['message' => 'Konfigurasi CEISA aktif belum tersedia untuk perusahaan ini.'], 422);
+        }
+
+        $payload = $validated['payload'];
+        $nomorAju = preg_replace('/\s+/', '', (string) (Arr::get($payload, 'nomorAju') ?: $spk->aju));
+
+        if (! $nomorAjuGenerator->isValid($nomorAju)) {
+            return response()->json(['message' => 'Nomor aju belum valid. Klik Siapkan Draft dulu.'], 422);
+        }
+
+        $payload['nomorAju'] = $nomorAju;
+        $documentType = $validated['document_type'] ?: $this->ceisaDocumentTypeForShipment($spk->shipment_type);
+
+        try {
+            $submission = $submissionService->submit(
+                $config,
+                $spk,
+                $payload,
+                false,
+                false,
+                $user->id_user,
+                $documentType
+            );
+
+            $spk->forceFill(['aju' => $submission->nomor_aju])->save();
+        } catch (Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'message' => $e->getMessage() ?: 'Kirim draft CEISA gagal.',
+                'submissions' => $this->ceisaSubmissionsForSpk($spk->id),
+            ], 422);
+        }
+
+        $freshSubmission = $submission->fresh(['statusLogs', 'responseDocuments']);
+
+        if ($freshSubmission->error_message) {
+            return response()->json([
+                'message' => $freshSubmission->error_message,
+                'submission' => $this->serializeCeisaSubmission($freshSubmission),
+                'submissions' => $this->ceisaSubmissionsForSpk($spk->id),
+            ], 422);
+        }
+
+        return response()->json([
+            'message' => 'Draft CEISA berhasil dikirim dengan isFinal=false.',
+            'submission' => $this->serializeCeisaSubmission($freshSubmission),
+            'submissions' => $this->ceisaSubmissionsForSpk($spk->id),
         ]);
     }
 

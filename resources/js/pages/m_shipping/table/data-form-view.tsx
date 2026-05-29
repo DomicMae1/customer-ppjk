@@ -151,8 +151,12 @@ interface CeisaSubmission {
     nomor_aju: string;
     document_type?: string | null;
     mode?: string | null;
+    id_header?: string | null;
+    is_final?: boolean;
+    is_revision?: boolean;
     status?: string | null;
     error_message?: string | null;
+    submitted_at?: string | null;
     last_synced_at?: string | null;
     latest_log?: CeisaStatusLog | null;
     status_logs?: CeisaStatusLog[];
@@ -320,6 +324,13 @@ export default function ViewCustomerForm({
     const [ceisaAjuInput, setCeisaAjuInput] = useState<string>((shipmentDataProp as any)?.aju || ceisaSubmissionsProp?.[0]?.nomor_aju || '');
     const [isTrackingCeisa, setIsTrackingCeisa] = useState(false);
     const [syncingCeisaId, setSyncingCeisaId] = useState<number | null>(null);
+    const [isCeisaDraftModalOpen, setIsCeisaDraftModalOpen] = useState(false);
+    const [isPreparingCeisaDraft, setIsPreparingCeisaDraft] = useState(false);
+    const [isSubmittingCeisaDraft, setIsSubmittingCeisaDraft] = useState(false);
+    const [ceisaDraftPayloadText, setCeisaDraftPayloadText] = useState('');
+    const [ceisaDraftWarnings, setCeisaDraftWarnings] = useState<string[]>([]);
+    const [ceisaDraftNomorAju, setCeisaDraftNomorAju] = useState('');
+    const [ceisaDraftDocumentType, setCeisaDraftDocumentType] = useState('');
 
     useEffect(() => {
         setCeisaSubmissions(ceisaSubmissionsProp || []);
@@ -823,6 +834,79 @@ export default function ViewCustomerForm({
             hour: '2-digit',
             minute: '2-digit',
         });
+    };
+
+    const prepareCeisaDraftPayload = async (fresh = false) => {
+        setIsPreparingCeisaDraft(true);
+
+        try {
+            const response = await axios.post(`/shipping/${shipmentData.id_spk}/ceisa-draft/prepare`, { fresh });
+            const payload = response.data.payload || {};
+            const nomorAju = response.data.nomor_aju || payload.nomorAju || '';
+
+            setCeisaDraftPayloadText(JSON.stringify(payload, null, 2));
+            setCeisaDraftWarnings(response.data.warnings || []);
+            setCeisaDraftNomorAju(nomorAju);
+            setCeisaDraftDocumentType(response.data.document_type || payload.kodeDokumen || '');
+            setCeisaAjuInput(nomorAju || ceisaAjuInput);
+            setAjuForm(nomorAju || ajuForm);
+            setCeisaSubmissions(response.data.submissions || ceisaSubmissions);
+            toast.success(response.data.message || 'Draft CEISA siap diedit');
+        } catch (error: any) {
+            toast.error(error?.response?.data?.message || 'Gagal menyiapkan draft CEISA');
+        } finally {
+            setIsPreparingCeisaDraft(false);
+        }
+    };
+
+    const openCeisaDraftModal = async () => {
+        setIsCeisaDraftModalOpen(true);
+
+        if (!ceisaDraftPayloadText) {
+            await prepareCeisaDraftPayload(false);
+        }
+    };
+
+    const handleSubmitCeisaDraft = async () => {
+        let payload: Record<string, any>;
+
+        try {
+            payload = JSON.parse(ceisaDraftPayloadText);
+        } catch {
+            toast.error('JSON payload CEISA belum valid.');
+            return;
+        }
+
+        if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+            toast.error('Payload CEISA harus berupa JSON object.');
+            return;
+        }
+
+        setIsSubmittingCeisaDraft(true);
+
+        try {
+            const response = await axios.post(`/shipping/${shipmentData.id_spk}/ceisa-draft`, {
+                payload,
+                document_type: ceisaDraftDocumentType || undefined,
+            });
+
+            const submissions = response.data.submissions || [];
+            const nomorAju = response.data.submission?.nomor_aju || payload.nomorAju || ceisaDraftNomorAju;
+
+            setCeisaSubmissions(submissions);
+            setCeisaAjuInput(nomorAju || ceisaAjuInput);
+            setAjuForm(nomorAju || ajuForm);
+            setIsCeisaDraftModalOpen(false);
+            toast.success(response.data.message || 'Draft CEISA berhasil dikirim');
+        } catch (error: any) {
+            if (error?.response?.data?.submissions) {
+                setCeisaSubmissions(error.response.data.submissions);
+            }
+
+            toast.error(error?.response?.data?.message || 'Kirim draft CEISA gagal');
+        } finally {
+            setIsSubmittingCeisaDraft(false);
+        }
     };
 
     const handleTrackCeisaSubmission = async () => {
@@ -2445,6 +2529,26 @@ export default function ViewCustomerForm({
                                 </Button>
                             </div>
 
+                            <div className="mt-2 flex flex-wrap items-center gap-2">
+                                <Button
+                                    type="button"
+                                    variant="secondary"
+                                    onClick={openCeisaDraftModal}
+                                    disabled={isPreparingCeisaDraft}
+                                    className="h-9 gap-2 rounded-lg text-xs font-bold"
+                                >
+                                    {isPreparingCeisaDraft ? (
+                                        <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                                    ) : (
+                                        <FileText className="h-3.5 w-3.5" />
+                                    )}
+                                    Siapkan Draft
+                                </Button>
+                                <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-bold text-amber-700 dark:bg-amber-950/30 dark:text-amber-300">
+                                    Draft only, isFinal=false
+                                </span>
+                            </div>
+
                             <div className="mt-4 space-y-3">
                                 {ceisaSubmissions.length === 0 ? (
                                     <div className="rounded-xl border border-dashed border-slate-200 p-4 text-center text-xs text-slate-500 dark:border-zinc-800 dark:text-zinc-400">
@@ -2547,6 +2651,102 @@ export default function ViewCustomerForm({
                             </div>
                         </div>
                     )}
+
+                    <Dialog open={isCeisaDraftModalOpen} onOpenChange={setIsCeisaDraftModalOpen}>
+                        <DialogContent className="flex max-h-[92vh] max-w-[95vw] flex-col overflow-hidden rounded-2xl p-0 sm:max-w-5xl dark:border-zinc-800 dark:bg-zinc-900">
+                            <DialogHeader className="shrink-0 border-b px-6 py-4 dark:border-zinc-800">
+                                <DialogTitle className="flex items-center gap-2 text-left text-lg font-bold text-slate-900 dark:text-white">
+                                    <FileText className="h-5 w-5 text-blue-600" />
+                                    Draft Dokumen CEISA
+                                </DialogTitle>
+                            </DialogHeader>
+
+                            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-4">
+                                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
+                                    Submit dari modal ini selalu memakai <span className="font-black">isFinal=false</span>. Ini membuat draft di
+                                    CEISA, bukan pengiriman final.
+                                </div>
+
+                                <div className="grid gap-3 sm:grid-cols-3">
+                                    <div className="rounded-xl border border-slate-200 p-3 dark:border-zinc-800">
+                                        <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">Nomor Aju</div>
+                                        <div className="mt-1 text-sm font-bold break-all text-slate-900 dark:text-white">
+                                            {ceisaDraftNomorAju || '-'}
+                                        </div>
+                                    </div>
+                                    <div className="rounded-xl border border-slate-200 p-3 dark:border-zinc-800">
+                                        <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">Tipe Dokumen</div>
+                                        <div className="mt-1 text-sm font-bold text-slate-900 dark:text-white">{ceisaDraftDocumentType || '-'}</div>
+                                    </div>
+                                    <div className="rounded-xl border border-slate-200 p-3 dark:border-zinc-800">
+                                        <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">Mode</div>
+                                        <div className="mt-1 text-sm font-bold text-slate-900 dark:text-white">Draft</div>
+                                    </div>
+                                </div>
+
+                                {ceisaDraftWarnings.length > 0 && (
+                                    <div className="rounded-xl border border-slate-200 p-3 dark:border-zinc-800">
+                                        <div className="mb-2 flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-zinc-200">
+                                            <AlertTriangle className="h-4 w-4 text-amber-500" />
+                                            Catatan sebelum submit
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            {ceisaDraftWarnings.map((warning, index) => (
+                                                <div key={`${warning}-${index}`} className="text-xs text-slate-500 dark:text-zinc-400">
+                                                    {warning}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div>
+                                    <div className="mb-2 flex items-center justify-between gap-3">
+                                        <Label className="text-xs font-bold text-slate-700 dark:text-zinc-200">Payload JSON</Label>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => prepareCeisaDraftPayload(true)}
+                                            disabled={isPreparingCeisaDraft || isSubmittingCeisaDraft}
+                                            className="h-8 gap-2 rounded-lg text-[11px] font-bold"
+                                        >
+                                            <RefreshCw className={`h-3.5 w-3.5 ${isPreparingCeisaDraft ? 'animate-spin' : ''}`} />
+                                            Nomor Baru
+                                        </Button>
+                                    </div>
+                                    <Textarea
+                                        value={ceisaDraftPayloadText}
+                                        onChange={(e) => setCeisaDraftPayloadText(e.target.value)}
+                                        spellCheck={false}
+                                        className="min-h-[420px] resize-y rounded-xl border-slate-200 bg-slate-950 font-mono text-xs leading-relaxed text-slate-100 selection:bg-blue-500/40 focus:ring-blue-500/20 dark:border-zinc-800"
+                                        placeholder="{ }"
+                                    />
+                                </div>
+                            </div>
+
+                            <DialogFooter className="shrink-0 gap-2 border-t bg-slate-50 px-6 py-4 dark:border-zinc-800 dark:bg-zinc-950">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => setIsCeisaDraftModalOpen(false)}
+                                    disabled={isSubmittingCeisaDraft}
+                                    className="rounded-lg"
+                                >
+                                    Tutup
+                                </Button>
+                                <Button
+                                    type="button"
+                                    onClick={handleSubmitCeisaDraft}
+                                    disabled={isPreparingCeisaDraft || isSubmittingCeisaDraft || !ceisaDraftPayloadText}
+                                    className="gap-2 rounded-lg bg-blue-600 font-bold text-white hover:bg-blue-700"
+                                >
+                                    {isSubmittingCeisaDraft ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                                    Kirim Draft CEISA
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
 
                     {/* Ori Date Modal */}
                     <Dialog open={isOriDateModalOpen} onOpenChange={setIsOriDateModalOpen}>

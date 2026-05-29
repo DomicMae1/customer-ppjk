@@ -51,6 +51,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('shipping/{id}/send-email', [ShippingController::class, 'sendEmail'])->name('shipping.sendEmail');
     Route::post('shipping/unified-save', [ShippingController::class, 'unifiedBatchSave'])->name('shipping.unifiedSave');
     Route::post('shipping/update-deadline', [ShippingController::class, 'updateDeadline'])->name('shipping.updateDeadline');
+    Route::post('shipping/{id}/ceisa-draft/prepare', [ShippingController::class, 'prepareCeisaDraft'])->name('shipping.ceisaDraftPrepare');
+    Route::post('shipping/{id}/ceisa-draft', [ShippingController::class, 'submitCeisaDraft'])->name('shipping.ceisaDraftSubmit');
     Route::post('shipping/{id}/ceisa-track', [ShippingController::class, 'trackCeisaSubmission'])->name('shipping.ceisaTrack');
     Route::post('shipping/{id}/ceisa-submissions/{submission}/sync', [ShippingController::class, 'syncCeisaSubmission'])->name('shipping.ceisaSync');
     Route::get('shipping/{id}/ceisa-response-documents/{document}/download', [ShippingController::class, 'downloadCeisaResponseDocument'])->name('shipping.ceisaResponseDocument');
