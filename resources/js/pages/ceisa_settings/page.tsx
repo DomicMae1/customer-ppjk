@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import AppSidebarLayout from '@/layouts/app/app-sidebar-layout';
 import { Head } from '@inertiajs/react';
 import axios from 'axios';
-import { CheckCircle2, EyeOff, Loader2, Save, ShieldCheck } from 'lucide-react';
+import { CheckCircle2, Database, EyeOff, FileSearch, Loader2, Save, Search, ShieldCheck } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -80,6 +80,37 @@ interface FormState {
     is_active: boolean;
 }
 
+type ReferenceLookupType = 'kurs' | 'hs_lartas' | 'tarif_hs' | 'pelabuhan_kata' | 'gudang_tps_kode_kantor' | 'pelabuhan_kode_kantor' | 'manifes_bc11';
+
+type StatusCheckType = 'nomor_aju' | 'company';
+
+interface ReferenceField {
+    key: string;
+    label: string;
+    placeholder?: string;
+    type?: string;
+    optional?: boolean;
+}
+
+interface ReferenceOption {
+    value: ReferenceLookupType;
+    label: string;
+    description: string;
+    fields: ReferenceField[];
+}
+
+interface ReferenceState {
+    lookup_type: ReferenceLookupType;
+    params: Record<string, string>;
+    force_refresh: boolean;
+}
+
+interface StatusState {
+    status_type: StatusCheckType;
+    nomor_aju: string;
+    id_perusahaan_ceisa: string;
+}
+
 interface PageProps {
     companies: Company[];
     selectedCompanyId?: number | null;
@@ -89,6 +120,62 @@ const baseUrlByEnvironment: Record<Environment, string> = {
     development: 'https://apisdev-gw.beacukai.go.id',
     production: 'https://apis-gw.beacukai.go.id',
 };
+
+const referenceOptions: ReferenceOption[] = [
+    {
+        value: 'pelabuhan_kata',
+        label: 'Pelabuhan by Kata',
+        description: 'Cari kode pelabuhan dari potongan nama.',
+        fields: [{ key: 'kata', label: 'Kata', placeholder: 'SAO' }],
+    },
+    {
+        value: 'pelabuhan_kode_kantor',
+        label: 'Pelabuhan by Kantor',
+        description: 'Ambil pelabuhan berdasarkan kode kantor Bea Cukai.',
+        fields: [{ key: 'kode_kantor', label: 'Kode Kantor', placeholder: '070100' }],
+    },
+    {
+        value: 'gudang_tps_kode_kantor',
+        label: 'TPS by Kantor',
+        description: 'Ambil referensi TPS/gudang berdasarkan kode kantor.',
+        fields: [{ key: 'kode_kantor', label: 'Kode Kantor', placeholder: '070100' }],
+    },
+    {
+        value: 'kurs',
+        label: 'Kurs',
+        description: 'Cek kurs terkini berdasarkan kode valuta.',
+        fields: [
+            { key: 'kode_valuta', label: 'Kode Valuta', placeholder: 'USD' },
+            { key: 'tanggal', label: 'Tanggal', type: 'date', optional: true },
+        ],
+    },
+    {
+        value: 'hs_lartas',
+        label: 'HS Lartas',
+        description: 'Cek larangan pembatasan berdasarkan kode HS.',
+        fields: [{ key: 'kode_hs', label: 'Kode HS', placeholder: '87089999' }],
+    },
+    {
+        value: 'tarif_hs',
+        label: 'Tarif HS',
+        description: 'Cek tarif pos HS pada tanggal tertentu.',
+        fields: [
+            { key: 'kode_hs', label: 'Kode HS', placeholder: '87089999' },
+            { key: 'tanggal', label: 'Tanggal', type: 'date' },
+        ],
+    },
+    {
+        value: 'manifes_bc11',
+        label: 'Manifes BC 1.1',
+        description: 'Cek data manifes berdasarkan host B/L.',
+        fields: [
+            { key: 'nomor_bl', label: 'Nomor B/L', placeholder: 'Nomor host B/L' },
+            { key: 'tanggal_bl', label: 'Tanggal B/L', placeholder: 'DD-MM-YYYY' },
+            { key: 'kode_kantor', label: 'Kode Kantor', placeholder: '070100' },
+            { key: 'nama_importir', label: 'Nama Importir', placeholder: 'Nama importir' },
+        ],
+    },
+];
 
 const emptyForm = (companyId = '', environment: Environment = 'production'): FormState => ({
     id_perusahaan: companyId,
@@ -125,10 +212,29 @@ export default function CeisaSettings({ companies, selectedCompanyId }: PageProp
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [isTesting, setIsTesting] = useState(false);
+    const [referenceLookup, setReferenceLookup] = useState<ReferenceState>({
+        lookup_type: 'pelabuhan_kata',
+        params: { kata: '' },
+        force_refresh: false,
+    });
+    const [statusCheck, setStatusCheck] = useState<StatusState>({
+        status_type: 'nomor_aju',
+        nomor_aju: '',
+        id_perusahaan_ceisa: '',
+    });
+    const [isReferenceLoading, setIsReferenceLoading] = useState(false);
+    const [isStatusLoading, setIsStatusLoading] = useState(false);
+    const [referenceResult, setReferenceResult] = useState<any>(null);
+    const [statusResult, setStatusResult] = useState<any>(null);
 
     const selectedCompanyName = useMemo(
         () => companies.find((company) => String(company.id_perusahaan) === form.id_perusahaan)?.nama_perusahaan ?? '-',
         [companies, form.id_perusahaan],
+    );
+
+    const selectedReferenceOption = useMemo(
+        () => referenceOptions.find((option) => option.value === referenceLookup.lookup_type) ?? referenceOptions[0],
+        [referenceLookup.lookup_type],
     );
 
     useEffect(() => {
@@ -233,6 +339,82 @@ export default function CeisaSettings({ companies, selectedCompanyId }: PageProp
             toast.error(error?.response?.data?.message ?? 'Test OAuth CEISA gagal.');
         } finally {
             setIsTesting(false);
+        }
+    };
+
+    const handleReferenceTypeChange = (lookupType: ReferenceLookupType) => {
+        const option = referenceOptions.find((item) => item.value === lookupType);
+        const params = Object.fromEntries((option?.fields ?? []).map((field) => [field.key, '']));
+
+        setReferenceLookup({
+            lookup_type: lookupType,
+            params,
+            force_refresh: false,
+        });
+        setReferenceResult(null);
+    };
+
+    const setReferenceParam = (key: string, value: string) => {
+        setReferenceLookup((current) => ({
+            ...current,
+            params: {
+                ...current.params,
+                [key]: value,
+            },
+        }));
+    };
+
+    const handleReferenceLookup = async () => {
+        if (!config) {
+            toast.error('Simpan konfigurasi dulu sebelum cek referensi.');
+            return;
+        }
+
+        setIsReferenceLoading(true);
+        setReferenceResult(null);
+
+        try {
+            const response = await axios.post('/ceisa-settings/reference', {
+                id_perusahaan: Number(form.id_perusahaan),
+                environment: form.environment,
+                lookup_type: referenceLookup.lookup_type,
+                params: referenceLookup.params,
+                force_refresh: referenceLookup.force_refresh,
+            });
+            setReferenceResult(response.data);
+            toast.success(response.data.message ?? 'Referensi CEISA berhasil dicek.');
+        } catch (error: any) {
+            setReferenceResult(error?.response?.data ?? null);
+            toast.error(error?.response?.data?.message ?? 'Cek referensi CEISA gagal.');
+        } finally {
+            setIsReferenceLoading(false);
+        }
+    };
+
+    const handleStatusLookup = async () => {
+        if (!config) {
+            toast.error('Simpan konfigurasi dulu sebelum cek status.');
+            return;
+        }
+
+        setIsStatusLoading(true);
+        setStatusResult(null);
+
+        try {
+            const response = await axios.post('/ceisa-settings/status', {
+                id_perusahaan: Number(form.id_perusahaan),
+                environment: form.environment,
+                status_type: statusCheck.status_type,
+                nomor_aju: statusCheck.nomor_aju,
+                id_perusahaan_ceisa: statusCheck.id_perusahaan_ceisa,
+            });
+            setStatusResult(response.data);
+            toast.success(response.data.message ?? 'Status CEISA berhasil dicek.');
+        } catch (error: any) {
+            setStatusResult(error?.response?.data ?? null);
+            toast.error(error?.response?.data?.message ?? 'Cek status CEISA gagal.');
+        } finally {
+            setIsStatusLoading(false);
         }
     };
 
@@ -430,6 +612,137 @@ export default function CeisaSettings({ companies, selectedCompanyId }: PageProp
                         </div>
                     </CardContent>
                 </Card>
+
+                <Card>
+                    <CardHeader>
+                        <CardTitle>CEISA Diagnostics</CardTitle>
+                        <CardDescription>Cek endpoint CEISA ringan dari konfigurasi perusahaan ini sebelum masuk ke submit dokumen.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="grid gap-6 xl:grid-cols-2">
+                        <section className="space-y-4">
+                            <div className="flex items-start justify-between gap-4">
+                                <div>
+                                    <h2 className="text-base font-semibold">Cek Referensi</h2>
+                                    <p className="text-muted-foreground text-sm">{selectedReferenceOption.description}</p>
+                                </div>
+                                <Database className="text-muted-foreground mt-1 h-5 w-5 shrink-0" />
+                            </div>
+
+                            <div className="grid gap-4 md:grid-cols-2">
+                                <div className="space-y-2 md:col-span-2">
+                                    <Label>Jenis Referensi</Label>
+                                    <Select
+                                        value={referenceLookup.lookup_type}
+                                        onValueChange={(value) => handleReferenceTypeChange(value as ReferenceLookupType)}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {referenceOptions.map((option) => (
+                                                <SelectItem key={option.value} value={option.value}>
+                                                    {option.label}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                {selectedReferenceOption.fields.map((field) => (
+                                    <TextField
+                                        key={field.key}
+                                        label={`${field.label}${field.optional ? ' (opsional)' : ''}`}
+                                        value={referenceLookup.params[field.key] ?? ''}
+                                        onChange={(value) => setReferenceParam(field.key, value)}
+                                        placeholder={field.placeholder}
+                                        type={field.type}
+                                    />
+                                ))}
+                            </div>
+
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                                <label className="flex items-center gap-2 text-sm">
+                                    <Checkbox
+                                        checked={referenceLookup.force_refresh}
+                                        onCheckedChange={(value) => setReferenceLookup((current) => ({ ...current, force_refresh: Boolean(value) }))}
+                                    />
+                                    Abaikan cache
+                                </label>
+                                <Button variant="outline" onClick={handleReferenceLookup} disabled={!config || isReferenceLoading}>
+                                    {isReferenceLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
+                                    Cek Referensi
+                                </Button>
+                            </div>
+
+                            <ReferenceResultSummary value={referenceResult} />
+                            <JsonPreview value={referenceResult} />
+                        </section>
+
+                        <section className="space-y-4">
+                            <div className="flex items-start justify-between gap-4">
+                                <div>
+                                    <h2 className="text-base font-semibold">Cek Status</h2>
+                                    <p className="text-muted-foreground text-sm">
+                                        Gunakan nomor aju tertentu, atau cek status daftar dokumen berdasarkan NPWP konfigurasi.
+                                    </p>
+                                </div>
+                                <FileSearch className="text-muted-foreground mt-1 h-5 w-5 shrink-0" />
+                            </div>
+
+                            <div className="grid gap-4 md:grid-cols-2">
+                                <div className="space-y-2 md:col-span-2">
+                                    <Label>Mode</Label>
+                                    <Select
+                                        value={statusCheck.status_type}
+                                        onValueChange={(value) =>
+                                            setStatusCheck((current) => ({ ...current, status_type: value as StatusCheckType }))
+                                        }
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="nomor_aju">Nomor Aju</SelectItem>
+                                            <SelectItem value="company">Perusahaan / NPWP</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                {statusCheck.status_type === 'nomor_aju' ? (
+                                    <div className="md:col-span-2">
+                                        <TextField
+                                            label="Nomor Aju"
+                                            value={statusCheck.nomor_aju}
+                                            onChange={(value) => setStatusCheck((current) => ({ ...current, nomor_aju: value }))}
+                                            placeholder="26 digit nomor aju"
+                                            maxLength={32}
+                                        />
+                                    </div>
+                                ) : (
+                                    <div className="md:col-span-2">
+                                        <TextField
+                                            label="ID Perusahaan CEISA / NPWP (opsional)"
+                                            value={statusCheck.id_perusahaan_ceisa}
+                                            onChange={(value) => setStatusCheck((current) => ({ ...current, id_perusahaan_ceisa: value }))}
+                                            placeholder="Kosongkan untuk pakai NPWP di config"
+                                            maxLength={32}
+                                        />
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="flex justify-end">
+                                <Button variant="outline" onClick={handleStatusLookup} disabled={!config || isStatusLoading}>
+                                    {isStatusLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileSearch className="mr-2 h-4 w-4" />}
+                                    Cek Status
+                                </Button>
+                            </div>
+
+                            <StatusResultSummary value={statusResult} />
+                            <JsonPreview value={statusResult} />
+                        </section>
+                    </CardContent>
+                </Card>
             </div>
         </AppSidebarLayout>
     );
@@ -441,17 +754,19 @@ function TextField({
     onChange,
     placeholder,
     maxLength,
+    type = 'text',
 }: {
     label: string;
     value: string;
     onChange: (value: string) => void;
     placeholder?: string;
     maxLength?: number;
+    type?: string;
 }) {
     return (
         <div className="space-y-2">
             <Label>{label}</Label>
-            <Input value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} maxLength={maxLength} />
+            <Input type={type} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} maxLength={maxLength} />
         </div>
     );
 }
@@ -507,6 +822,186 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
             <span className="text-right font-medium">{value}</span>
         </div>
     );
+}
+
+function ReferenceResultSummary({ value }: { value: any }) {
+    if (!value) return null;
+
+    const result = unwrapResult(value);
+    const rows = extractReferenceRows(value);
+
+    return (
+        <div className="border-border bg-muted/20 space-y-3 rounded-md border p-3">
+            <ResultMeta result={result} title="Ringkasan Referensi" />
+            <div className="text-muted-foreground text-xs">
+                {rows.length ? `${rows.length} baris pertama ditampilkan.` : 'Tidak ada baris referensi.'}
+            </div>
+            {rows.length > 0 && (
+                <div className="grid gap-2">
+                    {rows.slice(0, 5).map((row, index) => (
+                        <div key={index} className="border-border bg-background grid gap-2 rounded-md border p-3 text-xs md:grid-cols-2">
+                            {Object.entries(row)
+                                .slice(0, 8)
+                                .map(([key, rowValue]) => (
+                                    <SummaryField key={key} label={key} value={formatRecordValue(rowValue)} />
+                                ))}
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
+function StatusResultSummary({ value }: { value: any }) {
+    if (!value) return null;
+
+    const result = unwrapResult(value);
+    const rows = extractStatusRows(value);
+    const internalLog = value?.internal_log;
+
+    return (
+        <div className="border-border bg-muted/20 space-y-3 rounded-md border p-3">
+            <ResultMeta result={result} title="Ringkasan Status" />
+            {internalLog && (
+                <div
+                    className={`rounded-md border p-3 text-xs ${
+                        internalLog.persisted ? 'border-emerald-500/30 bg-emerald-500/10' : 'border-amber-500/30 bg-amber-500/10'
+                    }`}
+                >
+                    <div className="font-medium">{internalLog.persisted ? 'Tersimpan ke log internal' : 'Tidak disimpan ke log internal'}</div>
+                    <div className="text-muted-foreground mt-1">
+                        {internalLog.persisted
+                            ? `Submission #${internalLog.ceisa_submission_id}, status ${internalLog.status}, ${internalLog.status_log_count} log.`
+                            : (internalLog.reason ?? 'Nomor aju tidak cocok dengan submission internal.')}
+                    </div>
+                </div>
+            )}
+            <div className="text-muted-foreground text-xs">
+                {rows.length ? `${rows.length} status/respon ditemukan.` : 'Tidak ada status/respon.'}
+            </div>
+            {rows.length > 0 && (
+                <div className="grid gap-2">
+                    {rows.slice(0, 5).map((row, index) => (
+                        <div key={index} className="border-border bg-background rounded-md border p-3 text-xs">
+                            <div className="grid gap-2 md:grid-cols-2">
+                                <SummaryField label="nomorAju" value={pickRecordValue(row, ['nomorAju', 'nomor_aju'])} />
+                                <SummaryField label="nomorDaftar" value={pickRecordValue(row, ['nomorDaftar', 'nomor_daftar'])} />
+                                <SummaryField label="tanggalDaftar" value={pickRecordValue(row, ['tanggalDaftar', 'tanggal_daftar'])} />
+                                <SummaryField label="kodeProses/status" value={pickRecordValue(row, ['kodeProses', 'kodeStatus', 'status'])} />
+                                <SummaryField label="waktuStatus" value={pickRecordValue(row, ['waktuStatus', 'waktu_status'])} />
+                                <SummaryField label="keterangan" value={pickRecordValue(row, ['keterangan', 'uraian', 'message'])} />
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
+function ResultMeta({ result, title }: { result: any; title: string }) {
+    return (
+        <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+                <span className="text-sm font-semibold">{title}</span>
+                <Badge variant={result?.ok ? 'secondary' : 'destructive'}>{result?.ok ? 'OK' : 'Gagal'}</Badge>
+                {result?.cached && <Badge variant="outline">cache</Badge>}
+            </div>
+            <div className="grid gap-2 text-xs md:grid-cols-2">
+                <SummaryField label="HTTP" value={result?.http_status ?? '-'} />
+                <SummaryField label="Body status" value={result?.body_status ?? '-'} />
+                <SummaryField label="Message" value={result?.message ?? '-'} />
+                <SummaryField label="Nomor aju" value={result?.nomor_aju ?? '-'} />
+            </div>
+        </div>
+    );
+}
+
+function SummaryField({ label, value }: { label: string; value: any }) {
+    return (
+        <div className="min-w-0">
+            <div className="text-muted-foreground">{label}</div>
+            <div className="font-medium break-words">{formatRecordValue(value)}</div>
+        </div>
+    );
+}
+
+function JsonPreview({ value }: { value: any }) {
+    if (!value) {
+        return (
+            <div className="border-border bg-muted/30 text-muted-foreground flex min-h-32 items-center justify-center rounded-md border p-4 text-sm">
+                Belum ada hasil.
+            </div>
+        );
+    }
+
+    return (
+        <pre className="border-border bg-muted/30 max-h-80 overflow-auto rounded-md border p-4 text-xs leading-relaxed break-words whitespace-pre-wrap">
+            {JSON.stringify(value, null, 2)}
+        </pre>
+    );
+}
+
+function unwrapResult(value: any) {
+    return value?.result ?? value;
+}
+
+function extractReferenceRows(value: any): Record<string, any>[] {
+    const result = unwrapResult(value);
+    const payload = result?.data ?? result;
+
+    return firstRecordList(payload, ['data', 'item', 'result', 'items']);
+}
+
+function extractStatusRows(value: any): Record<string, any>[] {
+    const result = unwrapResult(value);
+    const payload = result?.data ?? result;
+
+    return [
+        ...firstRecordList(payload, ['dataStatus', 'data.dataStatus', 'item.dataStatus']),
+        ...firstRecordList(payload, ['dataRespon', 'data.dataRespon', 'item.dataRespon']),
+    ];
+}
+
+function firstRecordList(payload: any, paths: string[]): Record<string, any>[] {
+    if (Array.isArray(payload)) {
+        return payload.filter((item) => item && typeof item === 'object');
+    }
+
+    for (const path of paths) {
+        const value = getPath(payload, path);
+
+        if (Array.isArray(value)) {
+            return value.filter((item) => item && typeof item === 'object');
+        }
+
+        if (value && typeof value === 'object') {
+            return [value];
+        }
+    }
+
+    return [];
+}
+
+function getPath(source: any, path: string) {
+    return path.split('.').reduce((current, key) => (current && typeof current === 'object' ? current[key] : undefined), source);
+}
+
+function pickRecordValue(record: Record<string, any>, keys: string[]) {
+    for (const key of keys) {
+        const value = getPath(record, key);
+        if (value !== undefined && value !== null && value !== '') return value;
+    }
+
+    return '-';
+}
+
+function formatRecordValue(value: any) {
+    if (value === undefined || value === null || value === '') return '-';
+    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return String(value);
+
+    return JSON.stringify(value);
 }
 
 function formatDate(value?: string | null) {

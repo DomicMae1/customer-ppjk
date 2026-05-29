@@ -30,6 +30,11 @@ class CeisaStatusSyncService
             return $submission->refresh();
         }
 
+        return $this->applyStatusResult($submission, $result);
+    }
+
+    public function applyStatusResult(CeisaSubmission $submission, array $result): CeisaSubmission
+    {
         $payload = is_array($result['data'] ?? null) ? $result['data'] : [];
         $logs = [];
 

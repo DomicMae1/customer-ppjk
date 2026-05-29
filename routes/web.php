@@ -81,6 +81,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('ceisa-settings/companies/{idPerusahaan}', [CeisaSettingController::class, 'show'])->name('ceisa-settings.show');
     Route::post('ceisa-settings', [CeisaSettingController::class, 'upsert'])->name('ceisa-settings.upsert');
     Route::post('ceisa-settings/test', [CeisaSettingController::class, 'test'])->name('ceisa-settings.test');
+    Route::post('ceisa-settings/reference', [CeisaSettingController::class, 'reference'])->name('ceisa-settings.reference');
+    Route::post('ceisa-settings/status', [CeisaSettingController::class, 'status'])->name('ceisa-settings.status');
 
     // Notification routes
     Route::get('notifications', [NotificationController::class, 'index'])->name('notifications.index');

@@ -3,21 +3,37 @@
 namespace App\Http\Controllers;
 
 use App\Models\CeisaCompanyConfig;
+use App\Models\CeisaSubmission;
 use App\Models\Perusahaan;
+use App\Models\Tenant;
 use App\Services\AdminCompanyContextService;
+use App\Services\Ceisa\CeisaClient;
 use App\Services\Ceisa\CeisaNumberFormatter;
+use App\Services\Ceisa\CeisaReferenceService;
+use App\Services\Ceisa\CeisaStatusSyncService;
 use App\Services\Ceisa\CeisaTokenService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 use Throwable;
 
 class CeisaSettingController extends Controller
 {
+    private const REFERENCE_LOOKUPS = [
+        'kurs' => ['kode_valuta'],
+        'hs_lartas' => ['kode_hs'],
+        'tarif_hs' => ['kode_hs', 'tanggal'],
+        'pelabuhan_kata' => ['kata'],
+        'gudang_tps_kode_kantor' => ['kode_kantor'],
+        'pelabuhan_kode_kantor' => ['kode_kantor'],
+        'manifes_bc11' => ['nomor_bl', 'tanggal_bl', 'kode_kantor', 'nama_importir'],
+    ];
+
     public function index(): Response
     {
         $user = auth('web')->user();
@@ -144,6 +160,93 @@ class CeisaSettingController extends Controller
         }
     }
 
+    public function reference(Request $request, CeisaReferenceService $referenceService): JsonResponse
+    {
+        $this->authorizeAdmin($request->user());
+
+        $validated = $request->validate([
+            'id_perusahaan' => ['required', 'integer', 'exists:perusahaan,id_perusahaan'],
+            'environment' => ['required', Rule::in(['development', 'production'])],
+            'lookup_type' => ['required', Rule::in(array_keys(self::REFERENCE_LOOKUPS))],
+            'params' => ['nullable', 'array'],
+            'params.*' => ['nullable', 'string', 'max:255'],
+            'force_refresh' => ['nullable', 'boolean'],
+        ]);
+
+        $config = $this->findConfig((int) $validated['id_perusahaan'], $validated['environment']);
+        [$path, $query] = $this->buildReferenceRequest($validated['lookup_type'], $validated['params'] ?? []);
+
+        try {
+            $result = $referenceService->get(
+                $config,
+                $path,
+                $query,
+                1440,
+                (bool) ($validated['force_refresh'] ?? false)
+            );
+
+            return response()->json([
+                'success' => (bool) ($result['ok'] ?? false),
+                'message' => $result['message'] ?? 'Referensi CEISA selesai dicek.',
+                'result' => $result,
+            ], ($result['ok'] ?? false) ? 200 : 422);
+        } catch (Throwable $exception) {
+            return response()->json([
+                'success' => false,
+                'message' => Str::limit($exception->getMessage(), 500),
+            ], 422);
+        }
+    }
+
+    public function status(Request $request, CeisaClient $client, CeisaStatusSyncService $statusSync): JsonResponse
+    {
+        $this->authorizeAdmin($request->user());
+
+        $validated = $request->validate([
+            'id_perusahaan' => ['required', 'integer', 'exists:perusahaan,id_perusahaan'],
+            'environment' => ['required', Rule::in(['development', 'production'])],
+            'status_type' => ['required', Rule::in(['nomor_aju', 'company'])],
+            'nomor_aju' => ['nullable', 'string', 'max:32'],
+            'id_perusahaan_ceisa' => ['nullable', 'string', 'max:32'],
+        ]);
+
+        if ($validated['status_type'] === 'nomor_aju' && blank($validated['nomor_aju'] ?? null)) {
+            throw ValidationException::withMessages([
+                'nomor_aju' => 'Nomor aju wajib diisi untuk cek status nomor aju.',
+            ]);
+        }
+
+        $config = $this->findConfig((int) $validated['id_perusahaan'], $validated['environment']);
+
+        try {
+            $result = $validated['status_type'] === 'nomor_aju'
+                ? $client->getStatusByNomorAju($config, (string) $validated['nomor_aju'])
+                : $client->getStatusByCompany($config, $validated['id_perusahaan_ceisa'] ?? null);
+
+            $internalLog = null;
+            if (($result['ok'] ?? false) && $validated['status_type'] === 'nomor_aju') {
+                $internalLog = $this->persistDiagnosticStatusIfInternal(
+                    $config,
+                    (string) $validated['nomor_aju'],
+                    $result,
+                    $statusSync
+                );
+            }
+
+            return response()->json([
+                'success' => (bool) ($result['ok'] ?? false),
+                'message' => $result['message'] ?? 'Status CEISA selesai dicek.',
+                'result' => $result,
+                'internal_log' => $internalLog,
+            ], ($result['ok'] ?? false) ? 200 : 422);
+        } catch (Throwable $exception) {
+            return response()->json([
+                'success' => false,
+                'message' => Str::limit($exception->getMessage(), 500),
+            ], 422);
+        }
+    }
+
     private function authorizeAdmin($user): void
     {
         if (! $user || ! $user->hasRole('admin')) {
@@ -198,5 +301,119 @@ class CeisaSettingController extends Controller
         $normalized = CeisaNumberFormatter::ceisaCompanyCode($value);
 
         return $normalized === '' ? null : $normalized;
+    }
+
+    private function findConfig(int $idPerusahaan, string $environment): CeisaCompanyConfig
+    {
+        return CeisaCompanyConfig::where('id_perusahaan', $idPerusahaan)
+            ->where('environment', $environment)
+            ->firstOrFail();
+    }
+
+    private function buildReferenceRequest(string $lookupType, array $params): array
+    {
+        $requiredFields = self::REFERENCE_LOOKUPS[$lookupType] ?? [];
+
+        foreach ($requiredFields as $field) {
+            if (blank($params[$field] ?? null)) {
+                throw ValidationException::withMessages([
+                    "params.{$field}" => 'Parameter ini wajib diisi.',
+                ]);
+            }
+        }
+
+        return match ($lookupType) {
+            'kurs' => [
+                '/openapi/kurs/'.rawurlencode((string) $params['kode_valuta']),
+                array_filter([
+                    'tanggal' => $params['tanggal'] ?? null,
+                ], fn ($value) => filled($value)),
+            ],
+            'hs_lartas' => [
+                '/openapi/hs-lartas',
+                ['kodeHs' => $params['kode_hs']],
+            ],
+            'tarif_hs' => [
+                '/openapi/tarif-hs',
+                array_filter([
+                    'kodeHs' => $params['kode_hs'],
+                    'tanggal' => $params['tanggal'] ?? null,
+                ], fn ($value) => filled($value)),
+            ],
+            'pelabuhan_kata' => [
+                '/openapi/pelabuhan/kata/'.rawurlencode((string) $params['kata']),
+                [],
+            ],
+            'gudang_tps_kode_kantor' => [
+                '/openapi/gudangTPS/kodeKantor/'.rawurlencode((string) $params['kode_kantor']),
+                [],
+            ],
+            'pelabuhan_kode_kantor' => [
+                '/openapi/pelabuhan/kodeKantor/'.rawurlencode((string) $params['kode_kantor']),
+                [],
+            ],
+            'manifes_bc11' => [
+                '/openapi/manifes-bc11',
+                [
+                    'noHostBl' => $params['nomor_bl'],
+                    'tglHostBl' => $params['tanggal_bl'],
+                    'kodeKantor' => $params['kode_kantor'],
+                    'nama' => $params['nama_importir'],
+                ],
+            ],
+            default => throw ValidationException::withMessages([
+                'lookup_type' => 'Tipe referensi CEISA tidak dikenali.',
+            ]),
+        };
+    }
+
+    private function persistDiagnosticStatusIfInternal(
+        CeisaCompanyConfig $config,
+        string $nomorAju,
+        array $result,
+        CeisaStatusSyncService $statusSync
+    ): array {
+        $tenant = Tenant::where('perusahaan_id', $config->id_perusahaan)->first();
+
+        if (! $tenant) {
+            return [
+                'persisted' => false,
+                'reason' => 'Tenant perusahaan tidak ditemukan.',
+            ];
+        }
+
+        $wasInitialized = (bool) tenancy()->initialized;
+
+        if (! $wasInitialized) {
+            tenancy()->initialize($tenant);
+        }
+
+        try {
+            $submission = CeisaSubmission::where('nomor_aju', $nomorAju)
+                ->where('ceisa_company_config_id', $config->id)
+                ->first();
+
+            if (! $submission) {
+                return [
+                    'persisted' => false,
+                    'reason' => 'Nomor aju belum tercatat sebagai submission internal.',
+                ];
+            }
+
+            $syncedSubmission = $statusSync->applyStatusResult($submission, $result);
+
+            return [
+                'persisted' => true,
+                'ceisa_submission_id' => $syncedSubmission->id,
+                'nomor_aju' => $syncedSubmission->nomor_aju,
+                'status' => $syncedSubmission->status,
+                'last_synced_at' => $syncedSubmission->last_synced_at?->toIso8601String(),
+                'status_log_count' => $syncedSubmission->statusLogs()->count(),
+            ];
+        } finally {
+            if (! $wasInitialized && tenancy()->initialized) {
+                tenancy()->end();
+            }
+        }
     }
 }
