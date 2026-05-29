@@ -3,11 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Models\CeisaCompanyConfig;
+use App\Models\CeisaSubmission;
 use App\Models\Perusahaan;
+use App\Models\Tenant;
 use App\Services\AdminCompanyContextService;
 use App\Services\Ceisa\CeisaClient;
 use App\Services\Ceisa\CeisaNumberFormatter;
 use App\Services\Ceisa\CeisaReferenceService;
+use App\Services\Ceisa\CeisaStatusSyncService;
 use App\Services\Ceisa\CeisaTokenService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -195,7 +198,7 @@ class CeisaSettingController extends Controller
         }
     }
 
-    public function status(Request $request, CeisaClient $client): JsonResponse
+    public function status(Request $request, CeisaClient $client, CeisaStatusSyncService $statusSync): JsonResponse
     {
         $this->authorizeAdmin($request->user());
 
@@ -220,10 +223,21 @@ class CeisaSettingController extends Controller
                 ? $client->getStatusByNomorAju($config, (string) $validated['nomor_aju'])
                 : $client->getStatusByCompany($config, $validated['id_perusahaan_ceisa'] ?? null);
 
+            $internalLog = null;
+            if (($result['ok'] ?? false) && $validated['status_type'] === 'nomor_aju') {
+                $internalLog = $this->persistDiagnosticStatusIfInternal(
+                    $config,
+                    (string) $validated['nomor_aju'],
+                    $result,
+                    $statusSync
+                );
+            }
+
             return response()->json([
                 'success' => (bool) ($result['ok'] ?? false),
                 'message' => $result['message'] ?? 'Status CEISA selesai dicek.',
                 'result' => $result,
+                'internal_log' => $internalLog,
             ], ($result['ok'] ?? false) ? 200 : 422);
         } catch (Throwable $exception) {
             return response()->json([
@@ -351,5 +365,55 @@ class CeisaSettingController extends Controller
                 'lookup_type' => 'Tipe referensi CEISA tidak dikenali.',
             ]),
         };
+    }
+
+    private function persistDiagnosticStatusIfInternal(
+        CeisaCompanyConfig $config,
+        string $nomorAju,
+        array $result,
+        CeisaStatusSyncService $statusSync
+    ): array {
+        $tenant = Tenant::where('perusahaan_id', $config->id_perusahaan)->first();
+
+        if (! $tenant) {
+            return [
+                'persisted' => false,
+                'reason' => 'Tenant perusahaan tidak ditemukan.',
+            ];
+        }
+
+        $wasInitialized = (bool) tenancy()->initialized;
+
+        if (! $wasInitialized) {
+            tenancy()->initialize($tenant);
+        }
+
+        try {
+            $submission = CeisaSubmission::where('nomor_aju', $nomorAju)
+                ->where('ceisa_company_config_id', $config->id)
+                ->first();
+
+            if (! $submission) {
+                return [
+                    'persisted' => false,
+                    'reason' => 'Nomor aju belum tercatat sebagai submission internal.',
+                ];
+            }
+
+            $syncedSubmission = $statusSync->applyStatusResult($submission, $result);
+
+            return [
+                'persisted' => true,
+                'ceisa_submission_id' => $syncedSubmission->id,
+                'nomor_aju' => $syncedSubmission->nomor_aju,
+                'status' => $syncedSubmission->status,
+                'last_synced_at' => $syncedSubmission->last_synced_at?->toIso8601String(),
+                'status_log_count' => $syncedSubmission->statusLogs()->count(),
+            ];
+        } finally {
+            if (! $wasInitialized && tenancy()->initialized) {
+                tenancy()->end();
+            }
+        }
     }
 }

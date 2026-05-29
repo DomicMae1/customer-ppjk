@@ -381,7 +381,7 @@ export default function CeisaSettings({ companies, selectedCompanyId }: PageProp
                 params: referenceLookup.params,
                 force_refresh: referenceLookup.force_refresh,
             });
-            setReferenceResult(response.data.result);
+            setReferenceResult(response.data);
             toast.success(response.data.message ?? 'Referensi CEISA berhasil dicek.');
         } catch (error: any) {
             setReferenceResult(error?.response?.data ?? null);
@@ -408,7 +408,7 @@ export default function CeisaSettings({ companies, selectedCompanyId }: PageProp
                 nomor_aju: statusCheck.nomor_aju,
                 id_perusahaan_ceisa: statusCheck.id_perusahaan_ceisa,
             });
-            setStatusResult(response.data.result);
+            setStatusResult(response.data);
             toast.success(response.data.message ?? 'Status CEISA berhasil dicek.');
         } catch (error: any) {
             setStatusResult(error?.response?.data ?? null);
@@ -674,6 +674,7 @@ export default function CeisaSettings({ companies, selectedCompanyId }: PageProp
                                 </Button>
                             </div>
 
+                            <ReferenceResultSummary value={referenceResult} />
                             <JsonPreview value={referenceResult} />
                         </section>
 
@@ -737,6 +738,7 @@ export default function CeisaSettings({ companies, selectedCompanyId }: PageProp
                                 </Button>
                             </div>
 
+                            <StatusResultSummary value={statusResult} />
                             <JsonPreview value={statusResult} />
                         </section>
                     </CardContent>
@@ -822,6 +824,109 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
     );
 }
 
+function ReferenceResultSummary({ value }: { value: any }) {
+    if (!value) return null;
+
+    const result = unwrapResult(value);
+    const rows = extractReferenceRows(value);
+
+    return (
+        <div className="border-border bg-muted/20 space-y-3 rounded-md border p-3">
+            <ResultMeta result={result} title="Ringkasan Referensi" />
+            <div className="text-muted-foreground text-xs">
+                {rows.length ? `${rows.length} baris pertama ditampilkan.` : 'Tidak ada baris referensi.'}
+            </div>
+            {rows.length > 0 && (
+                <div className="grid gap-2">
+                    {rows.slice(0, 5).map((row, index) => (
+                        <div key={index} className="border-border bg-background grid gap-2 rounded-md border p-3 text-xs md:grid-cols-2">
+                            {Object.entries(row)
+                                .slice(0, 8)
+                                .map(([key, rowValue]) => (
+                                    <SummaryField key={key} label={key} value={formatRecordValue(rowValue)} />
+                                ))}
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
+function StatusResultSummary({ value }: { value: any }) {
+    if (!value) return null;
+
+    const result = unwrapResult(value);
+    const rows = extractStatusRows(value);
+    const internalLog = value?.internal_log;
+
+    return (
+        <div className="border-border bg-muted/20 space-y-3 rounded-md border p-3">
+            <ResultMeta result={result} title="Ringkasan Status" />
+            {internalLog && (
+                <div
+                    className={`rounded-md border p-3 text-xs ${
+                        internalLog.persisted ? 'border-emerald-500/30 bg-emerald-500/10' : 'border-amber-500/30 bg-amber-500/10'
+                    }`}
+                >
+                    <div className="font-medium">{internalLog.persisted ? 'Tersimpan ke log internal' : 'Tidak disimpan ke log internal'}</div>
+                    <div className="text-muted-foreground mt-1">
+                        {internalLog.persisted
+                            ? `Submission #${internalLog.ceisa_submission_id}, status ${internalLog.status}, ${internalLog.status_log_count} log.`
+                            : (internalLog.reason ?? 'Nomor aju tidak cocok dengan submission internal.')}
+                    </div>
+                </div>
+            )}
+            <div className="text-muted-foreground text-xs">
+                {rows.length ? `${rows.length} status/respon ditemukan.` : 'Tidak ada status/respon.'}
+            </div>
+            {rows.length > 0 && (
+                <div className="grid gap-2">
+                    {rows.slice(0, 5).map((row, index) => (
+                        <div key={index} className="border-border bg-background rounded-md border p-3 text-xs">
+                            <div className="grid gap-2 md:grid-cols-2">
+                                <SummaryField label="nomorAju" value={pickRecordValue(row, ['nomorAju', 'nomor_aju'])} />
+                                <SummaryField label="nomorDaftar" value={pickRecordValue(row, ['nomorDaftar', 'nomor_daftar'])} />
+                                <SummaryField label="tanggalDaftar" value={pickRecordValue(row, ['tanggalDaftar', 'tanggal_daftar'])} />
+                                <SummaryField label="kodeProses/status" value={pickRecordValue(row, ['kodeProses', 'kodeStatus', 'status'])} />
+                                <SummaryField label="waktuStatus" value={pickRecordValue(row, ['waktuStatus', 'waktu_status'])} />
+                                <SummaryField label="keterangan" value={pickRecordValue(row, ['keterangan', 'uraian', 'message'])} />
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
+function ResultMeta({ result, title }: { result: any; title: string }) {
+    return (
+        <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+                <span className="text-sm font-semibold">{title}</span>
+                <Badge variant={result?.ok ? 'secondary' : 'destructive'}>{result?.ok ? 'OK' : 'Gagal'}</Badge>
+                {result?.cached && <Badge variant="outline">cache</Badge>}
+            </div>
+            <div className="grid gap-2 text-xs md:grid-cols-2">
+                <SummaryField label="HTTP" value={result?.http_status ?? '-'} />
+                <SummaryField label="Body status" value={result?.body_status ?? '-'} />
+                <SummaryField label="Message" value={result?.message ?? '-'} />
+                <SummaryField label="Nomor aju" value={result?.nomor_aju ?? '-'} />
+            </div>
+        </div>
+    );
+}
+
+function SummaryField({ label, value }: { label: string; value: any }) {
+    return (
+        <div className="min-w-0">
+            <div className="text-muted-foreground">{label}</div>
+            <div className="font-medium break-words">{formatRecordValue(value)}</div>
+        </div>
+    );
+}
+
 function JsonPreview({ value }: { value: any }) {
     if (!value) {
         return (
@@ -836,6 +941,67 @@ function JsonPreview({ value }: { value: any }) {
             {JSON.stringify(value, null, 2)}
         </pre>
     );
+}
+
+function unwrapResult(value: any) {
+    return value?.result ?? value;
+}
+
+function extractReferenceRows(value: any): Record<string, any>[] {
+    const result = unwrapResult(value);
+    const payload = result?.data ?? result;
+
+    return firstRecordList(payload, ['data', 'item', 'result', 'items']);
+}
+
+function extractStatusRows(value: any): Record<string, any>[] {
+    const result = unwrapResult(value);
+    const payload = result?.data ?? result;
+
+    return [
+        ...firstRecordList(payload, ['dataStatus', 'data.dataStatus', 'item.dataStatus']),
+        ...firstRecordList(payload, ['dataRespon', 'data.dataRespon', 'item.dataRespon']),
+    ];
+}
+
+function firstRecordList(payload: any, paths: string[]): Record<string, any>[] {
+    if (Array.isArray(payload)) {
+        return payload.filter((item) => item && typeof item === 'object');
+    }
+
+    for (const path of paths) {
+        const value = getPath(payload, path);
+
+        if (Array.isArray(value)) {
+            return value.filter((item) => item && typeof item === 'object');
+        }
+
+        if (value && typeof value === 'object') {
+            return [value];
+        }
+    }
+
+    return [];
+}
+
+function getPath(source: any, path: string) {
+    return path.split('.').reduce((current, key) => (current && typeof current === 'object' ? current[key] : undefined), source);
+}
+
+function pickRecordValue(record: Record<string, any>, keys: string[]) {
+    for (const key of keys) {
+        const value = getPath(record, key);
+        if (value !== undefined && value !== null && value !== '') return value;
+    }
+
+    return '-';
+}
+
+function formatRecordValue(value: any) {
+    if (value === undefined || value === null || value === '') return '-';
+    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return String(value);
+
+    return JSON.stringify(value);
 }
 
 function formatDate(value?: string | null) {
