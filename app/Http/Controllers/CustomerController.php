@@ -2,20 +2,18 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CeisaImportirPreset;
 use App\Models\Customer;
-use Carbon\Carbon;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Inertia\Inertia;
-use Illuminate\Support\Facades\Storage;
-use Spatie\Permission\Exceptions\UnauthorizedException;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 use App\Models\Perusahaan;
 use App\Models\User;
 use App\Services\AdminCompanyContextService;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
-
+use Inertia\Inertia;
 
 class CustomerController extends Controller
 {
@@ -26,13 +24,14 @@ class CustomerController extends Controller
     {
         $user = auth('web')->user();
 
-        if (!$user->hasPermissionTo('view-customer')) {
+        if (! $user->hasPermissionTo('view-customer')) {
             abort(403);
         }
 
         // 1. Mulai Query dasar dengan relasi
         $query = Customer::with([
             'perusahaan',
+            'ceisaImportirPreset',
         ]);
 
         $selectedCompanyId = $this->selectedCompanyId($user);
@@ -74,15 +73,29 @@ class CustomerController extends Controller
         // Pastikan frontend Anda menangani error validasi (menampilkan pesan merah di form).
         $validated = $request->validate([
             'nama_perusahaan' => 'required|string|max:255',
-            'type'            => 'required|string|max:100', 
-            'email_to'           => 'required|array|min:1',
-            'email_to.*'       => 'email|max:255',
-            'email_cc'         => 'nullable|array',
-            'email_cc.*'       => 'email|max:255',
-            'nama'            => 'required|string|max:255', 
-            'no_npwp'         => 'nullable|string|max:50',
-            'no_npwp_16'      => 'nullable|string|max:50',
-            'id_perusahaan'   => 'nullable|exists:perusahaan,id_perusahaan', 
+            'type' => 'required|string|max:100',
+            'email_to' => 'required|array|min:1',
+            'email_to.*' => 'email|max:255',
+            'email_cc' => 'nullable|array',
+            'email_cc.*' => 'email|max:255',
+            'nama' => 'required|string|max:255',
+            'no_npwp' => 'nullable|string|max:50',
+            'no_npwp_16' => 'nullable|string|max:50',
+            'id_perusahaan' => 'nullable|exists:perusahaan,id_perusahaan',
+            'ceisa' => 'nullable|array',
+            'ceisa.name' => 'nullable|string|max:255',
+            'ceisa.address' => 'nullable|string|max:1000',
+            'ceisa.npwp' => 'nullable|string|max:32',
+            'ceisa.npwp_16' => 'nullable|string|max:32',
+            'ceisa.nitku' => 'nullable|string|max:64',
+            'ceisa.nib' => 'nullable|string|max:32',
+            'ceisa.kode_jenis_identitas' => 'nullable|string|max:10',
+            'ceisa.kode_status' => 'nullable|string|max:10',
+            'ceisa.kode_jenis_api' => 'nullable|string|max:10',
+            'ceisa.default_kode_cara_bayar' => 'nullable|string|max:20',
+            'ceisa.default_kode_jenis_impor' => 'nullable|string|max:20',
+            'ceisa.default_kode_tutup_pu' => 'nullable|string|max:20',
+            'ceisa.default_ndpbm' => 'nullable|numeric|min:0',
         ]);
 
         DB::beginTransaction(); // Memulai Transaksi
@@ -104,24 +117,26 @@ class CustomerController extends Controller
                 $ownership = (int) $user->id_perusahaan;
             }
 
-            if (!$ownership) {
+            if (! $ownership) {
                 throw ValidationException::withMessages([
                     'id_perusahaan' => 'Perusahaan wajib dipilih.',
                 ]);
             }
-            
-            Customer::create([
-                'uid'             => (string) Str::uuid(), 
+
+            $customer = Customer::create([
+                'uid' => (string) Str::uuid(),
                 'nama_perusahaan' => $validated['nama_perusahaan'],
-                'type'            => $validated['type'],
-                'email_to'        => $validated['email_to'],
-                'email_cc'        => $validated['email_cc'] ?? [],
-                'nama'            => $validated['nama'],
-                'no_npwp'         => $validated['no_npwp'] ?? null,
-                'no_npwp_16'      => $validated['no_npwp_16'] ?? null,
-                'ownership'       => $ownership, 
-                'created_by'      => $user->id_user,
+                'type' => $validated['type'],
+                'email_to' => $validated['email_to'],
+                'email_cc' => $validated['email_cc'] ?? [],
+                'nama' => $validated['nama'],
+                'no_npwp' => $validated['no_npwp'] ?? null,
+                'no_npwp_16' => $validated['no_npwp_16'] ?? null,
+                'ownership' => $ownership,
+                'created_by' => $user->id_user,
             ]);
+
+            $this->upsertCeisaImportirPreset($customer, $ownership, $validated['ceisa'] ?? [], $user->id_user);
 
             // --- PERBAIKAN UTAMA DI SINI ---
             DB::commit(); // Simpan perubahan permanen ke database
@@ -135,8 +150,9 @@ class CustomerController extends Controller
             throw $th;
         } catch (\Throwable $th) {
             DB::rollBack(); // Batalkan perubahan jika ada error
-            Log::error("Error Store Customer: " . $th->getMessage());
-            return redirect()->back()->withErrors(['error' => 'Terjadi kesalahan: ' . $th->getMessage()]);
+            Log::error('Error Store Customer: '.$th->getMessage());
+
+            return redirect()->back()->withErrors(['error' => 'Terjadi kesalahan: '.$th->getMessage()]);
         }
     }
 
@@ -152,15 +168,29 @@ class CustomerController extends Controller
         // Validasi Update
         $validated = $request->validate([
             'nama_perusahaan' => 'required|string|max:255',
-            'type'            => 'required|string|max:100',
-            'email_to'           => 'required|array|min:1',
-            'email_to.*'       => 'email|max:255',
-            'email_cc'         => 'nullable|array',
-            'email_cc.*'       => 'email|max:255',
-            'nama'            => 'required|string|max:255',
-            'no_npwp'         => 'nullable|string|max:50',
-            'no_npwp_16'      => 'nullable|string|max:50',
-            'id_perusahaan'   => 'nullable|exists:perusahaan,id_perusahaan',
+            'type' => 'required|string|max:100',
+            'email_to' => 'required|array|min:1',
+            'email_to.*' => 'email|max:255',
+            'email_cc' => 'nullable|array',
+            'email_cc.*' => 'email|max:255',
+            'nama' => 'required|string|max:255',
+            'no_npwp' => 'nullable|string|max:50',
+            'no_npwp_16' => 'nullable|string|max:50',
+            'id_perusahaan' => 'nullable|exists:perusahaan,id_perusahaan',
+            'ceisa' => 'nullable|array',
+            'ceisa.name' => 'nullable|string|max:255',
+            'ceisa.address' => 'nullable|string|max:1000',
+            'ceisa.npwp' => 'nullable|string|max:32',
+            'ceisa.npwp_16' => 'nullable|string|max:32',
+            'ceisa.nitku' => 'nullable|string|max:64',
+            'ceisa.nib' => 'nullable|string|max:32',
+            'ceisa.kode_jenis_identitas' => 'nullable|string|max:10',
+            'ceisa.kode_status' => 'nullable|string|max:10',
+            'ceisa.kode_jenis_api' => 'nullable|string|max:10',
+            'ceisa.default_kode_cara_bayar' => 'nullable|string|max:20',
+            'ceisa.default_kode_jenis_impor' => 'nullable|string|max:20',
+            'ceisa.default_kode_tutup_pu' => 'nullable|string|max:20',
+            'ceisa.default_ndpbm' => 'nullable|numeric|min:0',
         ]);
 
         try {
@@ -186,14 +216,16 @@ class CustomerController extends Controller
 
             $customer->update([
                 'nama_perusahaan' => $validated['nama_perusahaan'],
-                'type'            => $validated['type'],
-                'email_to'        => $validated['email_to'],
-                'email_cc'        => $validated['email_cc'] ?? [],
-                'nama'            => $validated['nama'],
-                'no_npwp'         => $validated['no_npwp'] ?? null,
-                'no_npwp_16'      => $validated['no_npwp_16'] ?? null,
-                'ownership'       => $ownership,
+                'type' => $validated['type'],
+                'email_to' => $validated['email_to'],
+                'email_cc' => $validated['email_cc'] ?? [],
+                'nama' => $validated['nama'],
+                'no_npwp' => $validated['no_npwp'] ?? null,
+                'no_npwp_16' => $validated['no_npwp_16'] ?? null,
+                'ownership' => $ownership,
             ]);
+
+            $this->upsertCeisaImportirPreset($customer, (int) $ownership, $validated['ceisa'] ?? [], $user->id_user);
 
             DB::commit();
 
@@ -204,8 +236,9 @@ class CustomerController extends Controller
             throw $th;
         } catch (\Throwable $th) {
             DB::rollBack();
-            Log::error("Error Update Customer: " . $th->getMessage());
-            return redirect()->back()->withErrors(['error' => 'Gagal update: ' . $th->getMessage()]);
+            Log::error('Error Update Customer: '.$th->getMessage());
+
+            return redirect()->back()->withErrors(['error' => 'Gagal update: '.$th->getMessage()]);
         }
     }
 
@@ -230,10 +263,10 @@ class CustomerController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error("Error Delete Customer: " . $e->getMessage());
-            
+            Log::error('Error Delete Customer: '.$e->getMessage());
+
             return redirect()->route('customer.index')
-                ->with('error', 'Gagal menghapus data: ' . $e->getMessage());
+                ->with('error', 'Gagal menghapus data: '.$e->getMessage());
         }
     }
 
@@ -247,6 +280,78 @@ class CustomerController extends Controller
             'email_to' => $customer->email_to ?? [],
             'email_cc' => $customer->email_cc ?? [],
         ]);
+    }
+
+    private function upsertCeisaImportirPreset(Customer $customer, int $ownership, array $ceisa, int $userId): void
+    {
+        $hasCeisaData = collect([
+            $ceisa['name'] ?? null,
+            $ceisa['address'] ?? null,
+            $ceisa['npwp'] ?? null,
+            $ceisa['npwp_16'] ?? null,
+            $ceisa['nitku'] ?? null,
+            $ceisa['nib'] ?? null,
+            $ceisa['default_kode_cara_bayar'] ?? null,
+            $ceisa['default_kode_jenis_impor'] ?? null,
+            $ceisa['default_kode_tutup_pu'] ?? null,
+            $ceisa['default_ndpbm'] ?? null,
+            $customer->no_npwp,
+            $customer->no_npwp_16,
+        ])->contains(fn ($value) => filled($value));
+
+        $existing = CeisaImportirPreset::where('id_perusahaan', $ownership)
+            ->where('id_customer', $customer->id_customer)
+            ->first();
+
+        if (! $hasCeisaData && ! $existing) {
+            return;
+        }
+
+        $npwp = $this->digitsOnly($ceisa['npwp'] ?? $customer->no_npwp);
+        $npwp16Source = $ceisa['npwp_16'] ?? null;
+
+        if (blank($npwp16Source)) {
+            $npwp16Source = $customer->no_npwp_16 ?: $npwp;
+        }
+
+        $npwp16 = $this->toNpwp16($npwp16Source);
+        $nitku = trim((string) ($ceisa['nitku'] ?? '')) ?: ($npwp16 ? $npwp16.'00000' : '');
+
+        $preset = $existing ?: new CeisaImportirPreset([
+            'id_perusahaan' => $ownership,
+            'id_customer' => $customer->id_customer,
+            'created_by' => $userId,
+        ]);
+
+        $preset->fill([
+            'name' => trim((string) ($ceisa['name'] ?? '')) ?: $customer->nama_perusahaan,
+            'npwp' => $npwp,
+            'npwp_16' => $npwp16,
+            'nitku' => $nitku,
+            'nib' => $this->digitsOnly($ceisa['nib'] ?? null),
+            'address' => trim((string) ($ceisa['address'] ?? '')),
+            'kode_jenis_identitas' => trim((string) ($ceisa['kode_jenis_identitas'] ?? '')) ?: '6',
+            'kode_status' => trim((string) ($ceisa['kode_status'] ?? '')) ?: '01',
+            'kode_jenis_api' => trim((string) ($ceisa['kode_jenis_api'] ?? '')) ?: '01',
+            'default_kode_cara_bayar' => trim((string) ($ceisa['default_kode_cara_bayar'] ?? '')),
+            'default_kode_jenis_impor' => trim((string) ($ceisa['default_kode_jenis_impor'] ?? '')),
+            'default_kode_tutup_pu' => trim((string) ($ceisa['default_kode_tutup_pu'] ?? '')),
+            'default_ndpbm' => filled($ceisa['default_ndpbm'] ?? null) ? $ceisa['default_ndpbm'] : null,
+            'is_active' => true,
+            'updated_by' => $userId,
+        ])->save();
+    }
+
+    private function digitsOnly(?string $value): string
+    {
+        return preg_replace('/\D+/', '', (string) $value);
+    }
+
+    private function toNpwp16(?string $value): string
+    {
+        $digits = $this->digitsOnly($value);
+
+        return strlen($digits) === 15 ? '0'.$digits : $digits;
     }
 
     private function selectedCompanyId(User $user): ?int

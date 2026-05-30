@@ -4,18 +4,19 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 // use Illuminate\Database\Eloquent\SoftDeletes; // Dihapus karena di list tabel tidak ada kolom 'deleted_at'
-use App\Models\User;
-use App\Models\Perusahaan;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Customer extends Model
 {
     // use SoftDeletes; // Aktifkan ini HANYA jika Anda menambahkan kolom 'deleted_at' di database
 
     protected $connection = 'tako-user';
+
     protected $table = 'customers';
+
     protected $primaryKey = 'id_customer';
 
-    public $timestamps = true; 
+    public $timestamps = true;
 
     protected $fillable = [
         'uid',              // Baru
@@ -58,5 +59,12 @@ class Customer extends Model
     public function users()
     {
         return $this->hasMany(User::class, 'id_customer', 'id_customer');
+    }
+
+    public function ceisaImportirPreset(): HasOne
+    {
+        return $this->hasOne(CeisaImportirPreset::class, 'id_customer', 'id_customer')
+            ->where('is_active', true)
+            ->latestOfMany();
     }
 }

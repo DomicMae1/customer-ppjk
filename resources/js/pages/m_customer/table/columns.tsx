@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 // m_customer/table/columns.tsx
 
 import { Button } from '@/components/ui/button';
@@ -130,6 +129,26 @@ export const columns = (
             accessorKey: 'no_npwp', // GANTI dari no_telp ke no_npwp
             header: trans.label_npwp || 'NPWP',
             cell: ({ row }) => <code className="text-muted-foreground text-xs">{row.original.no_npwp || '-'}</code>,
+        },
+        {
+            id: 'ceisa_profile',
+            header: 'CEISA',
+            cell: ({ row }) => {
+                const profile = row.original.ceisa_importir_preset;
+                const isReady = Boolean(profile?.npwp_16 && profile?.nitku && profile?.address && profile?.nib);
+
+                return (
+                    <span
+                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                            isReady
+                                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200'
+                                : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200'
+                        }`}
+                    >
+                        {isReady ? 'Siap' : 'Belum lengkap'}
+                    </span>
+                );
+            },
         },
     ];
 };

@@ -6,6 +6,7 @@ import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, Di
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'; // Pastikan komponen ini ada
+import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
 import { BreadcrumbItem, PageProps } from '@/types'; // Asumsi base types ada di sini
 import { Head, router, usePage } from '@inertiajs/react';
@@ -27,6 +28,22 @@ export interface Customer {
     kota?: string;
     no_npwp?: string;
     no_npwp_16?: string;
+    ceisa_importir_preset?: {
+        id: number;
+        name?: string;
+        npwp?: string;
+        npwp_16?: string;
+        nitku?: string;
+        nib?: string;
+        address?: string;
+        kode_jenis_identitas?: string;
+        kode_status?: string;
+        kode_jenis_api?: string;
+        default_kode_cara_bayar?: string;
+        default_kode_jenis_impor?: string;
+        default_kode_tutup_pu?: string;
+        default_ndpbm?: string | number | null;
+    } | null;
     perusahaan?: {
         id_perusahaan: number;
         nama_perusahaan: string;
@@ -85,6 +102,19 @@ export default function ManageCustomers() {
         no_npwp: '',
         no_npwp_16: '',
         id_perusahaan: selectedCompanyId ? String(selectedCompanyId) : '',
+        ceisa_name: '',
+        ceisa_address: '',
+        ceisa_npwp: '',
+        ceisa_npwp_16: '',
+        ceisa_nitku: '',
+        ceisa_nib: '',
+        ceisa_kode_jenis_identitas: '6',
+        ceisa_kode_status: '01',
+        ceisa_kode_jenis_api: '01',
+        ceisa_default_kode_cara_bayar: 'KMD',
+        ceisa_default_kode_jenis_impor: '01',
+        ceisa_default_kode_tutup_pu: '',
+        ceisa_default_ndpbm: '',
     };
     const [emailsTo, setEmailsTo] = useState<string[]>([]);
     const [inputTo, setInputTo] = useState('');
@@ -118,6 +148,53 @@ export default function ManageCustomers() {
     const handleInputChange = (field: string, value: string) => {
         setFormData((prev) => ({ ...prev, [field]: value }));
     };
+
+    const digitsOnly = (value: string) => value.replace(/\D+/g, '');
+
+    const toNpwp16 = (value: string) => {
+        const digits = digitsOnly(value);
+
+        return digits.length === 15 ? `0${digits}` : digits;
+    };
+
+    const toNitku = (value: string) => {
+        const npwp16 = toNpwp16(value);
+
+        return npwp16 ? `${npwp16}00000` : '';
+    };
+
+    const fillCeisaFromCustomer = () => {
+        setFormData((prev) => {
+            const npwp16 = toNpwp16(prev.ceisa_npwp_16 || prev.no_npwp_16 || prev.no_npwp);
+
+            return {
+                ...prev,
+                ceisa_name: prev.ceisa_name || prev.nama_perusahaan,
+                ceisa_npwp: prev.ceisa_npwp || digitsOnly(prev.no_npwp),
+                ceisa_npwp_16: prev.ceisa_npwp_16 || npwp16,
+                ceisa_nitku: prev.ceisa_nitku || toNitku(npwp16),
+            };
+        });
+    };
+
+    const buildSubmitPayload = () => ({
+        ...formData,
+        ceisa: {
+            name: formData.ceisa_name,
+            address: formData.ceisa_address,
+            npwp: formData.ceisa_npwp,
+            npwp_16: formData.ceisa_npwp_16,
+            nitku: formData.ceisa_nitku,
+            nib: formData.ceisa_nib,
+            kode_jenis_identitas: formData.ceisa_kode_jenis_identitas,
+            kode_status: formData.ceisa_kode_status,
+            kode_jenis_api: formData.ceisa_kode_jenis_api,
+            default_kode_cara_bayar: formData.ceisa_default_kode_cara_bayar,
+            default_kode_jenis_impor: formData.ceisa_default_kode_jenis_impor,
+            default_kode_tutup_pu: formData.ceisa_default_kode_tutup_pu,
+            default_ndpbm: formData.ceisa_default_ndpbm,
+        },
+    });
 
     const handleCreateClick = () => {
         if (!auth.user.permissions.includes('create-customer')) {
@@ -164,7 +241,7 @@ export default function ManageCustomers() {
         setIsSubmitting(true);
 
         const payload = {
-            ...formData,
+            ...buildSubmitPayload(),
             email_to: emailsTo,
             email_cc: emailsCc,
         };
@@ -192,6 +269,7 @@ export default function ManageCustomers() {
 
         setEmailsTo(customer.email_to || []);
         setEmailsCc(customer.email_cc || []);
+        const ceisa = customer.ceisa_importir_preset;
         setFormData({
             id_customer: customer.id_customer || customer.id || 0,
             nama_perusahaan: customer.nama_perusahaan || '',
@@ -200,6 +278,19 @@ export default function ManageCustomers() {
             no_npwp: customer.no_npwp || '',
             no_npwp_16: customer.no_npwp_16 || '',
             id_perusahaan: customer.perusahaan?.id_perusahaan?.toString() || (selectedCompanyId ? String(selectedCompanyId) : ''),
+            ceisa_name: ceisa?.name || customer.nama_perusahaan || '',
+            ceisa_address: ceisa?.address || '',
+            ceisa_npwp: ceisa?.npwp || customer.no_npwp || '',
+            ceisa_npwp_16: ceisa?.npwp_16 || customer.no_npwp_16 || '',
+            ceisa_nitku: ceisa?.nitku || toNitku(ceisa?.npwp_16 || customer.no_npwp_16 || customer.no_npwp || ''),
+            ceisa_nib: ceisa?.nib || '',
+            ceisa_kode_jenis_identitas: ceisa?.kode_jenis_identitas || '6',
+            ceisa_kode_status: ceisa?.kode_status || '01',
+            ceisa_kode_jenis_api: ceisa?.kode_jenis_api || '01',
+            ceisa_default_kode_cara_bayar: ceisa?.default_kode_cara_bayar || 'KMD',
+            ceisa_default_kode_jenis_impor: ceisa?.default_kode_jenis_impor || '01',
+            ceisa_default_kode_tutup_pu: ceisa?.default_kode_tutup_pu || '',
+            ceisa_default_ndpbm: ceisa?.default_ndpbm ? String(ceisa.default_ndpbm) : '',
         });
         setOpenEdit(true);
     };
@@ -210,7 +301,7 @@ export default function ManageCustomers() {
         setIsSubmitting(true);
 
         const payload = {
-            ...formData,
+            ...buildSubmitPayload(),
             email_to: emailsTo,
             email_cc: emailsCc,
         };
@@ -252,6 +343,198 @@ export default function ManageCustomers() {
         }
     };
 
+    const renderCeisaProfileFields = () => (
+        <div className="rounded-lg border border-blue-200 bg-blue-50/40 p-4 dark:border-blue-900 dark:bg-blue-950/20">
+            <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                    <h3 className="text-foreground text-sm font-bold">CEISA Importir Profile</h3>
+                    <p className="text-muted-foreground text-xs">Data ini dipakai otomatis saat membuat draft CEISA untuk customer ini.</p>
+                </div>
+                <Button type="button" variant="outline" size="sm" onClick={fillCeisaFromCustomer}>
+                    Salin data umum
+                </Button>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-2">
+                    <Label htmlFor="ceisa_name" className="text-foreground font-semibold">
+                        Nama Importir/Eksportir
+                    </Label>
+                    <Input
+                        id="ceisa_name"
+                        value={formData.ceisa_name}
+                        onChange={(e) => handleInputChange('ceisa_name', e.target.value)}
+                        placeholder="PT. Contoh Importir"
+                        className="border-input bg-background text-foreground h-11 sm:h-10"
+                    />
+                </div>
+                <div className="grid gap-2">
+                    <Label htmlFor="ceisa_nib" className="text-foreground font-semibold">
+                        NIB/API
+                    </Label>
+                    <Input
+                        id="ceisa_nib"
+                        value={formData.ceisa_nib}
+                        onChange={(e) => handleInputChange('ceisa_nib', e.target.value)}
+                        placeholder="Nomor NIB/API"
+                        className="border-input bg-background text-foreground h-11 sm:h-10"
+                    />
+                </div>
+            </div>
+
+            <div className="mt-4 grid gap-4 sm:grid-cols-3">
+                <div className="grid gap-2">
+                    <Label htmlFor="ceisa_npwp" className="text-foreground font-semibold">
+                        NPWP
+                    </Label>
+                    <Input
+                        id="ceisa_npwp"
+                        value={formData.ceisa_npwp}
+                        onChange={(e) => handleInputChange('ceisa_npwp', e.target.value)}
+                        placeholder="15 digit"
+                        className="border-input bg-background text-foreground h-11 sm:h-10"
+                    />
+                </div>
+                <div className="grid gap-2">
+                    <Label htmlFor="ceisa_npwp_16" className="text-foreground font-semibold">
+                        NPWP 16 Digit
+                    </Label>
+                    <Input
+                        id="ceisa_npwp_16"
+                        value={formData.ceisa_npwp_16}
+                        onChange={(e) => handleInputChange('ceisa_npwp_16', e.target.value)}
+                        onBlur={(e) => {
+                            const npwp16 = toNpwp16(e.target.value);
+                            handleInputChange('ceisa_npwp_16', npwp16);
+                            if (!formData.ceisa_nitku) handleInputChange('ceisa_nitku', toNitku(npwp16));
+                        }}
+                        placeholder="16 digit"
+                        className="border-input bg-background text-foreground h-11 sm:h-10"
+                    />
+                </div>
+                <div className="grid gap-2">
+                    <Label htmlFor="ceisa_nitku" className="text-foreground font-semibold">
+                        NITKU
+                    </Label>
+                    <Input
+                        id="ceisa_nitku"
+                        value={formData.ceisa_nitku}
+                        onChange={(e) => handleInputChange('ceisa_nitku', e.target.value)}
+                        placeholder="NPWP16 + 00000"
+                        className="border-input bg-background text-foreground h-11 sm:h-10"
+                    />
+                </div>
+            </div>
+
+            <div className="mt-4 grid gap-2">
+                <Label htmlFor="ceisa_address" className="text-foreground font-semibold">
+                    Alamat Importir/Eksportir
+                </Label>
+                <Textarea
+                    id="ceisa_address"
+                    value={formData.ceisa_address}
+                    onChange={(e) => handleInputChange('ceisa_address', e.target.value)}
+                    placeholder="Alamat sesuai CEISA"
+                    className="border-input bg-background text-foreground min-h-20"
+                />
+            </div>
+
+            <div className="mt-4 grid gap-4 sm:grid-cols-3">
+                <div className="grid gap-2">
+                    <Label className="text-foreground font-semibold">Jenis Identitas</Label>
+                    <Select value={formData.ceisa_kode_jenis_identitas} onValueChange={(val) => handleInputChange('ceisa_kode_jenis_identitas', val)}>
+                        <SelectTrigger className="border-input bg-background text-foreground h-11 sm:h-10">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="6">6 - NPWP 16 DIGIT</SelectItem>
+                            <SelectItem value="5">5 - NPWP 15 DIGIT</SelectItem>
+                            <SelectItem value="3">3 - PASPOR</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div className="grid gap-2">
+                    <Label className="text-foreground font-semibold">Status Importir</Label>
+                    <Select value={formData.ceisa_kode_status} onValueChange={(val) => handleInputChange('ceisa_kode_status', val)}>
+                        <SelectTrigger className="border-input bg-background text-foreground h-11 sm:h-10">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="01">01</SelectItem>
+                            <SelectItem value="02">02</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div className="grid gap-2">
+                    <Label className="text-foreground font-semibold">Jenis API</Label>
+                    <Select value={formData.ceisa_kode_jenis_api} onValueChange={(val) => handleInputChange('ceisa_kode_jenis_api', val)}>
+                        <SelectTrigger className="border-input bg-background text-foreground h-11 sm:h-10">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="01">01</SelectItem>
+                            <SelectItem value="02">02</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+            </div>
+
+            <div className="mt-4 grid gap-4 sm:grid-cols-4">
+                <div className="grid gap-2">
+                    <Label htmlFor="ceisa_default_kode_cara_bayar" className="text-foreground font-semibold">
+                        Cara Bayar
+                    </Label>
+                    <Input
+                        id="ceisa_default_kode_cara_bayar"
+                        value={formData.ceisa_default_kode_cara_bayar}
+                        onChange={(e) => handleInputChange('ceisa_default_kode_cara_bayar', e.target.value)}
+                        placeholder="KMD"
+                        className="border-input bg-background text-foreground h-11 sm:h-10"
+                    />
+                </div>
+                <div className="grid gap-2">
+                    <Label htmlFor="ceisa_default_kode_jenis_impor" className="text-foreground font-semibold">
+                        Jenis Impor
+                    </Label>
+                    <Input
+                        id="ceisa_default_kode_jenis_impor"
+                        value={formData.ceisa_default_kode_jenis_impor}
+                        onChange={(e) => handleInputChange('ceisa_default_kode_jenis_impor', e.target.value)}
+                        placeholder="01"
+                        className="border-input bg-background text-foreground h-11 sm:h-10"
+                    />
+                </div>
+                <div className="grid gap-2">
+                    <Label htmlFor="ceisa_default_kode_tutup_pu" className="text-foreground font-semibold">
+                        Tutup PU
+                    </Label>
+                    <Input
+                        id="ceisa_default_kode_tutup_pu"
+                        value={formData.ceisa_default_kode_tutup_pu}
+                        onChange={(e) => handleInputChange('ceisa_default_kode_tutup_pu', e.target.value)}
+                        placeholder="Opsional"
+                        className="border-input bg-background text-foreground h-11 sm:h-10"
+                    />
+                </div>
+                <div className="grid gap-2">
+                    <Label htmlFor="ceisa_default_ndpbm" className="text-foreground font-semibold">
+                        NDPBM Default
+                    </Label>
+                    <Input
+                        id="ceisa_default_ndpbm"
+                        type="number"
+                        min="0"
+                        step="0.0001"
+                        value={formData.ceisa_default_ndpbm}
+                        onChange={(e) => handleInputChange('ceisa_default_ndpbm', e.target.value)}
+                        placeholder="Opsional"
+                        className="border-input bg-background text-foreground h-11 sm:h-10"
+                    />
+                </div>
+            </div>
+        </div>
+    );
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={trans_customer.page_title || 'Manage Customers'} />
@@ -279,7 +562,7 @@ export default function ManageCustomers() {
 
             {/* --- MODAL CREATE CUSTOMER --- */}
             <Dialog open={openCreate} onOpenChange={setOpenCreate}>
-                <DialogContent className="border-border bg-background text-foreground max-h-[95vh] max-w-[95%] overflow-y-auto rounded-xl p-4 sm:max-w-md sm:p-6">
+                <DialogContent className="border-border bg-background text-foreground max-h-[95vh] max-w-[95%] overflow-y-auto rounded-xl p-4 sm:max-w-4xl sm:p-6">
                     <DialogHeader>
                         <DialogTitle className="text-foreground text-xl font-bold">{trans_customer.title_create || 'Add New Customer'}</DialogTitle>
                         <DialogDescription className="text-muted-foreground text-sm">
@@ -442,6 +725,8 @@ export default function ManageCustomers() {
                             </div>
                         </div>
 
+                        {renderCeisaProfileFields()}
+
                         {/* Footer: Responsif Mobile (Stacked) & Dark Mode Compatible Buttons */}
                         <DialogFooter className="flex-col-reverse gap-3 pt-6 sm:flex-row sm:justify-end">
                             <DialogClose asChild>
@@ -467,7 +752,7 @@ export default function ManageCustomers() {
 
             {/* --- MODAL EDIT CUSTOMER --- */}
             <Dialog open={openEdit} onOpenChange={setOpenEdit}>
-                <DialogContent className="border-border bg-background text-foreground max-h-[95vh] max-w-[95%] overflow-y-auto rounded-xl p-4 sm:max-w-lg sm:p-6">
+                <DialogContent className="border-border bg-background text-foreground max-h-[95vh] max-w-[95%] overflow-y-auto rounded-xl p-4 sm:max-w-4xl sm:p-6">
                     <DialogHeader>
                         <DialogTitle className="text-foreground text-xl font-bold">{trans_customer.title_edit || 'Edit Customer'}</DialogTitle>
                         <DialogDescription className="text-muted-foreground text-sm">
@@ -625,6 +910,8 @@ export default function ManageCustomers() {
                                 />
                             </div>
                         </div>
+
+                        {renderCeisaProfileFields()}
 
                         {/* Footer Actions */}
                         <DialogFooter className="flex-col-reverse gap-3 pt-6 sm:flex-row sm:justify-end">
