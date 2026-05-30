@@ -40,6 +40,16 @@ class CeisaDraftPayloadBuilder
             'freight' => 0,
             'asuransi' => 0,
             'cif' => 0,
+            'biayaTambahan' => 0,
+            'biayaPengurang' => 0,
+            'nilaiBarang' => 0,
+            'nilaiIncoterm' => 0,
+            'nilaiMaklon' => 0,
+            'totalDanaSawit' => 0,
+            'vd' => 0,
+            'flagVd' => 'T',
+            'kodeIncoterm' => 'CIF',
+            'kodeAsuransi' => 'LN',
             'bruto' => 0,
             'netto' => 0,
             'ndpbm' => $preset?->default_ndpbm ? (float) $preset->default_ndpbm : 0,
@@ -54,6 +64,7 @@ class CeisaDraftPayloadBuilder
             'pengangkut' => $this->pengangkutRows($spk),
             'kemasan' => [],
             'kontainer' => $this->kontainerRows($spk),
+            'informasiKomponenBiaya' => [$this->informasiKomponenBiayaRow()],
             'barang' => $barangRows,
         ];
 
@@ -116,7 +127,7 @@ class CeisaDraftPayloadBuilder
     private function entityRows(CeisaCompanyConfig $config, Spk $spk, ?CeisaImportirPreset $preset, string $shipmentType, array &$warnings): array
     {
         $customer = $spk->customer;
-        $identity = $this->identityFromPresetOrCustomer($preset, $customer);
+        $identity = $this->identityFromPresetOrCustomer($preset, $customer, $config);
         $rows = [];
         $customerEntityCode = $shipmentType === 'export' ? '2' : '1';
         $ownerEntityCode = $shipmentType === 'export' ? null : '7';
@@ -171,16 +182,21 @@ class CeisaDraftPayloadBuilder
         return $rows;
     }
 
-    private function identityFromPresetOrCustomer(?CeisaImportirPreset $preset, mixed $customer): array
+    private function identityFromPresetOrCustomer(?CeisaImportirPreset $preset, mixed $customer, CeisaCompanyConfig $config): array
     {
-        $npwp16 = $this->toNpwp16($preset?->npwp_16 ?: $preset?->npwp ?: ($customer?->no_npwp_16 ?: $customer?->no_npwp));
+        $npwp16 = $this->toNpwp16(
+            $preset?->npwp_16
+                ?: $preset?->npwp
+                ?: ($customer?->no_npwp_16 ?: $customer?->no_npwp)
+                ?: ($config->npwp_16 ?: $config->npwp)
+        );
 
         return [
-            'name' => trim((string) ($preset?->name ?: $customer?->nama_perusahaan)),
-            'address' => (string) ($preset?->address ?: ''),
+            'name' => trim((string) ($preset?->name ?: $customer?->nama_perusahaan ?: $config->ppjk_name)),
+            'address' => (string) ($preset?->address ?: $config->ppjk_address ?: '-'),
             'npwp16' => $npwp16,
             'nitku' => (string) ($preset?->nitku ?: ($npwp16 ? $this->toNitku($npwp16) : '')),
-            'nib' => (string) ($preset?->nib ?: ''),
+            'nib' => (string) ($preset?->nib ?: $config->nib ?: ''),
             'kodeJenisIdentitas' => (string) ($preset?->kode_jenis_identitas ?: '6'),
             'kodeStatus' => (string) ($preset?->kode_status ?: '01'),
             'kodeJenisApi' => (string) ($preset?->kode_jenis_api ?: '01'),
@@ -267,35 +283,72 @@ class CeisaDraftPayloadBuilder
         if ($hsCodes->isEmpty()) {
             $warnings[] = 'Belum ada HS Code. Payload membuat 1 baris barang placeholder.';
 
-            return [[
-                'seriBarang' => 1,
-                'posTarif' => '',
-                'uraian' => (string) ($spk->comodity ?: ''),
-                'jumlahSatuan' => 1,
-                'kodeSatuanBarang' => 'PCE',
-                'fob' => 0,
-                'freight' => 0,
-                'asuransi' => 0,
-                'cif' => 0,
-                'netto' => 0,
-                'barangTarif' => [],
-            ]];
+            return [$this->barangRow(1, '', (string) ($spk->comodity ?: 'BARANG'))];
         }
 
-        return $hsCodes->values()->map(fn ($hsCode, int $index) => [
-            'seriBarang' => $index + 1,
-            'posTarif' => preg_replace('/\D+/', '', (string) $hsCode->hs_code),
-            'uraian' => (string) ($spk->comodity ?: 'BARANG'),
+        return $hsCodes->values()
+            ->map(fn ($hsCode, int $index) => $this->barangRow(
+                $index + 1,
+                preg_replace('/\D+/', '', (string) $hsCode->hs_code),
+                (string) ($spk->comodity ?: 'BARANG')
+            ))
+            ->all();
+    }
+
+    private function barangRow(int $seri, string $posTarif, string $uraian): array
+    {
+        return [
+            'seriBarang' => $seri,
+            'posTarif' => $posTarif,
+            'uraian' => $uraian,
             'jumlahSatuan' => 1,
             'kodeSatuanBarang' => 'PCE',
+            'hargaSatuan' => 0,
             'fob' => 0,
             'freight' => 0,
             'asuransi' => 0,
             'cif' => 0,
             'netto' => 0,
+            'beratBersih' => 0,
+            'jumlahKemasan' => 0,
+            'kodeJenisKemasan' => '',
+            'merk' => $uraian ?: 'MERK',
+            'tipe' => 'BARU',
+            'kodeKondisiBarang' => '1',
             'kodeNegaraAsal' => '',
+            'saldoAwal' => 1,
+            'saldoAkhir' => 1,
+            'metodePenentuanNilai' => 'Metode 1',
+            'statementPerbedaanHarga' => 'T',
+            'pernyataanLartas' => 'Y',
             'barangTarif' => [],
-        ])->all();
+            'barangVd' => [],
+        ];
+    }
+
+    private function informasiKomponenBiayaRow(): array
+    {
+        return [
+            'jenisNilai' => '1',
+            'hargaInvoice' => 0,
+            'pembayaranTidakLangsung' => 0,
+            'diskon' => 0,
+            'komisiPenjualan' => 0,
+            'biayaPengemasan' => 0,
+            'biayaPengepakan' => 0,
+            'assist' => 0,
+            'royalti' => 0,
+            'proceeds' => 0,
+            'biayaTransportasi' => 0,
+            'biayaPemuatan' => 0,
+            'asuransi' => 0,
+            'garansi' => 0,
+            'biayaKepentinganSendiri' => 0,
+            'biayaPascaImpor' => 0,
+            'biayaPajakInternal' => 0,
+            'bunga' => 0,
+            'deviden' => 0,
+        ];
     }
 
     private function pengangkutRows(Spk $spk): array

@@ -1653,6 +1653,7 @@ class ShippingController extends Controller
         }
 
         $payload['nomorAju'] = $nomorAju;
+        $payload = $this->normalizeCeisaPayloadForSubmit($payload);
         $documentType = $validated['document_type'] ?: $this->ceisaDocumentTypeForShipment($spk->shipment_type);
 
         try {
@@ -1691,6 +1692,23 @@ class ShippingController extends Controller
             'submission' => $this->serializeCeisaSubmission($freshSubmission),
             'submissions' => $this->ceisaSubmissionsForSpk($spk->id),
         ]);
+    }
+
+    private function normalizeCeisaPayloadForSubmit(array $payload): array
+    {
+        foreach ($payload as $key => $value) {
+            if (is_array($value)) {
+                $payload[$key] = $this->normalizeCeisaPayloadForSubmit($value);
+
+                continue;
+            }
+
+            if ($value === null) {
+                $payload[$key] = '';
+            }
+        }
+
+        return $payload;
     }
 
     public function trackCeisaSubmission(Request $request, int $id, CeisaStatusSyncService $statusSync)

@@ -4,7 +4,7 @@ import { ResettableDropzone } from '@/components/ResettableDropzone';
 import { ResettableDropzoneImage } from '@/components/ResettableDropzoneImage';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { MemoizedInput } from '@/components/ui/memoized-input';
@@ -2659,6 +2659,9 @@ export default function ViewCustomerForm({
                                     <FileText className="h-5 w-5 text-blue-600" />
                                     Draft Dokumen CEISA
                                 </DialogTitle>
+                                <DialogDescription className="sr-only">
+                                    Editor payload draft dokumen CEISA sebelum dikirim sebagai draft.
+                                </DialogDescription>
                             </DialogHeader>
 
                             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-4">
