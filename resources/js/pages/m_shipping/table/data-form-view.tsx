@@ -4,7 +4,7 @@ import { ResettableDropzone } from '@/components/ResettableDropzone';
 import { ResettableDropzoneImage } from '@/components/ResettableDropzoneImage';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { MemoizedInput } from '@/components/ui/memoized-input';
@@ -31,6 +31,7 @@ import {
 import { nanoid } from 'nanoid';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { CeisaDraftModal } from './components/CeisaDraftModal';
 import EmailModal from './components/EmailModal';
 
 interface HsCodeItem {
@@ -2652,104 +2653,21 @@ export default function ViewCustomerForm({
                         </div>
                     )}
 
-                    <Dialog open={isCeisaDraftModalOpen} onOpenChange={setIsCeisaDraftModalOpen}>
-                        <DialogContent className="flex max-h-[92vh] max-w-[95vw] flex-col overflow-hidden rounded-2xl p-0 sm:max-w-5xl dark:border-zinc-800 dark:bg-zinc-900">
-                            <DialogHeader className="shrink-0 border-b px-6 py-4 dark:border-zinc-800">
-                                <DialogTitle className="flex items-center gap-2 text-left text-lg font-bold text-slate-900 dark:text-white">
-                                    <FileText className="h-5 w-5 text-blue-600" />
-                                    Draft Dokumen CEISA
-                                </DialogTitle>
-                                <DialogDescription className="sr-only">
-                                    Editor payload draft dokumen CEISA sebelum dikirim sebagai draft.
-                                </DialogDescription>
-                            </DialogHeader>
-
-                            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-4">
-                                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
-                                    Submit dari modal ini selalu memakai <span className="font-black">isFinal=false</span>. Ini membuat draft di
-                                    CEISA, bukan pengiriman final.
-                                </div>
-
-                                <div className="grid gap-3 sm:grid-cols-3">
-                                    <div className="rounded-xl border border-slate-200 p-3 dark:border-zinc-800">
-                                        <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">Nomor Aju</div>
-                                        <div className="mt-1 text-sm font-bold break-all text-slate-900 dark:text-white">
-                                            {ceisaDraftNomorAju || '-'}
-                                        </div>
-                                    </div>
-                                    <div className="rounded-xl border border-slate-200 p-3 dark:border-zinc-800">
-                                        <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">Tipe Dokumen</div>
-                                        <div className="mt-1 text-sm font-bold text-slate-900 dark:text-white">{ceisaDraftDocumentType || '-'}</div>
-                                    </div>
-                                    <div className="rounded-xl border border-slate-200 p-3 dark:border-zinc-800">
-                                        <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">Mode</div>
-                                        <div className="mt-1 text-sm font-bold text-slate-900 dark:text-white">Draft</div>
-                                    </div>
-                                </div>
-
-                                {ceisaDraftWarnings.length > 0 && (
-                                    <div className="rounded-xl border border-slate-200 p-3 dark:border-zinc-800">
-                                        <div className="mb-2 flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-zinc-200">
-                                            <AlertTriangle className="h-4 w-4 text-amber-500" />
-                                            Catatan sebelum submit
-                                        </div>
-                                        <div className="space-y-1.5">
-                                            {ceisaDraftWarnings.map((warning, index) => (
-                                                <div key={`${warning}-${index}`} className="text-xs text-slate-500 dark:text-zinc-400">
-                                                    {warning}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-
-                                <div>
-                                    <div className="mb-2 flex items-center justify-between gap-3">
-                                        <Label className="text-xs font-bold text-slate-700 dark:text-zinc-200">Payload JSON</Label>
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => prepareCeisaDraftPayload(true)}
-                                            disabled={isPreparingCeisaDraft || isSubmittingCeisaDraft}
-                                            className="h-8 gap-2 rounded-lg text-[11px] font-bold"
-                                        >
-                                            <RefreshCw className={`h-3.5 w-3.5 ${isPreparingCeisaDraft ? 'animate-spin' : ''}`} />
-                                            Nomor Baru
-                                        </Button>
-                                    </div>
-                                    <Textarea
-                                        value={ceisaDraftPayloadText}
-                                        onChange={(e) => setCeisaDraftPayloadText(e.target.value)}
-                                        spellCheck={false}
-                                        className="min-h-[420px] resize-y rounded-xl border-slate-200 bg-slate-950 font-mono text-xs leading-relaxed text-slate-100 selection:bg-blue-500/40 focus:ring-blue-500/20 dark:border-zinc-800"
-                                        placeholder="{ }"
-                                    />
-                                </div>
-                            </div>
-
-                            <DialogFooter className="shrink-0 gap-2 border-t bg-slate-50 px-6 py-4 dark:border-zinc-800 dark:bg-zinc-950">
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    onClick={() => setIsCeisaDraftModalOpen(false)}
-                                    disabled={isSubmittingCeisaDraft}
-                                    className="rounded-lg"
-                                >
-                                    Tutup
-                                </Button>
-                                <Button
-                                    type="button"
-                                    onClick={handleSubmitCeisaDraft}
-                                    disabled={isPreparingCeisaDraft || isSubmittingCeisaDraft || !ceisaDraftPayloadText}
-                                    className="gap-2 rounded-lg bg-blue-600 font-bold text-white hover:bg-blue-700"
-                                >
-                                    {isSubmittingCeisaDraft ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                                    Kirim Draft CEISA
-                                </Button>
-                            </DialogFooter>
-                        </DialogContent>
-                    </Dialog>
+                    {isInternalUser && (
+                        <CeisaDraftModal
+                            open={isCeisaDraftModalOpen}
+                            onOpenChange={setIsCeisaDraftModalOpen}
+                            payloadText={ceisaDraftPayloadText}
+                            onPayloadTextChange={setCeisaDraftPayloadText}
+                            warnings={ceisaDraftWarnings}
+                            nomorAju={ceisaDraftNomorAju}
+                            documentType={ceisaDraftDocumentType}
+                            isPreparing={isPreparingCeisaDraft}
+                            isSubmitting={isSubmittingCeisaDraft}
+                            onRegenerate={() => prepareCeisaDraftPayload(true)}
+                            onSubmit={handleSubmitCeisaDraft}
+                        />
+                    )}
 
                     {/* Ori Date Modal */}
                     <Dialog open={isOriDateModalOpen} onOpenChange={setIsOriDateModalOpen}>

@@ -26,7 +26,8 @@ class CeisaDraftPayloadBuilder
 
         $preset = $this->importirPreset($config, $spk);
         $documentRows = $this->documentRows($spk, $shipmentType, $today, $warnings);
-        $barangRows = $this->barangRows($spk, $warnings);
+        $kemasanRows = $this->kemasanRows($spk);
+        $barangRows = $this->barangRows($spk, $warnings, $kemasanRows);
 
         $payload = [
             'kodeDokumen' => $kodeDokumen,
@@ -62,17 +63,20 @@ class CeisaDraftPayloadBuilder
             'entitas' => $this->entityRows($config, $spk, $preset, $shipmentType, $warnings),
             'dokumen' => $documentRows,
             'pengangkut' => $this->pengangkutRows($spk),
-            'kemasan' => [],
+            'kemasan' => $kemasanRows,
             'kontainer' => $this->kontainerRows($spk),
             'informasiKomponenBiaya' => [$this->informasiKomponenBiayaRow()],
             'barang' => $barangRows,
         ];
 
         if ($shipmentType === 'import') {
+            $kodeCaraBayar = (string) ($preset?->default_kode_cara_bayar ?: '');
+
             $payload = array_merge($payload, [
                 'kodeJenisImpor' => (string) ($preset?->default_kode_jenis_impor ?: ''),
                 'kodeJenisProsedur' => '1',
-                'kodeCaraBayar' => (string) ($preset?->default_kode_cara_bayar ?: ''),
+                'kodeCaraBayar' => $kodeCaraBayar,
+                'kodeJenisNilai' => $kodeCaraBayar,
                 'kodeTutupPu' => (string) ($preset?->default_kode_tutup_pu ?: ''),
                 'kodePelMuat' => (string) $spk->port_of_loading,
                 'kodePelTujuan' => (string) $spk->port,
@@ -162,6 +166,33 @@ class CeisaDraftPayloadBuilder
             ];
         }
 
+        if ($shipmentType === 'import') {
+            $shipperName = trim((string) $spk->shipper);
+            $shipperAddress = trim((string) ($spk->origin ?: $spk->port_of_loading));
+            $countryCode = $this->countryFromPortCode((string) $spk->port_of_loading);
+
+            if ($shipperName === '') {
+                $warnings[] = 'Data shipper/pengirim belum diisi. Lengkapi di form draft CEISA.';
+            }
+
+            if ($countryCode === '') {
+                $warnings[] = 'Kode negara shipper/penjual belum terdeteksi. Isi dari kode pelabuhan muat atau data invoice.';
+            }
+
+            foreach ([
+                ['code' => '9', 'fallback' => 'PENGIRIM'],
+                ['code' => '10', 'fallback' => 'PENJUAL'],
+            ] as $entity) {
+                $rows[] = [
+                    'seriEntitas' => count($rows) + 1,
+                    'kodeEntitas' => $entity['code'],
+                    'namaEntitas' => $shipperName ?: $entity['fallback'],
+                    'alamatEntitas' => $shipperAddress ?: '-',
+                    'kodeNegara' => $countryCode,
+                ];
+            }
+        }
+
         if ($config->ppjk_name || $config->ppjk_npwp || $config->ppjk_npwp_16) {
             $ppjkNpwp16 = $this->toNpwp16($config->ppjk_npwp_16 ?: $config->ppjk_npwp);
             $rows[] = [
@@ -211,12 +242,6 @@ class CeisaDraftPayloadBuilder
             ->orderBy('id')
             ->get();
 
-        if ($documents->isEmpty()) {
-            $warnings[] = 'Belum ada file dokumen yang terupload di SPK ini.';
-
-            return [];
-        }
-
         $mappings = Schema::connection('tenant')->hasTable('ceisa_document_mappings')
             ? CeisaDocumentMapping::where('is_active', true)
                 ->where(function ($query) use ($shipmentType) {
@@ -227,7 +252,11 @@ class CeisaDraftPayloadBuilder
                 ->keyBy('id_dokumen')
             : collect();
 
-        return $documents->values()->map(function (DocumentTrans $document, int $index) use ($mappings, $spk, $today, &$warnings) {
+        if ($documents->isEmpty()) {
+            $warnings[] = 'Belum ada file dokumen yang terupload di SPK ini.';
+        }
+
+        $rows = $documents->values()->map(function (DocumentTrans $document, int $index) use ($mappings, $spk, $today, &$warnings) {
             $mapping = $mappings->get($document->id_dokumen);
             $name = (string) ($document->masterDocument?->nama_file ?: $document->nama_file);
             $kodeDokumen = $mapping?->ceisa_document_code ?: $this->guessDocumentCode($name);
@@ -246,6 +275,35 @@ class CeisaDraftPayloadBuilder
                     ?: $today,
             ];
         })->all();
+
+        return $this->ensureRequiredDocumentRows($rows, $spk, $shipmentType, $today, $warnings);
+    }
+
+    private function ensureRequiredDocumentRows(array $rows, Spk $spk, string $shipmentType, string $today, array &$warnings): array
+    {
+        if (! collect($rows)->contains(fn (array $row) => ($row['kodeDokumen'] ?? null) === '380')) {
+            $warnings[] = 'Dokumen invoice 380 belum terdeteksi. Isi nomor dan tanggal invoice di form draft CEISA.';
+            $rows[] = [
+                'seriDokumen' => count($rows) + 1,
+                'kodeDokumen' => '380',
+                'nomorDokumen' => (string) ($spk->spk_code ?: '-'),
+                'tanggalDokumen' => $today,
+            ];
+        }
+
+        if ($shipmentType === 'import' && ! collect($rows)->contains(fn (array $row) => in_array($row['kodeDokumen'] ?? null, ['705', '740'], true))) {
+            $warnings[] = 'Dokumen B/L 705 atau AWB 740 belum terdeteksi. Isi nomor dan tanggal dokumen pengangkutan di form draft CEISA.';
+            $rows[] = [
+                'seriDokumen' => count($rows) + 1,
+                'kodeDokumen' => '705',
+                'nomorDokumen' => (string) ($spk->spk_code ?: '-'),
+                'tanggalDokumen' => $today,
+            ];
+        }
+
+        return collect($rows)->values()
+            ->map(fn (array $row, int $index) => array_merge($row, ['seriDokumen' => $index + 1]))
+            ->all();
     }
 
     private function documentNumber(DocumentTrans $document, Spk $spk): string
@@ -276,26 +334,30 @@ class CeisaDraftPayloadBuilder
         };
     }
 
-    private function barangRows(Spk $spk, array &$warnings): array
+    private function barangRows(Spk $spk, array &$warnings, array $kemasanRows): array
     {
         $hsCodes = $spk->hsCodes;
+        $kemasanQty = (int) ($kemasanRows[0]['jumlahKemasan'] ?? 1);
+        $kemasanCode = (string) ($kemasanRows[0]['kodeJenisKemasan'] ?? 'PK');
 
         if ($hsCodes->isEmpty()) {
             $warnings[] = 'Belum ada HS Code. Payload membuat 1 baris barang placeholder.';
 
-            return [$this->barangRow(1, '', (string) ($spk->comodity ?: 'BARANG'))];
+            return [$this->barangRow(1, '', (string) ($spk->comodity ?: 'BARANG'), $kemasanQty, $kemasanCode)];
         }
 
         return $hsCodes->values()
             ->map(fn ($hsCode, int $index) => $this->barangRow(
                 $index + 1,
                 preg_replace('/\D+/', '', (string) $hsCode->hs_code),
-                (string) ($spk->comodity ?: 'BARANG')
+                (string) ($spk->comodity ?: 'BARANG'),
+                $kemasanQty,
+                $kemasanCode
             ))
             ->all();
     }
 
-    private function barangRow(int $seri, string $posTarif, string $uraian): array
+    private function barangRow(int $seri, string $posTarif, string $uraian, int $kemasanQty, string $kemasanCode): array
     {
         return [
             'seriBarang' => $seri,
@@ -310,8 +372,8 @@ class CeisaDraftPayloadBuilder
             'cif' => 0,
             'netto' => 0,
             'beratBersih' => 0,
-            'jumlahKemasan' => 0,
-            'kodeJenisKemasan' => '',
+            'jumlahKemasan' => max(1, $kemasanQty),
+            'kodeJenisKemasan' => $kemasanCode ?: 'PK',
             'merk' => $uraian ?: 'MERK',
             'tipe' => 'BARU',
             'kodeKondisiBarang' => '1',
@@ -324,6 +386,18 @@ class CeisaDraftPayloadBuilder
             'barangTarif' => [],
             'barangVd' => [],
         ];
+    }
+
+    private function kemasanRows(Spk $spk): array
+    {
+        $partyQty = (int) $spk->parties->sum(fn ($party) => (int) $party->party_qty);
+
+        return [[
+            'seriKemasan' => 1,
+            'kodeJenisKemasan' => 'PK',
+            'jumlahKemasan' => max(1, $partyQty),
+            'merkKemasan' => (string) ($spk->comodity ?: 'PACKAGE'),
+        ]];
     }
 
     private function informasiKomponenBiayaRow(): array
@@ -388,6 +462,35 @@ class CeisaDraftPayloadBuilder
         return (int) $spk->parties
             ->filter(fn ($party) => Str::upper((string) $party->party_type) === 'FCL')
             ->sum(fn ($party) => (int) $party->party_qty);
+    }
+
+    private function countryFromPortCode(string $portCode): string
+    {
+        $normalized = Str::upper(trim($portCode));
+
+        foreach ([
+            'SINGAPORE' => 'SG',
+            'CHINA' => 'CN',
+            'SHANGHAI' => 'CN',
+            'NINGBO' => 'CN',
+            'TAIWAN' => 'TW',
+            'KAOHSIUNG' => 'TW',
+            'HONG KONG' => 'HK',
+            'KOREA' => 'KR',
+            'BUSAN' => 'KR',
+            'MALAYSIA' => 'MY',
+            'KLANG' => 'MY',
+            'INDIA' => 'IN',
+            'NHAVA' => 'IN',
+        ] as $needle => $country) {
+            if (Str::contains($normalized, $needle)) {
+                return $country;
+            }
+        }
+
+        $code = strtoupper(preg_replace('/[^A-Z]/i', '', $portCode));
+
+        return strlen($code) >= 2 ? substr($code, 0, 2) : '';
     }
 
     private function appendCommonWarnings(CeisaCompanyConfig $config, Spk $spk, array $documents, array $barang, array &$warnings): void

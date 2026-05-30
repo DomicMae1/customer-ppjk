@@ -146,6 +146,17 @@ class ShippingController extends Controller
         return $user && ($user->role_internal === 'admin' || $user->hasRole('admin'));
     }
 
+    private function authorizeCeisaInternalAccess($user): void
+    {
+        if (
+            ! $user
+            || (! $this->isAdminUser($user) && $user->role !== 'internal')
+            || ! $user->can('update-master-shipping')
+        ) {
+            abort(403);
+        }
+    }
+
     private function activeCeisaConfigForCompany(int $idPerusahaan): ?CeisaCompanyConfig
     {
         return CeisaCompanyConfig::where('id_perusahaan', $idPerusahaan)
@@ -1550,9 +1561,7 @@ class ShippingController extends Controller
     ) {
         $user = auth('web')->user();
 
-        if (! $user || ! $user->can('update-master-shipping')) {
-            abort(403);
-        }
+        $this->authorizeCeisaInternalAccess($user);
 
         $request->validate([
             'fresh' => ['sometimes', 'boolean'],
@@ -1621,9 +1630,7 @@ class ShippingController extends Controller
     ) {
         $user = auth('web')->user();
 
-        if (! $user || ! $user->can('update-master-shipping')) {
-            abort(403);
-        }
+        $this->authorizeCeisaInternalAccess($user);
 
         $validated = $request->validate([
             'payload' => ['required', 'array'],
@@ -1715,9 +1722,7 @@ class ShippingController extends Controller
     {
         $user = auth('web')->user();
 
-        if (! $user || ! $user->can('update-master-shipping')) {
-            abort(403);
-        }
+        $this->authorizeCeisaInternalAccess($user);
 
         $validated = $request->validate([
             'nomor_aju' => ['required', 'string', 'max:32'],
@@ -1792,9 +1797,7 @@ class ShippingController extends Controller
     {
         $user = auth('web')->user();
 
-        if (! $user || ! $user->can('update-master-shipping')) {
-            abort(403);
-        }
+        $this->authorizeCeisaInternalAccess($user);
 
         [$tenant, $idPerusahaan] = $this->resolveTenantAndPerusahaanId($user);
 
