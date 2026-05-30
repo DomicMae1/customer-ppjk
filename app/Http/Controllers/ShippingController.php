@@ -26,6 +26,7 @@ use App\Services\AdminCompanyContextService;
 use App\Services\Ceisa\CeisaDraftPayloadBuilder;
 use App\Services\Ceisa\CeisaNomorAjuGenerator;
 use App\Services\Ceisa\CeisaNomorAjuSequenceService;
+use App\Services\Ceisa\CeisaReferenceService;
 use App\Services\Ceisa\CeisaStatusSyncService;
 use App\Services\Ceisa\CeisaSubmissionService;
 use App\Services\NotificationService;
@@ -38,6 +39,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Spatie\Permission\Exceptions\UnauthorizedException;
 use Symfony\Component\Process\Process;
@@ -1716,6 +1719,109 @@ class ShippingController extends Controller
         }
 
         return $payload;
+    }
+
+    public function lookupCeisaReference(Request $request, int $id, CeisaReferenceService $referenceService)
+    {
+        $user = auth('web')->user();
+
+        $this->authorizeCeisaInternalAccess($user);
+
+        $validated = $request->validate([
+            'lookup_type' => ['required', Rule::in(['pelabuhan_kata', 'pelabuhan_kode_kantor', 'gudang_tps_kode_kantor', 'kurs', 'tarif_hs'])],
+            'params' => ['nullable', 'array'],
+            'params.*' => ['nullable', 'string', 'max:255'],
+            'force_refresh' => ['nullable', 'boolean'],
+        ]);
+
+        [$tenant, $idPerusahaan] = $this->resolveTenantAndPerusahaanId($user);
+
+        if (! $tenant || ! $idPerusahaan) {
+            return response()->json(['message' => 'Tenant/perusahaan tidak ditemukan.'], 404);
+        }
+
+        tenancy()->initialize($tenant);
+
+        $this->findAccessibleSpkOrFail($id, $user, $idPerusahaan);
+        $config = $this->activeCeisaConfigForCompany($idPerusahaan);
+
+        if (! $config) {
+            return response()->json(['message' => 'Konfigurasi CEISA aktif belum tersedia untuk perusahaan ini.'], 422);
+        }
+
+        [$path, $query] = $this->buildShippingCeisaReferenceRequest($validated['lookup_type'], $validated['params'] ?? []);
+
+        try {
+            $result = $referenceService->get(
+                $config,
+                $path,
+                $query,
+                1440,
+                (bool) ($validated['force_refresh'] ?? false)
+            );
+
+            return response()->json([
+                'success' => (bool) ($result['ok'] ?? false),
+                'message' => $result['message'] ?? 'Referensi CEISA selesai dicek.',
+                'result' => $result,
+            ], ($result['ok'] ?? false) ? 200 : 422);
+        } catch (Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'message' => $e->getMessage() ?: 'Cek referensi CEISA gagal.',
+            ], 422);
+        }
+    }
+
+    private function buildShippingCeisaReferenceRequest(string $lookupType, array $params): array
+    {
+        $requiredFields = match ($lookupType) {
+            'pelabuhan_kata' => ['kata'],
+            'pelabuhan_kode_kantor', 'gudang_tps_kode_kantor' => ['kode_kantor'],
+            'kurs' => ['kode_valuta'],
+            'tarif_hs' => ['kode_hs'],
+            default => [],
+        };
+
+        foreach ($requiredFields as $field) {
+            if (blank($params[$field] ?? null)) {
+                throw ValidationException::withMessages([
+                    "params.{$field}" => 'Parameter ini wajib diisi.',
+                ]);
+            }
+        }
+
+        return match ($lookupType) {
+            'pelabuhan_kata' => [
+                '/openapi/pelabuhan/kata/'.rawurlencode((string) $params['kata']),
+                [],
+            ],
+            'pelabuhan_kode_kantor' => [
+                '/openapi/pelabuhan/kodeKantor/'.rawurlencode((string) $params['kode_kantor']),
+                [],
+            ],
+            'gudang_tps_kode_kantor' => [
+                '/openapi/gudangTPS/kodeKantor/'.rawurlencode((string) $params['kode_kantor']),
+                [],
+            ],
+            'kurs' => [
+                '/openapi/kurs/'.rawurlencode((string) $params['kode_valuta']),
+                array_filter([
+                    'tanggal' => $params['tanggal'] ?? null,
+                ], fn ($value) => filled($value)),
+            ],
+            'tarif_hs' => [
+                '/openapi/tarif-hs',
+                array_filter([
+                    'kodeHs' => $params['kode_hs'],
+                    'tanggal' => $params['tanggal'] ?? null,
+                ], fn ($value) => filled($value)),
+            ],
+            default => throw ValidationException::withMessages([
+                'lookup_type' => 'Tipe referensi CEISA tidak dikenali.',
+            ]),
+        };
     }
 
     public function trackCeisaSubmission(Request $request, int $id, CeisaStatusSyncService $statusSync)

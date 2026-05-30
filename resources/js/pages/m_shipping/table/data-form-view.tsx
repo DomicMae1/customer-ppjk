@@ -2664,6 +2664,7 @@ export default function ViewCustomerForm({
                             documentType={ceisaDraftDocumentType}
                             isPreparing={isPreparingCeisaDraft}
                             isSubmitting={isSubmittingCeisaDraft}
+                            referenceEndpoint={`/shipping/${shipmentData.id_spk}/ceisa-reference`}
                             onRegenerate={() => prepareCeisaDraftPayload(true)}
                             onSubmit={handleSubmitCeisaDraft}
                         />
