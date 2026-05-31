@@ -72,31 +72,338 @@ const documentOptions = [
 ];
 
 const incotermOptions = ['CIF', 'FOB', 'CFR', 'EXW', 'FCA', 'DAP'];
-const valutaOptions = ['USD', 'IDR', 'EUR', 'SGD', 'CNY', 'JPY'];
+const valutaOptions = ['USD', 'IDR', 'EUR', 'SGD', 'CNY', 'JPY', 'AUD', 'MYR', 'THB', 'INR', 'KRW', 'HKD', 'TWD', 'GBP'];
 const satuanOptions = ['PCE', 'KGM', 'TNE', 'LTR', 'MTQ', 'SET', 'BG', 'CTN', 'DR', 'ROL'];
 const kemasanOptions = ['PK', 'CT', 'BG', 'BX', 'DR', 'PL', 'BL', 'RO', 'SA', 'CS'];
 const jenisImporOptions = [
-    { value: '01', label: '01 - Umum' },
-    { value: '02', label: '02 - Re-Impor' },
-    { value: '03', label: '03 - Sementara' },
-    { value: '08', label: '08 - KITE' },
-    { value: '09', label: '09 - Pembebasan' },
+    { value: '1', label: '1 - UNTUK DIPAKAI' },
+    { value: '2', label: '2 - SEMENTARA' },
+    { value: '5', label: '5 - PELAYANAN SEGERA' },
+    { value: '9', label: '9 - GABUNGAN' },
 ];
 const caraBayarOptions = [
-    { value: 'KMD', label: 'KMD - Pembayaran Kemudian' },
-    { value: 'PMK', label: 'PMK - Pembayaran Dimuka' },
-    { value: 'SLC', label: 'SLC - Sight L/C' },
-    { value: 'RLC', label: 'RLC - Red Clause L/C' },
-    { value: 'IMB', label: 'IMB - Documentary Bills' },
-    { value: 'IOA', label: 'IOA - Open Account' },
-    { value: 'KON', label: 'KON - Konsinyasi' },
-    { value: 'LAI', label: 'LAI - Lainnya' },
+    { value: '1', label: '1 - BIASA/TUNAI' },
+    { value: '2', label: '2 - BERKALA' },
+    { value: '3', label: '3 - DENGAN JAMINAN' },
+    { value: '4', label: '4 - PERHITUNGAN KEMUDIAN' },
+    { value: '5', label: '5 - KONSINYASI (CONSIGNMENT)' },
+    { value: '6', label: '6 - USANCE LETTER OF CREDIT' },
+    { value: '7', label: '7 - RED CLAUSE LETTER OF CREDIT' },
+    { value: '8', label: '8 - INTER-COMPANY ACCOUNT' },
+    { value: '9', label: '9 - GABUNGAN/LAINNYA' },
+    { value: '10', label: '10 - OPEN ACCOUNT BERTAHAP' },
+    { value: '11', label: '11 - OPEN ACCOUNT TUNAI' },
+    { value: '12', label: '12 - BAYAR TUNAI DI DN' },
+    { value: '13', label: '13 - BAYAR TELEGRAPH DI DN' },
+    { value: '14', label: '14 - TANPA PEMBAYARAN' },
+    { value: '15', label: '15 - ADVANCE PAYMENT' },
+    { value: '16', label: '16 - SIGHT LETTER OF CREDIT' },
+    { value: '17', label: '17 - INKASO (COLLECTION DRAFT)' },
 ];
+const jenisTransaksiOptions = [
+    { value: 'PMK', label: 'PMK - PEMBAYARAN DILAKUKAN DIMUKA' },
+    { value: 'KMD', label: 'KMD - PEMBAYARAN KEMUDIAN' },
+    { value: 'SLC', label: 'SLC - PEMBAYARAN DENGAN SIGHT LETTER OF CREDIT' },
+    { value: 'ULC', label: 'ULC - PEMBAYARAN DENGAN USANCE LETTER OF CREDIT' },
+    { value: 'RLC', label: 'RLC - PEMBAYARAN DENGAN RED CLAUSE LETTER OF CREDIT' },
+    { value: 'WSI', label: 'WSI - PEMBAYARAN DENGAN WESEL INKASO' },
+    { value: 'KON', label: 'KON - PEMBAYARAN DENGAN KONSINYASI' },
+    { value: 'IOA', label: 'IOA - PEMBAYARAN DENGAN INTEROFFICE ACCOUNT' },
+    { value: 'IMB', label: 'IMB - TRANSAKSI PERDAGANGAN DENGAN IMBAL DAGANG' },
+    { value: 'LAI', label: 'LAI - TRANSAKSI PERDAGANGAN ATAU CARA PEMBAYARAN LAINNYA' },
+];
+const caraBayarValues = new Set(caraBayarOptions.map((item) => item.value));
+const jenisTransaksiValues = new Set(jenisTransaksiOptions.map((item) => item.value));
 const tutupPuOptions = [
     { value: '11', label: '11 - BC 1.1' },
     { value: '12', label: '12 - BC 1.2' },
     { value: '14', label: '14 - BC 1.4' },
 ];
+const tutupPuValues = new Set(tutupPuOptions.map((item) => item.value));
+const commonCountryOptions = [
+    { value: '', label: 'Pilih' },
+    { value: 'ID', label: 'ID - Indonesia' },
+    { value: 'SG', label: 'SG - Singapore' },
+    { value: 'CN', label: 'CN - China' },
+    { value: 'IN', label: 'IN - India' },
+    { value: 'MY', label: 'MY - Malaysia' },
+    { value: 'TH', label: 'TH - Thailand' },
+    { value: 'VN', label: 'VN - Vietnam' },
+    { value: 'TW', label: 'TW - Taiwan' },
+    { value: 'HK', label: 'HK - Hong Kong' },
+    { value: 'KR', label: 'KR - Korea' },
+    { value: 'JP', label: 'JP - Japan' },
+    { value: 'US', label: 'US - United States' },
+    { value: 'AU', label: 'AU - Australia' },
+    { value: 'AE', label: 'AE - United Arab Emirates' },
+    { value: 'NL', label: 'NL - Netherlands' },
+    { value: 'DE', label: 'DE - Germany' },
+    { value: 'GB', label: 'GB - United Kingdom' },
+];
+const extraCountryCodes = [
+    'AD',
+    'AE',
+    'AF',
+    'AG',
+    'AI',
+    'AL',
+    'AM',
+    'AN',
+    'AO',
+    'AQ',
+    'AR',
+    'AS',
+    'AT',
+    'AW',
+    'AX',
+    'AZ',
+    'BA',
+    'BB',
+    'BD',
+    'BE',
+    'BF',
+    'BG',
+    'BH',
+    'BI',
+    'BJ',
+    'BM',
+    'BN',
+    'BO',
+    'BQ',
+    'BR',
+    'BS',
+    'BT',
+    'BV',
+    'BW',
+    'BY',
+    'BZ',
+    'CA',
+    'CC',
+    'CD',
+    'CF',
+    'CG',
+    'CH',
+    'CI',
+    'CK',
+    'CL',
+    'CM',
+    'CO',
+    'CR',
+    'CU',
+    'CV',
+    'CW',
+    'CX',
+    'CY',
+    'CZ',
+    'DJ',
+    'DK',
+    'DM',
+    'DO',
+    'DZ',
+    'EC',
+    'EE',
+    'EG',
+    'EH',
+    'ER',
+    'ES',
+    'ET',
+    'FI',
+    'FJ',
+    'FK',
+    'FM',
+    'FO',
+    'FR',
+    'GA',
+    'GD',
+    'GE',
+    'GF',
+    'GH',
+    'GI',
+    'GL',
+    'GM',
+    'GN',
+    'GP',
+    'GQ',
+    'GR',
+    'GT',
+    'GU',
+    'GW',
+    'GY',
+    'HN',
+    'HR',
+    'HT',
+    'HU',
+    'IE',
+    'IL',
+    'IO',
+    'IQ',
+    'IR',
+    'IS',
+    'IT',
+    'JM',
+    'JO',
+    'KE',
+    'KG',
+    'KH',
+    'KI',
+    'KM',
+    'KN',
+    'KP',
+    'KW',
+    'KY',
+    'KZ',
+    'LA',
+    'LB',
+    'LC',
+    'LK',
+    'LR',
+    'LS',
+    'LT',
+    'LU',
+    'LV',
+    'LY',
+    'MA',
+    'MC',
+    'MD',
+    'ME',
+    'MF',
+    'MG',
+    'MH',
+    'MK',
+    'ML',
+    'MM',
+    'MN',
+    'MO',
+    'MP',
+    'MQ',
+    'MR',
+    'MS',
+    'MT',
+    'MU',
+    'MV',
+    'MW',
+    'MX',
+    'MZ',
+    'NA',
+    'NC',
+    'NE',
+    'NF',
+    'NG',
+    'NI',
+    'NO',
+    'NP',
+    'NR',
+    'NU',
+    'NZ',
+    'OM',
+    'PA',
+    'PE',
+    'PF',
+    'PG',
+    'PH',
+    'PK',
+    'PL',
+    'PM',
+    'PN',
+    'PR',
+    'PS',
+    'PT',
+    'PW',
+    'PY',
+    'QA',
+    'RE',
+    'RO',
+    'RS',
+    'RU',
+    'RW',
+    'SA',
+    'SB',
+    'SC',
+    'SD',
+    'SE',
+    'SH',
+    'SI',
+    'SK',
+    'SL',
+    'SM',
+    'SN',
+    'SO',
+    'SR',
+    'SS',
+    'ST',
+    'SV',
+    'SX',
+    'SY',
+    'SZ',
+    'TC',
+    'TD',
+    'TF',
+    'TG',
+    'TJ',
+    'TK',
+    'TL',
+    'TM',
+    'TN',
+    'TO',
+    'TR',
+    'TT',
+    'TV',
+    'TZ',
+    'UA',
+    'UG',
+    'UM',
+    'UY',
+    'UZ',
+    'VA',
+    'VC',
+    'VE',
+    'VG',
+    'VI',
+    'VU',
+    'WF',
+    'WS',
+    'YE',
+    'YT',
+    'ZA',
+    'ZM',
+    'ZW',
+];
+const commonCountryValues = new Set(commonCountryOptions.map((item) => item.value).filter(Boolean));
+const countryOptions = [
+    ...commonCountryOptions,
+    ...extraCountryCodes.filter((value) => !commonCountryValues.has(value)).map((value) => ({ value, label: value })),
+];
+const countryValues = new Set(countryOptions.map((item) => item.value).filter(Boolean));
+const countryAliases: Record<string, string> = {
+    INDONESIA: 'ID',
+    JAKARTA: 'ID',
+    'TANJUNG PRIOK': 'ID',
+    SURABAYA: 'ID',
+    'TANJUNG PERAK': 'ID',
+    SINGAPORE: 'SG',
+    CHINA: 'CN',
+    SHANGHAI: 'CN',
+    NINGBO: 'CN',
+    SHENZHEN: 'CN',
+    INDIA: 'IN',
+    NHAVA: 'IN',
+    'NHAVA SHEVA': 'IN',
+    MUNDRA: 'IN',
+    MALAYSIA: 'MY',
+    KLANG: 'MY',
+    THAILAND: 'TH',
+    VIETNAM: 'VN',
+    TAIWAN: 'TW',
+    'HONG KONG': 'HK',
+    HONGKONG: 'HK',
+    KOREA: 'KR',
+    BUSAN: 'KR',
+    JAPAN: 'JP',
+    DUBAI: 'AE',
+    'JEBEL ALI': 'AE',
+    ROTTERDAM: 'NL',
+    HAMBURG: 'DE',
+};
 
 const inputClass = 'h-9 rounded-sm border-slate-300 bg-white text-xs text-slate-700 shadow-none focus:border-blue-500 focus:ring-blue-500/20';
 const selectClass =
@@ -193,6 +500,96 @@ function pickRecordValue(record: Record<string, any>, keys: string[]) {
     return '';
 }
 
+function normalizeCountryCode(value: unknown): string {
+    const code = String(value ?? '')
+        .trim()
+        .toUpperCase();
+
+    return /^[A-Z]{2}$/.test(code) && countryValues.has(code) ? code : '';
+}
+
+function countryFromPortValue(...values: unknown[]): string {
+    for (const value of values) {
+        const direct = normalizeCountryCode(value);
+        if (direct) return direct;
+
+        const text = String(value ?? '')
+            .trim()
+            .toUpperCase();
+        const alnum = text.replace(/[^A-Z0-9]/g, '');
+
+        if (alnum.length >= 5) {
+            const prefix = alnum.slice(0, 2);
+            if (countryValues.has(prefix)) return prefix;
+        }
+
+        for (const [needle, country] of Object.entries(countryAliases)) {
+            const compactNeedle = needle.replace(/[^A-Z0-9]/g, '');
+
+            if (text.includes(needle) || alnum.includes(compactNeedle)) {
+                return country;
+            }
+        }
+    }
+
+    return '';
+}
+
+function isCountryCode(value: unknown): boolean {
+    return normalizeCountryCode(value) !== '';
+}
+
+function numericValueFromReference(value: any): number | null {
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+
+    if (typeof value === 'string') {
+        let normalized = value.trim().replace(/[^0-9,.-]/g, '');
+        const lastComma = normalized.lastIndexOf(',');
+        const lastDot = normalized.lastIndexOf('.');
+
+        if (lastComma >= 0 && lastDot >= 0) {
+            normalized = lastComma > lastDot ? normalized.replace(/\./g, '').replace(',', '.') : normalized.replace(/,/g, '');
+        } else if (lastComma >= 0) {
+            normalized = normalized.replace(',', '.');
+        } else if ((normalized.match(/\./g) || []).length > 1) {
+            normalized = normalized.replace(/\./g, '');
+        }
+
+        const parsed = Number(normalized);
+
+        return Number.isFinite(parsed) ? parsed : null;
+    }
+
+    return null;
+}
+
+function pickNumericReferenceValue(value: any, keys: string[], depth = 0): number | null {
+    if (depth > 5 || value === null || value === undefined) return null;
+
+    if (Array.isArray(value)) {
+        for (const item of value) {
+            const found = pickNumericReferenceValue(item, keys, depth + 1);
+            if (found !== null) return found;
+        }
+
+        return null;
+    }
+
+    if (typeof value === 'object') {
+        for (const key of keys) {
+            const found = numericValueFromReference(getPath(value, key));
+            if (found !== null) return found;
+        }
+
+        for (const item of Object.values(value)) {
+            const found = pickNumericReferenceValue(item, keys, depth + 1);
+            if (found !== null) return found;
+        }
+    }
+
+    return null;
+}
+
 function entityTemplate(kodeEntitas: string): Record<string, any> {
     const common = {
         seriEntitas: 1,
@@ -223,6 +620,28 @@ function entityTemplate(kodeEntitas: string): Record<string, any> {
         };
     }
 
+    if (['9', '10'].includes(kodeEntitas)) {
+        return {
+            ...common,
+            namaEntitas: kodeEntitas === '9' ? 'PENGIRIM' : 'PENJUAL',
+            alamatEntitas: '-',
+            kodeNegara: '',
+            kodeJenisIdentitas: '6',
+            nomorIdentitas: '-',
+            kodeAfiliasi: 'TAH',
+        };
+    }
+
+    if (kodeEntitas === '11') {
+        return {
+            ...common,
+            nomorIdentitas: '',
+            kodeJenisIdentitas: '6',
+            nitku: '',
+            nibEntitas: '',
+        };
+    }
+
     if (kodeEntitas === '4') {
         return {
             ...common,
@@ -236,10 +655,7 @@ function entityTemplate(kodeEntitas: string): Record<string, any> {
         };
     }
 
-    return {
-        ...common,
-        kodeNegara: '',
-    };
+    return common;
 }
 
 function buildRequirements(payload: Record<string, any>): Requirement[] {
@@ -250,7 +666,9 @@ function buildRequirements(payload: Record<string, any>): Requirement[] {
 
     const importir = entitas.find((item: any) => item?.kodeEntitas === '1');
     const pemilik = entitas.find((item: any) => item?.kodeEntitas === '7');
+    const pengirim = entitas.find((item: any) => item?.kodeEntitas === '9');
     const penjual = entitas.find((item: any) => item?.kodeEntitas === '10');
+    const pemusatan = entitas.find((item: any) => item?.kodeEntitas === '11');
     const invoice = dokumen.find((item: any) => item?.kodeDokumen === '380');
     const blAwb = dokumen.find((item: any) => ['705', '740'].includes(item?.kodeDokumen));
     const firstBarang = barang[0] || {};
@@ -261,8 +679,10 @@ function buildRequirements(payload: Record<string, any>): Requirement[] {
         { group: 'Pengangkut', label: 'Pelabuhan muat', ok: hasValue(payload.kodePelMuat) },
         { group: 'Header', label: 'Pelabuhan tujuan', ok: hasValue(payload.kodePelTujuan) },
         { group: 'Header', label: 'Jenis impor', ok: hasValue(payload.kodeJenisImpor) },
-        { group: 'Header', label: 'Cara bayar', ok: hasValue(payload.kodeCaraBayar) },
+        { group: 'Header', label: 'Cara bayar', ok: caraBayarValues.has(String(payload.kodeCaraBayar || '')) },
+        { group: 'Pengangkut', label: 'Nomor Tutup PU', ok: tutupPuValues.has(String(payload.kodeTutupPu || '')) },
         { group: 'Transaksi', label: 'NDPBM/Kurs', ok: positiveNumber(payload.ndpbm) },
+        { group: 'Transaksi', label: 'Jenis transaksi', ok: jenisTransaksiValues.has(String(payload.kodeJenisNilai || '')) },
         { group: 'Pernyataan', label: 'Penandatangan', ok: hasValue(payload.namaTtd) && hasValue(payload.jabatanTtd) && hasValue(payload.kotaTtd) },
         {
             group: 'Entitas',
@@ -280,8 +700,18 @@ function buildRequirements(payload: Record<string, any>): Requirement[] {
         },
         {
             group: 'Entitas',
+            label: 'Pengirim luar negeri',
+            ok: hasValue(pengirim?.namaEntitas) && hasValue(pengirim?.alamatEntitas) && isCountryCode(pengirim?.kodeNegara),
+        },
+        {
+            group: 'Entitas',
             label: 'Penjual luar negeri',
-            ok: hasValue(penjual?.namaEntitas) && hasValue(penjual?.alamatEntitas) && hasValue(penjual?.kodeNegara),
+            ok: hasValue(penjual?.namaEntitas) && hasValue(penjual?.alamatEntitas) && isCountryCode(penjual?.kodeNegara),
+        },
+        {
+            group: 'Entitas',
+            label: 'Pemusatan',
+            ok: hasValue(pemusatan?.namaEntitas) && hasValue(pemusatan?.alamatEntitas) && hasValue(pemusatan?.nomorIdentitas),
         },
         {
             group: 'Dokumen',
@@ -306,6 +736,7 @@ function buildRequirements(payload: Record<string, any>): Requirement[] {
                 hasValue(firstBarang?.uraian) &&
                 positiveNumber(firstBarang?.jumlahSatuan) &&
                 hasValue(firstBarang?.kodeSatuanBarang) &&
+                isCountryCode(firstBarang?.kodeNegaraAsal) &&
                 hasValue(firstBarang?.merk) &&
                 hasValue(firstBarang?.tipe),
         },
@@ -341,6 +772,8 @@ export function CeisaDraftModal({
     const [portLookupRows, setPortLookupRows] = useState<Record<string, any>[]>([]);
     const [portLookupMessage, setPortLookupMessage] = useState('');
     const [isLookingUpPort, setIsLookingUpPort] = useState(false);
+    const [kursLookupMessage, setKursLookupMessage] = useState('');
+    const [isLookingUpKurs, setIsLookingUpKurs] = useState(false);
     const { payload, error: jsonError } = useMemo(() => parsePayload(payloadText), [payloadText]);
     const requirements = useMemo(() => buildRequirements(payload), [payload]);
     const missingRequirements = requirements.filter((item) => !item.ok);
@@ -394,21 +827,101 @@ export function CeisaDraftModal({
         }
     };
 
+    const applyOriginCountry = (next: Record<string, any>, country: string) => {
+        if (!country) return;
+
+        const entitas = ensureArray(next, 'entitas');
+
+        ['9', '10'].forEach((kodeEntitas) => {
+            let index = entitas.findIndex((item) => item?.kodeEntitas === kodeEntitas);
+
+            if (index < 0) {
+                entitas.push(entityTemplate(kodeEntitas));
+                index = entitas.length - 1;
+            }
+
+            if (!isCountryCode(entitas[index].kodeNegara)) {
+                entitas[index].kodeNegara = country;
+            }
+        });
+
+        entitas.forEach((item, itemIndex) => {
+            item.seriEntitas = itemIndex + 1;
+        });
+
+        const barang = ensureArray(next, 'barang');
+        barang.forEach((item) => {
+            if (!isCountryCode(item.kodeNegaraAsal)) {
+                item.kodeNegaraAsal = country;
+            }
+        });
+    };
+
     const applyPortReference = (row: Record<string, any>) => {
         const code = pickRecordValue(row, ['kodePelabuhan', 'kode_pelabuhan', 'kode', 'kodePort', 'kodePel']);
+        const name = pickRecordValue(row, ['namaPelabuhan', 'nama_pelabuhan', 'nama', 'uraian']);
+        const office = pickRecordValue(row, ['kodeKantor', 'kode_kantor']);
+        const country =
+            normalizeCountryCode(pickRecordValue(row, ['kodeNegara', 'kode_negara', 'countryCode', 'kodeCountry'])) ||
+            countryFromPortValue(code, name, pickRecordValue(row, ['negara', 'namaNegara', 'nama_negara']));
 
         if (!code) return;
 
-        updateHeader(portLookupTarget, code.toUpperCase());
+        commitPayload((next) => {
+            next[portLookupTarget] = code.toUpperCase();
+
+            if (portLookupTarget === 'kodePelMuat') {
+                applyOriginCountry(next, country);
+            }
+
+            if (portLookupTarget === 'kodePelTujuan' && office && !next.kodeKantor) {
+                next.kodeKantor = office;
+            }
+        });
+    };
+
+    const lookupKurs = async () => {
+        if (!referenceEndpoint) return;
+
+        const kodeValuta = String(payload.kodeValuta || 'USD').toUpperCase();
+        setIsLookingUpKurs(true);
+        setKursLookupMessage('');
+
+        try {
+            const response = await axios.post(referenceEndpoint, {
+                lookup_type: 'kurs',
+                params: {
+                    kode_valuta: kodeValuta,
+                    tanggal: payload.tanggalAju || new Date().toISOString().slice(0, 10),
+                },
+            });
+            const ndpbm = pickNumericReferenceValue(response.data, [
+                'nilaiKurs',
+                'nilai_kurs',
+                'kurs',
+                'ndpbm',
+                'nilai',
+                'rate',
+                'data.nilaiKurs',
+                'item.nilaiKurs',
+            ]);
+
+            if (ndpbm && ndpbm > 0) {
+                updateHeader('ndpbm', ndpbm);
+                setKursLookupMessage(`NDPBM ${kodeValuta} diperbarui dari referensi CEISA.`);
+            } else {
+                setKursLookupMessage('Referensi kurs ditemukan, tetapi nilai NDPBM tidak terdeteksi.');
+            }
+        } catch (error: any) {
+            setKursLookupMessage(error?.response?.data?.message ?? 'Ambil kurs CEISA gagal.');
+        } finally {
+            setIsLookingUpKurs(false);
+        }
     };
 
     const updateHeader = (field: string, value: any) => {
         commitPayload((next) => {
             next[field] = value;
-
-            if (field === 'kodeCaraBayar') {
-                next.kodeJenisNilai = value;
-            }
 
             if (['fob', 'freight', 'asuransi'].includes(field)) {
                 const fob = Number(next.fob || 0);
@@ -422,6 +935,10 @@ export function CeisaDraftModal({
                 ikb[0].hargaInvoice = fob;
                 ikb[0].biayaTransportasi = freight;
                 ikb[0].asuransi = asuransi;
+            }
+
+            if (field === 'kodePelMuat') {
+                applyOriginCountry(next, countryFromPortValue(value));
             }
         });
     };
@@ -558,6 +1075,7 @@ export function CeisaDraftModal({
                 saldoAwal: 1,
                 saldoAkhir: 1,
                 metodePenentuanNilai: 'Metode 1',
+                alasanMetodePenentuanNilai: null,
                 statementPerbedaanHarga: 'T',
                 pernyataanLartas: 'Y',
                 barangTarif: [],
@@ -586,6 +1104,7 @@ export function CeisaDraftModal({
     const pemilik = entitas.find((item: any) => item?.kodeEntitas === '7') || {};
     const pengirim = entitas.find((item: any) => item?.kodeEntitas === '9') || {};
     const penjual = entitas.find((item: any) => item?.kodeEntitas === '10') || {};
+    const pemusatan = entitas.find((item: any) => item?.kodeEntitas === '11') || {};
     const ppjk = entitas.find((item: any) => item?.kodeEntitas === '4') || {};
     const transport = pengangkut[0] || {};
     const packageRow = kemasan[0] || {};
@@ -859,6 +1378,15 @@ export function CeisaDraftModal({
                                                     ]);
                                                     const name = pickRecordValue(row, ['namaPelabuhan', 'nama_pelabuhan', 'nama', 'uraian']);
                                                     const office = pickRecordValue(row, ['kodeKantor', 'kode_kantor']);
+                                                    const country =
+                                                        normalizeCountryCode(
+                                                            pickRecordValue(row, ['kodeNegara', 'kode_negara', 'countryCode', 'kodeCountry']),
+                                                        ) ||
+                                                        countryFromPortValue(
+                                                            code,
+                                                            name,
+                                                            pickRecordValue(row, ['negara', 'namaNegara', 'nama_negara']),
+                                                        );
 
                                                     return (
                                                         <button
@@ -869,7 +1397,9 @@ export function CeisaDraftModal({
                                                         >
                                                             <div className="font-semibold text-slate-900">{code || '-'}</div>
                                                             <div className="mt-1 text-slate-600">{name || '-'}</div>
-                                                            <div className="mt-2 text-[11px] text-slate-400">Kantor: {office || '-'}</div>
+                                                            <div className="mt-2 text-[11px] text-slate-400">
+                                                                Kantor: {office || '-'} {country ? `| Negara: ${country}` : ''}
+                                                            </div>
                                                         </button>
                                                     );
                                                 })}
@@ -916,6 +1446,13 @@ export function CeisaDraftModal({
                                         entity={penjual}
                                         onChange={(field, value) => updateEntity('10', field, value)}
                                         fields={['namaEntitas', 'alamatEntitas', 'kodeNegara']}
+                                    />
+                                </EntitySection>
+                                <EntitySection title="NPWP Pemusatan" required>
+                                    <EntityFields
+                                        entity={pemusatan}
+                                        onChange={(field, value) => updateEntity('11', field, value)}
+                                        fields={['namaEntitas', 'alamatEntitas', 'nomorIdentitas', 'nitku']}
                                     />
                                 </EntitySection>
                                 <EntitySection title="PPJK">
@@ -1244,22 +1781,34 @@ export function CeisaDraftModal({
                                         </div>
                                         <div className="space-y-1.5">
                                             {fieldLabel('NDPBM', true)}
-                                            <Input
-                                                type="number"
-                                                value={payload.ndpbm ?? 0}
-                                                onChange={(e) => updateHeader('ndpbm', numberValue(e.target.value))}
-                                                className={inputClass}
-                                            />
+                                            <div className="grid grid-cols-[1fr_auto] gap-2">
+                                                <Input
+                                                    type="number"
+                                                    value={payload.ndpbm ?? 0}
+                                                    onChange={(e) => updateHeader('ndpbm', numberValue(e.target.value))}
+                                                    className={inputClass}
+                                                />
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    onClick={lookupKurs}
+                                                    disabled={!referenceEndpoint || isLookingUpKurs || !payload.kodeValuta}
+                                                    className="h-9 rounded-sm px-3 text-xs font-semibold"
+                                                >
+                                                    {isLookingUpKurs ? <RefreshCw className="h-4 w-4 animate-spin" /> : 'Ambil Kurs'}
+                                                </Button>
+                                            </div>
+                                            {kursLookupMessage && <div className="text-[11px] text-slate-500">{kursLookupMessage}</div>}
                                         </div>
                                         <div className="space-y-1.5">
                                             {fieldLabel('Jenis Transaksi')}
                                             <select
-                                                value={payload.kodeCaraBayar || ''}
-                                                onChange={(e) => updateHeader('kodeCaraBayar', e.target.value)}
+                                                value={payload.kodeJenisNilai || 'LAI'}
+                                                onChange={(e) => updateHeader('kodeJenisNilai', e.target.value)}
                                                 className={selectClass}
                                             >
                                                 <option value="">Pilih</option>
-                                                {caraBayarOptions.map((item) => (
+                                                {jenisTransaksiOptions.map((item) => (
                                                     <option key={item.value} value={item.value}>
                                                         {item.label}
                                                     </option>
@@ -1440,12 +1989,18 @@ export function CeisaDraftModal({
                                                     />
                                                 </div>
                                                 <div className="space-y-1.5">
-                                                    {fieldLabel('Negara Asal')}
-                                                    <Input
+                                                    {fieldLabel('Negara Asal', true)}
+                                                    <select
                                                         value={row.kodeNegaraAsal || ''}
-                                                        onChange={(e) => updateBarang(index, 'kodeNegaraAsal', e.target.value.toUpperCase())}
-                                                        className={inputClass}
-                                                    />
+                                                        onChange={(e) => updateBarang(index, 'kodeNegaraAsal', e.target.value)}
+                                                        className={selectClass}
+                                                    >
+                                                        {countryOptions.map((item) => (
+                                                            <option key={item.value || 'empty'} value={item.value}>
+                                                                {item.label}
+                                                            </option>
+                                                        ))}
+                                                    </select>
                                                 </div>
                                                 <div className="space-y-1.5">
                                                     {fieldLabel('Jumlah', true)}
@@ -1748,11 +2303,17 @@ function EntityFields({
                         labels[field] || field,
                         ['namaEntitas', 'alamatEntitas', 'nomorIdentitas', 'nibEntitas', 'kodeNegara'].includes(field),
                     )}
-                    <Input
-                        value={entity?.[field] || ''}
-                        onChange={(event) => onChange(field, field === 'kodeNegara' ? event.target.value.toUpperCase() : event.target.value)}
-                        className={inputClass}
-                    />
+                    {field === 'kodeNegara' ? (
+                        <select value={entity?.[field] || ''} onChange={(event) => onChange(field, event.target.value)} className={selectClass}>
+                            {countryOptions.map((item) => (
+                                <option key={item.value || 'empty'} value={item.value}>
+                                    {item.label}
+                                </option>
+                            ))}
+                        </select>
+                    ) : (
+                        <Input value={entity?.[field] || ''} onChange={(event) => onChange(field, event.target.value)} className={inputClass} />
+                    )}
                 </div>
             ))}
         </div>

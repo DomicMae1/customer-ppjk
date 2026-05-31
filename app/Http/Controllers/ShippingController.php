@@ -24,6 +24,7 @@ use App\Models\Tenant;
 use App\Models\User;
 use App\Services\AdminCompanyContextService;
 use App\Services\Ceisa\CeisaDraftPayloadBuilder;
+use App\Services\Ceisa\CeisaImportPayloadNormalizer;
 use App\Services\Ceisa\CeisaNomorAjuGenerator;
 use App\Services\Ceisa\CeisaNomorAjuSequenceService;
 use App\Services\Ceisa\CeisaReferenceService;
@@ -1560,7 +1561,8 @@ class ShippingController extends Controller
         int $id,
         CeisaDraftPayloadBuilder $payloadBuilder,
         CeisaNomorAjuGenerator $nomorAjuGenerator,
-        CeisaNomorAjuSequenceService $nomorAjuSequences
+        CeisaNomorAjuSequenceService $nomorAjuSequences,
+        CeisaImportPayloadNormalizer $payloadNormalizer
     ) {
         $user = auth('web')->user();
 
@@ -1610,7 +1612,7 @@ class ShippingController extends Controller
         $preview = $payloadBuilder->build($config, $spk->fresh(['customer', 'hsCodes', 'parties']), $nomorAju);
 
         if ($existingDraft && is_array($existingDraft->request_payload) && $existingDraft->request_payload !== []) {
-            $preview['payload'] = $existingDraft->request_payload;
+            $preview['payload'] = $payloadNormalizer->normalize($existingDraft->request_payload, $documentType);
             $preview['warnings'][] = 'Payload diambil dari draft terakhir yang sudah pernah dikirim untuk nomor aju ini.';
         }
 
@@ -1629,7 +1631,8 @@ class ShippingController extends Controller
         Request $request,
         int $id,
         CeisaNomorAjuGenerator $nomorAjuGenerator,
-        CeisaSubmissionService $submissionService
+        CeisaSubmissionService $submissionService,
+        CeisaImportPayloadNormalizer $payloadNormalizer
     ) {
         $user = auth('web')->user();
 
@@ -1662,9 +1665,18 @@ class ShippingController extends Controller
             return response()->json(['message' => 'Nomor aju belum valid. Klik Siapkan Draft dulu.'], 422);
         }
 
-        $payload['nomorAju'] = $nomorAju;
-        $payload = $this->normalizeCeisaPayloadForSubmit($payload);
         $documentType = $validated['document_type'] ?: $this->ceisaDocumentTypeForShipment($spk->shipment_type);
+        $payload['nomorAju'] = $nomorAju;
+        $payload = $payloadNormalizer->normalizeForSubmit($payload, $documentType);
+        $localErrors = $payloadNormalizer->validateDraft($payload, $documentType);
+
+        if ($localErrors !== []) {
+            return response()->json([
+                'message' => implode(' ', $localErrors),
+                'payload' => $payload,
+                'submissions' => $this->ceisaSubmissionsForSpk($spk->id),
+            ], 422);
+        }
 
         try {
             $submission = $submissionService->submit(
@@ -1702,23 +1714,6 @@ class ShippingController extends Controller
             'submission' => $this->serializeCeisaSubmission($freshSubmission),
             'submissions' => $this->ceisaSubmissionsForSpk($spk->id),
         ]);
-    }
-
-    private function normalizeCeisaPayloadForSubmit(array $payload): array
-    {
-        foreach ($payload as $key => $value) {
-            if (is_array($value)) {
-                $payload[$key] = $this->normalizeCeisaPayloadForSubmit($value);
-
-                continue;
-            }
-
-            if ($value === null) {
-                $payload[$key] = '';
-            }
-        }
-
-        return $payload;
     }
 
     public function lookupCeisaReference(Request $request, int $id, CeisaReferenceService $referenceService)

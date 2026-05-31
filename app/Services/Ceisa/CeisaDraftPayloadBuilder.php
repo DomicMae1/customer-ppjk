@@ -12,7 +12,10 @@ use Illuminate\Support\Str;
 
 class CeisaDraftPayloadBuilder
 {
-    public function __construct(private readonly CeisaNomorAjuGenerator $nomorAjuGenerator) {}
+    public function __construct(
+        private readonly CeisaNomorAjuGenerator $nomorAjuGenerator,
+        private readonly CeisaImportPayloadNormalizer $payloadNormalizer
+    ) {}
 
     public function build(CeisaCompanyConfig $config, Spk $spk, string $nomorAju): array
     {
@@ -27,7 +30,8 @@ class CeisaDraftPayloadBuilder
         $preset = $this->importirPreset($config, $spk);
         $documentRows = $this->documentRows($spk, $shipmentType, $today, $warnings);
         $kemasanRows = $this->kemasanRows($spk);
-        $barangRows = $this->barangRows($spk, $warnings, $kemasanRows);
+        $originCountry = $this->payloadNormalizer->countryFromValue((string) ($spk->port_of_loading ?: $spk->origin));
+        $barangRows = $this->barangRows($spk, $warnings, $kemasanRows, $originCountry);
 
         $payload = [
             'kodeDokumen' => $kodeDokumen,
@@ -70,14 +74,15 @@ class CeisaDraftPayloadBuilder
         ];
 
         if ($shipmentType === 'import') {
-            $kodeCaraBayar = (string) ($preset?->default_kode_cara_bayar ?: '');
+            $kodeCaraBayar = (string) ($preset?->default_kode_cara_bayar ?: '2');
+            $kodeJenisNilai = preg_match('/^[A-Za-z]{3}$/', $kodeCaraBayar) === 1 ? strtoupper($kodeCaraBayar) : 'LAI';
 
             $payload = array_merge($payload, [
-                'kodeJenisImpor' => (string) ($preset?->default_kode_jenis_impor ?: ''),
+                'kodeJenisImpor' => (string) ($preset?->default_kode_jenis_impor ?: '1'),
                 'kodeJenisProsedur' => '1',
                 'kodeCaraBayar' => $kodeCaraBayar,
-                'kodeJenisNilai' => $kodeCaraBayar,
-                'kodeTutupPu' => (string) ($preset?->default_kode_tutup_pu ?: ''),
+                'kodeJenisNilai' => $kodeJenisNilai,
+                'kodeTutupPu' => (string) ($preset?->default_kode_tutup_pu ?: '11'),
                 'kodePelMuat' => (string) $spk->port_of_loading,
                 'kodePelTujuan' => (string) $spk->port,
                 'tanggalTiba' => optional($spk->eta_date)->toDateString() ?: $today,
@@ -94,6 +99,7 @@ class CeisaDraftPayloadBuilder
             ]);
         }
 
+        $payload = $this->payloadNormalizer->normalize($payload, $documentType);
         $this->appendCommonWarnings($config, $spk, $documentRows, $barangRows, $warnings);
 
         return [
@@ -169,7 +175,7 @@ class CeisaDraftPayloadBuilder
         if ($shipmentType === 'import') {
             $shipperName = trim((string) $spk->shipper);
             $shipperAddress = trim((string) ($spk->origin ?: $spk->port_of_loading));
-            $countryCode = $this->countryFromPortCode((string) $spk->port_of_loading);
+            $countryCode = $this->payloadNormalizer->countryFromValue((string) ($spk->port_of_loading ?: $spk->origin));
 
             if ($shipperName === '') {
                 $warnings[] = 'Data shipper/pengirim belum diisi. Lengkapi di form draft CEISA.';
@@ -189,8 +195,22 @@ class CeisaDraftPayloadBuilder
                     'namaEntitas' => $shipperName ?: $entity['fallback'],
                     'alamatEntitas' => $shipperAddress ?: '-',
                     'kodeNegara' => $countryCode,
+                    'kodeJenisIdentitas' => '6',
+                    'nomorIdentitas' => '-',
+                    'kodeAfiliasi' => 'TAH',
                 ];
             }
+
+            $rows[] = [
+                'seriEntitas' => count($rows) + 1,
+                'kodeEntitas' => '11',
+                'namaEntitas' => $identity['name'],
+                'alamatEntitas' => $identity['address'],
+                'nomorIdentitas' => $identity['npwp16'],
+                'kodeJenisIdentitas' => $identity['kodeJenisIdentitas'],
+                'nitku' => $identity['nitku'],
+                'nibEntitas' => $identity['nib'],
+            ];
         }
 
         if ($config->ppjk_name || $config->ppjk_npwp || $config->ppjk_npwp_16) {
@@ -334,7 +354,7 @@ class CeisaDraftPayloadBuilder
         };
     }
 
-    private function barangRows(Spk $spk, array &$warnings, array $kemasanRows): array
+    private function barangRows(Spk $spk, array &$warnings, array $kemasanRows, string $originCountry): array
     {
         $hsCodes = $spk->hsCodes;
         $kemasanQty = (int) ($kemasanRows[0]['jumlahKemasan'] ?? 1);
@@ -343,7 +363,7 @@ class CeisaDraftPayloadBuilder
         if ($hsCodes->isEmpty()) {
             $warnings[] = 'Belum ada HS Code. Payload membuat 1 baris barang placeholder.';
 
-            return [$this->barangRow(1, '', (string) ($spk->comodity ?: 'BARANG'), $kemasanQty, $kemasanCode)];
+            return [$this->barangRow(1, '', (string) ($spk->comodity ?: 'BARANG'), $kemasanQty, $kemasanCode, $originCountry)];
         }
 
         return $hsCodes->values()
@@ -352,12 +372,13 @@ class CeisaDraftPayloadBuilder
                 preg_replace('/\D+/', '', (string) $hsCode->hs_code),
                 (string) ($spk->comodity ?: 'BARANG'),
                 $kemasanQty,
-                $kemasanCode
+                $kemasanCode,
+                $originCountry
             ))
             ->all();
     }
 
-    private function barangRow(int $seri, string $posTarif, string $uraian, int $kemasanQty, string $kemasanCode): array
+    private function barangRow(int $seri, string $posTarif, string $uraian, int $kemasanQty, string $kemasanCode, string $originCountry): array
     {
         return [
             'seriBarang' => $seri,
@@ -377,10 +398,11 @@ class CeisaDraftPayloadBuilder
             'merk' => $uraian ?: 'MERK',
             'tipe' => 'BARU',
             'kodeKondisiBarang' => '1',
-            'kodeNegaraAsal' => '',
+            'kodeNegaraAsal' => $originCountry,
             'saldoAwal' => 1,
             'saldoAkhir' => 1,
             'metodePenentuanNilai' => 'Metode 1',
+            'alasanMetodePenentuanNilai' => null,
             'statementPerbedaanHarga' => 'T',
             'pernyataanLartas' => 'Y',
             'barangTarif' => [],
@@ -462,35 +484,6 @@ class CeisaDraftPayloadBuilder
         return (int) $spk->parties
             ->filter(fn ($party) => Str::upper((string) $party->party_type) === 'FCL')
             ->sum(fn ($party) => (int) $party->party_qty);
-    }
-
-    private function countryFromPortCode(string $portCode): string
-    {
-        $normalized = Str::upper(trim($portCode));
-
-        foreach ([
-            'SINGAPORE' => 'SG',
-            'CHINA' => 'CN',
-            'SHANGHAI' => 'CN',
-            'NINGBO' => 'CN',
-            'TAIWAN' => 'TW',
-            'KAOHSIUNG' => 'TW',
-            'HONG KONG' => 'HK',
-            'KOREA' => 'KR',
-            'BUSAN' => 'KR',
-            'MALAYSIA' => 'MY',
-            'KLANG' => 'MY',
-            'INDIA' => 'IN',
-            'NHAVA' => 'IN',
-        ] as $needle => $country) {
-            if (Str::contains($normalized, $needle)) {
-                return $country;
-            }
-        }
-
-        $code = strtoupper(preg_replace('/[^A-Z]/i', '', $portCode));
-
-        return strlen($code) >= 2 ? substr($code, 0, 2) : '';
     }
 
     private function appendCommonWarnings(CeisaCompanyConfig $config, Spk $spk, array $documents, array $barang, array &$warnings): void

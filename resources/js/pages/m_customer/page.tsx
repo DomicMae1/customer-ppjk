@@ -59,6 +59,14 @@ interface CustomerPageProps extends PageProps {
     trans_customer: Record<string, string>;
 }
 
+const normalizeNumericCeisaCode = (value: unknown, allowed: string[], fallback: string) => {
+    const raw = String(value ?? '').trim();
+    const match = raw.match(/^\d+/);
+    const normalized = match ? String(Number(match[0])) : raw;
+
+    return allowed.includes(normalized) ? normalized : fallback;
+};
+
 export default function ManageCustomers() {
     // Ambil semua data sekaligus dari usePage
     const { customers, flash, perusahaan_list, selectedCompanyId, auth, trans_customer, trans_general } = usePage<CustomerPageProps & any>().props;
@@ -111,9 +119,9 @@ export default function ManageCustomers() {
         ceisa_kode_jenis_identitas: '6',
         ceisa_kode_status: '01',
         ceisa_kode_jenis_api: '01',
-        ceisa_default_kode_cara_bayar: 'KMD',
-        ceisa_default_kode_jenis_impor: '01',
-        ceisa_default_kode_tutup_pu: '',
+        ceisa_default_kode_cara_bayar: '2',
+        ceisa_default_kode_jenis_impor: '1',
+        ceisa_default_kode_tutup_pu: '11',
         ceisa_default_ndpbm: '',
     };
     const [emailsTo, setEmailsTo] = useState<string[]>([]);
@@ -287,9 +295,13 @@ export default function ManageCustomers() {
             ceisa_kode_jenis_identitas: ceisa?.kode_jenis_identitas || '6',
             ceisa_kode_status: ceisa?.kode_status || '01',
             ceisa_kode_jenis_api: ceisa?.kode_jenis_api || '01',
-            ceisa_default_kode_cara_bayar: ceisa?.default_kode_cara_bayar || 'KMD',
-            ceisa_default_kode_jenis_impor: ceisa?.default_kode_jenis_impor || '01',
-            ceisa_default_kode_tutup_pu: ceisa?.default_kode_tutup_pu || '',
+            ceisa_default_kode_cara_bayar: normalizeNumericCeisaCode(
+                ceisa?.default_kode_cara_bayar,
+                ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17'],
+                '2',
+            ),
+            ceisa_default_kode_jenis_impor: normalizeNumericCeisaCode(ceisa?.default_kode_jenis_impor, ['1', '2', '5', '9'], '1'),
+            ceisa_default_kode_tutup_pu: normalizeNumericCeisaCode(ceisa?.default_kode_tutup_pu, ['11', '12', '14'], '11'),
             ceisa_default_ndpbm: ceisa?.default_ndpbm ? String(ceisa.default_ndpbm) : '',
         });
         setOpenEdit(true);
@@ -484,37 +496,70 @@ export default function ManageCustomers() {
                     <Label htmlFor="ceisa_default_kode_cara_bayar" className="text-foreground font-semibold">
                         Cara Bayar
                     </Label>
-                    <Input
-                        id="ceisa_default_kode_cara_bayar"
+                    <Select
                         value={formData.ceisa_default_kode_cara_bayar}
-                        onChange={(e) => handleInputChange('ceisa_default_kode_cara_bayar', e.target.value)}
-                        placeholder="KMD"
-                        className="border-input bg-background text-foreground h-11 sm:h-10"
-                    />
+                        onValueChange={(value) => handleInputChange('ceisa_default_kode_cara_bayar', value)}
+                    >
+                        <SelectTrigger id="ceisa_default_kode_cara_bayar" className="border-input bg-background text-foreground h-11 sm:h-10">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="1">1 - BIASA/TUNAI</SelectItem>
+                            <SelectItem value="2">2 - BERKALA</SelectItem>
+                            <SelectItem value="3">3 - DENGAN JAMINAN</SelectItem>
+                            <SelectItem value="4">4 - PERHITUNGAN KEMUDIAN</SelectItem>
+                            <SelectItem value="5">5 - KONSINYASI</SelectItem>
+                            <SelectItem value="6">6 - USANCE L/C</SelectItem>
+                            <SelectItem value="7">7 - RED CLAUSE L/C</SelectItem>
+                            <SelectItem value="8">8 - INTER-COMPANY ACCOUNT</SelectItem>
+                            <SelectItem value="9">9 - GABUNGAN/LAINNYA</SelectItem>
+                            <SelectItem value="10">10 - OPEN ACCOUNT BERTAHAP</SelectItem>
+                            <SelectItem value="11">11 - OPEN ACCOUNT TUNAI</SelectItem>
+                            <SelectItem value="12">12 - BAYAR TUNAI DI DN</SelectItem>
+                            <SelectItem value="13">13 - BAYAR TELEGRAPH DI DN</SelectItem>
+                            <SelectItem value="14">14 - TANPA PEMBAYARAN</SelectItem>
+                            <SelectItem value="15">15 - ADVANCE PAYMENT</SelectItem>
+                            <SelectItem value="16">16 - SIGHT L/C</SelectItem>
+                            <SelectItem value="17">17 - INKASO</SelectItem>
+                        </SelectContent>
+                    </Select>
                 </div>
                 <div className="grid gap-2">
                     <Label htmlFor="ceisa_default_kode_jenis_impor" className="text-foreground font-semibold">
                         Jenis Impor
                     </Label>
-                    <Input
-                        id="ceisa_default_kode_jenis_impor"
+                    <Select
                         value={formData.ceisa_default_kode_jenis_impor}
-                        onChange={(e) => handleInputChange('ceisa_default_kode_jenis_impor', e.target.value)}
-                        placeholder="01"
-                        className="border-input bg-background text-foreground h-11 sm:h-10"
-                    />
+                        onValueChange={(value) => handleInputChange('ceisa_default_kode_jenis_impor', value)}
+                    >
+                        <SelectTrigger id="ceisa_default_kode_jenis_impor" className="border-input bg-background text-foreground h-11 sm:h-10">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="1">1 - UNTUK DIPAKAI</SelectItem>
+                            <SelectItem value="2">2 - SEMENTARA</SelectItem>
+                            <SelectItem value="5">5 - PELAYANAN SEGERA</SelectItem>
+                            <SelectItem value="9">9 - GABUNGAN</SelectItem>
+                        </SelectContent>
+                    </Select>
                 </div>
                 <div className="grid gap-2">
                     <Label htmlFor="ceisa_default_kode_tutup_pu" className="text-foreground font-semibold">
                         Tutup PU
                     </Label>
-                    <Input
-                        id="ceisa_default_kode_tutup_pu"
+                    <Select
                         value={formData.ceisa_default_kode_tutup_pu}
-                        onChange={(e) => handleInputChange('ceisa_default_kode_tutup_pu', e.target.value)}
-                        placeholder="Opsional"
-                        className="border-input bg-background text-foreground h-11 sm:h-10"
-                    />
+                        onValueChange={(value) => handleInputChange('ceisa_default_kode_tutup_pu', value)}
+                    >
+                        <SelectTrigger id="ceisa_default_kode_tutup_pu" className="border-input bg-background text-foreground h-11 sm:h-10">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="11">11 - BC 1.1</SelectItem>
+                            <SelectItem value="12">12 - BC 1.2</SelectItem>
+                            <SelectItem value="14">14 - BC 1.4</SelectItem>
+                        </SelectContent>
+                    </Select>
                 </div>
                 <div className="grid gap-2">
                     <Label htmlFor="ceisa_default_ndpbm" className="text-foreground font-semibold">

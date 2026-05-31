@@ -900,6 +900,10 @@ export default function ViewCustomerForm({
             setIsCeisaDraftModalOpen(false);
             toast.success(response.data.message || 'Draft CEISA berhasil dikirim');
         } catch (error: any) {
+            if (error?.response?.data?.payload) {
+                setCeisaDraftPayloadText(JSON.stringify(error.response.data.payload, null, 2));
+            }
+
             if (error?.response?.data?.submissions) {
                 setCeisaSubmissions(error.response.data.submissions);
             }
