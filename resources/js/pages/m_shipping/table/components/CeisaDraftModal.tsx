@@ -890,7 +890,7 @@ export function CeisaDraftModal({
     const missingRequirements = requirements.filter((item) => !item.ok);
     const completedCount = requirements.length - missingRequirements.length;
     const visibleWarnings = useMemo(() => filterResolvedWarnings(warnings, payload, documentType), [warnings, payload, documentType]);
-    const requiredDocumentCodes = isExport ? ['36', '380'] : ['380', '705', '740'];
+    const requiredDocumentCodes = isExport ? ['380', '217', '36'] : ['380', '705', '740'];
 
     const commitPayload = (mutator: (next: Record<string, any>) => void) => {
         if (jsonError) return;
@@ -1707,7 +1707,7 @@ export function CeisaDraftModal({
                                         <div className="text-xs font-bold text-slate-800 dark:text-zinc-100">Dokumen Pendukung</div>
                                         <div className="mt-0.5 text-xs text-slate-500 dark:text-zinc-400">
                                             {isExport
-                                                ? 'Shipping Instruction 36 dan Invoice 380 wajib untuk draft ekspor. B/L/AWB tidak dipaksa karena biasanya muncul setelah pengapalan.'
+                                                ? 'Invoice 380, Packing List 217, dan Shipping Instruction 36 wajib untuk draft ekspor. B/L/AWB tidak dipaksa karena biasanya muncul setelah pengapalan.'
                                                 : 'Invoice 380 dan B/L 705 atau AWB 740 wajib untuk draft import.'}
                                         </div>
                                     </div>

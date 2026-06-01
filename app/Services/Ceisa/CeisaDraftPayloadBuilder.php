@@ -343,8 +343,12 @@ class CeisaDraftPayloadBuilder
             }
         }
 
-        if ($shipmentType === 'export' && ! $requiredRows->contains(fn (array $row) => (string) $row['code'] === '36')) {
-            $requiredRows->push(['code' => '36', 'name' => 'Shipping Instruction']);
+        if ($shipmentType === 'export') {
+            foreach ([['code' => '217', 'name' => 'Packing List'], ['code' => '36', 'name' => 'Shipping Instruction']] as $requiredExportDocument) {
+                if (! $requiredRows->contains(fn (array $row) => (string) $row['code'] === $requiredExportDocument['code'])) {
+                    $requiredRows->push($requiredExportDocument);
+                }
+            }
         }
 
         foreach ($requiredRows as $required) {

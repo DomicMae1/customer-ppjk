@@ -156,6 +156,12 @@ test('it normalizes bc30 export draft fields required by ceisa schema', function
                 'nomorDokumen' => 'INV-001',
                 'tanggalDokumen' => '2026-06-01',
             ],
+            [
+                'seriDokumen' => 3,
+                'kodeDokumen' => '217',
+                'nomorDokumen' => 'PL-001',
+                'tanggalDokumen' => '2026-06-01',
+            ],
         ],
         'pengangkut' => [[]],
     ], 'BC30');
@@ -209,9 +215,13 @@ test('it normalizes bc30 export draft fields required by ceisa schema', function
         ->and($normalized['dokumen'][0]['seriDokumen'])
         ->toBe(1)
         ->and($normalized['dokumen'][1]['kodeDokumen'])
-        ->toBe('36')
+        ->toBe('217')
         ->and($normalized['dokumen'][1]['seriDokumen'])
         ->toBe(2)
+        ->and($normalized['dokumen'][2]['kodeDokumen'])
+        ->toBe('36')
+        ->and($normalized['dokumen'][2]['seriDokumen'])
+        ->toBe(3)
         ->and(array_key_exists('kodeJenisImpor', $normalized))
         ->toBeFalse()
         ->and(array_key_exists('kodeJenisNilai', $normalized))

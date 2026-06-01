@@ -296,7 +296,7 @@ class CeisaImportPayloadNormalizer
         $payload['entitas'] = $this->normalizeExportEntities($payload['entitas'] ?? [], $payload['kodeNegaraTujuan'] ?: 'ID');
         $payload['pengangkut'] = $this->normalizeExportPengangkut($payload['pengangkut'] ?? []);
         $payload['barang'] = $this->normalizeExportGoods($payload['barang'] ?? [], $payload);
-        $payload['dokumen'] = $this->normalizeDocumentRows($payload['dokumen'] ?? [], ['380', '36']);
+        $payload['dokumen'] = $this->normalizeDocumentRows($payload['dokumen'] ?? [], ['380', '217', '36']);
 
         return $payload;
     }
