@@ -4,10 +4,15 @@ namespace App\Services\Ceisa;
 
 use App\Models\CeisaCompanyConfig;
 use App\Models\CeisaReferenceCache;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Str;
 
 class CeisaReferenceService
 {
-    public function __construct(private readonly CeisaClient $client) {}
+    public function __construct(
+        private readonly CeisaClient $client,
+        private readonly CeisaPortReferenceFallback $portFallback
+    ) {}
 
     public function get(
         CeisaCompanyConfig $config,
@@ -31,16 +36,20 @@ class CeisaReferenceService
                 ->first();
 
             if ($cached) {
-                return [
+                $result = [
                     'ok' => true,
                     'cached' => true,
                     'message' => 'Referensi CEISA diambil dari cache.',
                     'data' => $cached->response_payload,
                 ];
+
+                return $this->withPortKeywordFallback($referencePath, $result);
             }
         }
 
         $result = $this->client->getReference($config, $referencePath, $query);
+
+        $result = $this->withPortKeywordFallback($referencePath, $result);
 
         if ($result['ok']) {
             CeisaReferenceCache::updateOrCreate(
@@ -60,5 +69,42 @@ class CeisaReferenceService
         }
 
         return $result + ['cached' => false];
+    }
+
+    private function withPortKeywordFallback(string $referencePath, array $result): array
+    {
+        if (! $this->shouldApplyPortKeywordFallback($referencePath, $result)) {
+            return $result;
+        }
+
+        $fallback = $this->portFallback->payloadForKeyword($this->portKeywordFromPath($referencePath));
+
+        if (! $fallback) {
+            return $result;
+        }
+
+        $result['data'] = $fallback;
+        $result['message'] = 'success (local port fallback)';
+
+        return $result;
+    }
+
+    private function shouldApplyPortKeywordFallback(string $referencePath, array $result): bool
+    {
+        if (! ($result['ok'] ?? false) || ! Str::startsWith($referencePath, '/openapi/pelabuhan/kata/')) {
+            return false;
+        }
+
+        $payload = Arr::get($result, 'data');
+        $rows = is_array($payload) && array_is_list($payload)
+            ? $payload
+            : Arr::get($result, 'data.data');
+
+        return is_array($rows) && count($rows) === 0;
+    }
+
+    private function portKeywordFromPath(string $referencePath): string
+    {
+        return rawurldecode(Str::after($referencePath, '/openapi/pelabuhan/kata/'));
     }
 }

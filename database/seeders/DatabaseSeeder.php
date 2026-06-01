@@ -28,6 +28,7 @@ class DatabaseSeeder extends Seeder
             $this->call([
                 TenantSectionSeeder::class,
                 TenantDocumentSeeder::class,
+                CeisaExportDocumentSeeder::class,
                 CeisaDocumentMappingSeeder::class,
             ]);
 

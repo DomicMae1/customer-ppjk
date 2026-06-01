@@ -90,10 +90,10 @@ class CeisaDraftPayloadBuilder
             ]);
         } else {
             $payload = array_merge($payload, [
-                'kodeJenisEkspor' => '',
-                'kodeKategoriEkspor' => '',
-                'kodeCaraDagang' => '',
-                'kodeCaraBayar' => (string) ($preset?->default_kode_cara_bayar ?: ''),
+                'kodeJenisEkspor' => '1',
+                'kodeKategoriEkspor' => '10',
+                'kodeCaraDagang' => '1',
+                'kodeCaraBayar' => (string) ($preset?->default_kode_cara_bayar ?: '1'),
                 'kodePelMuat' => (string) $spk->port_of_loading,
                 'kodePelTujuan' => (string) $spk->port,
                 'tanggalEkspor' => optional($spk->etd_date)->toDateString() ?: $today,
@@ -265,6 +265,7 @@ class CeisaDraftPayloadBuilder
 
         $mappings = Schema::connection('tenant')->hasTable('ceisa_document_mappings')
             ? CeisaDocumentMapping::where('is_active', true)
+                ->with('document')
                 ->where(function ($query) use ($shipmentType) {
                     $query->whereNull('shipment_type')
                         ->orWhere('shipment_type', $shipmentType);
@@ -305,26 +306,63 @@ class CeisaDraftPayloadBuilder
             ];
         })->filter()->values()->all();
 
-        return $this->ensureRequiredDocumentRows($rows, $spk, $shipmentType, $today, $warnings);
+        return $this->ensureRequiredDocumentRows($rows, $spk, $shipmentType, $today, $warnings, $mappings);
     }
 
-    private function ensureRequiredDocumentRows(array $rows, Spk $spk, string $shipmentType, string $today, array &$warnings): array
+    private function ensureRequiredDocumentRows(array $rows, Spk $spk, string $shipmentType, string $today, array &$warnings, $mappings): array
     {
-        if (! collect($rows)->contains(fn (array $row) => ($row['kodeDokumen'] ?? null) === '380')) {
-            $warnings[] = 'Dokumen invoice 380 belum terdeteksi. Isi nomor dan tanggal invoice di form draft CEISA.';
-            $rows[] = [
-                'seriDokumen' => count($rows) + 1,
-                'kodeDokumen' => '380',
-                'nomorDokumen' => (string) ($spk->spk_code ?: '-'),
-                'tanggalDokumen' => $today,
-            ];
+        $requiredRows = $mappings
+            ->filter(fn (CeisaDocumentMapping $mapping) => $mapping->is_required_for_submit)
+            ->map(function (CeisaDocumentMapping $mapping) use ($shipmentType) {
+                $name = (string) ($mapping->document?->nama_file ?: $mapping->document?->nama_dokumen ?: '');
+                $code = $this->documentMappingResolver->codeFor($mapping, $name);
+
+                if (! $code || ! $this->documentMappingResolver->shouldIncludeInDraft($mapping, $name)) {
+                    return null;
+                }
+
+                if ($shipmentType === 'export' && in_array((string) $code, ['705', '740'], true)) {
+                    return null;
+                }
+
+                return [
+                    'code' => (string) $code,
+                    'name' => $name ?: "dokumen {$code}",
+                ];
+            })
+            ->filter()
+            ->values();
+
+        if ($requiredRows->isEmpty()) {
+            $requiredRows = collect([
+                ['code' => '380', 'name' => 'invoice'],
+            ]);
+
+            if ($shipmentType === 'import') {
+                $requiredRows->push(['code' => '705', 'name' => 'B/L atau AWB']);
+            }
         }
 
-        if ($shipmentType === 'import' && ! collect($rows)->contains(fn (array $row) => in_array($row['kodeDokumen'] ?? null, ['705', '740'], true))) {
-            $warnings[] = 'Dokumen B/L 705 atau AWB 740 belum terdeteksi. Isi nomor dan tanggal dokumen pengangkutan di form draft CEISA.';
+        if ($shipmentType === 'export' && ! $requiredRows->contains(fn (array $row) => (string) $row['code'] === '36')) {
+            $requiredRows->push(['code' => '36', 'name' => 'Shipping Instruction']);
+        }
+
+        foreach ($requiredRows as $required) {
+            $code = (string) $required['code'];
+            $exists = $code === '705' && $shipmentType === 'import'
+                ? collect($rows)->contains(fn (array $row) => in_array($row['kodeDokumen'] ?? null, ['705', '740'], true))
+                : collect($rows)->contains(fn (array $row) => ($row['kodeDokumen'] ?? null) === $code);
+
+            if ($exists) {
+                continue;
+            }
+
+            $label = $code === '705' && $shipmentType === 'import' ? 'B/L 705 atau AWB 740' : trim((string) $required['name']);
+            $fallbackCode = $code === '705' && $shipmentType === 'import' ? '705' : $code;
+            $warnings[] = "Dokumen {$label} belum terdeteksi. Isi nomor dan tanggal dokumen di form draft CEISA.";
             $rows[] = [
                 'seriDokumen' => count($rows) + 1,
-                'kodeDokumen' => '705',
+                'kodeDokumen' => $fallbackCode,
                 'nomorDokumen' => (string) ($spk->spk_code ?: '-'),
                 'tanggalDokumen' => $today,
             ];
@@ -345,7 +383,19 @@ class CeisaDraftPayloadBuilder
 
         $fileBase = trim((string) pathinfo((string) $document->nama_file, PATHINFO_FILENAME));
 
+        $masterName = trim((string) ($document->masterDocument?->nama_file ?: ''));
+        if ($fileBase !== '' && $masterName !== '' && $this->sameDocumentName($fileBase, $masterName)) {
+            return '';
+        }
+
         return $fileBase !== '' ? $fileBase : ((string) $spk->spk_code ?: '-');
+    }
+
+    private function sameDocumentName(string $left, string $right): bool
+    {
+        $normalize = fn (string $value): string => preg_replace('/[^a-z0-9]+/', '', Str::lower($value)) ?: '';
+
+        return $normalize($left) === $normalize($right);
     }
 
     private function barangRows(Spk $spk, array &$warnings, array $kemasanRows, string $originCountry): array
@@ -498,7 +548,7 @@ class CeisaDraftPayloadBuilder
             $warnings[] = 'Dokumen invoice 380 belum terdeteksi.';
         }
 
-        if (! collect($documents)->contains(fn (array $row) => in_array($row['kodeDokumen'] ?? null, ['705', '740'], true))) {
+        if ($this->shipmentType($spk) === 'import' && ! collect($documents)->contains(fn (array $row) => in_array($row['kodeDokumen'] ?? null, ['705', '740'], true))) {
             $warnings[] = 'Dokumen B/L 705 atau AWB 740 belum terdeteksi.';
         }
 

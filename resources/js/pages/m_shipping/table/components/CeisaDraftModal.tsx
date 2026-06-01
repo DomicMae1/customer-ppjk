@@ -62,6 +62,7 @@ const tabConfig: Array<{ key: DraftTab; label: string; icon: any }> = [
 ];
 
 const documentOptions = [
+    { value: '36', label: '36 - Shipping Instruction' },
     { value: '380', label: '380 - Invoice' },
     { value: '217', label: '217 - Packing List' },
     { value: '704', label: '704 - Master B/L' },
@@ -659,71 +660,125 @@ function entityTemplate(kodeEntitas: string): Record<string, any> {
     return common;
 }
 
-function buildRequirements(payload: Record<string, any>): Requirement[] {
+function isExportDraft(documentType: string, payload: Record<string, any>): boolean {
+    const normalizedType = String(documentType || payload.kodeDokumen || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+    return normalizedType === 'BC30' || normalizedType === '30';
+}
+
+function buildRequirements(payload: Record<string, any>, documentType: string): Requirement[] {
     const entitas = Array.isArray(payload.entitas) ? payload.entitas : [];
     const dokumen = Array.isArray(payload.dokumen) ? payload.dokumen : [];
     const barang = Array.isArray(payload.barang) ? payload.barang : [];
     const kemasan = Array.isArray(payload.kemasan) ? payload.kemasan : [];
+    const exportDraft = isExportDraft(documentType, payload);
 
     const importir = entitas.find((item: any) => item?.kodeEntitas === '1');
+    const eksportir = entitas.find((item: any) => item?.kodeEntitas === '2');
     const pemilik = entitas.find((item: any) => item?.kodeEntitas === '7');
     const pengirim = entitas.find((item: any) => item?.kodeEntitas === '9');
     const penjual = entitas.find((item: any) => item?.kodeEntitas === '10');
     const pemusatan = entitas.find((item: any) => item?.kodeEntitas === '11');
     const invoice = dokumen.find((item: any) => item?.kodeDokumen === '380');
+    const shippingInstruction = dokumen.find((item: any) => item?.kodeDokumen === '36');
     const blAwb = dokumen.find((item: any) => ['705', '740'].includes(item?.kodeDokumen));
     const firstBarang = barang[0] || {};
     const firstKemasan = kemasan[0] || {};
 
-    return [
+    const commonRequirements: Requirement[] = [
         { group: 'Header', label: 'Kode kantor', ok: hasValue(payload.kodeKantor) },
         { group: 'Pengangkut', label: 'Pelabuhan muat', ok: hasValue(payload.kodePelMuat) },
         { group: 'Header', label: 'Pelabuhan tujuan', ok: hasValue(payload.kodePelTujuan) },
-        { group: 'Header', label: 'Jenis impor', ok: hasValue(payload.kodeJenisImpor) },
-        { group: 'Header', label: 'Cara bayar', ok: caraBayarValues.has(String(payload.kodeCaraBayar || '')) },
-        { group: 'Pengangkut', label: 'Nomor Tutup PU', ok: tutupPuValues.has(String(payload.kodeTutupPu || '')) },
-        { group: 'Transaksi', label: 'NDPBM/Kurs', ok: positiveNumber(payload.ndpbm) },
-        { group: 'Transaksi', label: 'Jenis transaksi', ok: jenisTransaksiValues.has(String(payload.kodeJenisNilai || '')) },
-        { group: 'Pernyataan', label: 'Penandatangan', ok: hasValue(payload.namaTtd) && hasValue(payload.jabatanTtd) && hasValue(payload.kotaTtd) },
-        {
-            group: 'Entitas',
-            label: 'Importir lengkap',
-            ok:
-                hasValue(importir?.namaEntitas) &&
-                hasValue(importir?.alamatEntitas) &&
-                hasValue(importir?.nomorIdentitas) &&
-                hasValue(importir?.nibEntitas),
-        },
-        {
-            group: 'Entitas',
-            label: 'Pemilik barang',
-            ok: hasValue(pemilik?.namaEntitas) && hasValue(pemilik?.alamatEntitas) && hasValue(pemilik?.nomorIdentitas),
-        },
-        {
-            group: 'Entitas',
-            label: 'Pengirim luar negeri',
-            ok: hasValue(pengirim?.namaEntitas) && hasValue(pengirim?.alamatEntitas) && isCountryCode(pengirim?.kodeNegara),
-        },
-        {
-            group: 'Entitas',
-            label: 'Penjual luar negeri',
-            ok: hasValue(penjual?.namaEntitas) && hasValue(penjual?.alamatEntitas) && isCountryCode(penjual?.kodeNegara),
-        },
-        {
-            group: 'Entitas',
-            label: 'Pemusatan',
-            ok: hasValue(pemusatan?.namaEntitas) && hasValue(pemusatan?.alamatEntitas) && hasValue(pemusatan?.nomorIdentitas),
-        },
+    ];
+
+    const transactionRequirements: Requirement[] = exportDraft
+        ? [
+              { group: 'Header', label: 'Jenis ekspor', ok: hasValue(payload.kodeJenisEkspor) },
+              { group: 'Header', label: 'Kategori ekspor', ok: hasValue(payload.kodeKategoriEkspor) },
+              { group: 'Header', label: 'Cara dagang', ok: hasValue(payload.kodeCaraDagang) },
+              { group: 'Header', label: 'Cara bayar', ok: caraBayarValues.has(String(payload.kodeCaraBayar || '')) },
+              { group: 'Transaksi', label: 'NDPBM/Kurs', ok: positiveNumber(payload.ndpbm) },
+              { group: 'Pernyataan', label: 'Penandatangan', ok: hasValue(payload.namaTtd) && hasValue(payload.jabatanTtd) && hasValue(payload.kotaTtd) },
+              {
+                  group: 'Entitas',
+                  label: 'Eksportir lengkap',
+                  ok:
+                      hasValue(eksportir?.namaEntitas) &&
+                      hasValue(eksportir?.alamatEntitas) &&
+                      hasValue(eksportir?.nomorIdentitas) &&
+                      hasValue(eksportir?.nibEntitas),
+              },
+          ]
+        : [
+              { group: 'Header', label: 'Jenis impor', ok: hasValue(payload.kodeJenisImpor) },
+              { group: 'Header', label: 'Cara bayar', ok: caraBayarValues.has(String(payload.kodeCaraBayar || '')) },
+              { group: 'Pengangkut', label: 'Nomor Tutup PU', ok: tutupPuValues.has(String(payload.kodeTutupPu || '')) },
+              { group: 'Transaksi', label: 'NDPBM/Kurs', ok: positiveNumber(payload.ndpbm) },
+              { group: 'Transaksi', label: 'Jenis transaksi', ok: jenisTransaksiValues.has(String(payload.kodeJenisNilai || '')) },
+              {
+                  group: 'Pernyataan',
+                  label: 'Penandatangan',
+                  ok: hasValue(payload.namaTtd) && hasValue(payload.jabatanTtd) && hasValue(payload.kotaTtd),
+              },
+              {
+                  group: 'Entitas',
+                  label: 'Importir lengkap',
+                  ok:
+                      hasValue(importir?.namaEntitas) &&
+                      hasValue(importir?.alamatEntitas) &&
+                      hasValue(importir?.nomorIdentitas) &&
+                      hasValue(importir?.nibEntitas),
+              },
+              {
+                  group: 'Entitas',
+                  label: 'Pemilik barang',
+                  ok: hasValue(pemilik?.namaEntitas) && hasValue(pemilik?.alamatEntitas) && hasValue(pemilik?.nomorIdentitas),
+              },
+              {
+                  group: 'Entitas',
+                  label: 'Pengirim luar negeri',
+                  ok: hasValue(pengirim?.namaEntitas) && hasValue(pengirim?.alamatEntitas) && isCountryCode(pengirim?.kodeNegara),
+              },
+              {
+                  group: 'Entitas',
+                  label: 'Penjual luar negeri',
+                  ok: hasValue(penjual?.namaEntitas) && hasValue(penjual?.alamatEntitas) && isCountryCode(penjual?.kodeNegara),
+              },
+              {
+                  group: 'Entitas',
+                  label: 'Pemusatan',
+                  ok: hasValue(pemusatan?.namaEntitas) && hasValue(pemusatan?.alamatEntitas) && hasValue(pemusatan?.nomorIdentitas),
+              },
+          ];
+
+    const documentRequirements: Requirement[] = [
         {
             group: 'Dokumen',
             label: 'Invoice 380',
             ok: hasValue(invoice?.nomorDokumen) && hasValue(invoice?.tanggalDokumen),
         },
-        {
+    ];
+
+    if (exportDraft) {
+        documentRequirements.push({
             group: 'Dokumen',
-            label: 'B/L 705 atau AWB 740',
-            ok: hasValue(blAwb?.nomorDokumen) && hasValue(blAwb?.tanggalDokumen),
-        },
+            label: 'Shipping Instruction 36',
+            ok: hasValue(shippingInstruction?.nomorDokumen) && hasValue(shippingInstruction?.tanggalDokumen),
+        });
+    } else {
+        documentRequirements.push(
+            {
+                group: 'Dokumen',
+                label: 'B/L 705 atau AWB 740',
+                ok: hasValue(blAwb?.nomorDokumen) && hasValue(blAwb?.tanggalDokumen),
+            },
+        );
+    }
+
+    return [
+        ...commonRequirements,
+        ...transactionRequirements,
+        ...documentRequirements,
         {
             group: 'Kemasan',
             label: 'Kemasan',
@@ -759,11 +814,21 @@ function foreignEntityComplete(payload: Record<string, any>, kodeEntitas: string
     return hasValue(entity?.namaEntitas) && hasValue(entity?.alamatEntitas) && isCountryCode(entity?.kodeNegara);
 }
 
-function filterResolvedWarnings(warnings: string[], payload: Record<string, any>): string[] {
+function filterResolvedWarnings(warnings: string[], payload: Record<string, any>, documentType: string): string[] {
+    const exportDraft = isExportDraft(documentType, payload);
+
     return warnings.filter((warning) => {
         const normalized = warning.toLowerCase();
 
         if (normalized.includes('dokumen invoice 380') && hasDocumentRow(payload, ['380'])) {
+            return false;
+        }
+
+        if (normalized.includes('shipping instruction') && hasDocumentRow(payload, ['36'])) {
+            return false;
+        }
+
+        if (exportDraft && normalized.includes('dokumen b/l 705')) {
             return false;
         }
 
@@ -820,10 +885,12 @@ export function CeisaDraftModal({
     const [kursLookupMessage, setKursLookupMessage] = useState('');
     const [isLookingUpKurs, setIsLookingUpKurs] = useState(false);
     const { payload, error: jsonError } = useMemo(() => parsePayload(payloadText), [payloadText]);
-    const requirements = useMemo(() => buildRequirements(payload), [payload]);
+    const isExport = isExportDraft(documentType, payload);
+    const requirements = useMemo(() => buildRequirements(payload, documentType), [payload, documentType]);
     const missingRequirements = requirements.filter((item) => !item.ok);
     const completedCount = requirements.length - missingRequirements.length;
-    const visibleWarnings = useMemo(() => filterResolvedWarnings(warnings, payload), [warnings, payload]);
+    const visibleWarnings = useMemo(() => filterResolvedWarnings(warnings, payload, documentType), [warnings, payload, documentType]);
+    const requiredDocumentCodes = isExport ? ['36', '380'] : ['380', '705', '740'];
 
     const commitPayload = (mutator: (next: Record<string, any>) => void) => {
         if (jsonError) return;
@@ -1292,7 +1359,7 @@ export function CeisaDraftModal({
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                         <div>
                             <DialogTitle className="text-left text-base font-semibold text-slate-900">
-                                {documentType || payload.kodeDokumen || 'BC 2.0'} - PEMBERITAHUAN IMPOR BARANG
+                                {documentType || payload.kodeDokumen || 'BC 2.0'} - {isExport ? 'PEMBERITAHUAN EKSPOR BARANG' : 'PEMBERITAHUAN IMPOR BARANG'}
                             </DialogTitle>
                             <DialogDescription className="mt-1 text-left text-xs text-slate-500">
                                 Draft internal. Tombol kirim selalu memakai isFinal=false.
@@ -1639,14 +1706,16 @@ export function CeisaDraftModal({
                                     <div>
                                         <div className="text-xs font-bold text-slate-800 dark:text-zinc-100">Dokumen Pendukung</div>
                                         <div className="mt-0.5 text-xs text-slate-500 dark:text-zinc-400">
-                                            Invoice 380 dan B/L 705 atau AWB 740 wajib untuk draft import.
+                                            {isExport
+                                                ? 'Shipping Instruction 36 dan Invoice 380 wajib untuk draft ekspor. B/L/AWB tidak dipaksa karena biasanya muncul setelah pengapalan.'
+                                                : 'Invoice 380 dan B/L 705 atau AWB 740 wajib untuk draft import.'}
                                         </div>
                                     </div>
                                     <Button
                                         type="button"
                                         variant="outline"
                                         size="sm"
-                                        onClick={() => addDocument()}
+                                        onClick={() => addDocument(isExport ? '36' : '380')}
                                         className="h-8 gap-2 rounded-lg text-[11px] font-bold"
                                     >
                                         <Plus className="h-3.5 w-3.5" />
@@ -1661,7 +1730,7 @@ export function CeisaDraftModal({
                                             className="grid gap-3 rounded-xl border border-slate-200 p-3 md:grid-cols-[160px_1fr_170px_40px] dark:border-zinc-800"
                                         >
                                             <div className="space-y-1.5">
-                                                {fieldLabel('Jenis', ['380', '705', '740'].includes(row.kodeDokumen))}
+                                                {fieldLabel('Jenis', requiredDocumentCodes.includes(row.kodeDokumen))}
                                                 <select
                                                     value={row.kodeDokumen || ''}
                                                     onChange={(e) => updateDocument(index, 'kodeDokumen', e.target.value)}
@@ -1676,7 +1745,7 @@ export function CeisaDraftModal({
                                                 </select>
                                             </div>
                                             <div className="space-y-1.5">
-                                                {fieldLabel('Nomor Dokumen', ['380', '705', '740'].includes(row.kodeDokumen))}
+                                                {fieldLabel('Nomor Dokumen', requiredDocumentCodes.includes(row.kodeDokumen))}
                                                 <Input
                                                     value={row.nomorDokumen || ''}
                                                     onChange={(e) => updateDocument(index, 'nomorDokumen', e.target.value)}
@@ -1684,7 +1753,7 @@ export function CeisaDraftModal({
                                                 />
                                             </div>
                                             <div className="space-y-1.5">
-                                                {fieldLabel('Tanggal Dokumen', ['380', '705', '740'].includes(row.kodeDokumen))}
+                                                {fieldLabel('Tanggal Dokumen', requiredDocumentCodes.includes(row.kodeDokumen))}
                                                 <Input
                                                     type="date"
                                                     value={row.tanggalDokumen || ''}

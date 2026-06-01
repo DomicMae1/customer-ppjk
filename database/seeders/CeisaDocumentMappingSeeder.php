@@ -58,7 +58,8 @@ class CeisaDocumentMappingSeeder extends Seeder
     private function mappings(): array
     {
         return [
-            'Bill of Lading' => $this->include('705', true, ['B/L', 'BL', 'Konosemen']),
+            'Bill of Lading' => $this->include('705', true, ['B/L', 'BL', 'Konosemen'], 'import'),
+            'Shipping Instruction' => $this->include('36', true, ['SI', 'Instruksi Pengapalan'], 'export'),
             'Invoice' => $this->include('380', true, ['Commercial Invoice', 'INV']),
             'Packing List' => $this->include('217', false, ['Packing']),
             'Asuransi' => $this->include('999', false, ['Insurance']),
@@ -104,10 +105,11 @@ class CeisaDocumentMappingSeeder extends Seeder
         ];
     }
 
-    private function include(string $code, bool $required = false, array $aliases = []): array
+    private function include(string $code, bool $required = false, array $aliases = [], ?string $shipmentType = null): array
     {
         return [
             'code' => $code,
+            'shipment_type' => $shipmentType,
             'draft_usage' => CeisaDocumentMapping::DRAFT_USAGE_INCLUDE,
             'required' => $required,
             'aliases' => $aliases,
