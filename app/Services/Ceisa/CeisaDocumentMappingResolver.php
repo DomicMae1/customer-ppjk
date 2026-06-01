@@ -69,7 +69,7 @@ class CeisaDocumentMappingResolver
         $normalized = $this->normalize($name);
 
         if ($normalized === 'si' || preg_match('/\bsi\b/', $normalized)) {
-            return '36';
+            return '343';
         }
 
         if (preg_match('/\bbl\b/', $normalized)) {
@@ -77,7 +77,7 @@ class CeisaDocumentMappingResolver
         }
 
         return match (true) {
-            Str::contains($normalized, ['shipping instruction', 'instruksi pengapalan']) => '36',
+            Str::contains($normalized, ['shipping instruction', 'instruksi pengapalan']) => '343',
             Str::contains($normalized, ['master awb']) => '741',
             Str::contains($normalized, ['awb']) => '740',
             Str::contains($normalized, ['master b l', 'master bl']) => '704',

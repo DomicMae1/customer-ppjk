@@ -344,7 +344,11 @@ class CeisaDraftPayloadBuilder
         }
 
         if ($shipmentType === 'export') {
-            foreach ([['code' => '217', 'name' => 'Packing List'], ['code' => '36', 'name' => 'Shipping Instruction']] as $requiredExportDocument) {
+            $requiredRows = $requiredRows
+                ->filter(fn (array $row) => in_array((string) $row['code'], ['380', '217'], true))
+                ->values();
+
+            foreach ([['code' => '380', 'name' => 'Invoice'], ['code' => '217', 'name' => 'Packing List']] as $requiredExportDocument) {
                 if (! $requiredRows->contains(fn (array $row) => (string) $row['code'] === $requiredExportDocument['code'])) {
                     $requiredRows->push($requiredExportDocument);
                 }

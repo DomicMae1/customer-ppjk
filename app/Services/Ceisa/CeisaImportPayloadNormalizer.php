@@ -296,19 +296,26 @@ class CeisaImportPayloadNormalizer
         $payload['entitas'] = $this->normalizeExportEntities($payload['entitas'] ?? [], $payload['kodeNegaraTujuan'] ?: 'ID');
         $payload['pengangkut'] = $this->normalizeExportPengangkut($payload['pengangkut'] ?? []);
         $payload['barang'] = $this->normalizeExportGoods($payload['barang'] ?? [], $payload);
-        $payload['dokumen'] = $this->normalizeDocumentRows($payload['dokumen'] ?? [], ['380', '217', '36']);
+        $payload['dokumen'] = $this->normalizeDocumentRows($payload['dokumen'] ?? [], ['380', '217', '343'], ['36' => '343']);
 
         return $payload;
     }
 
-    private function normalizeDocumentRows(mixed $rows, array $priorityCodes): array
+    private function normalizeDocumentRows(mixed $rows, array $priorityCodes, array $codeAliases = []): array
     {
         $priority = array_flip(array_map('strval', $priorityCodes));
 
         return collect(is_array($rows) ? $rows : [])
             ->filter(fn ($row) => is_array($row))
             ->values()
-            ->map(fn (array $row, int $index) => ['row' => $row, 'index' => $index])
+            ->map(function (array $row, int $index) use ($codeAliases): array {
+                $code = (string) ($row['kodeDokumen'] ?? '');
+                if (isset($codeAliases[$code])) {
+                    $row['kodeDokumen'] = $codeAliases[$code];
+                }
+
+                return ['row' => $row, 'index' => $index];
+            })
             ->sortBy([
                 fn (array $item) => $priority[(string) ($item['row']['kodeDokumen'] ?? '')] ?? 999,
                 fn (array $item) => $item['index'],

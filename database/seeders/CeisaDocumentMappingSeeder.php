@@ -59,7 +59,7 @@ class CeisaDocumentMappingSeeder extends Seeder
     {
         return [
             'Bill of Lading' => $this->include('705', true, ['B/L', 'BL', 'Konosemen'], 'import'),
-            'Shipping Instruction' => $this->include('36', true, ['SI', 'Instruksi Pengapalan'], 'export'),
+            'Shipping Instruction' => $this->include('343', false, ['SI', 'Instruksi Pengapalan', 'Shiping Order', 'Shipping Order'], 'export'),
             'Invoice' => $this->include('380', true, ['Commercial Invoice', 'INV']),
             'Packing List' => $this->include('217', false, ['Packing']),
             'Asuransi' => $this->include('999', false, ['Insurance']),

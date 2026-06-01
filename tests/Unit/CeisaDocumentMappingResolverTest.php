@@ -12,8 +12,8 @@ test('it maps common import supporting documents to ceisa document codes', funct
         ->toBe($expectedCode);
 })->with([
     ['Invoice', '380'],
-    ['Shipping Instruction', '36'],
-    ['SI', '36'],
+    ['Shipping Instruction', '343'],
+    ['SI', '343'],
     ['Packing List', '217'],
     ['Bill of Lading', '705'],
     ['AWB', '740'],

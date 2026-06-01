@@ -219,7 +219,7 @@ test('it normalizes bc30 export draft fields required by ceisa schema', function
         ->and($normalized['dokumen'][1]['seriDokumen'])
         ->toBe(2)
         ->and($normalized['dokumen'][2]['kodeDokumen'])
-        ->toBe('36')
+        ->toBe('343')
         ->and($normalized['dokumen'][2]['seriDokumen'])
         ->toBe(3)
         ->and(array_key_exists('kodeJenisImpor', $normalized))
