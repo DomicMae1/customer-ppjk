@@ -119,7 +119,9 @@ class CeisaImportPayloadNormalizer
     {
         $payload['kodeValuta'] = $this->currencyCode($payload['kodeValuta'] ?? null);
 
-        if ($this->isImportPayload($payload, $documentType)) {
+        if ($this->isExportPayload($payload, $documentType)) {
+            $payload = $this->normalizeExportPayload($payload);
+        } elseif ($this->isImportPayload($payload, $documentType)) {
             $originCountry = $this->originCountry($payload);
             $legacyJenisNilai = $this->jenisNilaiCode($payload['kodeCaraBayar'] ?? null);
 
@@ -241,6 +243,205 @@ class CeisaImportPayloadNormalizer
         return Str::contains($documentType, ['BC20', 'BC 2.0', 'IMPORT', 'IMPOR'])
             || in_array($kodeDokumen, ['20', 'BC20', 'BC 2.0'], true)
             || array_key_exists('kodeJenisImpor', $payload);
+    }
+
+    private function isExportPayload(array $payload, ?string $documentType): bool
+    {
+        $documentType = Str::upper((string) $documentType);
+        $kodeDokumen = Str::upper((string) ($payload['kodeDokumen'] ?? ''));
+
+        return Str::contains($documentType, ['BC30', 'BC 3.0', 'EXPORT', 'EKSPOR'])
+            || in_array($kodeDokumen, ['30', 'BC30', 'BC 3.0'], true)
+            || array_key_exists('kodeJenisEkspor', $payload);
+    }
+
+    private function normalizeExportPayload(array $payload): array
+    {
+        $today = now()->toDateString();
+        $kodeKantor = trim((string) ($payload['kodeKantor'] ?? ''));
+        $kodePelMuat = trim((string) ($payload['kodePelMuat'] ?? ''));
+        $kodePelTujuan = trim((string) ($payload['kodePelTujuan'] ?? ''));
+        $tanggalPeriksa = $this->dateValue($payload['tanggalPeriksa'] ?? null)
+            ?: $this->dateValue($payload['tanggalEkspor'] ?? null)
+            ?: $this->dateValue($payload['tanggalAju'] ?? null)
+            ?: $today;
+
+        $payload['kodeDokumen'] = '30';
+        $payload['flagBarkir'] = $this->codeFromReference($payload['flagBarkir'] ?? null, ['Y', 'T'], 'T');
+        $payload['flagCurah'] = $this->codeFromReference($payload['flagCurah'] ?? null, ['1', '2'], '2');
+        $payload['flagMigas'] = $this->codeFromReference($payload['flagMigas'] ?? null, ['1', '2'], '2');
+        $payload['kodeJenisPengangkutan'] = trim((string) ($payload['kodeJenisPengangkutan'] ?? '')) ?: '1';
+        $payload['kodeKantorEkspor'] = trim((string) ($payload['kodeKantorEkspor'] ?? '')) ?: $kodeKantor;
+        $payload['kodeKantorMuat'] = trim((string) ($payload['kodeKantorMuat'] ?? '')) ?: $kodeKantor;
+        $payload['kodeKantorPeriksa'] = trim((string) ($payload['kodeKantorPeriksa'] ?? '')) ?: $kodeKantor;
+        $payload['kodeLokasi'] = $this->codeFromReference($payload['kodeLokasi'] ?? null, ['1', '2', '3', '4', '5', '6', '7', '8'], '2');
+        $payload['kodePelEkspor'] = trim((string) ($payload['kodePelEkspor'] ?? '')) ?: $kodePelMuat;
+        $payload['kodePelBongkar'] = trim((string) ($payload['kodePelBongkar'] ?? '')) ?: $kodePelTujuan;
+        $payload['kodeNegaraTujuan'] = $this->countryFromValue((string) ($payload['kodeNegaraTujuan'] ?? ''))
+            ?: $this->countryFromValue($kodePelTujuan);
+        $payload['tanggalPeriksa'] = $tanggalPeriksa;
+        $payload['tanggalEkspor'] = $this->dateValue($payload['tanggalEkspor'] ?? null) ?: $tanggalPeriksa;
+        $payload['tanggalTtd'] = $this->dateValue($payload['tanggalTtd'] ?? null) ?: $today;
+        $payload['bankDevisa'] = $this->normalizeExportBankDevisa($payload['bankDevisa'] ?? []);
+        $payload['kesiapanBarang'] = $this->normalizeExportKesiapanBarang($payload['kesiapanBarang'] ?? [], $payload, $tanggalPeriksa);
+        $payload['entitas'] = $this->normalizeExportEntities($payload['entitas'] ?? [], $payload['kodeNegaraTujuan'] ?: 'ID');
+        $payload['pengangkut'] = $this->normalizeExportPengangkut($payload['pengangkut'] ?? []);
+        $payload['barang'] = $this->normalizeExportGoods($payload['barang'] ?? [], $payload);
+
+        return $payload;
+    }
+
+    private function normalizeExportEntities(mixed $entities, string $destinationCountry): array
+    {
+        $entities = collect(is_array($entities) ? $entities : [])
+            ->filter(fn ($entity) => is_array($entity))
+            ->map(function (array $entity): array {
+                $code = (string) ($entity['kodeEntitas'] ?? '');
+                $entity['kodeEntitas'] = match ($code) {
+                    '1' => '2',
+                    '9' => '8',
+                    '10' => '6',
+                    default => $code,
+                };
+
+                return $entity;
+            })
+            ->keyBy(fn (array $entity) => (string) ($entity['kodeEntitas'] ?? ''));
+
+        $exporter = $this->exportEntityFrom($entities->get('2') ?: $entities->get('7') ?: [], '2', 'EKSPORTIR');
+        $owner = $this->exportEntityFrom($entities->get('7') ?: $exporter, '7', 'PEMILIK');
+        $receiver = $this->foreignExportEntityFrom($entities->get('8') ?: [], '8', 'PENERIMA', $destinationCountry);
+        $buyer = $this->foreignExportEntityFrom($entities->get('6') ?: $receiver, '6', 'PEMBELI', $destinationCountry);
+
+        return collect([$exporter, $owner, $receiver, $buyer])
+            ->values()
+            ->map(function (array $entity, int $index): array {
+                $entity['seriEntitas'] = $index + 1;
+
+                return $entity;
+            })
+            ->all();
+    }
+
+    private function exportEntityFrom(array $source, string $code, string $fallbackName): array
+    {
+        return array_filter([
+            'kodeEntitas' => $code,
+            'kodeJenisIdentitas' => (string) ($source['kodeJenisIdentitas'] ?? '6'),
+            'namaEntitas' => trim((string) ($source['namaEntitas'] ?? '')) ?: $fallbackName,
+            'alamatEntitas' => trim((string) ($source['alamatEntitas'] ?? '')) ?: '-',
+            'nomorIdentitas' => trim((string) ($source['nomorIdentitas'] ?? '')) ?: '-',
+            'nitku' => $source['nitku'] ?? null,
+            'nibEntitas' => $source['nibEntitas'] ?? null,
+        ], fn ($value) => $value !== null && $value !== '');
+    }
+
+    private function foreignExportEntityFrom(array $source, string $code, string $fallbackName, string $destinationCountry): array
+    {
+        return [
+            'kodeEntitas' => $code,
+            'namaEntitas' => trim((string) ($source['namaEntitas'] ?? '')) ?: $fallbackName,
+            'alamatEntitas' => trim((string) ($source['alamatEntitas'] ?? '')) ?: '-',
+            'kodeNegara' => $this->countryFromValue((string) ($source['kodeNegara'] ?? '')) ?: $destinationCountry,
+        ];
+    }
+
+    private function normalizeExportGoods(mixed $goods, array $payload): array
+    {
+        return collect(is_array($goods) ? $goods : [])
+            ->filter(fn ($item) => is_array($item))
+            ->values()
+            ->map(function (array $item, int $index) use ($payload): array {
+                $item['seriBarang'] = $index + 1;
+                $item['fob'] = (float) ($item['fob'] ?? 0);
+                $item['hargaPatokan'] = (float) ($item['hargaPatokan'] ?? 0);
+                $item['hargaSatuan'] = (float) ($item['hargaSatuan'] ?? 0);
+                $item['jumlahKemasan'] = (float) ($item['jumlahKemasan'] ?? 1);
+                $item['kodeJenisKemasan'] = trim((string) ($item['kodeJenisKemasan'] ?? '')) ?: 'PK';
+                $item['merk'] = trim((string) ($item['merk'] ?? '')) ?: 'MERK';
+                $item['posTarif'] = trim((string) ($item['posTarif'] ?? ''));
+                $item['spesifikasiLain'] = trim((string) ($item['spesifikasiLain'] ?? '')) ?: (trim((string) ($item['uraian'] ?? '')) ?: 'BARANG');
+                $item['tipe'] = trim((string) ($item['tipe'] ?? '')) ?: 'BARU';
+                $item['uraian'] = trim((string) ($item['uraian'] ?? '')) ?: 'BARANG';
+                $item['kodeJenisEkspor'] = trim((string) ($item['kodeJenisEkspor'] ?? '')) ?: (string) ($payload['kodeJenisEkspor'] ?? '1');
+                $item['kodePelEkspor'] = trim((string) ($item['kodePelEkspor'] ?? '')) ?: (string) ($payload['kodePelEkspor'] ?? '');
+                $item['kodeDokumen'] = trim((string) ($item['kodeDokumen'] ?? '')) ?: '30';
+
+                return $item;
+            })
+            ->all();
+    }
+
+    private function normalizeExportPengangkut(mixed $rows): array
+    {
+        $rows = collect(is_array($rows) ? $rows : [])
+            ->filter(fn ($row) => is_array($row))
+            ->values();
+
+        if ($rows->isEmpty()) {
+            $rows = collect([[]]);
+        }
+
+        return $rows->map(function (array $row, int $index): array {
+            return array_merge($row, [
+                'seriPengangkut' => $index + 1,
+                'kodeBendera' => trim((string) ($row['kodeBendera'] ?? '')) ?: 'ID',
+                'namaPengangkut' => trim((string) ($row['namaPengangkut'] ?? '')) ?: 'PENGANGKUT',
+                'nomorPengangkut' => trim((string) ($row['nomorPengangkut'] ?? '')) ?: '-',
+                'kodeCaraAngkut' => trim((string) ($row['kodeCaraAngkut'] ?? '')) ?: '1',
+            ]);
+        })->all();
+    }
+
+    private function normalizeExportBankDevisa(mixed $rows): array
+    {
+        $rows = collect(is_array($rows) ? $rows : [])
+            ->filter(fn ($row) => is_array($row))
+            ->values();
+
+        if ($rows->isEmpty()) {
+            $rows = collect([['kodeBank' => '9']]);
+        }
+
+        return $rows->map(fn (array $row, int $index) => array_merge($row, [
+            'seriBank' => $index + 1,
+            'kodeBank' => trim((string) ($row['kodeBank'] ?? '')) ?: '9',
+        ]))->all();
+    }
+
+    private function normalizeExportKesiapanBarang(mixed $rows, array $payload, string $date): array
+    {
+        $rows = collect(is_array($rows) ? $rows : [])
+            ->filter(fn ($row) => is_array($row))
+            ->values();
+
+        if ($rows->isEmpty()) {
+            $rows = collect([[]]);
+        }
+
+        $containerCount = (int) ($payload['jumlahKontainer'] ?? 0);
+
+        return $rows->map(fn (array $row) => array_merge($row, [
+            'kodeJenisBarang' => trim((string) ($row['kodeJenisBarang'] ?? '')) ?: '1',
+            'kodeJenisGudang' => trim((string) ($row['kodeJenisGudang'] ?? '')) ?: '2',
+            'namaPic' => trim((string) ($row['namaPic'] ?? '')) ?: (trim((string) ($payload['namaTtd'] ?? '')) ?: 'PIC'),
+            'alamat' => trim((string) ($row['alamat'] ?? '')) ?: (trim((string) ($payload['kotaTtd'] ?? '')) ?: '-'),
+            'nomorTelpPic' => trim((string) ($row['nomorTelpPic'] ?? '')) ?: '0000000000',
+            'lokasiSiapPeriksa' => trim((string) ($row['lokasiSiapPeriksa'] ?? '')) ?: (trim((string) ($payload['kotaTtd'] ?? '')) ?: '-'),
+            'kodeCaraStuffing' => trim((string) ($row['kodeCaraStuffing'] ?? '')) ?: ($containerCount > 0 ? '8' : '7'),
+            'kodeJenisPartOf' => trim((string) ($row['kodeJenisPartOf'] ?? '')) ?: '2',
+            'tanggalPkb' => $this->dateValue($row['tanggalPkb'] ?? null) ?: $date,
+            'waktuSiapPeriksa' => trim((string) ($row['waktuSiapPeriksa'] ?? '')) ?: "{$date}T08:00:00.000Z",
+            'jumlahContainer20' => (int) ($row['jumlahContainer20'] ?? $containerCount),
+            'jumlahContainer40' => (int) ($row['jumlahContainer40'] ?? 0),
+        ]))->all();
+    }
+
+    private function dateValue(mixed $value): string
+    {
+        $value = trim((string) $value);
+
+        return preg_match('/^\d{4}-\d{2}-\d{2}/', $value, $match) === 1 ? $match[0] : '';
     }
 
     private function currencyCode(mixed $value): string

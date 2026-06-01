@@ -1606,6 +1606,8 @@ class ShippingController extends Controller
         $existingDraft = CeisaSubmission::where('id_spk', $spk->id)
             ->where('nomor_aju', $nomorAju)
             ->where('is_final', false)
+            ->where('document_type', $documentType)
+            ->where('status', 'draft')
             ->latest()
             ->first();
 

@@ -105,6 +105,89 @@ test('it derives country codes from common port values', function (string $value
     ['SGSIN', 'SG'],
 ]);
 
+test('it normalizes bc30 export draft fields required by ceisa schema', function () {
+    $normalizer = new CeisaImportPayloadNormalizer;
+
+    $normalized = $normalizer->normalizeForSubmit([
+        'kodeDokumen' => '30',
+        'kodeKantor' => '070100',
+        'kodePelMuat' => 'IDTPE',
+        'kodePelTujuan' => 'SAJED',
+        'kodeJenisEkspor' => '1',
+        'kodeKategoriEkspor' => '10',
+        'kodeCaraBayar' => '1',
+        'tanggalAju' => '2026-06-01',
+        'tanggalEkspor' => '2026-06-02',
+        'jumlahKontainer' => 1,
+        'namaTtd' => 'DESY TAKO',
+        'kotaTtd' => 'SURABAYA',
+        'entitas' => [
+            [
+                'kodeEntitas' => '1',
+                'namaEntitas' => 'PT EXPORTIR',
+                'alamatEntitas' => 'SURABAYA',
+                'nomorIdentitas' => '0123456789012345',
+                'kodeJenisIdentitas' => '6',
+            ],
+            ['kodeEntitas' => '7'],
+            ['kodeEntitas' => '9', 'namaEntitas' => 'BUYER', 'alamatEntitas' => 'JEDDAH'],
+            ['kodeEntitas' => '10', 'namaEntitas' => 'BUYER', 'alamatEntitas' => 'JEDDAH'],
+        ],
+        'barang' => [
+            [
+                'posTarif' => '12345678',
+                'uraian' => 'BARANG EKSPOR',
+            ],
+        ],
+        'pengangkut' => [[]],
+    ], 'BC30');
+
+    expect($normalized['flagBarkir'])
+        ->toBe('T')
+        ->and($normalized['flagCurah'])
+        ->toBe('2')
+        ->and($normalized['flagMigas'])
+        ->toBe('2')
+        ->and($normalized['kodeKantorEkspor'])
+        ->toBe('070100')
+        ->and($normalized['kodeKantorMuat'])
+        ->toBe('070100')
+        ->and($normalized['kodeLokasi'])
+        ->toBe('2')
+        ->and($normalized['kodePelEkspor'])
+        ->toBe('IDTPE')
+        ->and($normalized['kodePelBongkar'])
+        ->toBe('SAJED')
+        ->and($normalized['kodeNegaraTujuan'])
+        ->toBe('SA')
+        ->and($normalized['tanggalPeriksa'])
+        ->toBe('2026-06-02')
+        ->and($normalized['entitas'][0]['kodeEntitas'])
+        ->toBe('2')
+        ->and($normalized['entitas'][1]['kodeEntitas'])
+        ->toBe('7')
+        ->and($normalized['entitas'][2]['kodeEntitas'])
+        ->toBe('8')
+        ->and($normalized['entitas'][2]['kodeNegara'])
+        ->toBe('SA')
+        ->and($normalized['entitas'][3]['kodeEntitas'])
+        ->toBe('6')
+        ->and($normalized['barang'][0]['hargaPatokan'])
+        ->toBe(0.0)
+        ->and($normalized['barang'][0]['spesifikasiLain'])
+        ->toBe('BARANG EKSPOR')
+        ->and($normalized['barang'][0]['kodeJenisEkspor'])
+        ->toBe('1')
+        ->and($normalized['barang'][0]['kodePelEkspor'])
+        ->toBe('IDTPE')
+        ->and($normalized['bankDevisa'][0]['kodeBank'])
+        ->toBe('9')
+        ->and($normalized['kesiapanBarang'][0]['tanggalPkb'])
+        ->toBe('2026-06-02')
+        ->and($normalized['pengangkut'][0]['kodeBendera'])
+        ->toBe('ID');
+});
+
 test('it replaces foreign pemusatan leftovers with importir identity', function () {
     $normalizer = new CeisaImportPayloadNormalizer;
 
