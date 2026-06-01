@@ -234,6 +234,42 @@ test('it normalizes bc30 export draft fields required by ceisa schema', function
         ->toBe([]);
 });
 
+test('it keeps native bc30 exporter when legacy importir row is present', function () {
+    $normalizer = new CeisaImportPayloadNormalizer;
+
+    $normalized = $normalizer->normalizeForSubmit([
+        'kodeDokumen' => '30',
+        'kodePelTujuan' => 'SAJED',
+        'entitas' => [
+            [
+                'kodeEntitas' => '2',
+                'namaEntitas' => 'JAPFA COMFEED INDONESIA TBK.',
+                'alamatEntitas' => 'SURABAYA',
+                'nomorIdentitas' => '0010028454092000',
+                'kodeJenisIdentitas' => '6',
+                'nibEntitas' => '8120004782505',
+            ],
+            [
+                'kodeEntitas' => '1',
+                'namaEntitas' => 'DATA SALAH DARI FORM LAMA',
+                'alamatEntitas' => 'JANGAN DIPAKAI',
+                'nomorIdentitas' => '9999999999999999',
+                'kodeJenisIdentitas' => '6',
+                'nibEntitas' => '9999999999999',
+            ],
+        ],
+    ], 'BC30');
+
+    expect($normalized['entitas'][0]['kodeEntitas'])
+        ->toBe('2')
+        ->and($normalized['entitas'][0]['namaEntitas'])
+        ->toBe('JAPFA COMFEED INDONESIA TBK.')
+        ->and($normalized['entitas'][0]['nomorIdentitas'])
+        ->toBe('0010028454092000')
+        ->and($normalized['entitas'][0]['nibEntitas'])
+        ->toBe('8120004782505');
+});
+
 test('it replaces foreign pemusatan leftovers with importir identity', function () {
     $normalizer = new CeisaImportPayloadNormalizer;
 

@@ -360,18 +360,26 @@ class CeisaImportPayloadNormalizer
     {
         $entities = collect(is_array($entities) ? $entities : [])
             ->filter(fn ($entity) => is_array($entity))
-            ->map(function (array $entity): array {
-                $code = (string) ($entity['kodeEntitas'] ?? '');
-                $entity['kodeEntitas'] = match ($code) {
+            ->reduce(function (array $carry, array $entity): array {
+                $sourceCode = (string) ($entity['kodeEntitas'] ?? '');
+                $targetCode = match ($sourceCode) {
                     '1' => '2',
                     '9' => '8',
                     '10' => '6',
-                    default => $code,
+                    default => $sourceCode,
                 };
 
-                return $entity;
-            })
-            ->keyBy(fn (array $entity) => (string) ($entity['kodeEntitas'] ?? ''));
+                $entity['kodeEntitas'] = $targetCode;
+                $entity['__sourceKodeEntitas'] = $sourceCode;
+
+                if (! isset($carry[$targetCode]) || $this->shouldReplaceExportEntity($carry[$targetCode], $entity, $sourceCode, $targetCode)) {
+                    $carry[$targetCode] = $entity;
+                }
+
+                return $carry;
+            }, []);
+
+        $entities = collect($entities);
 
         $exporter = $this->exportEntityFrom($entities->get('2') ?: $entities->get('7') ?: [], '2', 'EKSPORTIR');
         $owner = $this->exportEntityFrom($entities->get('7') ?: $exporter, '7', 'PEMILIK');
@@ -386,6 +394,25 @@ class CeisaImportPayloadNormalizer
                 return $entity;
             })
             ->all();
+    }
+
+    private function shouldReplaceExportEntity(array $current, array $candidate, string $candidateSourceCode, string $targetCode): bool
+    {
+        $currentSourceCode = (string) ($current['__sourceKodeEntitas'] ?? $current['kodeEntitas'] ?? '');
+        $currentIsNative = $currentSourceCode === $targetCode;
+        $candidateIsNative = $candidateSourceCode === $targetCode;
+
+        if ($candidateIsNative && ! $currentIsNative) {
+            return $this->hasEntityIdentity($candidate) || ! $this->hasEntityIdentity($current);
+        }
+
+        return ! $this->hasEntityIdentity($current) && $this->hasEntityIdentity($candidate);
+    }
+
+    private function hasEntityIdentity(array $entity): bool
+    {
+        return trim((string) ($entity['namaEntitas'] ?? '')) !== ''
+            && trim((string) ($entity['alamatEntitas'] ?? '')) !== '';
     }
 
     private function exportEntityFrom(array $source, string $code, string $fallbackName): array

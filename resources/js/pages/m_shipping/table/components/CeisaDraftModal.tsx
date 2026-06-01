@@ -600,7 +600,7 @@ function entityTemplate(kodeEntitas: string): Record<string, any> {
         alamatEntitas: '',
     };
 
-    if (kodeEntitas === '1') {
+    if (['1', '2'].includes(kodeEntitas)) {
         return {
             ...common,
             nomorIdentitas: '',
@@ -622,10 +622,17 @@ function entityTemplate(kodeEntitas: string): Record<string, any> {
         };
     }
 
-    if (['9', '10'].includes(kodeEntitas)) {
+    if (['6', '8', '9', '10'].includes(kodeEntitas)) {
+        const fallbackNames: Record<string, string> = {
+            '6': 'PEMBELI',
+            '8': 'PENERIMA',
+            '9': 'PENGIRIM',
+            '10': 'PENJUAL',
+        };
+
         return {
             ...common,
-            namaEntitas: kodeEntitas === '9' ? 'PENGIRIM' : 'PENJUAL',
+            namaEntitas: fallbackNames[kodeEntitas],
             alamatEntitas: '-',
             kodeNegara: '',
             kodeJenisIdentitas: '6',
@@ -675,9 +682,11 @@ function buildRequirements(payload: Record<string, any>, documentType: string): 
 
     const importir = entitas.find((item: any) => item?.kodeEntitas === '1');
     const eksportir = entitas.find((item: any) => item?.kodeEntitas === '2');
-    const pemilik = entitas.find((item: any) => item?.kodeEntitas === '7');
     const pengirim = entitas.find((item: any) => item?.kodeEntitas === '9');
     const penjual = entitas.find((item: any) => item?.kodeEntitas === '10');
+    const pemilik = entitas.find((item: any) => item?.kodeEntitas === '7') || (exportDraft ? eksportir : undefined);
+    const penerima = entitas.find((item: any) => item?.kodeEntitas === '8') || (exportDraft ? pengirim : undefined);
+    const pembeli = entitas.find((item: any) => item?.kodeEntitas === '6') || (exportDraft ? penjual : undefined);
     const pemusatan = entitas.find((item: any) => item?.kodeEntitas === '11');
     const invoice = dokumen.find((item: any) => item?.kodeDokumen === '380');
     const packingList = dokumen.find((item: any) => item?.kodeDokumen === '217');
@@ -707,6 +716,21 @@ function buildRequirements(payload: Record<string, any>, documentType: string): 
                       hasValue(eksportir?.alamatEntitas) &&
                       hasValue(eksportir?.nomorIdentitas) &&
                       hasValue(eksportir?.nibEntitas),
+              },
+              {
+                  group: 'Entitas',
+                  label: 'Pemilik barang',
+                  ok: hasValue(pemilik?.namaEntitas) && hasValue(pemilik?.alamatEntitas) && hasValue(pemilik?.nomorIdentitas),
+              },
+              {
+                  group: 'Entitas',
+                  label: 'Penerima luar negeri',
+                  ok: hasValue(penerima?.namaEntitas) && hasValue(penerima?.alamatEntitas) && isCountryCode(penerima?.kodeNegara),
+              },
+              {
+                  group: 'Entitas',
+                  label: 'Pembeli luar negeri',
+                  ok: hasValue(pembeli?.namaEntitas) && hasValue(pembeli?.alamatEntitas) && isCountryCode(pembeli?.kodeNegara),
               },
           ]
         : [
@@ -950,12 +974,12 @@ export function CeisaDraftModal({
         }
     };
 
-    const applyOriginCountry = (next: Record<string, any>, country: string) => {
+    const applyEntityCountry = (next: Record<string, any>, country: string, entityCodes: string[]) => {
         if (!country) return;
 
         const entitas = ensureArray(next, 'entitas');
 
-        ['9', '10'].forEach((kodeEntitas) => {
+        entityCodes.forEach((kodeEntitas) => {
             let index = entitas.findIndex((item) => item?.kodeEntitas === kodeEntitas);
 
             if (index < 0) {
@@ -972,12 +996,14 @@ export function CeisaDraftModal({
             item.seriEntitas = itemIndex + 1;
         });
 
-        const barang = ensureArray(next, 'barang');
-        barang.forEach((item) => {
-            if (!isCountryCode(item.kodeNegaraAsal)) {
-                item.kodeNegaraAsal = country;
-            }
-        });
+        if (!isExport) {
+            const barang = ensureArray(next, 'barang');
+            barang.forEach((item) => {
+                if (!isCountryCode(item.kodeNegaraAsal)) {
+                    item.kodeNegaraAsal = country;
+                }
+            });
+        }
     };
 
     const lookupPorts = async () => {
@@ -997,8 +1023,12 @@ export function CeisaDraftModal({
         commitPayload((next) => {
             next[target] = code.toUpperCase();
 
-            if (target === 'kodePelMuat') {
-                applyOriginCountry(next, country);
+            if (!isExport && target === 'kodePelMuat') {
+                applyEntityCountry(next, country, ['9', '10']);
+            }
+
+            if (isExport && target === 'kodePelTujuan') {
+                applyEntityCountry(next, country, ['8', '6']);
             }
 
             if (target === 'kodePelTujuan' && office && !next.kodeKantor) {
@@ -1344,9 +1374,12 @@ export function CeisaDraftModal({
     const kontainer = Array.isArray(payload.kontainer) ? payload.kontainer : [];
     const barang = Array.isArray(payload.barang) ? payload.barang : [];
     const importir = entitas.find((item: any) => item?.kodeEntitas === '1') || {};
-    const pemilik = entitas.find((item: any) => item?.kodeEntitas === '7') || {};
+    const eksportir = entitas.find((item: any) => item?.kodeEntitas === '2') || {};
     const pengirim = entitas.find((item: any) => item?.kodeEntitas === '9') || {};
     const penjual = entitas.find((item: any) => item?.kodeEntitas === '10') || {};
+    const pemilik = entitas.find((item: any) => item?.kodeEntitas === '7') || (isExport ? eksportir : {});
+    const penerima = entitas.find((item: any) => item?.kodeEntitas === '8') || (isExport ? pengirim : {});
+    const pembeli = entitas.find((item: any) => item?.kodeEntitas === '6') || (isExport ? penjual : {});
     const pemusatan = entitas.find((item: any) => item?.kodeEntitas === '11') || {};
     const ppjk = entitas.find((item: any) => item?.kodeEntitas === '4') || {};
     const transport = pengangkut[0] || {};
@@ -1645,7 +1678,55 @@ export function CeisaDraftModal({
                             </div>
                         )}
 
-                        {activeTab === 'entities' && (
+                        {activeTab === 'entities' && isExport && (
+                            <div className="space-y-5">
+                                <EntitySection title="Eksportir" required>
+                                    <EntityFields
+                                        entity={eksportir}
+                                        onChange={(field, value) => updateEntity('2', field, value)}
+                                        fields={[
+                                            'namaEntitas',
+                                            'alamatEntitas',
+                                            'nomorIdentitas',
+                                            'nitku',
+                                            'nibEntitas',
+                                            'kodeStatus',
+                                            'kodeJenisApi',
+                                        ]}
+                                    />
+                                </EntitySection>
+                                <EntitySection title="Pemilik Barang" required>
+                                    <EntityFields
+                                        entity={pemilik}
+                                        onChange={(field, value) => updateEntity('7', field, value)}
+                                        fields={['namaEntitas', 'alamatEntitas', 'nomorIdentitas', 'nitku', 'kodeAfiliasi']}
+                                    />
+                                </EntitySection>
+                                <EntitySection title="Penerima" required>
+                                    <EntityFields
+                                        entity={penerima}
+                                        onChange={(field, value) => updateEntity('8', field, value)}
+                                        fields={['namaEntitas', 'alamatEntitas', 'kodeNegara']}
+                                    />
+                                </EntitySection>
+                                <EntitySection title="Pembeli" required>
+                                    <EntityFields
+                                        entity={pembeli}
+                                        onChange={(field, value) => updateEntity('6', field, value)}
+                                        fields={['namaEntitas', 'alamatEntitas', 'kodeNegara']}
+                                    />
+                                </EntitySection>
+                                <EntitySection title="PPJK">
+                                    <EntityFields
+                                        entity={ppjk}
+                                        onChange={(field, value) => updateEntity('4', field, value)}
+                                        fields={['namaEntitas', 'alamatEntitas', 'nomorIdentitas', 'nitku', 'nibEntitas', 'kodeNegara']}
+                                    />
+                                </EntitySection>
+                            </div>
+                        )}
+
+                        {activeTab === 'entities' && !isExport && (
                             <div className="space-y-5">
                                 <EntitySection title="Importir" required>
                                     <EntityFields
