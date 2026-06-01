@@ -139,6 +139,10 @@ class CeisaImportPayloadNormalizer
 
     public function validateDraft(array $payload, ?string $documentType = null): array
     {
+        if ($this->isExportPayload($payload, $documentType)) {
+            return [];
+        }
+
         if (! $this->isImportPayload($payload, $documentType)) {
             return [];
         }
@@ -257,6 +261,10 @@ class CeisaImportPayloadNormalizer
 
     private function normalizeExportPayload(array $payload): array
     {
+        foreach (['kodeJenisPib', 'kodeJenisImpor', 'kodeJenisNilai', 'kodeTutupPu', 'tanggalTiba'] as $importOnlyField) {
+            unset($payload[$importOnlyField]);
+        }
+
         $today = now()->toDateString();
         $kodeKantor = trim((string) ($payload['kodeKantor'] ?? ''));
         $kodePelMuat = trim((string) ($payload['kodePelMuat'] ?? ''));

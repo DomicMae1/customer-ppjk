@@ -114,6 +114,10 @@ test('it normalizes bc30 export draft fields required by ceisa schema', function
         'kodePelMuat' => 'IDTPE',
         'kodePelTujuan' => 'SAJED',
         'kodeJenisEkspor' => '1',
+        'kodeJenisImpor' => '1',
+        'kodeJenisNilai' => 'LAI',
+        'kodeJenisPib' => '1',
+        'kodeTutupPu' => '11',
         'kodeKategoriEkspor' => '10',
         'kodeCaraBayar' => '1',
         'tanggalAju' => '2026-06-01',
@@ -185,7 +189,17 @@ test('it normalizes bc30 export draft fields required by ceisa schema', function
         ->and($normalized['kesiapanBarang'][0]['tanggalPkb'])
         ->toBe('2026-06-02')
         ->and($normalized['pengangkut'][0]['kodeBendera'])
-        ->toBe('ID');
+        ->toBe('ID')
+        ->and(array_key_exists('kodeJenisImpor', $normalized))
+        ->toBeFalse()
+        ->and(array_key_exists('kodeJenisNilai', $normalized))
+        ->toBeFalse()
+        ->and(array_key_exists('kodeJenisPib', $normalized))
+        ->toBeFalse()
+        ->and(array_key_exists('kodeTutupPu', $normalized))
+        ->toBeFalse()
+        ->and($normalizer->validateDraft($normalized, 'BC30'))
+        ->toBe([]);
 });
 
 test('it replaces foreign pemusatan leftovers with importir identity', function () {
