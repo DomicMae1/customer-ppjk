@@ -141,7 +141,7 @@ class CeisaImportPayloadNormalizer
     public function validateDraft(array $payload, ?string $documentType = null): array
     {
         if ($this->isExportPayload($payload, $documentType)) {
-            return [];
+            return $this->validateExportDraft($payload);
         }
 
         if (! $this->isImportPayload($payload, $documentType)) {
@@ -198,6 +198,32 @@ class CeisaImportPayloadNormalizer
             if (! $this->isCountryCode($barang['kodeNegaraAsal'] ?? null)) {
                 $errors[] = "Barang {$seri}: kode negara asal wajib 2 huruf sesuai referensi CEISA.";
             }
+        }
+
+        return array_values(array_unique($errors));
+    }
+
+    private function validateExportDraft(array $payload): array
+    {
+        $errors = [];
+        $documents = collect($payload['dokumen'] ?? [])
+            ->filter(fn ($document) => is_array($document))
+            ->values();
+
+        foreach ([
+            '380' => 'Invoice 380',
+            '217' => 'Packing List 217',
+        ] as $code => $label) {
+            $code = (string) $code;
+            $document = $documents->first(fn (array $row) => (string) ($row['kodeDokumen'] ?? '') === $code);
+
+            if (! is_array($document) || ! $this->hasText($document['nomorDokumen'] ?? null) || ! $this->hasText($document['tanggalDokumen'] ?? null)) {
+                $errors[] = "Dokumen {$label} wajib diisi dengan nomor dan tanggal dokumen.";
+            }
+        }
+
+        if (($documents->get(0)['kodeDokumen'] ?? null) !== '380' || ($documents->get(1)['kodeDokumen'] ?? null) !== '217') {
+            $errors[] = 'Urutan dokumen BC 3.0 harus Invoice 380 pada baris pertama dan Packing List 217 pada baris kedua sesuai JSON Schema CEISA.';
         }
 
         return array_values(array_unique($errors));
@@ -660,6 +686,11 @@ class CeisaImportPayloadNormalizer
     private function blankReferenceValue(mixed $value): bool
     {
         return trim((string) $value) === '' || trim((string) $value) === '-';
+    }
+
+    private function hasText(mixed $value): bool
+    {
+        return trim((string) $value) !== '';
     }
 
     private function entityFrom(array $source, string $code): array

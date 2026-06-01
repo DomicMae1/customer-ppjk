@@ -273,3 +273,29 @@ test('it replaces foreign pemusatan leftovers with importir identity', function 
         ->and(array_key_exists('kodeNegara', $normalized['entitas'][4]))
         ->toBeFalse();
 });
+
+test('it reports missing bc30 packing list before submitting to ceisa', function () {
+    $normalizer = new CeisaImportPayloadNormalizer;
+
+    $normalized = $normalizer->normalizeForSubmit([
+        'kodeDokumen' => '30',
+        'dokumen' => [
+            [
+                'seriDokumen' => 1,
+                'kodeDokumen' => '380',
+                'nomorDokumen' => 'INV-001',
+                'tanggalDokumen' => '2026-06-01',
+            ],
+            [
+                'seriDokumen' => 2,
+                'kodeDokumen' => '343',
+                'nomorDokumen' => 'SI-001',
+                'tanggalDokumen' => '2026-06-01',
+            ],
+        ],
+    ], 'BC30');
+
+    expect($normalizer->validateDraft($normalized, 'BC30'))
+        ->toContain('Dokumen Packing List 217 wajib diisi dengan nomor dan tanggal dokumen.')
+        ->toContain('Urutan dokumen BC 3.0 harus Invoice 380 pada baris pertama dan Packing List 217 pada baris kedua sesuai JSON Schema CEISA.');
+});
