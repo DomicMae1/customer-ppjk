@@ -14,7 +14,8 @@ class CeisaDraftPayloadBuilder
 {
     public function __construct(
         private readonly CeisaNomorAjuGenerator $nomorAjuGenerator,
-        private readonly CeisaImportPayloadNormalizer $payloadNormalizer
+        private readonly CeisaImportPayloadNormalizer $payloadNormalizer,
+        private readonly CeisaDocumentMappingResolver $documentMappingResolver
     ) {}
 
     public function build(CeisaCompanyConfig $config, Spk $spk, string $nomorAju): array
@@ -269,6 +270,7 @@ class CeisaDraftPayloadBuilder
                         ->orWhere('shipment_type', $shipmentType);
                 })
                 ->get()
+                ->sortBy(fn (CeisaDocumentMapping $mapping) => $mapping->shipment_type === $shipmentType ? 1 : 0)
                 ->keyBy('id_dokumen')
             : collect();
 
@@ -276,17 +278,24 @@ class CeisaDraftPayloadBuilder
             $warnings[] = 'Belum ada file dokumen yang terupload di SPK ini.';
         }
 
-        $rows = $documents->values()->map(function (DocumentTrans $document, int $index) use ($mappings, $spk, $today, &$warnings) {
+        $rows = $documents->values()->map(function (DocumentTrans $document) use ($mappings, $spk, $today, &$warnings) {
             $mapping = $mappings->get($document->id_dokumen);
             $name = (string) ($document->masterDocument?->nama_file ?: $document->nama_file);
-            $kodeDokumen = $mapping?->ceisa_document_code ?: $this->guessDocumentCode($name);
+
+            if (! $this->documentMappingResolver->shouldIncludeInDraft($mapping, $name)) {
+                return null;
+            }
+
+            $kodeDokumen = $this->documentMappingResolver->codeFor($mapping, $name);
 
             if (! $kodeDokumen) {
                 $warnings[] = "Kode dokumen CEISA untuk {$name} belum dimapping.";
+
+                return null;
             }
 
             return [
-                'seriDokumen' => $index + 1,
+                'seriDokumen' => 1,
                 'kodeDokumen' => (string) $kodeDokumen,
                 'nomorDokumen' => $this->documentNumber($document, $spk),
                 'tanggalDokumen' => optional($document->ori_date)->toDateString()
@@ -294,7 +303,7 @@ class CeisaDraftPayloadBuilder
                     ?: optional($document->created_at)->toDateString()
                     ?: $today,
             ];
-        })->all();
+        })->filter()->values()->all();
 
         return $this->ensureRequiredDocumentRows($rows, $spk, $shipmentType, $today, $warnings);
     }
@@ -337,21 +346,6 @@ class CeisaDraftPayloadBuilder
         $fileBase = trim((string) pathinfo((string) $document->nama_file, PATHINFO_FILENAME));
 
         return $fileBase !== '' ? $fileBase : ((string) $spk->spk_code ?: '-');
-    }
-
-    private function guessDocumentCode(string $name): ?string
-    {
-        $normalized = Str::lower($name);
-
-        return match (true) {
-            Str::contains($normalized, ['invoice', 'inv']) => '380',
-            Str::contains($normalized, ['packing']) => '217',
-            Str::contains($normalized, ['b/l', 'bill of lading', 'konosemen']) => '705',
-            Str::contains($normalized, ['awb']) => '740',
-            Str::contains($normalized, ['coo', 'certificate of origin', 'e-co', 'origin']) => '860',
-            Str::contains($normalized, ['lartas', 'izin', 'permit', 'persetujuan']) => '888',
-            default => null,
-        };
     }
 
     private function barangRows(Spk $spk, array &$warnings, array $kemasanRows, string $originCountry): array

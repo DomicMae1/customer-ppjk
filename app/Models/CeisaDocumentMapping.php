@@ -10,6 +10,12 @@ class CeisaDocumentMapping extends Model
 {
     use HasFactory;
 
+    public const DRAFT_USAGE_INCLUDE = 'include';
+
+    public const DRAFT_USAGE_IGNORE = 'ignore';
+
+    public const DRAFT_USAGE_POST_SUBMIT = 'post_submit';
+
     protected $connection = 'tenant';
 
     protected $table = 'ceisa_document_mappings';
@@ -20,6 +26,7 @@ class CeisaDocumentMapping extends Model
         'parser_type',
         'ceisa_document_code',
         'shipment_type',
+        'draft_usage',
         'aliases',
         'is_required_for_submit',
         'is_active',
