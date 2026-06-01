@@ -22,9 +22,10 @@ import {
     XCircle,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 type DraftTab = 'header' | 'entities' | 'documents' | 'transport' | 'packaging' | 'transaction' | 'goods' | 'taxes' | 'statement' | 'advanced';
+type PortLookupTarget = 'kodePelMuat' | 'kodePelTujuan';
 
 interface CeisaDraftModalProps {
     open: boolean;
@@ -743,6 +744,49 @@ function buildRequirements(payload: Record<string, any>): Requirement[] {
     ];
 }
 
+function hasDocumentRow(payload: Record<string, any>, codes: string[]): boolean {
+    const dokumen = Array.isArray(payload.dokumen) ? payload.dokumen : [];
+
+    return dokumen.some(
+        (item: any) => codes.includes(String(item?.kodeDokumen || '')) && hasValue(item?.nomorDokumen) && hasValue(item?.tanggalDokumen),
+    );
+}
+
+function foreignEntityComplete(payload: Record<string, any>, kodeEntitas: string): boolean {
+    const entitas = Array.isArray(payload.entitas) ? payload.entitas : [];
+    const entity = entitas.find((item: any) => String(item?.kodeEntitas || '') === kodeEntitas);
+
+    return hasValue(entity?.namaEntitas) && hasValue(entity?.alamatEntitas) && isCountryCode(entity?.kodeNegara);
+}
+
+function filterResolvedWarnings(warnings: string[], payload: Record<string, any>): string[] {
+    return warnings.filter((warning) => {
+        const normalized = warning.toLowerCase();
+
+        if (normalized.includes('dokumen invoice 380') && hasDocumentRow(payload, ['380'])) {
+            return false;
+        }
+
+        if (normalized.includes('dokumen b/l 705') && hasDocumentRow(payload, ['705', '740'])) {
+            return false;
+        }
+
+        if (normalized.includes('kode pelabuhan muat/tujuan') && hasValue(payload.kodePelMuat) && hasValue(payload.kodePelTujuan)) {
+            return false;
+        }
+
+        if (normalized.includes('data shipper/pengirim') && foreignEntityComplete(payload, '9')) {
+            return false;
+        }
+
+        if (normalized.includes('kode negara shipper/penjual') && foreignEntityComplete(payload, '9') && foreignEntityComplete(payload, '10')) {
+            return false;
+        }
+
+        return true;
+    });
+}
+
 function fieldLabel(label: string, required = false) {
     return (
         <Label className="text-xs font-medium text-slate-700">
@@ -767,7 +811,8 @@ export function CeisaDraftModal({
     onSubmit,
 }: CeisaDraftModalProps) {
     const [activeTab, setActiveTab] = useState<DraftTab>('header');
-    const [portLookupTarget, setPortLookupTarget] = useState<'kodePelMuat' | 'kodePelTujuan'>('kodePelTujuan');
+    const [portLookupTarget, setPortLookupTarget] = useState<PortLookupTarget>('kodePelTujuan');
+    const [activePortDropdown, setActivePortDropdown] = useState<PortLookupTarget | null>(null);
     const [portLookupKeyword, setPortLookupKeyword] = useState('');
     const [portLookupRows, setPortLookupRows] = useState<Record<string, any>[]>([]);
     const [portLookupMessage, setPortLookupMessage] = useState('');
@@ -778,6 +823,7 @@ export function CeisaDraftModal({
     const requirements = useMemo(() => buildRequirements(payload), [payload]);
     const missingRequirements = requirements.filter((item) => !item.ok);
     const completedCount = requirements.length - missingRequirements.length;
+    const visibleWarnings = useMemo(() => filterResolvedWarnings(warnings, payload), [warnings, payload]);
 
     const commitPayload = (mutator: (next: Record<string, any>) => void) => {
         if (jsonError) return;
@@ -804,24 +850,34 @@ export function CeisaDraftModal({
         return missingRequirements.some((item) => groupsByTab[tab].includes(item.group));
     };
 
-    const lookupPorts = async () => {
-        if (!referenceEndpoint || !portLookupKeyword.trim()) return;
+    const lookupPortsFor = async (target: PortLookupTarget, keyword: string, options: { silent?: boolean; limit?: number } = {}) => {
+        if (!referenceEndpoint || !keyword.trim()) return;
 
+        setPortLookupTarget(target);
         setIsLookingUpPort(true);
-        setPortLookupMessage('');
+
+        if (!options.silent) {
+            setPortLookupMessage('');
+        }
 
         try {
             const response = await axios.post(referenceEndpoint, {
                 lookup_type: 'pelabuhan_kata',
-                params: { kata: portLookupKeyword.trim() },
+                params: { kata: keyword.trim() },
             });
 
             const rows = extractReferenceRows(response.data);
-            setPortLookupRows(rows.slice(0, 8));
-            setPortLookupMessage(rows.length ? `${rows.length} referensi ditemukan.` : 'Referensi pelabuhan tidak ditemukan.');
+            setPortLookupRows(rows.slice(0, options.limit ?? 8));
+
+            if (!options.silent) {
+                setPortLookupMessage(rows.length ? `${rows.length} referensi ditemukan.` : 'Referensi pelabuhan tidak ditemukan.');
+            }
         } catch (error: any) {
             setPortLookupRows([]);
-            setPortLookupMessage(error?.response?.data?.message ?? 'Cek referensi pelabuhan gagal.');
+
+            if (!options.silent) {
+                setPortLookupMessage(error?.response?.data?.message ?? 'Cek referensi pelabuhan gagal.');
+            }
         } finally {
             setIsLookingUpPort(false);
         }
@@ -857,7 +913,11 @@ export function CeisaDraftModal({
         });
     };
 
-    const applyPortReference = (row: Record<string, any>) => {
+    const lookupPorts = async () => {
+        await lookupPortsFor(portLookupTarget, portLookupKeyword);
+    };
+
+    const applyPortReference = (row: Record<string, any>, target: PortLookupTarget = portLookupTarget) => {
         const code = pickRecordValue(row, ['kodePelabuhan', 'kode_pelabuhan', 'kode', 'kodePort', 'kodePel']);
         const name = pickRecordValue(row, ['namaPelabuhan', 'nama_pelabuhan', 'nama', 'uraian']);
         const office = pickRecordValue(row, ['kodeKantor', 'kode_kantor']);
@@ -868,17 +928,41 @@ export function CeisaDraftModal({
         if (!code) return;
 
         commitPayload((next) => {
-            next[portLookupTarget] = code.toUpperCase();
+            next[target] = code.toUpperCase();
 
-            if (portLookupTarget === 'kodePelMuat') {
+            if (target === 'kodePelMuat') {
                 applyOriginCountry(next, country);
             }
 
-            if (portLookupTarget === 'kodePelTujuan' && office && !next.kodeKantor) {
+            if (target === 'kodePelTujuan' && office && !next.kodeKantor) {
                 next.kodeKantor = office;
             }
         });
+
+        setActivePortDropdown(null);
+        setPortLookupKeyword('');
+        setPortLookupRows([]);
     };
+
+    useEffect(() => {
+        if (!activePortDropdown || !referenceEndpoint) {
+            return;
+        }
+
+        const keyword = portLookupKeyword.trim();
+
+        if (keyword.length < 2) {
+            setPortLookupRows([]);
+
+            return;
+        }
+
+        const timeout = window.setTimeout(() => {
+            void lookupPortsFor(activePortDropdown, keyword, { silent: true, limit: 10 });
+        }, 350);
+
+        return () => window.clearTimeout(timeout);
+    }, [activePortDropdown, portLookupKeyword, referenceEndpoint]);
 
     const lookupKurs = async () => {
         if (!referenceEndpoint) return;
@@ -941,6 +1025,98 @@ export function CeisaDraftModal({
                 applyOriginCountry(next, countryFromPortValue(value));
             }
         });
+    };
+
+    const renderPortReferenceField = (target: PortLookupTarget, label: string, placeholder: string) => {
+        const dropdownOpen = activePortDropdown === target && portLookupTarget === target;
+
+        return (
+            <div className="space-y-1.5">
+                {fieldLabel(label, true)}
+                <div className="relative">
+                    <div className="flex gap-2">
+                        <Input
+                            value={payload[target] || ''}
+                            onFocus={() => {
+                                const current = String(payload[target] || '');
+                                setActivePortDropdown(target);
+                                setPortLookupTarget(target);
+                                setPortLookupKeyword(current);
+
+                                if (current.trim().length >= 2) {
+                                    void lookupPortsFor(target, current, { silent: true, limit: 10 });
+                                }
+                            }}
+                            onBlur={() => {
+                                window.setTimeout(() => {
+                                    setActivePortDropdown((current) => (current === target ? null : current));
+                                }, 160);
+                            }}
+                            onChange={(e) => {
+                                const value = e.target.value.toUpperCase();
+                                updateHeader(target, value);
+                                setActivePortDropdown(target);
+                                setPortLookupTarget(target);
+                                setPortLookupKeyword(value);
+                            }}
+                            className={inputClass}
+                            placeholder={placeholder}
+                            autoComplete="off"
+                        />
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onMouseDown={(event) => event.preventDefault()}
+                            onClick={() => {
+                                const keyword = String(payload[target] || portLookupKeyword);
+                                setActivePortDropdown(target);
+                                void lookupPortsFor(target, keyword, { limit: 10 });
+                            }}
+                            disabled={!referenceEndpoint || isLookingUpPort || !String(payload[target] || portLookupKeyword).trim()}
+                            className="h-9 w-10 shrink-0 rounded-sm border-slate-300 p-0"
+                            title={`Cari ${label}`}
+                        >
+                            <Search className="h-4 w-4" />
+                        </Button>
+                    </div>
+                    {dropdownOpen && (isLookingUpPort || portLookupRows.length > 0 || portLookupKeyword.trim().length >= 2) && (
+                        <div
+                            className="absolute right-0 left-0 z-40 mt-1 max-h-64 overflow-y-auto rounded-sm border border-slate-200 bg-white shadow-lg"
+                            onMouseDown={(event) => event.preventDefault()}
+                        >
+                            {isLookingUpPort && <div className="px-3 py-2 text-xs text-slate-500">Mencari referensi pelabuhan...</div>}
+                            {!isLookingUpPort && portLookupRows.length === 0 && (
+                                <div className="px-3 py-2 text-xs text-slate-500">Referensi pelabuhan tidak ditemukan.</div>
+                            )}
+                            {!isLookingUpPort &&
+                                portLookupRows.map((row, index) => {
+                                    const code = pickRecordValue(row, ['kodePelabuhan', 'kode_pelabuhan', 'kode', 'kodePort', 'kodePel']);
+                                    const name = pickRecordValue(row, ['namaPelabuhan', 'nama_pelabuhan', 'nama', 'uraian']);
+                                    const office = pickRecordValue(row, ['kodeKantor', 'kode_kantor']);
+                                    const country =
+                                        normalizeCountryCode(pickRecordValue(row, ['kodeNegara', 'kode_negara', 'countryCode', 'kodeCountry'])) ||
+                                        countryFromPortValue(code, name, pickRecordValue(row, ['negara', 'namaNegara', 'nama_negara']));
+
+                                    return (
+                                        <button
+                                            key={`${target}-${code}-${index}`}
+                                            type="button"
+                                            onClick={() => applyPortReference(row, target)}
+                                            className="block w-full border-b border-slate-100 px-3 py-2 text-left text-xs last:border-b-0 hover:bg-blue-50"
+                                        >
+                                            <div className="font-semibold text-slate-900">{code || '-'}</div>
+                                            <div className="mt-0.5 text-slate-600">{name || '-'}</div>
+                                            <div className="mt-1 text-[11px] text-slate-400">
+                                                Kantor: {office || '-'} {country ? `| Negara: ${country}` : ''}
+                                            </div>
+                                        </button>
+                                    );
+                                })}
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
     };
 
     const updateEntity = (kodeEntitas: string, field: string, value: any) => {
@@ -1208,14 +1384,14 @@ export function CeisaDraftModal({
                             </div>
                         )}
 
-                        {warnings.length > 0 && (
+                        {visibleWarnings.length > 0 && (
                             <div className="mb-4 rounded-sm border border-slate-200 bg-white p-3">
                                 <div className="mb-2 flex items-center gap-2 text-xs font-bold text-slate-700">
                                     <AlertTriangle className="h-4 w-4 text-amber-500" />
                                     Catatan sistem
                                 </div>
                                 <div className="space-y-1.5">
-                                    {warnings.map((warning, index) => (
+                                    {visibleWarnings.map((warning, index) => (
                                         <div key={`${warning}-${index}`} className="text-xs text-slate-500">
                                             {warning}
                                         </div>
@@ -1253,15 +1429,7 @@ export function CeisaDraftModal({
                                     <div className={portalPanelClass}>
                                         <div className={portalPanelHeaderClass}>Kantor Pabean</div>
                                         <div className={`${portalPanelBodyClass} space-y-4`}>
-                                            <div className="space-y-1.5">
-                                                {fieldLabel('Pelabuhan Tujuan', true)}
-                                                <Input
-                                                    value={payload.kodePelTujuan || ''}
-                                                    onChange={(e) => updateHeader('kodePelTujuan', e.target.value.toUpperCase())}
-                                                    className={inputClass}
-                                                    placeholder="contoh IDJBR"
-                                                />
-                                            </div>
+                                            {renderPortReferenceField('kodePelTujuan', 'Pelabuhan Tujuan', 'Cari/kode pelabuhan, contoh IDTPE')}
                                             <div className="space-y-1.5">
                                                 {fieldLabel('Kantor Pabean', true)}
                                                 <Input
@@ -1619,24 +1787,8 @@ export function CeisaDraftModal({
                                 <div className={portalPanelClass}>
                                     <div className={portalPanelHeaderClass}>Pelabuhan & Tempat Penimbunan</div>
                                     <div className={`${portalPanelBodyClass} space-y-4`}>
-                                        <div className="space-y-1.5">
-                                            {fieldLabel('Pelabuhan Muat', true)}
-                                            <Input
-                                                value={payload.kodePelMuat || ''}
-                                                onChange={(e) => updateHeader('kodePelMuat', e.target.value.toUpperCase())}
-                                                className={inputClass}
-                                                placeholder="contoh INNSA"
-                                            />
-                                        </div>
-                                        <div className="space-y-1.5">
-                                            {fieldLabel('Pelabuhan Tujuan', true)}
-                                            <Input
-                                                value={payload.kodePelTujuan || ''}
-                                                onChange={(e) => updateHeader('kodePelTujuan', e.target.value.toUpperCase())}
-                                                className={inputClass}
-                                                placeholder="contoh IDJBR"
-                                            />
-                                        </div>
+                                        {renderPortReferenceField('kodePelMuat', 'Pelabuhan Muat', 'Cari/kode pelabuhan, contoh MYNTL')}
+                                        {renderPortReferenceField('kodePelTujuan', 'Pelabuhan Tujuan', 'Cari/kode pelabuhan, contoh IDTPE')}
                                         <div className="space-y-1.5">
                                             {fieldLabel('Tempat Penimbunan')}
                                             <Input
