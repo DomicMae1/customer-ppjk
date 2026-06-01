@@ -113,13 +113,10 @@ test('it normalizes bc30 export draft fields required by ceisa schema', function
         'kodeKantor' => '070100',
         'kodePelMuat' => 'IDTPE',
         'kodePelTujuan' => 'SAJED',
-        'kodeJenisEkspor' => '1',
         'kodeJenisImpor' => '1',
         'kodeJenisNilai' => 'LAI',
         'kodeJenisPib' => '1',
         'kodeTutupPu' => '11',
-        'kodeKategoriEkspor' => '10',
-        'kodeCaraBayar' => '1',
         'tanggalAju' => '2026-06-01',
         'tanggalEkspor' => '2026-06-02',
         'jumlahKontainer' => 1,
@@ -136,6 +133,13 @@ test('it normalizes bc30 export draft fields required by ceisa schema', function
             ['kodeEntitas' => '7'],
             ['kodeEntitas' => '9', 'namaEntitas' => 'BUYER', 'alamatEntitas' => 'JEDDAH'],
             ['kodeEntitas' => '10', 'namaEntitas' => 'BUYER', 'alamatEntitas' => 'JEDDAH'],
+            [
+                'kodeEntitas' => '4',
+                'namaEntitas' => 'PT PPJK',
+                'alamatEntitas' => 'JAKARTA',
+                'nomorIdentitas' => '0099999999999999',
+                'kodeJenisIdentitas' => '6',
+            ],
         ],
         'barang' => [
             [
@@ -172,6 +176,16 @@ test('it normalizes bc30 export draft fields required by ceisa schema', function
         ->toBe('2')
         ->and($normalized['flagMigas'])
         ->toBe('2')
+        ->and($normalized['kodeJenisEkspor'])
+        ->toBe('1')
+        ->and($normalized['kodeKategoriEkspor'])
+        ->toBe('10')
+        ->and($normalized['kodeCaraDagang'])
+        ->toBe('1')
+        ->and($normalized['kodeCaraBayar'])
+        ->toBe('1')
+        ->and($normalized['kodeAsuransi'])
+        ->toBe('LN')
         ->and($normalized['kodeKantorEkspor'])
         ->toBe('070100')
         ->and($normalized['kodeKantorMuat'])
@@ -196,6 +210,10 @@ test('it normalizes bc30 export draft fields required by ceisa schema', function
         ->toBe('SA')
         ->and($normalized['entitas'][3]['kodeEntitas'])
         ->toBe('6')
+        ->and($normalized['entitas'][4]['kodeEntitas'])
+        ->toBe('4')
+        ->and($normalized['entitas'][4]['namaEntitas'])
+        ->toBe('PT PPJK')
         ->and($normalized['barang'][0]['hargaPatokan'])
         ->toBe(0.0)
         ->and($normalized['barang'][0]['spesifikasiLain'])

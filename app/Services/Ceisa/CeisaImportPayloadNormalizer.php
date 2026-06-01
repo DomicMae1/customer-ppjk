@@ -19,6 +19,12 @@ class CeisaImportPayloadNormalizer
 
     private const VALID_JENIS_IMPOR = ['1', '2', '5', '9'];
 
+    private const VALID_JENIS_EKSPOR = ['1', '2', '3', '4'];
+
+    private const VALID_KATEGORI_EKSPOR = ['10', '21', '22', '23', '31', '32', '33', '34', '35'];
+
+    private const VALID_CARA_DAGANG_EKSPOR = ['1', '2', '15'];
+
     private const VALID_JENIS_NILAI = ['IMB', 'IOA', 'KMD', 'KON', 'LAI', 'PMK', 'RLC', 'SLC', 'ULC', 'WSI'];
 
     private const KNOWN_COUNTRY_CODES = [
@@ -305,6 +311,11 @@ class CeisaImportPayloadNormalizer
         $payload['flagBarkir'] = $this->codeFromReference($payload['flagBarkir'] ?? null, ['Y', 'T'], 'T');
         $payload['flagCurah'] = $this->codeFromReference($payload['flagCurah'] ?? null, ['1', '2'], '2');
         $payload['flagMigas'] = $this->codeFromReference($payload['flagMigas'] ?? null, ['1', '2'], '2');
+        $payload['kodeJenisEkspor'] = $this->codeFromReference($payload['kodeJenisEkspor'] ?? null, self::VALID_JENIS_EKSPOR, '1');
+        $payload['kodeKategoriEkspor'] = $this->codeFromReference($payload['kodeKategoriEkspor'] ?? null, self::VALID_KATEGORI_EKSPOR, '10');
+        $payload['kodeCaraDagang'] = $this->codeFromReference($payload['kodeCaraDagang'] ?? null, self::VALID_CARA_DAGANG_EKSPOR, '1');
+        $payload['kodeCaraBayar'] = $this->codeFromReference($payload['kodeCaraBayar'] ?? null, self::VALID_CARA_BAYAR, '1');
+        $payload['kodeAsuransi'] = trim((string) ($payload['kodeAsuransi'] ?? '')) ?: 'LN';
         $payload['kodeJenisPengangkutan'] = trim((string) ($payload['kodeJenisPengangkutan'] ?? '')) ?: '1';
         $payload['kodeKantorEkspor'] = trim((string) ($payload['kodeKantorEkspor'] ?? '')) ?: $kodeKantor;
         $payload['kodeKantorMuat'] = trim((string) ($payload['kodeKantorMuat'] ?? '')) ?: $kodeKantor;
@@ -385,8 +396,10 @@ class CeisaImportPayloadNormalizer
         $owner = $this->exportEntityFrom($entities->get('7') ?: $exporter, '7', 'PEMILIK');
         $receiver = $this->foreignExportEntityFrom($entities->get('8') ?: [], '8', 'PENERIMA', $destinationCountry);
         $buyer = $this->foreignExportEntityFrom($entities->get('6') ?: $receiver, '6', 'PEMBELI', $destinationCountry);
+        $ppjk = $this->optionalExportEntityFrom($entities->get('4') ?: [], '4');
 
-        return collect([$exporter, $owner, $receiver, $buyer])
+        return collect([$exporter, $owner, $receiver, $buyer, $ppjk])
+            ->filter(fn (?array $entity) => is_array($entity))
             ->values()
             ->map(function (array $entity, int $index): array {
                 $entity['seriEntitas'] = $index + 1;
@@ -413,6 +426,15 @@ class CeisaImportPayloadNormalizer
     {
         return trim((string) ($entity['namaEntitas'] ?? '')) !== ''
             && trim((string) ($entity['alamatEntitas'] ?? '')) !== '';
+    }
+
+    private function optionalExportEntityFrom(array $source, string $code): ?array
+    {
+        if (! $this->hasEntityIdentity($source) && trim((string) ($source['nomorIdentitas'] ?? '')) === '') {
+            return null;
+        }
+
+        return $this->exportEntityFrom($source, $code, $code === '4' ? 'PPJK' : 'ENTITAS');
     }
 
     private function exportEntityFrom(array $source, string $code, string $fallbackName): array
