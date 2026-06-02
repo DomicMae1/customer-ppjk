@@ -26,6 +26,8 @@ class Customer extends Model
         'created_by',
         'no_npwp',          // Baru
         'no_npwp_16',       // Baru
+        'nib',
+        'alamat_lengkap',
         'email_to',
         'email_cc',
         'nama',

@@ -99,6 +99,7 @@ export function DataTable<TData, TValue>({ columns, data, onCreateClick }: DataT
                     table.getRowModel().rows.map((row) => {
                         const original = row.original as any;
                         const actionsCell = row.getVisibleCells().find((cell) => cell.column.id === 'actions');
+                        const emailTo = Array.isArray(original.email_to) ? original.email_to.join(', ') : original.email || '-';
 
                         return (
                             /* Ganti bg-white ke bg-card dan border-gray-200 ke border-border */
@@ -136,19 +137,28 @@ export function DataTable<TData, TValue>({ columns, data, onCreateClick }: DataT
                                 <div className="grid grid-cols-1 gap-3 text-sm">
                                     <div className="text-muted-foreground flex items-center gap-2">
                                         <Mail className="h-3.5 w-3.5" />
-                                        <span className="truncate">{original.email || '-'}</span>
+                                        <span className="truncate">{emailTo || '-'}</span>
                                     </div>
 
                                     <div className="text-muted-foreground flex items-start gap-2">
                                         <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                                         <span className="text-muted-foreground line-clamp-2 text-xs italic">
-                                            PIC: <span className="text-foreground font-semibold not-italic">{original.nama || '-'}</span>
+                                            <span className="text-foreground font-semibold not-italic">{original.alamat_lengkap || '-'}</span>
                                         </span>
                                     </div>
 
                                     <div className="text-muted-foreground flex items-center gap-2">
                                         <IdCard className="h-3.5 w-3.5" />
-                                        <span>{original.no_npwp || '-'}</span>
+                                        <span>NPWP: {original.no_npwp || '-'}</span>
+                                    </div>
+
+                                    <div className="text-muted-foreground flex items-center gap-2">
+                                        <IdCard className="h-3.5 w-3.5" />
+                                        <span>NIB: {original.nib || '-'}</span>
+                                    </div>
+
+                                    <div className="text-muted-foreground text-xs">
+                                        PIC: <span className="text-foreground font-semibold">{original.nama || '-'}</span>
                                     </div>
                                 </div>
                             </div>

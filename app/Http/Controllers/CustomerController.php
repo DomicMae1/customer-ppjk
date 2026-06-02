@@ -10,7 +10,6 @@ use App\Services\AdminCompanyContextService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -81,21 +80,16 @@ class CustomerController extends Controller
             'nama' => 'required|string|max:255',
             'no_npwp' => 'nullable|string|max:50',
             'no_npwp_16' => 'nullable|string|max:50',
+            'nib' => 'nullable|string|max:32',
+            'alamat_lengkap' => 'nullable|string|max:1000',
             'id_perusahaan' => 'nullable|exists:perusahaan,id_perusahaan',
             'ceisa' => 'nullable|array',
-            'ceisa.name' => 'nullable|string|max:255',
-            'ceisa.address' => 'nullable|string|max:1000',
-            'ceisa.npwp' => 'nullable|string|max:32',
-            'ceisa.npwp_16' => 'nullable|string|max:32',
-            'ceisa.nitku' => 'nullable|string|max:64',
-            'ceisa.nib' => 'nullable|string|max:32',
             'ceisa.kode_jenis_identitas' => 'nullable|string|max:10',
             'ceisa.kode_status' => 'nullable|string|max:10',
             'ceisa.kode_jenis_api' => 'nullable|string|max:10',
             'ceisa.default_kode_cara_bayar' => 'nullable|string|max:20',
             'ceisa.default_kode_jenis_impor' => 'nullable|string|max:20',
             'ceisa.default_kode_tutup_pu' => 'nullable|string|max:20',
-            'ceisa.default_ndpbm' => 'nullable|numeric|min:0',
         ]);
 
         DB::beginTransaction(); // Memulai Transaksi
@@ -132,6 +126,8 @@ class CustomerController extends Controller
                 'nama' => $validated['nama'],
                 'no_npwp' => $validated['no_npwp'] ?? null,
                 'no_npwp_16' => $validated['no_npwp_16'] ?? null,
+                'nib' => $this->digitsOnly($validated['nib'] ?? null) ?: null,
+                'alamat_lengkap' => trim((string) ($validated['alamat_lengkap'] ?? '')) ?: null,
                 'ownership' => $ownership,
                 'created_by' => $user->id_user,
             ]);
@@ -176,21 +172,16 @@ class CustomerController extends Controller
             'nama' => 'required|string|max:255',
             'no_npwp' => 'nullable|string|max:50',
             'no_npwp_16' => 'nullable|string|max:50',
+            'nib' => 'nullable|string|max:32',
+            'alamat_lengkap' => 'nullable|string|max:1000',
             'id_perusahaan' => 'nullable|exists:perusahaan,id_perusahaan',
             'ceisa' => 'nullable|array',
-            'ceisa.name' => 'nullable|string|max:255',
-            'ceisa.address' => 'nullable|string|max:1000',
-            'ceisa.npwp' => 'nullable|string|max:32',
-            'ceisa.npwp_16' => 'nullable|string|max:32',
-            'ceisa.nitku' => 'nullable|string|max:64',
-            'ceisa.nib' => 'nullable|string|max:32',
             'ceisa.kode_jenis_identitas' => 'nullable|string|max:10',
             'ceisa.kode_status' => 'nullable|string|max:10',
             'ceisa.kode_jenis_api' => 'nullable|string|max:10',
             'ceisa.default_kode_cara_bayar' => 'nullable|string|max:20',
             'ceisa.default_kode_jenis_impor' => 'nullable|string|max:20',
             'ceisa.default_kode_tutup_pu' => 'nullable|string|max:20',
-            'ceisa.default_ndpbm' => 'nullable|numeric|min:0',
         ]);
 
         try {
@@ -222,6 +213,8 @@ class CustomerController extends Controller
                 'nama' => $validated['nama'],
                 'no_npwp' => $validated['no_npwp'] ?? null,
                 'no_npwp_16' => $validated['no_npwp_16'] ?? null,
+                'nib' => $this->digitsOnly($validated['nib'] ?? null) ?: null,
+                'alamat_lengkap' => trim((string) ($validated['alamat_lengkap'] ?? '')) ?: null,
                 'ownership' => $ownership,
             ]);
 
@@ -285,18 +278,12 @@ class CustomerController extends Controller
     private function upsertCeisaImportirPreset(Customer $customer, int $ownership, array $ceisa, int $userId): void
     {
         $hasCeisaData = collect([
-            $ceisa['name'] ?? null,
-            $ceisa['address'] ?? null,
-            $ceisa['npwp'] ?? null,
-            $ceisa['npwp_16'] ?? null,
-            $ceisa['nitku'] ?? null,
-            $ceisa['nib'] ?? null,
+            $ceisa['kode_jenis_identitas'] ?? null,
+            $ceisa['kode_status'] ?? null,
+            $ceisa['kode_jenis_api'] ?? null,
             $ceisa['default_kode_cara_bayar'] ?? null,
             $ceisa['default_kode_jenis_impor'] ?? null,
             $ceisa['default_kode_tutup_pu'] ?? null,
-            $ceisa['default_ndpbm'] ?? null,
-            $customer->no_npwp,
-            $customer->no_npwp_16,
         ])->contains(fn ($value) => filled($value));
 
         $existing = CeisaImportirPreset::where('id_perusahaan', $ownership)
@@ -307,16 +294,6 @@ class CustomerController extends Controller
             return;
         }
 
-        $npwp = $this->digitsOnly($ceisa['npwp'] ?? $customer->no_npwp);
-        $npwp16Source = $ceisa['npwp_16'] ?? null;
-
-        if (blank($npwp16Source)) {
-            $npwp16Source = $customer->no_npwp_16 ?: $npwp;
-        }
-
-        $npwp16 = $this->toNpwp16($npwp16Source);
-        $nitku = trim((string) ($ceisa['nitku'] ?? '')) ?: ($npwp16 ? $npwp16.'00000' : '');
-
         $preset = $existing ?: new CeisaImportirPreset([
             'id_perusahaan' => $ownership,
             'id_customer' => $customer->id_customer,
@@ -324,19 +301,12 @@ class CustomerController extends Controller
         ]);
 
         $preset->fill([
-            'name' => trim((string) ($ceisa['name'] ?? '')) ?: $customer->nama_perusahaan,
-            'npwp' => $npwp,
-            'npwp_16' => $npwp16,
-            'nitku' => $nitku,
-            'nib' => $this->digitsOnly($ceisa['nib'] ?? null),
-            'address' => trim((string) ($ceisa['address'] ?? '')),
             'kode_jenis_identitas' => trim((string) ($ceisa['kode_jenis_identitas'] ?? '')) ?: '6',
             'kode_status' => trim((string) ($ceisa['kode_status'] ?? '')) ?: '01',
             'kode_jenis_api' => trim((string) ($ceisa['kode_jenis_api'] ?? '')) ?: '01',
             'default_kode_cara_bayar' => trim((string) ($ceisa['default_kode_cara_bayar'] ?? '')),
             'default_kode_jenis_impor' => trim((string) ($ceisa['default_kode_jenis_impor'] ?? '')),
             'default_kode_tutup_pu' => trim((string) ($ceisa['default_kode_tutup_pu'] ?? '')),
-            'default_ndpbm' => filled($ceisa['default_ndpbm'] ?? null) ? $ceisa['default_ndpbm'] : null,
             'is_active' => true,
             'updated_by' => $userId,
         ])->save();
@@ -345,13 +315,6 @@ class CustomerController extends Controller
     private function digitsOnly(?string $value): string
     {
         return preg_replace('/\D+/', '', (string) $value);
-    }
-
-    private function toNpwp16(?string $value): string
-    {
-        $digits = $this->digitsOnly($value);
-
-        return strlen($digits) === 15 ? '0'.$digits : $digits;
     }
 
     private function selectedCompanyId(User $user): ?int

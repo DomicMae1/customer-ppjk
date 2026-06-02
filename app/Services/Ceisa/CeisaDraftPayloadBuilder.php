@@ -58,7 +58,7 @@ class CeisaDraftPayloadBuilder
             'kodeAsuransi' => 'LN',
             'bruto' => 0,
             'netto' => 0,
-            'ndpbm' => $preset?->default_ndpbm ? (float) $preset->default_ndpbm : 0,
+            'ndpbm' => 0,
             'jumlahKontainer' => max(0, $this->containerCount($spk)),
             'jabatanTtd' => $preset?->default_signer_title ?: (string) $config->default_signer_title,
             'namaTtd' => $preset?->default_signer_name ?: (string) $config->default_signer_name,
@@ -237,18 +237,16 @@ class CeisaDraftPayloadBuilder
     private function identityFromPresetOrCustomer(?CeisaImportirPreset $preset, mixed $customer, CeisaCompanyConfig $config): array
     {
         $npwp16 = $this->toNpwp16(
-            $preset?->npwp_16
-                ?: $preset?->npwp
-                ?: ($customer?->no_npwp_16 ?: $customer?->no_npwp)
+            ($customer?->no_npwp_16 ?: $customer?->no_npwp)
                 ?: ($config->npwp_16 ?: $config->npwp)
         );
 
         return [
-            'name' => trim((string) ($preset?->name ?: $customer?->nama_perusahaan ?: $config->ppjk_name)),
-            'address' => (string) ($preset?->address ?: $config->ppjk_address ?: '-'),
+            'name' => trim((string) ($customer?->nama_perusahaan ?: $config->ppjk_name)),
+            'address' => (string) ($customer?->alamat_lengkap ?: $config->ppjk_address ?: '-'),
             'npwp16' => $npwp16,
-            'nitku' => (string) ($preset?->nitku ?: ($npwp16 ? $this->toNitku($npwp16) : '')),
-            'nib' => (string) ($preset?->nib ?: $config->nib ?: ''),
+            'nitku' => (string) ($npwp16 ? $this->toNitku($npwp16) : ''),
+            'nib' => (string) ($customer?->nib ?: $config->nib ?: ''),
             'kodeJenisIdentitas' => (string) ($preset?->kode_jenis_identitas ?: '6'),
             'kodeStatus' => (string) ($preset?->kode_status ?: '01'),
             'kodeJenisApi' => (string) ($preset?->kode_jenis_api ?: '01'),

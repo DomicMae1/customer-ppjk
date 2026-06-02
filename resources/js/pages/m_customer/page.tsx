@@ -28,21 +28,16 @@ export interface Customer {
     kota?: string;
     no_npwp?: string;
     no_npwp_16?: string;
+    nib?: string;
+    alamat_lengkap?: string;
     ceisa_importir_preset?: {
         id: number;
-        name?: string;
-        npwp?: string;
-        npwp_16?: string;
-        nitku?: string;
-        nib?: string;
-        address?: string;
         kode_jenis_identitas?: string;
         kode_status?: string;
         kode_jenis_api?: string;
         default_kode_cara_bayar?: string;
         default_kode_jenis_impor?: string;
         default_kode_tutup_pu?: string;
-        default_ndpbm?: string | number | null;
     } | null;
     perusahaan?: {
         id_perusahaan: number;
@@ -109,20 +104,15 @@ export default function ManageCustomers() {
         nama: '',
         no_npwp: '',
         no_npwp_16: '',
+        nib: '',
+        alamat_lengkap: '',
         id_perusahaan: selectedCompanyId ? String(selectedCompanyId) : '',
-        ceisa_name: '',
-        ceisa_address: '',
-        ceisa_npwp: '',
-        ceisa_npwp_16: '',
-        ceisa_nitku: '',
-        ceisa_nib: '',
         ceisa_kode_jenis_identitas: '6',
         ceisa_kode_status: '01',
         ceisa_kode_jenis_api: '01',
         ceisa_default_kode_cara_bayar: '2',
         ceisa_default_kode_jenis_impor: '1',
         ceisa_default_kode_tutup_pu: '11',
-        ceisa_default_ndpbm: '',
     };
     const [emailsTo, setEmailsTo] = useState<string[]>([]);
     const [inputTo, setInputTo] = useState('');
@@ -165,42 +155,18 @@ export default function ManageCustomers() {
         return digits.length === 15 ? `0${digits}` : digits;
     };
 
-    const toNitku = (value: string) => {
-        const npwp16 = toNpwp16(value);
-
-        return npwp16 ? `${npwp16}00000` : '';
-    };
-
-    const fillCeisaFromCustomer = () => {
-        setFormData((prev) => {
-            const npwp16 = toNpwp16(prev.ceisa_npwp_16 || prev.no_npwp_16 || prev.no_npwp);
-
-            return {
-                ...prev,
-                ceisa_name: prev.ceisa_name || prev.nama_perusahaan,
-                ceisa_npwp: prev.ceisa_npwp || digitsOnly(prev.no_npwp),
-                ceisa_npwp_16: prev.ceisa_npwp_16 || npwp16,
-                ceisa_nitku: prev.ceisa_nitku || toNitku(npwp16),
-            };
-        });
-    };
-
     const buildSubmitPayload = () => ({
         ...formData,
+        no_npwp: digitsOnly(formData.no_npwp),
+        no_npwp_16: toNpwp16(formData.no_npwp_16 || formData.no_npwp),
+        nib: digitsOnly(formData.nib),
         ceisa: {
-            name: formData.ceisa_name,
-            address: formData.ceisa_address,
-            npwp: formData.ceisa_npwp,
-            npwp_16: formData.ceisa_npwp_16,
-            nitku: formData.ceisa_nitku,
-            nib: formData.ceisa_nib,
             kode_jenis_identitas: formData.ceisa_kode_jenis_identitas,
             kode_status: formData.ceisa_kode_status,
             kode_jenis_api: formData.ceisa_kode_jenis_api,
             default_kode_cara_bayar: formData.ceisa_default_kode_cara_bayar,
             default_kode_jenis_impor: formData.ceisa_default_kode_jenis_impor,
             default_kode_tutup_pu: formData.ceisa_default_kode_tutup_pu,
-            default_ndpbm: formData.ceisa_default_ndpbm,
         },
     });
 
@@ -285,13 +251,9 @@ export default function ManageCustomers() {
             nama: customer.nama || '',
             no_npwp: customer.no_npwp || '',
             no_npwp_16: customer.no_npwp_16 || '',
+            nib: customer.nib || '',
+            alamat_lengkap: customer.alamat_lengkap || '',
             id_perusahaan: customer.perusahaan?.id_perusahaan?.toString() || (selectedCompanyId ? String(selectedCompanyId) : ''),
-            ceisa_name: ceisa?.name || customer.nama_perusahaan || '',
-            ceisa_address: ceisa?.address || '',
-            ceisa_npwp: ceisa?.npwp || customer.no_npwp || '',
-            ceisa_npwp_16: ceisa?.npwp_16 || customer.no_npwp_16 || '',
-            ceisa_nitku: ceisa?.nitku || toNitku(ceisa?.npwp_16 || customer.no_npwp_16 || customer.no_npwp || ''),
-            ceisa_nib: ceisa?.nib || '',
             ceisa_kode_jenis_identitas: ceisa?.kode_jenis_identitas || '6',
             ceisa_kode_status: ceisa?.kode_status || '01',
             ceisa_kode_jenis_api: ceisa?.kode_jenis_api || '01',
@@ -302,7 +264,6 @@ export default function ManageCustomers() {
             ),
             ceisa_default_kode_jenis_impor: normalizeNumericCeisaCode(ceisa?.default_kode_jenis_impor, ['1', '2', '5', '9'], '1'),
             ceisa_default_kode_tutup_pu: normalizeNumericCeisaCode(ceisa?.default_kode_tutup_pu, ['11', '12', '14'], '11'),
-            ceisa_default_ndpbm: ceisa?.default_ndpbm ? String(ceisa.default_ndpbm) : '',
         });
         setOpenEdit(true);
     };
@@ -357,101 +318,9 @@ export default function ManageCustomers() {
 
     const renderCeisaProfileFields = () => (
         <div className="rounded-lg border border-blue-200 bg-blue-50/40 p-4 dark:border-blue-900 dark:bg-blue-950/20">
-            <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                    <h3 className="text-foreground text-sm font-bold">CEISA Importir Profile</h3>
-                    <p className="text-muted-foreground text-xs">Data ini dipakai otomatis saat membuat draft CEISA untuk customer ini.</p>
-                </div>
-                <Button type="button" variant="outline" size="sm" onClick={fillCeisaFromCustomer}>
-                    Salin data umum
-                </Button>
-            </div>
+            <h3 className="mb-4 text-sm font-bold text-foreground">CEISA Customs Defaults</h3>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-                <div className="grid gap-2">
-                    <Label htmlFor="ceisa_name" className="text-foreground font-semibold">
-                        Nama Importir/Eksportir
-                    </Label>
-                    <Input
-                        id="ceisa_name"
-                        value={formData.ceisa_name}
-                        onChange={(e) => handleInputChange('ceisa_name', e.target.value)}
-                        placeholder="PT. Contoh Importir"
-                        className="border-input bg-background text-foreground h-11 sm:h-10"
-                    />
-                </div>
-                <div className="grid gap-2">
-                    <Label htmlFor="ceisa_nib" className="text-foreground font-semibold">
-                        NIB/API
-                    </Label>
-                    <Input
-                        id="ceisa_nib"
-                        value={formData.ceisa_nib}
-                        onChange={(e) => handleInputChange('ceisa_nib', e.target.value)}
-                        placeholder="Nomor NIB/API"
-                        className="border-input bg-background text-foreground h-11 sm:h-10"
-                    />
-                </div>
-            </div>
-
-            <div className="mt-4 grid gap-4 sm:grid-cols-3">
-                <div className="grid gap-2">
-                    <Label htmlFor="ceisa_npwp" className="text-foreground font-semibold">
-                        NPWP
-                    </Label>
-                    <Input
-                        id="ceisa_npwp"
-                        value={formData.ceisa_npwp}
-                        onChange={(e) => handleInputChange('ceisa_npwp', e.target.value)}
-                        placeholder="15 digit"
-                        className="border-input bg-background text-foreground h-11 sm:h-10"
-                    />
-                </div>
-                <div className="grid gap-2">
-                    <Label htmlFor="ceisa_npwp_16" className="text-foreground font-semibold">
-                        NPWP 16 Digit
-                    </Label>
-                    <Input
-                        id="ceisa_npwp_16"
-                        value={formData.ceisa_npwp_16}
-                        onChange={(e) => handleInputChange('ceisa_npwp_16', e.target.value)}
-                        onBlur={(e) => {
-                            const npwp16 = toNpwp16(e.target.value);
-                            handleInputChange('ceisa_npwp_16', npwp16);
-                            if (!formData.ceisa_nitku) handleInputChange('ceisa_nitku', toNitku(npwp16));
-                        }}
-                        placeholder="16 digit"
-                        className="border-input bg-background text-foreground h-11 sm:h-10"
-                    />
-                </div>
-                <div className="grid gap-2">
-                    <Label htmlFor="ceisa_nitku" className="text-foreground font-semibold">
-                        NITKU
-                    </Label>
-                    <Input
-                        id="ceisa_nitku"
-                        value={formData.ceisa_nitku}
-                        onChange={(e) => handleInputChange('ceisa_nitku', e.target.value)}
-                        placeholder="NPWP16 + 00000"
-                        className="border-input bg-background text-foreground h-11 sm:h-10"
-                    />
-                </div>
-            </div>
-
-            <div className="mt-4 grid gap-2">
-                <Label htmlFor="ceisa_address" className="text-foreground font-semibold">
-                    Alamat Importir/Eksportir
-                </Label>
-                <Textarea
-                    id="ceisa_address"
-                    value={formData.ceisa_address}
-                    onChange={(e) => handleInputChange('ceisa_address', e.target.value)}
-                    placeholder="Alamat sesuai CEISA"
-                    className="border-input bg-background text-foreground min-h-20"
-                />
-            </div>
-
-            <div className="mt-4 grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-3">
                 <div className="grid gap-2">
                     <Label className="text-foreground font-semibold">Jenis Identitas</Label>
                     <Select value={formData.ceisa_kode_jenis_identitas} onValueChange={(val) => handleInputChange('ceisa_kode_jenis_identitas', val)}>
@@ -491,7 +360,7 @@ export default function ManageCustomers() {
                 </div>
             </div>
 
-            <div className="mt-4 grid gap-4 sm:grid-cols-4">
+            <div className="mt-4 grid gap-4 sm:grid-cols-3">
                 <div className="grid gap-2">
                     <Label htmlFor="ceisa_default_kode_cara_bayar" className="text-foreground font-semibold">
                         Cara Bayar
@@ -560,21 +429,6 @@ export default function ManageCustomers() {
                             <SelectItem value="14">14 - BC 1.4</SelectItem>
                         </SelectContent>
                     </Select>
-                </div>
-                <div className="grid gap-2">
-                    <Label htmlFor="ceisa_default_ndpbm" className="text-foreground font-semibold">
-                        NDPBM Default
-                    </Label>
-                    <Input
-                        id="ceisa_default_ndpbm"
-                        type="number"
-                        min="0"
-                        step="0.0001"
-                        value={formData.ceisa_default_ndpbm}
-                        onChange={(e) => handleInputChange('ceisa_default_ndpbm', e.target.value)}
-                        placeholder="Opsional"
-                        className="border-input bg-background text-foreground h-11 sm:h-10"
-                    />
                 </div>
             </div>
         </div>
@@ -770,6 +624,33 @@ export default function ManageCustomers() {
                             </div>
                         </div>
 
+                        <div className="grid gap-4 sm:grid-cols-2">
+                            <div className="grid gap-2">
+                                <Label htmlFor="create_nib" className="text-foreground font-semibold">
+                                    NIB
+                                </Label>
+                                <Input
+                                    id="create_nib"
+                                    value={formData.nib}
+                                    onChange={(e) => handleInputChange('nib', e.target.value)}
+                                    placeholder="Nomor Induk Berusaha"
+                                    className="border-input bg-background text-foreground h-11 sm:h-10"
+                                />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="create_alamat_lengkap" className="text-foreground font-semibold">
+                                    Alamat Perusahaan
+                                </Label>
+                                <Textarea
+                                    id="create_alamat_lengkap"
+                                    value={formData.alamat_lengkap}
+                                    onChange={(e) => handleInputChange('alamat_lengkap', e.target.value)}
+                                    placeholder="Alamat legal perusahaan"
+                                    className="border-input bg-background text-foreground min-h-20"
+                                />
+                            </div>
+                        </div>
+
                         {renderCeisaProfileFields()}
 
                         {/* Footer: Responsif Mobile (Stacked) & Dark Mode Compatible Buttons */}
@@ -952,6 +833,31 @@ export default function ManageCustomers() {
                                     value={formData.no_npwp_16}
                                     onChange={(e) => handleInputChange('no_npwp_16', e.target.value)}
                                     className="border-input bg-background text-foreground h-11 sm:h-10"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="grid gap-4 sm:grid-cols-2">
+                            <div className="grid gap-2">
+                                <Label htmlFor="edit_nib" className="text-foreground font-semibold">
+                                    NIB
+                                </Label>
+                                <Input
+                                    id="edit_nib"
+                                    value={formData.nib}
+                                    onChange={(e) => handleInputChange('nib', e.target.value)}
+                                    className="border-input bg-background text-foreground h-11 sm:h-10"
+                                />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="edit_alamat_lengkap" className="text-foreground font-semibold">
+                                    Alamat Perusahaan
+                                </Label>
+                                <Textarea
+                                    id="edit_alamat_lengkap"
+                                    value={formData.alamat_lengkap}
+                                    onChange={(e) => handleInputChange('alamat_lengkap', e.target.value)}
+                                    className="border-input bg-background text-foreground min-h-20"
                                 />
                             </div>
                         </div>

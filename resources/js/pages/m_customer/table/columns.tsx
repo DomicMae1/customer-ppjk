@@ -131,11 +131,16 @@ export const columns = (
             cell: ({ row }) => <code className="text-muted-foreground text-xs">{row.original.no_npwp || '-'}</code>,
         },
         {
+            accessorKey: 'nib',
+            header: 'NIB',
+            cell: ({ row }) => <code className="text-muted-foreground text-xs">{row.original.nib || '-'}</code>,
+        },
+        {
             id: 'ceisa_profile',
             header: 'CEISA',
             cell: ({ row }) => {
-                const profile = row.original.ceisa_importir_preset;
-                const isReady = Boolean(profile?.npwp_16 && profile?.nitku && profile?.address && profile?.nib);
+                const customer = row.original;
+                const isReady = Boolean(customer.nama_perusahaan && (customer.no_npwp_16 || customer.no_npwp) && customer.nib && customer.alamat_lengkap);
 
                 return (
                     <span

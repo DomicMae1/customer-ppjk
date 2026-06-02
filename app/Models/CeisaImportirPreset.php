@@ -17,12 +17,6 @@ class CeisaImportirPreset extends Model
     protected $fillable = [
         'id_perusahaan',
         'id_customer',
-        'name',
-        'npwp',
-        'npwp_16',
-        'nitku',
-        'nib',
-        'address',
         'kode_jenis_identitas',
         'kode_status',
         'kode_jenis_api',
@@ -32,7 +26,6 @@ class CeisaImportirPreset extends Model
         'default_signer_name',
         'default_signer_title',
         'default_signer_city',
-        'default_ndpbm',
         'last_nomor_aju',
         'last_submitted_at',
         'is_active',
@@ -41,7 +34,6 @@ class CeisaImportirPreset extends Model
     ];
 
     protected $casts = [
-        'default_ndpbm' => 'decimal:4',
         'last_submitted_at' => 'datetime',
         'is_active' => 'boolean',
         'created_by' => 'integer',
