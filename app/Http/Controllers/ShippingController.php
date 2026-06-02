@@ -27,6 +27,7 @@ use App\Services\Ceisa\CeisaDraftPayloadBuilder;
 use App\Services\Ceisa\CeisaImportPayloadNormalizer;
 use App\Services\Ceisa\CeisaNomorAjuGenerator;
 use App\Services\Ceisa\CeisaNomorAjuSequenceService;
+use App\Services\Ceisa\CeisaNumberFormatter;
 use App\Services\Ceisa\CeisaReferenceService;
 use App\Services\Ceisa\CeisaStatusSyncService;
 use App\Services\Ceisa\CeisaSubmissionService;
@@ -1562,7 +1563,8 @@ class ShippingController extends Controller
         CeisaDraftPayloadBuilder $payloadBuilder,
         CeisaNomorAjuGenerator $nomorAjuGenerator,
         CeisaNomorAjuSequenceService $nomorAjuSequences,
-        CeisaImportPayloadNormalizer $payloadNormalizer
+        CeisaImportPayloadNormalizer $payloadNormalizer,
+        CeisaReferenceService $referenceService
     ) {
         $user = auth('web')->user();
 
@@ -1588,11 +1590,15 @@ class ShippingController extends Controller
         }
 
         $documentType = $this->ceisaDocumentTypeForShipment($spk->shipment_type);
+        $importDestinationKantor = $this->ceisaImportDestinationKantor($referenceService, $config, $spk);
         $nomorAju = preg_replace('/\s+/', '', (string) $spk->aju);
+        $nomorAjuKantorMismatch = $importDestinationKantor
+            && $nomorAjuGenerator->isValid($nomorAju)
+            && substr($nomorAju, 0, 4) !== CeisaNumberFormatter::kodeKantorForNomorAju($importDestinationKantor);
 
-        if ($request->boolean('fresh') || ! $nomorAjuGenerator->isValid($nomorAju)) {
+        if ($request->boolean('fresh') || $nomorAjuKantorMismatch || ! $nomorAjuGenerator->isValid($nomorAju)) {
             try {
-                $nomorAju = $nomorAjuSequences->next($config, $documentType);
+                $nomorAju = $nomorAjuSequences->next($config, $documentType, null, $importDestinationKantor);
                 $spk->forceFill(['aju' => $nomorAju])->save();
             } catch (Throwable $e) {
                 report($e);
@@ -1611,7 +1617,7 @@ class ShippingController extends Controller
             ->latest()
             ->first();
 
-        $preview = $payloadBuilder->build($config, $spk->fresh(['customer', 'hsCodes', 'parties']), $nomorAju);
+        $preview = $payloadBuilder->build($config, $spk->fresh(['customer', 'hsCodes', 'parties']), $nomorAju, $importDestinationKantor);
 
         if ($existingDraft && is_array($existingDraft->request_payload) && $existingDraft->request_payload !== []) {
             $preview['payload'] = $payloadNormalizer->normalize($existingDraft->request_payload, $documentType);
@@ -1819,6 +1825,105 @@ class ShippingController extends Controller
                 'lookup_type' => 'Tipe referensi CEISA tidak dikenali.',
             ]),
         };
+    }
+
+    private function ceisaImportDestinationKantor(CeisaReferenceService $referenceService, CeisaCompanyConfig $config, Spk $spk): ?string
+    {
+        if ($this->ceisaDocumentTypeForShipment($spk->shipment_type) !== 'BC20') {
+            return null;
+        }
+
+        $destinationPort = trim((string) $spk->port);
+
+        if ($destinationPort === '') {
+            return null;
+        }
+
+        try {
+            $result = $referenceService->get(
+                $config,
+                '/openapi/pelabuhan/kata/'.rawurlencode($destinationPort),
+                [],
+                1440,
+                false
+            );
+        } catch (Throwable $e) {
+            Log::warning('CEISA destination port office lookup failed while preparing import draft.', [
+                'id_spk' => $spk->id,
+                'destination_port' => $destinationPort,
+                'message' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+
+        if (! ($result['ok'] ?? false)) {
+            return null;
+        }
+
+        $rows = $this->ceisaReferenceRows($result['data'] ?? []);
+
+        if ($rows === []) {
+            return null;
+        }
+
+        $destination = Str::upper($destinationPort);
+        $row = collect($rows)->first(function ($row) use ($destination) {
+            if (! is_array($row)) {
+                return false;
+            }
+
+            $code = (string) (Arr::get($row, 'kodePelabuhan')
+                ?: Arr::get($row, 'kode_pelabuhan')
+                ?: Arr::get($row, 'kode')
+                ?: Arr::get($row, 'kodePort')
+                ?: Arr::get($row, 'kodePel'));
+
+            return Str::upper($code) === $destination;
+        });
+
+        if (! is_array($row) && count($rows) === 1 && is_array($rows[0])) {
+            $row = $rows[0];
+        }
+
+        if (! is_array($row)) {
+            return null;
+        }
+
+        $office = trim((string) (Arr::get($row, 'kodeKantor') ?: Arr::get($row, 'kode_kantor')));
+
+        return $office !== '' ? $office : null;
+    }
+
+    private function ceisaReferenceRows(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        if (array_is_list($value)) {
+            return $value;
+        }
+
+        foreach (['data', 'item', 'result', 'items'] as $key) {
+            $nested = Arr::get($value, $key);
+
+            if (! is_array($nested)) {
+                continue;
+            }
+
+            if (array_is_list($nested)) {
+                return $nested;
+            }
+
+            $rows = $this->ceisaReferenceRows($nested);
+
+            if ($rows !== []) {
+                return $rows;
+            }
+        }
+
+        return [];
     }
 
     public function trackCeisaSubmission(Request $request, int $id, CeisaStatusSyncService $statusSync)

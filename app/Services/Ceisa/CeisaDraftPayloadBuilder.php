@@ -17,13 +17,14 @@ class CeisaDraftPayloadBuilder
         private readonly CeisaDocumentMappingResolver $documentMappingResolver
     ) {}
 
-    public function build(CeisaCompanyConfig $config, Spk $spk, string $nomorAju): array
+    public function build(CeisaCompanyConfig $config, Spk $spk, string $nomorAju, ?string $kodeKantorOverride = null): array
     {
         $spk->loadMissing(['customer', 'hsCodes', 'parties']);
 
         $shipmentType = $this->shipmentType($spk);
         $documentType = $shipmentType === 'export' ? 'BC30' : 'BC20';
         $kodeDokumen = $this->nomorAjuGenerator->resolveDocumentCode($documentType);
+        $kodeKantor = trim($kodeKantorOverride ?: (string) $config->default_kode_kantor);
         $today = now()->toDateString();
         $warnings = [];
 
@@ -37,7 +38,7 @@ class CeisaDraftPayloadBuilder
             'asalData' => 'S',
             'nomorAju' => $nomorAju,
             'tanggalAju' => $today,
-            'kodeKantor' => (string) $config->default_kode_kantor,
+            'kodeKantor' => $kodeKantor,
             'kodeTps' => (string) $config->default_kode_tps,
             'kodeValuta' => 'USD',
             'fob' => 0,
@@ -100,9 +101,9 @@ class CeisaDraftPayloadBuilder
                 'flagCurah' => '2',
                 'flagMigas' => '2',
                 'kodeJenisPengangkutan' => '1',
-                'kodeKantorMuat' => (string) $config->default_kode_kantor,
-                'kodeKantorEkspor' => (string) $config->default_kode_kantor,
-                'kodeKantorPeriksa' => (string) $config->default_kode_kantor,
+                'kodeKantorMuat' => $kodeKantor,
+                'kodeKantorEkspor' => $kodeKantor,
+                'kodeKantorPeriksa' => $kodeKantor,
                 'kodeLokasi' => '2',
                 'kodePelMuat' => $kodePelMuat,
                 'kodePelEkspor' => $kodePelMuat,

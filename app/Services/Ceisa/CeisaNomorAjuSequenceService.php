@@ -14,13 +14,13 @@ class CeisaNomorAjuSequenceService
 {
     public function __construct(private readonly CeisaNomorAjuGenerator $generator) {}
 
-    public function next(CeisaCompanyConfig $config, string $documentType, ?CarbonInterface $date = null): string
+    public function next(CeisaCompanyConfig $config, string $documentType, ?CarbonInterface $date = null, ?string $kodeKantorOverride = null): string
     {
-        $kodeKantor = trim((string) $config->default_kode_kantor);
+        $kodeKantor = trim($kodeKantorOverride ?: (string) $config->default_kode_kantor);
         $companyCode = trim((string) $config->company_code);
 
         if ($kodeKantor === '' || $companyCode === '') {
-            throw new InvalidArgumentException('Kode kantor default dan company code CEISA wajib diisi sebelum membuat nomor aju.');
+            throw new InvalidArgumentException('Kode kantor dan company code CEISA wajib diisi sebelum membuat nomor aju.');
         }
 
         $sequenceDate = ($date ?? now())->toDateString();

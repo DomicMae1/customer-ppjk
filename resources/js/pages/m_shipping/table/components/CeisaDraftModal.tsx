@@ -22,7 +22,7 @@ import {
     XCircle,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 type DraftTab = 'header' | 'entities' | 'documents' | 'transport' | 'packaging' | 'transaction' | 'goods' | 'taxes' | 'statement' | 'advanced';
 type PortLookupTarget = 'kodePelMuat' | 'kodePelTujuan' | 'kodePelEkspor' | 'kodePelBongkar';
@@ -1090,11 +1090,16 @@ export function CeisaDraftModal({
     const [isLookingUpKurs, setIsLookingUpKurs] = useState(false);
     const { payload, error: jsonError } = useMemo(() => parsePayload(payloadText), [payloadText]);
     const isExport = isExportDraft(documentType, payload);
+    const latestDraftRef = useRef<{ payload: Record<string, any>; jsonError: string | null }>({ payload, jsonError });
     const requirements = useMemo(() => buildRequirements(payload, documentType), [payload, documentType]);
     const missingRequirements = requirements.filter((item) => !item.ok);
     const completedCount = requirements.length - missingRequirements.length;
     const visibleWarnings = useMemo(() => filterResolvedWarnings(warnings, payload, documentType), [warnings, payload, documentType]);
     const requiredDocumentCodes = isExport ? ['380', '217'] : ['380', '705', '740'];
+
+    useEffect(() => {
+        latestDraftRef.current = { payload, jsonError };
+    }, [jsonError, payload]);
 
     const commitPayload = (mutator: (next: Record<string, any>) => void) => {
         if (jsonError) return;
@@ -1121,6 +1126,24 @@ export function CeisaDraftModal({
         return missingRequirements.some((item) => groupsByTab[tab].includes(item.group));
     };
 
+    const lookupPortRows = useCallback(
+        async (keyword: string, limit = 8): Promise<Array<Record<string, any>>> => {
+            if (!referenceEndpoint || !keyword.trim()) return [];
+
+            try {
+                const response = await axios.post(referenceEndpoint, {
+                    lookup_type: 'pelabuhan_kata',
+                    params: { kata: keyword.trim() },
+                });
+
+                return extractReferenceRows(response.data).slice(0, limit);
+            } catch {
+                return [];
+            }
+        },
+        [referenceEndpoint],
+    );
+
     const lookupPortsFor = useCallback(
         async (target: PortLookupTarget, keyword: string, options: { silent?: boolean; limit?: number } = {}) => {
             if (!referenceEndpoint || !keyword.trim()) return;
@@ -1129,20 +1152,13 @@ export function CeisaDraftModal({
             setIsLookingUpPort(true);
 
             try {
-                const response = await axios.post(referenceEndpoint, {
-                    lookup_type: 'pelabuhan_kata',
-                    params: { kata: keyword.trim() },
-                });
-
-                const rows = extractReferenceRows(response.data);
-                setPortLookupRows(rows.slice(0, options.limit ?? 8));
-            } catch {
-                setPortLookupRows([]);
+                const rows = await lookupPortRows(keyword, options.limit ?? 8);
+                setPortLookupRows(rows);
             } finally {
                 setIsLookingUpPort(false);
             }
         },
-        [referenceEndpoint],
+        [lookupPortRows, referenceEndpoint],
     );
 
     const applyEntityCountry = (next: Record<string, any>, country: string, entityCodes: string[]) => {
@@ -1236,7 +1252,11 @@ export function CeisaDraftModal({
                 applyEntityCountry(next, country, ['8', '6']);
             }
 
-            if (target === 'kodePelTujuan' && office && !next.kodeKantor) {
+            if (!isExport && target === 'kodePelTujuan' && office) {
+                next.kodeKantor = office;
+            }
+
+            if (isExport && target === 'kodePelTujuan' && office && !next.kodeKantor) {
                 next.kodeKantor = office;
             }
 
@@ -1251,6 +1271,67 @@ export function CeisaDraftModal({
         setPortLookupKeyword('');
         setPortLookupRows([]);
     };
+
+    const applyResolvedImportDestinationOffice = useCallback(
+        (requestedPort: string, row: Record<string, any>) => {
+            const { payload: currentPayload, jsonError: currentJsonError } = latestDraftRef.current;
+
+            if (currentJsonError) return;
+
+            const office = pickRecordValue(row, ['kodeKantor', 'kode_kantor']);
+            const portCode = pickRecordValue(row, ['kodePelabuhan', 'kode_pelabuhan', 'kode', 'kodePort', 'kodePel']);
+
+            if (!office) return;
+
+            const requested = requestedPort.trim().toUpperCase();
+            const currentPort = String(currentPayload.kodePelTujuan || '').trim().toUpperCase();
+
+            if (currentPort !== requested) return;
+
+            const nextPort = portCode ? portCode.toUpperCase() : currentPort;
+            const currentOffice = String(currentPayload.kodeKantor || '').trim();
+
+            if (currentOffice === office && currentPort === nextPort) return;
+
+            const next = clonePayload(currentPayload);
+            next.kodePelTujuan = nextPort;
+            next.kodeKantor = office;
+            onPayloadTextChange(toPayloadText(next));
+        },
+        [onPayloadTextChange],
+    );
+
+    const importDestinationPort = !isExport && !jsonError ? String(payload.kodePelTujuan || '').trim().toUpperCase() : '';
+
+    useEffect(() => {
+        if (isExport || jsonError || !referenceEndpoint || importDestinationPort.length < 2) {
+            return;
+        }
+
+        let cancelled = false;
+
+        const timeout = window.setTimeout(async () => {
+            const rows = await lookupPortRows(importDestinationPort, 6);
+
+            if (cancelled || rows.length === 0) return;
+
+            const exactRow =
+                rows.find((row) => {
+                    const code = pickRecordValue(row, ['kodePelabuhan', 'kode_pelabuhan', 'kode', 'kodePort', 'kodePel']);
+
+                    return code.toUpperCase() === importDestinationPort;
+                }) || (rows.length === 1 ? rows[0] : undefined);
+
+            if (exactRow) {
+                applyResolvedImportDestinationOffice(importDestinationPort, exactRow);
+            }
+        }, 250);
+
+        return () => {
+            cancelled = true;
+            window.clearTimeout(timeout);
+        };
+    }, [applyResolvedImportDestinationOffice, importDestinationPort, isExport, jsonError, lookupPortRows, referenceEndpoint]);
 
     useEffect(() => {
         if (!activePortDropdown) {
@@ -1338,6 +1419,10 @@ export function CeisaDraftModal({
                 } else {
                     applyEntityCountry(next, countryFromPortValue(value), ['9', '10']);
                 }
+            }
+
+            if (!isExport && field === 'kodePelTujuan' && next.kodeKantor) {
+                next.kodeKantor = '';
             }
 
             if (isExport && field === 'kodeKantor') {
@@ -1840,9 +1925,9 @@ export function CeisaDraftModal({
                                                         {fieldLabel('Kantor Pabean', true)}
                                                         <Input
                                                             value={payload.kodeKantor || ''}
-                                                            onChange={(e) => updateHeader('kodeKantor', e.target.value)}
-                                                            className={inputClass}
-                                                            placeholder="contoh 070100"
+                                                            readOnly
+                                                            className={`${inputClass} bg-slate-50 font-semibold text-slate-900`}
+                                                            placeholder="Terisi dari Pelabuhan Tujuan"
                                                         />
                                                     </div>
                                                 </>

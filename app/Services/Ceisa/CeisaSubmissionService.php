@@ -74,12 +74,16 @@ class CeisaSubmissionService
     private function ensureNomorAju(CeisaCompanyConfig $config, array $payload, string $documentType): array
     {
         $nomorAju = Arr::get($payload, 'nomorAju');
+        $kodeKantor = (string) (Arr::get($payload, 'kodeKantor') ?: $config->default_kode_kantor);
 
-        if (is_string($nomorAju) && $this->nomorAjuGenerator->isValid($nomorAju)) {
+        if (
+            is_string($nomorAju)
+            && $this->nomorAjuGenerator->isValid($nomorAju)
+            && ($kodeKantor === '' || substr($nomorAju, 0, 4) === CeisaNumberFormatter::kodeKantorForNomorAju($kodeKantor))
+        ) {
             return $payload;
         }
 
-        $kodeKantor = (string) (Arr::get($payload, 'kodeKantor') ?: $config->default_kode_kantor);
         $companyCode = (string) $config->company_code;
 
         if ($kodeKantor === '' || $companyCode === '') {
