@@ -128,6 +128,10 @@ class CeisaImportPayloadNormalizer
         if ($this->isExportPayload($payload, $documentType)) {
             $payload = $this->normalizeExportPayload($payload);
         } elseif ($this->isImportPayload($payload, $documentType)) {
+            foreach (['pungutan', 'totalDanaSawit', 'vd', 'flagVd'] as $taxOnlyField) {
+                unset($payload[$taxOnlyField]);
+            }
+
             $originCountry = $this->originCountry($payload);
             $legacyJenisNilai = $this->jenisNilaiCode($payload['kodeCaraBayar'] ?? null);
 
@@ -883,6 +887,10 @@ class CeisaImportPayloadNormalizer
 
                 if (! array_key_exists('alasanMetodePenentuanNilai', $item)) {
                     $item['alasanMetodePenentuanNilai'] = null;
+                }
+
+                if (! isset($item['barangTarif']) || ! is_array($item['barangTarif'])) {
+                    $item['barangTarif'] = [];
                 }
 
                 if (empty($item['barangVd']) || ! is_array($item['barangVd'])) {

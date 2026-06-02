@@ -24,7 +24,7 @@ import {
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-type DraftTab = 'header' | 'entities' | 'documents' | 'transport' | 'packaging' | 'transaction' | 'goods' | 'taxes' | 'statement' | 'advanced';
+type DraftTab = 'header' | 'entities' | 'documents' | 'transport' | 'packaging' | 'transaction' | 'goods' | 'statement' | 'advanced';
 type PortLookupTarget = 'kodePelMuat' | 'kodePelTujuan' | 'kodePelEkspor' | 'kodePelBongkar';
 
 interface CeisaDraftModalProps {
@@ -56,7 +56,6 @@ const tabConfig: Array<{ key: DraftTab; label: string; icon: any }> = [
     { key: 'packaging', label: 'Kemasan & Peti Kemas', icon: Package },
     { key: 'transaction', label: 'Transaksi', icon: SlidersHorizontal },
     { key: 'goods', label: 'Barang', icon: Boxes },
-    { key: 'taxes', label: 'Pungutan', icon: FileText },
     { key: 'statement', label: 'Pernyataan', icon: CheckCircle2 },
     { key: 'advanced', label: 'JSON', icon: Package },
 ];
@@ -76,7 +75,43 @@ const documentOptions = [
 const incotermOptions = ['CIF', 'FOB', 'CFR', 'EXW', 'FCA', 'DAP'];
 const valutaOptions = ['USD', 'IDR', 'EUR', 'SGD', 'CNY', 'JPY', 'AUD', 'MYR', 'THB', 'INR', 'KRW', 'HKD', 'TWD', 'GBP'];
 const satuanOptions = ['PCE', 'KGM', 'TNE', 'LTR', 'MTQ', 'SET', 'BG', 'CTN', 'DR', 'ROL'];
-const kemasanOptions = ['PK', 'CT', 'BG', 'BX', 'DR', 'PL', 'BL', 'RO', 'SA', 'CS'];
+const kemasanOptions = [
+    { value: 'BG', label: 'BG - Bag' },
+    { value: 'PK', label: 'PK - Package' },
+    { value: 'CT', label: 'CT - Carton' },
+    { value: 'BX', label: 'BX - Box' },
+    { value: 'DR', label: 'DR - Drum' },
+    { value: 'PL', label: 'PL - Pallet' },
+    { value: 'BL', label: 'BL - Bale' },
+    { value: 'RO', label: 'RO - Roll' },
+    { value: 'SA', label: 'SA - Sack' },
+    { value: 'CS', label: 'CS - Case' },
+    { value: '1A', label: '1A - Drum, Steel' },
+    { value: '1B', label: '1B - Drum, Aluminium' },
+    { value: '1D', label: '1D - Drum, Plywood' },
+    { value: '1F', label: '1F - Container, Flexible' },
+    { value: '1G', label: '1G - Drum, Fibre' },
+    { value: '1W', label: '1W - Drum, Wooden' },
+    { value: '2C', label: '2C - Barrel, Wooden' },
+    { value: '3A', label: '3A - Jerrican, Steel' },
+];
+const kontainerUkuranOptions = [
+    { value: '20', label: '20 - 20 FEET' },
+    { value: '40', label: '40 - 40 FEET' },
+    { value: '45', label: '45 - 45 FEET' },
+    { value: '60', label: '60 - 60 FEET' },
+];
+const kontainerTipeOptions = [
+    { value: '1', label: '1 - GENERAL / DRY CARGO' },
+    { value: '2', label: '2 - TUNNE TYPE' },
+    { value: '3', label: '3 - OPEN TOP STEEL' },
+    { value: '4', label: '4 - FLAT RACK' },
+    { value: '5', label: '5 - REEFER/REFREGETE' },
+    { value: '6', label: '6 - BARGE CONTAINER' },
+    { value: '7', label: '7 - BULK CONTAINER' },
+    { value: '8', label: '8 - ISOTANK' },
+    { value: '99', label: '99 - LAIN-LAIN' },
+];
 const jenisImporOptions = [
     { value: '1', label: '1 - UNTUK DIPAKAI' },
     { value: '2', label: '2 - SEMENTARA' },
@@ -868,7 +903,7 @@ function buildRequirements(payload: Record<string, any>, documentType: string): 
               {
                   group: 'Pernyataan',
                   label: 'Penandatangan',
-                  ok: hasValue(payload.namaTtd) && hasValue(payload.jabatanTtd) && hasValue(payload.kotaTtd),
+                  ok: hasValue(payload.namaTtd) && hasValue(payload.jabatanTtd) && hasValue(payload.kotaTtd) && hasValue(payload.tanggalTtd),
               },
               {
                   group: 'Entitas',
@@ -899,8 +934,8 @@ function buildRequirements(payload: Record<string, any>, documentType: string): 
               { group: 'Header', label: 'Jenis PIB', ok: hasReferenceOrDefault(payload.kodeJenisPib, new Set(['1', '2']), '1') },
               { group: 'Header', label: 'Jenis impor', ok: hasValue(payload.kodeJenisImpor) },
               { group: 'Header', label: 'Cara bayar', ok: caraBayarValues.has(String(payload.kodeCaraBayar || '')) },
+              { group: 'Header', label: 'Pelabuhan tujuan', ok: hasValue(payload.kodePelTujuan) },
               { group: 'Pengangkut', label: 'Pelabuhan muat', ok: hasValue(payload.kodePelMuat) },
-              { group: 'Pengangkut', label: 'Pelabuhan tujuan', ok: hasValue(payload.kodePelTujuan) },
               { group: 'Pengangkut', label: 'Tempat penimbunan', ok: hasValue(payload.kodeTps) },
               { group: 'Pengangkut', label: 'Nomor Tutup PU', ok: tutupPuValues.has(String(payload.kodeTutupPu || '')) },
               { group: 'Pengangkut', label: 'Tanggal tiba', ok: hasValue(payload.tanggalTiba) },
@@ -925,7 +960,7 @@ function buildRequirements(payload: Record<string, any>, documentType: string): 
               {
                   group: 'Pernyataan',
                   label: 'Penandatangan',
-                  ok: hasValue(payload.namaTtd) && hasValue(payload.jabatanTtd) && hasValue(payload.kotaTtd),
+                  ok: hasValue(payload.namaTtd) && hasValue(payload.jabatanTtd) && hasValue(payload.kotaTtd) && hasValue(payload.tanggalTtd),
               },
               {
                   group: 'Entitas',
@@ -997,9 +1032,13 @@ function buildRequirements(payload: Record<string, any>, documentType: string): 
                 hasValue(firstBarang?.uraian) &&
                 positiveNumber(firstBarang?.jumlahSatuan) &&
                 hasValue(firstBarang?.kodeSatuanBarang) &&
+                positiveNumber(firstBarang?.jumlahKemasan) &&
+                hasValue(firstBarang?.kodeJenisKemasan) &&
                 isCountryCode(firstBarang?.kodeNegaraAsal) &&
                 hasValue(firstBarang?.merk) &&
-                hasValue(firstBarang?.tipe),
+                hasValue(firstBarang?.tipe) &&
+                hasValue(firstBarang?.kodeKondisiBarang) &&
+                hasValue(firstBarang?.metodePenentuanNilai),
         },
     ];
 }
@@ -1118,7 +1157,6 @@ export function CeisaDraftModal({
             packaging: ['Kemasan'],
             transaction: ['Transaksi'],
             goods: ['Barang'],
-            taxes: [],
             statement: ['Pernyataan'],
             advanced: [],
         };
@@ -1252,8 +1290,8 @@ export function CeisaDraftModal({
                 applyEntityCountry(next, country, ['8', '6']);
             }
 
-            if (!isExport && target === 'kodePelTujuan' && office) {
-                next.kodeKantor = office;
+            if (!isExport && target === 'kodePelTujuan') {
+                next.kodeKantor = office || '';
             }
 
             if (isExport && target === 'kodePelTujuan' && office && !next.kodeKantor) {
@@ -1921,6 +1959,7 @@ export function CeisaDraftModal({
                                                 </>
                                             ) : (
                                                 <>
+                                                    {renderPortReferenceField('kodePelTujuan', 'Pelabuhan Tujuan', 'Cari/kode pelabuhan, contoh IDTPE')}
                                                     <div className="space-y-1.5">
                                                         {fieldLabel('Kantor Pabean', true)}
                                                         <Input
@@ -2152,7 +2191,7 @@ export function CeisaDraftModal({
                         )}
 
                         {activeTab === 'entities' && !isExport && (
-                            <div className="space-y-5">
+                            <div className="grid gap-4 xl:grid-cols-3">
                                 <EntitySection title="Importir" required>
                                     <EntityFields
                                         entity={importir}
@@ -2207,16 +2246,9 @@ export function CeisaDraftModal({
                         )}
 
                         {activeTab === 'documents' && (
-                            <div className="space-y-4">
-                                <div className="flex items-center justify-between gap-3">
-                                    <div>
-                                        <div className="text-xs font-bold text-slate-800 dark:text-zinc-100">Dokumen Pendukung</div>
-                                        <div className="mt-0.5 text-xs text-slate-500 dark:text-zinc-400">
-                                            {isExport
-                                                ? 'Invoice 380 dan Packing List 217 wajib untuk draft ekspor. SI dapat ditambahkan sebagai Shiping Order 343 jika memang ada.'
-                                                : 'Invoice 380 dan B/L 705 atau AWB 740 wajib untuk draft import.'}
-                                        </div>
-                                    </div>
+                            <div className={portalPanelClass}>
+                                <div className={`${portalPanelHeaderClass} flex items-center justify-between gap-3`}>
+                                    <span>Dokumen Lampiran</span>
                                     <Button
                                         type="button"
                                         variant="outline"
@@ -2229,13 +2261,22 @@ export function CeisaDraftModal({
                                     </Button>
                                 </div>
 
-                                <div className="space-y-3">
+                                <div className={`${portalPanelBodyClass} overflow-x-auto`}>
+                                    <div className="min-w-[760px] border border-slate-200">
+                                        <div className="grid grid-cols-[70px_220px_1fr_180px_56px] bg-[#f4fbfb] px-4 py-3 text-xs font-semibold text-slate-700">
+                                            <div>Seri</div>
+                                            <div>Jenis</div>
+                                            <div>Nomor</div>
+                                            <div>Tanggal</div>
+                                            <div />
+                                        </div>
                                     {dokumen.map((row: any, index: number) => (
                                         <div
                                             key={`${row.kodeDokumen}-${index}`}
-                                            className="grid gap-3 rounded-xl border border-slate-200 p-3 md:grid-cols-[160px_1fr_170px_40px] dark:border-zinc-800"
+                                                className="grid grid-cols-[70px_220px_1fr_180px_56px] items-end gap-3 border-t border-slate-200 px-4 py-3"
                                         >
-                                            <div className="space-y-1.5">
+                                                <div className="pb-2 text-xs text-slate-600">{row.seriDokumen || index + 1}</div>
+                                                <div className="space-y-1.5">
                                                 {fieldLabel('Jenis', requiredDocumentCodes.includes(row.kodeDokumen))}
                                                 <select
                                                     value={row.kodeDokumen || ''}
@@ -2251,7 +2292,7 @@ export function CeisaDraftModal({
                                                 </select>
                                             </div>
                                             <div className="space-y-1.5">
-                                                {fieldLabel('Nomor Dokumen', requiredDocumentCodes.includes(row.kodeDokumen))}
+                                                    {fieldLabel('Nomor', requiredDocumentCodes.includes(row.kodeDokumen))}
                                                 <Input
                                                     value={row.nomorDokumen || ''}
                                                     onChange={(e) => updateDocument(index, 'nomorDokumen', e.target.value)}
@@ -2259,7 +2300,7 @@ export function CeisaDraftModal({
                                                 />
                                             </div>
                                             <div className="space-y-1.5">
-                                                {fieldLabel('Tanggal Dokumen', requiredDocumentCodes.includes(row.kodeDokumen))}
+                                                    {fieldLabel('Tanggal', requiredDocumentCodes.includes(row.kodeDokumen))}
                                                 <Input
                                                     type="date"
                                                     value={row.tanggalDokumen || ''}
@@ -2280,6 +2321,7 @@ export function CeisaDraftModal({
                                             </div>
                                         </div>
                                     ))}
+                                    </div>
                                 </div>
                             </div>
                         )}
@@ -2433,9 +2475,20 @@ export function CeisaDraftModal({
                                             isExport ? 'Pelabuhan Muat Asal' : 'Pelabuhan Muat',
                                             'Cari/kode pelabuhan, contoh IDTPE',
                                         )}
-                                        {renderPortReferenceField('kodePelTujuan', 'Pelabuhan Tujuan', 'Cari/kode pelabuhan, contoh SAJED')}
+                                        {!isExport && (
+                                            <div className="space-y-1.5">
+                                                {fieldLabel('Pelabuhan Tujuan', true)}
+                                                <Input
+                                                    value={payload.kodePelTujuan || ''}
+                                                    readOnly
+                                                    className={`${inputClass} bg-slate-50 font-semibold text-slate-900`}
+                                                    placeholder="Diatur dari Header"
+                                                />
+                                            </div>
+                                        )}
                                         {isExport && (
                                             <>
+                                                {renderPortReferenceField('kodePelTujuan', 'Pelabuhan Tujuan', 'Cari/kode pelabuhan, contoh SAJED')}
                                                 {renderPortReferenceField('kodePelBongkar', 'Pelabuhan Bongkar', 'Cari/kode pelabuhan, contoh SAJED')}
                                                 <div className="space-y-1.5">
                                                     {fieldLabel('Negara Tujuan Ekspor', true)}
@@ -2564,26 +2617,20 @@ export function CeisaDraftModal({
                         )}
 
                         {activeTab === 'packaging' && (
-                            <div className="space-y-5">
-                                <div>
-                                    <div className="mb-3 text-xs font-bold text-slate-800 dark:text-zinc-100">Kemasan</div>
-                                    <div className="grid gap-3 md:grid-cols-3">
-                                        <div className="space-y-1.5">
-                                            {fieldLabel('Jenis Kemasan', true)}
-                                            <select
-                                                value={packageRow.kodeJenisKemasan || 'PK'}
-                                                onChange={(e) => updateFirstArrayRow('kemasan', 'kodeJenisKemasan', e.target.value)}
-                                                className={selectClass}
-                                            >
-                                                {kemasanOptions.map((value) => (
-                                                    <option key={value} value={value}>
-                                                        {value}
-                                                    </option>
-                                                ))}
-                                            </select>
+                            <div className="grid gap-4 lg:grid-cols-2">
+                                <div className={portalPanelClass}>
+                                    <div className={portalPanelHeaderClass}>Kemasan</div>
+                                    <div className={`${portalPanelBodyClass} space-y-4`}>
+                                        <div className="grid grid-cols-[70px_1fr_1fr_1fr] gap-3 border border-slate-200 bg-[#f4fbfb] px-4 py-3 text-xs font-semibold text-slate-700">
+                                            <div>Seri</div>
+                                            <div>Jumlah</div>
+                                            <div>Jenis</div>
+                                            <div>Merek</div>
                                         </div>
+                                        <div className="grid grid-cols-[70px_1fr_1fr_1fr] items-end gap-3 border border-t-0 border-slate-200 px-4 py-3">
+                                            <div className="pb-2 text-xs text-slate-600">{packageRow.seriKemasan || 1}</div>
                                         <div className="space-y-1.5">
-                                            {fieldLabel('Jumlah Kemasan', true)}
+                                                {fieldLabel('Jumlah', true)}
                                             <Input
                                                 type="number"
                                                 value={packageRow.jumlahKemasan ?? 1}
@@ -2592,7 +2639,21 @@ export function CeisaDraftModal({
                                             />
                                         </div>
                                         <div className="space-y-1.5">
-                                            {fieldLabel('Merk Kemasan')}
+                                                {fieldLabel('Jenis', true)}
+                                                <select
+                                                    value={packageRow.kodeJenisKemasan || 'PK'}
+                                                    onChange={(e) => updateFirstArrayRow('kemasan', 'kodeJenisKemasan', e.target.value)}
+                                                    className={selectClass}
+                                                >
+                                                    {kemasanOptions.map((item) => (
+                                                        <option key={item.value} value={item.value}>
+                                                            {item.label}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                {fieldLabel('Merek')}
                                             <Input
                                                 value={packageRow.merkKemasan || ''}
                                                 onChange={(e) => updateFirstArrayRow('kemasan', 'merkKemasan', e.target.value)}
@@ -2601,10 +2662,11 @@ export function CeisaDraftModal({
                                         </div>
                                     </div>
                                 </div>
+                                </div>
 
-                                <div>
-                                    <div className="mb-3 flex items-center justify-between gap-3">
-                                        <div className="text-xs font-bold text-slate-800 dark:text-zinc-100">Kontainer</div>
+                                <div className={portalPanelClass}>
+                                    <div className={`${portalPanelHeaderClass} flex items-center justify-between gap-3`}>
+                                        <span>Peti Kemas</span>
                                         <Button
                                             type="button"
                                             variant="outline"
@@ -2616,17 +2678,21 @@ export function CeisaDraftModal({
                                             Tambah
                                         </Button>
                                     </div>
-                                    <div className="space-y-3">
+                                    <div className={`${portalPanelBodyClass} space-y-3`}>
                                         {kontainer.length === 0 && (
-                                            <div className="rounded-xl border border-dashed border-slate-200 p-4 text-center text-xs text-slate-500 dark:border-zinc-800">
+                                            <div className="border border-dashed border-slate-200 p-4 text-center text-xs text-slate-500">
                                                 Belum ada kontainer.
                                             </div>
                                         )}
                                         {kontainer.map((row: any, index: number) => (
                                             <div
                                                 key={index}
-                                                className="grid gap-3 rounded-xl border border-slate-200 p-3 md:grid-cols-[1fr_120px_120px_40px] dark:border-zinc-800"
+                                                className="grid gap-3 border border-slate-200 p-3 md:grid-cols-[70px_1fr_140px_140px_160px_40px]"
                                             >
+                                                <div className="space-y-1.5">
+                                                    {fieldLabel('Seri')}
+                                                    <Input value={row.seriKontainer || index + 1} readOnly className={`${inputClass} bg-slate-50`} />
+                                                </div>
                                                 <div className="space-y-1.5">
                                                     {fieldLabel('Nomor Kontainer')}
                                                     <Input
@@ -2642,18 +2708,40 @@ export function CeisaDraftModal({
                                                         onChange={(e) => updateKontainer(index, 'kodeUkuranKontainer', e.target.value)}
                                                         className={selectClass}
                                                     >
-                                                        <option value="20">20</option>
-                                                        <option value="40">40</option>
-                                                        <option value="45">45</option>
+                                                        {kontainerUkuranOptions.map((item) => (
+                                                            <option key={item.value} value={item.value}>
+                                                                {item.label}
+                                                            </option>
+                                                        ))}
                                                     </select>
                                                 </div>
                                                 <div className="space-y-1.5">
-                                                    {fieldLabel('Jenis')}
-                                                    <Input
+                                                    {fieldLabel('Jenis Muatan')}
+                                                    <select
                                                         value={row.kodeJenisKontainer || '8'}
                                                         onChange={(e) => updateKontainer(index, 'kodeJenisKontainer', e.target.value)}
-                                                        className={inputClass}
-                                                    />
+                                                        className={selectClass}
+                                                    >
+                                                        {caraStuffingOptions.map((item) => (
+                                                            <option key={item.value} value={item.value}>
+                                                                {item.label}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                    {fieldLabel('Tipe')}
+                                                    <select
+                                                        value={row.kodeTipeKontainer || '1'}
+                                                        onChange={(e) => updateKontainer(index, 'kodeTipeKontainer', e.target.value)}
+                                                        className={selectClass}
+                                                    >
+                                                        {kontainerTipeOptions.map((item) => (
+                                                            <option key={item.value} value={item.value}>
+                                                                {item.label}
+                                                            </option>
+                                                        ))}
+                                                    </select>
                                                 </div>
                                                 <div className="flex items-end">
                                                     <Button
@@ -2874,12 +2962,7 @@ export function CeisaDraftModal({
                         {activeTab === 'goods' && (
                             <div className="space-y-4">
                                 <div className="flex items-center justify-between gap-3">
-                                    <div>
-                                        <div className="text-xs font-bold text-slate-800 dark:text-zinc-100">Barang & HS Code</div>
-                                        <div className="mt-0.5 text-xs text-slate-500 dark:text-zinc-400">
-                                            Minimal satu barang dengan HS code, uraian, satuan, dan jumlah.
-                                        </div>
-                                    </div>
+                                    <div className="text-sm font-semibold text-slate-800">Barang</div>
                                     <Button
                                         type="button"
                                         variant="outline"
@@ -2894,9 +2977,9 @@ export function CeisaDraftModal({
 
                                 <div className="space-y-4">
                                     {barang.map((row: any, index: number) => (
-                                        <div key={index} className="space-y-3 rounded-xl border border-slate-200 p-3 dark:border-zinc-800">
-                                            <div className="flex items-center justify-between gap-3">
-                                                <div className="text-xs font-bold text-slate-700 dark:text-zinc-200">Barang {index + 1}</div>
+                                        <div key={index} className={portalPanelClass}>
+                                            <div className={`${portalPanelHeaderClass} flex items-center justify-between gap-3`}>
+                                                <div>Barang {index + 1}</div>
                                                 {barang.length > 1 && (
                                                     <Button
                                                         type="button"
@@ -2910,21 +2993,29 @@ export function CeisaDraftModal({
                                                     </Button>
                                                 )}
                                             </div>
-                                            <div className="grid gap-3 md:grid-cols-4">
+                                            <div className={`${portalPanelBodyClass} grid gap-3 md:grid-cols-4`}>
                                                 <div className="space-y-1.5">
-                                                    {fieldLabel('HS Code', true)}
+                                                    {fieldLabel('Pos Tarif/HS', true)}
                                                     <Input
                                                         value={row.posTarif || ''}
                                                         onChange={(e) => updateBarang(index, 'posTarif', e.target.value.replace(/\D/g, ''))}
                                                         className={inputClass}
                                                     />
                                                 </div>
-                                                <div className="space-y-1.5 md:col-span-2">
-                                                    {fieldLabel('Uraian', true)}
+                                                <div className="space-y-1.5">
+                                                    {fieldLabel('Kode Barang')}
                                                     <Input
+                                                        value={row.kodeBarang || ''}
+                                                        onChange={(e) => updateBarang(index, 'kodeBarang', e.target.value)}
+                                                        className={inputClass}
+                                                    />
+                                                </div>
+                                                <div className="space-y-1.5 md:col-span-2">
+                                                    {fieldLabel('Uraian Jenis Barang', true)}
+                                                    <Textarea
                                                         value={row.uraian || ''}
                                                         onChange={(e) => updateBarang(index, 'uraian', e.target.value)}
-                                                        className={inputClass}
+                                                        className={`${inputClass} min-h-20`}
                                                     />
                                                 </div>
                                                 <div className="space-y-1.5">
@@ -2942,7 +3033,7 @@ export function CeisaDraftModal({
                                                     </select>
                                                 </div>
                                                 <div className="space-y-1.5">
-                                                    {fieldLabel('Jumlah', true)}
+                                                    {fieldLabel('Jumlah Satuan', true)}
                                                     <Input
                                                         type="number"
                                                         value={row.jumlahSatuan ?? 1}
@@ -2965,7 +3056,30 @@ export function CeisaDraftModal({
                                                     </select>
                                                 </div>
                                                 <div className="space-y-1.5">
-                                                    {fieldLabel('Harga Satuan')}
+                                                    {fieldLabel('Jumlah Kemasan', true)}
+                                                    <Input
+                                                        type="number"
+                                                        value={row.jumlahKemasan ?? packageRow.jumlahKemasan ?? 1}
+                                                        onChange={(e) => updateBarang(index, 'jumlahKemasan', numberValue(e.target.value))}
+                                                        className={inputClass}
+                                                    />
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                    {fieldLabel('Kode Jenis Kemasan', true)}
+                                                    <select
+                                                        value={row.kodeJenisKemasan || packageRow.kodeJenisKemasan || 'PK'}
+                                                        onChange={(e) => updateBarang(index, 'kodeJenisKemasan', e.target.value)}
+                                                        className={selectClass}
+                                                    >
+                                                        {kemasanOptions.map((item) => (
+                                                            <option key={item.value} value={item.value}>
+                                                                {item.label}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                    {fieldLabel('Harga Invoice')}
                                                     <Input
                                                         type="number"
                                                         value={row.hargaSatuan ?? 0}
@@ -2974,7 +3088,7 @@ export function CeisaDraftModal({
                                                     />
                                                 </div>
                                                 <div className="space-y-1.5">
-                                                    {fieldLabel('Netto KG')}
+                                                    {fieldLabel('Berat Bersih (Kg)')}
                                                     <Input
                                                         type="number"
                                                         value={row.netto ?? 0}
@@ -3019,7 +3133,41 @@ export function CeisaDraftModal({
                                                     />
                                                 </div>
                                                 <div className="space-y-1.5">
-                                                    {fieldLabel('Merk', true)}
+                                                    {fieldLabel('Metode Penentuan Nilai Pabean', true)}
+                                                    <select
+                                                        value={row.metodePenentuanNilai || 'Metode 1'}
+                                                        onChange={(e) => updateBarang(index, 'metodePenentuanNilai', e.target.value)}
+                                                        className={selectClass}
+                                                    >
+                                                        <option value="Metode 1">Metode 1</option>
+                                                        <option value="Metode 2">Metode 2</option>
+                                                        <option value="Metode 3">Metode 3</option>
+                                                        <option value="Metode 4">Metode 4</option>
+                                                        <option value="Metode 5">Metode 5</option>
+                                                        <option value="Metode 6">Metode 6</option>
+                                                    </select>
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                    {fieldLabel('Alasan')}
+                                                    <Input
+                                                        value={row.alasanMetodePenentuanNilai || ''}
+                                                        onChange={(e) => updateBarang(index, 'alasanMetodePenentuanNilai', e.target.value)}
+                                                        className={inputClass}
+                                                    />
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                    {fieldLabel('Kondisi Barang', true)}
+                                                    <select
+                                                        value={row.kodeKondisiBarang || '1'}
+                                                        onChange={(e) => updateBarang(index, 'kodeKondisiBarang', e.target.value)}
+                                                        className={selectClass}
+                                                    >
+                                                        <option value="1">1 - Baru</option>
+                                                        <option value="2">2 - Bekas</option>
+                                                    </select>
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                    {fieldLabel('Merek', true)}
                                                     <Input
                                                         value={row.merk || ''}
                                                         onChange={(e) => updateBarang(index, 'merk', e.target.value)}
@@ -3034,52 +3182,25 @@ export function CeisaDraftModal({
                                                         className={inputClass}
                                                     />
                                                 </div>
+                                                <div className="space-y-1.5">
+                                                    {fieldLabel('Ukuran')}
+                                                    <Input
+                                                        value={row.ukuran || ''}
+                                                        onChange={(e) => updateBarang(index, 'ukuran', e.target.value)}
+                                                        className={inputClass}
+                                                    />
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                    {fieldLabel('Spesifikasi Lain')}
+                                                    <Input
+                                                        value={row.spesifikasiLain || ''}
+                                                        onChange={(e) => updateBarang(index, 'spesifikasiLain', e.target.value)}
+                                                        className={inputClass}
+                                                    />
+                                                </div>
                                             </div>
                                         </div>
                                     ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {activeTab === 'taxes' && (
-                            <div className={portalPanelClass}>
-                                <div className={portalPanelHeaderClass}>Pungutan</div>
-                                <div className={`${portalPanelBodyClass} space-y-4`}>
-                                    <div className="rounded-sm border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-                                        Pungutan belum dihitung otomatis di tahap ini. Untuk draft awal, detail tarif dan lartas akan mengikuti data
-                                        barang/HS yang dikirim ke CEISA.
-                                    </div>
-                                    <div className="grid gap-3 md:grid-cols-3">
-                                        <div className="space-y-1.5">
-                                            {fieldLabel('Total Dana Sawit')}
-                                            <Input
-                                                type="number"
-                                                value={payload.totalDanaSawit ?? 0}
-                                                onChange={(e) => updateHeader('totalDanaSawit', numberValue(e.target.value))}
-                                                className={inputClass}
-                                            />
-                                        </div>
-                                        <div className="space-y-1.5">
-                                            {fieldLabel('VD')}
-                                            <Input
-                                                type="number"
-                                                value={payload.vd ?? 0}
-                                                onChange={(e) => updateHeader('vd', numberValue(e.target.value))}
-                                                className={inputClass}
-                                            />
-                                        </div>
-                                        <div className="space-y-1.5">
-                                            {fieldLabel('Flag VD')}
-                                            <select
-                                                value={payload.flagVd || 'T'}
-                                                onChange={(e) => updateHeader('flagVd', e.target.value)}
-                                                className={selectClass}
-                                            >
-                                                <option value="T">T - Tidak</option>
-                                                <option value="Y">Y - Ya</option>
-                                            </select>
-                                        </div>
-                                    </div>
                                 </div>
                             </div>
                         )}
@@ -3235,9 +3356,9 @@ function EntityFields({
     };
 
     return (
-        <div className="grid gap-3 md:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2">
             {fields.map((field) => (
-                <div key={field} className={`space-y-1.5 ${field === 'alamatEntitas' ? 'md:col-span-2' : ''}`}>
+                <div key={field} className={`space-y-1.5 ${field === 'alamatEntitas' ? 'sm:col-span-2' : ''}`}>
                     {fieldLabel(
                         labels[field] || field,
                         ['namaEntitas', 'alamatEntitas', 'nomorIdentitas', 'nibEntitas', 'kodeNegara'].includes(field),

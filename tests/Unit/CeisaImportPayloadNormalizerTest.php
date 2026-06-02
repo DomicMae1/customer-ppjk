@@ -13,6 +13,10 @@ test('it normalizes bc20 draft fields rejected by ceisa validation', function ()
         'kodePelMuat' => 'NHAVA SHEVA',
         'kodeValuta' => 'usd',
         'kodeTutupPu' => '',
+        'pungutan' => [['kodeJenisPungutan' => 'BM']],
+        'totalDanaSawit' => 0,
+        'vd' => 0,
+        'flagVd' => 'T',
         'entitas' => [
             [
                 'seriEntitas' => 1,
@@ -90,6 +94,18 @@ test('it normalizes bc20 draft fields rejected by ceisa validation', function ()
         ->toBe('IN')
         ->and(array_key_exists('alasanMetodePenentuanNilai', $normalized['barang'][0]))
         ->toBeTrue()
+        ->and(array_key_exists('barangTarif', $normalized['barang'][0]))
+        ->toBeTrue()
+        ->and($normalized['barang'][0]['barangTarif'])
+        ->toBe([])
+        ->and(array_key_exists('pungutan', $normalized))
+        ->toBeFalse()
+        ->and(array_key_exists('totalDanaSawit', $normalized))
+        ->toBeFalse()
+        ->and(array_key_exists('vd', $normalized))
+        ->toBeFalse()
+        ->and(array_key_exists('flagVd', $normalized))
+        ->toBeFalse()
         ->and($normalizer->validateDraft($normalized, 'BC20'))
         ->toBe([]);
 });
