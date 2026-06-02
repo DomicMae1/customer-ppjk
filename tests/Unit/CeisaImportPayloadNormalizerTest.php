@@ -111,6 +111,7 @@ test('it normalizes bc30 export draft fields required by ceisa schema', function
     $normalized = $normalizer->normalizeForSubmit([
         'kodeDokumen' => '30',
         'kodeKantor' => '070100',
+        'kodeTps' => 'TPS1',
         'kodePelMuat' => 'IDTPE',
         'kodePelTujuan' => 'SAJED',
         'kodeJenisImpor' => '1',

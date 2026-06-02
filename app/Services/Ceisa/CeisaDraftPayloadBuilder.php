@@ -87,14 +87,35 @@ class CeisaDraftPayloadBuilder
                 'tanggalTiba' => optional($spk->eta_date)->toDateString() ?: $today,
             ]);
         } else {
+            $exportDate = optional($spk->etd_date)->toDateString() ?: $today;
+            $kodePelMuat = (string) $spk->port_of_loading;
+            $kodePelTujuan = (string) $spk->port;
+
             $payload = array_merge($payload, [
                 'kodeJenisEkspor' => '1',
                 'kodeKategoriEkspor' => '10',
                 'kodeCaraDagang' => '1',
                 'kodeCaraBayar' => '1',
-                'kodePelMuat' => (string) $spk->port_of_loading,
-                'kodePelTujuan' => (string) $spk->port,
-                'tanggalEkspor' => optional($spk->etd_date)->toDateString() ?: $today,
+                'flagBarkir' => 'T',
+                'flagCurah' => '2',
+                'flagMigas' => '2',
+                'kodeJenisPengangkutan' => '1',
+                'kodeKantorMuat' => (string) $config->default_kode_kantor,
+                'kodeKantorEkspor' => (string) $config->default_kode_kantor,
+                'kodeKantorPeriksa' => (string) $config->default_kode_kantor,
+                'kodeLokasi' => '2',
+                'kodePelMuat' => $kodePelMuat,
+                'kodePelEkspor' => $kodePelMuat,
+                'kodePelTujuan' => $kodePelTujuan,
+                'kodePelBongkar' => $kodePelTujuan,
+                'kodeNegaraTujuan' => $this->payloadNormalizer->countryFromValue($kodePelTujuan),
+                'tanggalEkspor' => $exportDate,
+                'tanggalPeriksa' => $exportDate,
+                'bankDevisa' => [[
+                    'seriBank' => 1,
+                    'kodeBank' => '9',
+                ]],
+                'kesiapanBarang' => [$this->exportReadinessRow($payload, $exportDate)],
             ]);
         }
 
@@ -479,6 +500,26 @@ class CeisaDraftPayloadBuilder
             'biayaPajakInternal' => 0,
             'bunga' => 0,
             'deviden' => 0,
+        ];
+    }
+
+    private function exportReadinessRow(array $payload, string $date): array
+    {
+        $containerCount = (int) ($payload['jumlahKontainer'] ?? 0);
+
+        return [
+            'kodeJenisBarang' => '1',
+            'kodeJenisGudang' => '2',
+            'namaPic' => (string) ($payload['namaTtd'] ?? 'PIC'),
+            'alamat' => (string) ($payload['kotaTtd'] ?? '-'),
+            'nomorTelpPic' => '0000000000',
+            'lokasiSiapPeriksa' => (string) ($payload['kotaTtd'] ?? '-'),
+            'kodeCaraStuffing' => $containerCount > 0 ? '8' : '7',
+            'kodeJenisPartOf' => '2',
+            'tanggalPkb' => $date,
+            'waktuSiapPeriksa' => "{$date}T08:00:00.000Z",
+            'jumlahContainer20' => $containerCount,
+            'jumlahContainer40' => 0,
         ];
     }
 

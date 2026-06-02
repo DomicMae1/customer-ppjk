@@ -25,7 +25,7 @@ import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 type DraftTab = 'header' | 'entities' | 'documents' | 'transport' | 'packaging' | 'transaction' | 'goods' | 'taxes' | 'statement' | 'advanced';
-type PortLookupTarget = 'kodePelMuat' | 'kodePelTujuan';
+type PortLookupTarget = 'kodePelMuat' | 'kodePelTujuan' | 'kodePelEkspor' | 'kodePelBongkar';
 
 interface CeisaDraftModalProps {
     open: boolean;
@@ -105,6 +105,45 @@ const caraDagangOptions = [
     { value: '2', label: '2 - IMB / Imbal Dagang' },
     { value: '15', label: '15 - Lainnya' },
 ];
+const komoditasOptions = [
+    { value: '1', label: '1 - MIGAS' },
+    { value: '2', label: '2 - NON MIGAS' },
+];
+const barangKirimanOptions = [
+    { value: 'Y', label: 'Y - EKSPOR BARANG KIRIMAN' },
+    { value: 'T', label: 'T - BUKAN EKSPOR BARANG KIRIMAN' },
+];
+const curahOptions = [
+    { value: '1', label: '1 - Barang Curah' },
+    { value: '2', label: '2 - Bukan Barang Curah' },
+];
+const jenisPengangkutanOptions = [
+    { value: '1', label: '1 - Laut' },
+    { value: '2', label: '2 - Kereta Api' },
+    { value: '3', label: '3 - Darat' },
+    { value: '4', label: '4 - Udara' },
+];
+const lokasiPemeriksaanOptions = [
+    { value: '1', label: '1 - KP Tempat Pemuatan' },
+    { value: '2', label: '2 - Gudang Eksportir' },
+    { value: '3', label: '3 - Tempat Lain yang Diizinkan' },
+    { value: '4', label: '4 - TPS' },
+    { value: '5', label: '5 - TPP' },
+    { value: '6', label: '6 - TPB' },
+    { value: '7', label: '7 - Tempat Penimbunan Lainnya' },
+    { value: '8', label: '8 - Gudang Konsolidator' },
+];
+const jenisGudangOptions = [
+    { value: '1', label: '1 - Gudang Veem' },
+    { value: '2', label: '2 - Gudang Pabrik' },
+    { value: '3', label: '3 - Gudang Konsolidasi' },
+    { value: '4', label: '4 - Lainnya' },
+];
+const caraStuffingOptions = [
+    { value: '4', label: '4 - Empty' },
+    { value: '7', label: '7 - LCL' },
+    { value: '8', label: '8 - FCL' },
+];
 const caraBayarOptions = [
     { value: '1', label: '1 - BIASA/TUNAI' },
     { value: '2', label: '2 - BERKALA' },
@@ -128,6 +167,13 @@ const exportCaraBayarOptions = caraBayarOptions.filter((item) => ['1', '2', '3',
 const jenisEksporValues = new Set(jenisEksporOptions.map((item) => item.value));
 const kategoriEksporValues = new Set(kategoriEksporOptions.map((item) => item.value));
 const caraDagangValues = new Set(caraDagangOptions.map((item) => item.value));
+const komoditasValues = new Set(komoditasOptions.map((item) => item.value));
+const barangKirimanValues = new Set(barangKirimanOptions.map((item) => item.value));
+const curahValues = new Set(curahOptions.map((item) => item.value));
+const jenisPengangkutanValues = new Set(jenisPengangkutanOptions.map((item) => item.value));
+const lokasiPemeriksaanValues = new Set(lokasiPemeriksaanOptions.map((item) => item.value));
+const jenisGudangValues = new Set(jenisGudangOptions.map((item) => item.value));
+const caraStuffingValues = new Set(caraStuffingOptions.map((item) => item.value));
 const jenisTransaksiOptions = [
     { value: 'PMK', label: 'PMK - PEMBAYARAN DILAKUKAN DIMUKA' },
     { value: 'KMD', label: 'KMD - PEMBAYARAN KEMUDIAN' },
@@ -732,8 +778,11 @@ function isExportDraft(documentType: string, payload: Record<string, any>): bool
 function buildRequirements(payload: Record<string, any>, documentType: string): Requirement[] {
     const entitas = Array.isArray(payload.entitas) ? payload.entitas : [];
     const dokumen = Array.isArray(payload.dokumen) ? payload.dokumen : [];
+    const pengangkut = Array.isArray(payload.pengangkut) ? payload.pengangkut : [];
     const barang = Array.isArray(payload.barang) ? payload.barang : [];
     const kemasan = Array.isArray(payload.kemasan) ? payload.kemasan : [];
+    const bankDevisa = Array.isArray(payload.bankDevisa) ? payload.bankDevisa : [];
+    const kesiapanBarang = Array.isArray(payload.kesiapanBarang) ? payload.kesiapanBarang : [];
     const exportDraft = isExportDraft(documentType, payload);
 
     const importir = entitas.find((item: any) => item?.kodeEntitas === '1');
@@ -749,20 +798,73 @@ function buildRequirements(payload: Record<string, any>, documentType: string): 
     const blAwb = dokumen.find((item: any) => ['705', '740'].includes(item?.kodeDokumen));
     const firstBarang = barang[0] || {};
     const firstKemasan = kemasan[0] || {};
+    const firstPengangkut = pengangkut[0] || {};
+    const firstBankDevisa = bankDevisa[0] || {};
+    const firstKesiapanBarang = kesiapanBarang[0] || {};
 
     const commonRequirements: Requirement[] = [
+        { group: 'Header', label: 'Nomor aju', ok: hasValue(payload.nomorAju) },
         { group: 'Header', label: 'Kode kantor', ok: hasValue(payload.kodeKantor) },
-        { group: 'Pengangkut', label: 'Pelabuhan muat', ok: hasValue(payload.kodePelMuat) },
-        { group: 'Pengangkut', label: 'Pelabuhan tujuan', ok: hasValue(payload.kodePelTujuan) },
     ];
 
     const transactionRequirements: Requirement[] = exportDraft
         ? [
+              { group: 'Header', label: 'Kantor pabean pemuatan', ok: hasValue(payload.kodeKantorMuat || payload.kodeKantor) },
+              { group: 'Header', label: 'Pelabuhan muat ekspor', ok: hasValue(payload.kodePelEkspor || payload.kodePelMuat) },
+              { group: 'Header', label: 'Kantor pabean ekspor', ok: hasValue(payload.kodeKantorEkspor || payload.kodeKantor) },
               { group: 'Header', label: 'Jenis ekspor', ok: hasReferenceOrDefault(payload.kodeJenisEkspor, jenisEksporValues, '1') },
               { group: 'Header', label: 'Kategori ekspor', ok: hasReferenceOrDefault(payload.kodeKategoriEkspor, kategoriEksporValues, '10') },
-              { group: 'Header', label: 'Cara dagang', ok: hasReferenceOrDefault(payload.kodeCaraDagang, caraDagangValues, '1') },
+              { group: 'Header', label: 'Cara perdagangan', ok: hasReferenceOrDefault(payload.kodeCaraDagang, caraDagangValues, '1') },
               { group: 'Header', label: 'Cara bayar', ok: hasReferenceOrDefault(payload.kodeCaraBayar, caraBayarValues, '1') },
+              { group: 'Header', label: 'Komoditas', ok: hasReferenceOrDefault(payload.flagMigas, komoditasValues, '2') },
+              { group: 'Header', label: 'Barang kiriman', ok: hasReferenceOrDefault(payload.flagBarkir, barangKirimanValues, 'T') },
+              {
+                  group: 'Header',
+                  label: 'Barang curah',
+                  ok: String(payload.flagBarkir || 'T') !== 'T' || hasReferenceOrDefault(payload.flagCurah, curahValues, '2'),
+              },
+              {
+                  group: 'Header',
+                  label: 'Keterangan pembayaran',
+                  ok: String(payload.kodeCaraBayar || '') !== '9' || hasValue(payload.kodePembayar),
+              },
+              { group: 'Pengangkut', label: 'Jenis pengangkutan', ok: hasReferenceOrDefault(payload.kodeJenisPengangkutan, jenisPengangkutanValues, '1') },
+              { group: 'Pengangkut', label: 'Pelabuhan muat asal', ok: hasValue(payload.kodePelMuat) },
+              { group: 'Pengangkut', label: 'Pelabuhan tujuan', ok: hasValue(payload.kodePelTujuan) },
+              { group: 'Pengangkut', label: 'Tempat penimbunan', ok: hasValue(payload.kodeTps) },
+              { group: 'Pengangkut', label: 'Negara tujuan', ok: isCountryCode(payload.kodeNegaraTujuan) },
+              { group: 'Pengangkut', label: 'Lokasi pemeriksaan', ok: hasReferenceOrDefault(payload.kodeLokasi, lokasiPemeriksaanValues, '2') },
+              { group: 'Pengangkut', label: 'Kantor pemeriksaan', ok: hasValue(payload.kodeKantorPeriksa || payload.kodeKantor) },
+              { group: 'Pengangkut', label: 'Tanggal periksa', ok: hasValue(payload.tanggalPeriksa) },
+              { group: 'Pengangkut', label: 'Tanggal ekspor', ok: hasValue(payload.tanggalEkspor) },
+              {
+                  group: 'Pengangkut',
+                  label: 'Sarana angkut',
+                  ok:
+                      hasValue(firstPengangkut?.namaPengangkut) &&
+                      hasValue(firstPengangkut?.nomorPengangkut) &&
+                      hasValue(firstPengangkut?.kodeCaraAngkut) &&
+                      isCountryCode(firstPengangkut?.kodeBendera),
+              },
+              {
+                  group: 'Pengangkut',
+                  label: 'Kesiapan barang',
+                  ok:
+                      hasValue(firstKesiapanBarang?.namaPic) &&
+                      hasValue(firstKesiapanBarang?.alamat) &&
+                      hasValue(firstKesiapanBarang?.nomorTelpPic) &&
+                      hasReferenceOrDefault(firstKesiapanBarang?.kodeJenisGudang, jenisGudangValues, '2') &&
+                      hasReferenceOrDefault(firstKesiapanBarang?.kodeCaraStuffing, caraStuffingValues, '7') &&
+                      hasValue(firstKesiapanBarang?.tanggalPkb),
+              },
               { group: 'Transaksi', label: 'NDPBM/Kurs', ok: hasNumberValue(payload.ndpbm) },
+              { group: 'Transaksi', label: 'Valuta', ok: hasValue(payload.kodeValuta) },
+              { group: 'Transaksi', label: 'FOB', ok: hasNumberValue(payload.fob) },
+              { group: 'Transaksi', label: 'Freight', ok: hasNumberValue(payload.freight) },
+              { group: 'Transaksi', label: 'Asuransi', ok: hasNumberValue(payload.asuransi) && hasValue(payload.kodeAsuransi) },
+              { group: 'Transaksi', label: 'Netto', ok: hasNumberValue(payload.netto) },
+              { group: 'Transaksi', label: 'Bruto', ok: hasNumberValue(payload.bruto) },
+              { group: 'Transaksi', label: 'Bank devisa', ok: hasValue(firstBankDevisa?.kodeBank) },
               {
                   group: 'Pernyataan',
                   label: 'Penandatangan',
@@ -794,10 +896,31 @@ function buildRequirements(payload: Record<string, any>, documentType: string): 
               },
           ]
         : [
+              { group: 'Header', label: 'Jenis PIB', ok: hasReferenceOrDefault(payload.kodeJenisPib, new Set(['1', '2']), '1') },
               { group: 'Header', label: 'Jenis impor', ok: hasValue(payload.kodeJenisImpor) },
               { group: 'Header', label: 'Cara bayar', ok: caraBayarValues.has(String(payload.kodeCaraBayar || '')) },
+              { group: 'Pengangkut', label: 'Pelabuhan muat', ok: hasValue(payload.kodePelMuat) },
+              { group: 'Pengangkut', label: 'Pelabuhan tujuan', ok: hasValue(payload.kodePelTujuan) },
+              { group: 'Pengangkut', label: 'Tempat penimbunan', ok: hasValue(payload.kodeTps) },
               { group: 'Pengangkut', label: 'Nomor Tutup PU', ok: tutupPuValues.has(String(payload.kodeTutupPu || '')) },
+              { group: 'Pengangkut', label: 'Tanggal tiba', ok: hasValue(payload.tanggalTiba) },
+              {
+                  group: 'Pengangkut',
+                  label: 'Sarana angkut',
+                  ok:
+                      hasValue(firstPengangkut?.namaPengangkut) &&
+                      hasValue(firstPengangkut?.nomorPengangkut) &&
+                      hasValue(firstPengangkut?.kodeCaraAngkut) &&
+                      isCountryCode(firstPengangkut?.kodeBendera),
+              },
               { group: 'Transaksi', label: 'NDPBM/Kurs', ok: positiveNumber(payload.ndpbm) },
+              { group: 'Transaksi', label: 'Valuta', ok: hasValue(payload.kodeValuta) },
+              { group: 'Transaksi', label: 'CIF', ok: hasNumberValue(payload.cif) },
+              { group: 'Transaksi', label: 'FOB', ok: hasNumberValue(payload.fob) },
+              { group: 'Transaksi', label: 'Freight', ok: hasNumberValue(payload.freight) },
+              { group: 'Transaksi', label: 'Asuransi', ok: hasNumberValue(payload.asuransi) },
+              { group: 'Transaksi', label: 'Netto', ok: hasNumberValue(payload.netto) },
+              { group: 'Transaksi', label: 'Bruto', ok: hasNumberValue(payload.bruto) },
               { group: 'Transaksi', label: 'Jenis transaksi', ok: jenisTransaksiValues.has(String(payload.kodeJenisNilai || '')) },
               {
                   group: 'Pernyataan',
@@ -864,7 +987,7 @@ function buildRequirements(payload: Record<string, any>, documentType: string): 
         {
             group: 'Kemasan',
             label: 'Kemasan',
-            ok: hasValue(firstKemasan?.kodeJenisKemasan) && positiveNumber(firstKemasan?.jumlahKemasan),
+            ok: hasValue(firstKemasan?.kodeJenisKemasan) && positiveNumber(firstKemasan?.jumlahKemasan) && hasValue(firstKemasan?.merkKemasan),
         },
         {
             group: 'Barang',
@@ -1076,8 +1199,33 @@ export function CeisaDraftModal({
                 next.kodePelEkspor = portCode;
             }
 
+            if (isExport && target === 'kodePelEkspor') {
+                if (!hasValue(next.kodePelMuat)) {
+                    next.kodePelMuat = portCode;
+                }
+
+                if (office) {
+                    if (!next.kodeKantorMuat) next.kodeKantorMuat = office;
+                    if (!next.kodeKantorEkspor) next.kodeKantorEkspor = office;
+                    if (!next.kodeKantorPeriksa) next.kodeKantorPeriksa = office;
+                    if (!next.kodeKantor) next.kodeKantor = office;
+                }
+            }
+
             if (isExport && target === 'kodePelTujuan' && !hasValue(next.kodePelBongkar)) {
                 next.kodePelBongkar = portCode;
+            }
+
+            if (isExport && target === 'kodePelBongkar') {
+                if (!hasValue(next.kodePelTujuan)) {
+                    next.kodePelTujuan = portCode;
+                }
+
+                if (country && !isCountryCode(next.kodeNegaraTujuan)) {
+                    next.kodeNegaraTujuan = country;
+                }
+
+                applyEntityCountry(next, country, ['8', '6']);
             }
 
             if (isExport && target === 'kodePelTujuan') {
@@ -1192,8 +1340,32 @@ export function CeisaDraftModal({
                 }
             }
 
+            if (isExport && field === 'kodeKantor') {
+                if (!hasValue(next.kodeKantorMuat)) next.kodeKantorMuat = value;
+                if (!hasValue(next.kodeKantorEkspor)) next.kodeKantorEkspor = value;
+                if (!hasValue(next.kodeKantorPeriksa)) next.kodeKantorPeriksa = value;
+            }
+
+            if (isExport && field === 'kodeKantorMuat') {
+                if (!hasValue(next.kodeKantor) || next.kodeKantor === previousValue) next.kodeKantor = value;
+                if (!hasValue(next.kodeKantorEkspor)) next.kodeKantorEkspor = value;
+                if (!hasValue(next.kodeKantorPeriksa)) next.kodeKantorPeriksa = value;
+            }
+
+            if (isExport && field === 'kodeKantorEkspor') {
+                if (!hasValue(next.kodeKantor) || next.kodeKantor === previousValue) next.kodeKantor = value;
+            }
+
+            if (isExport && field === 'kodeKantorPeriksa' && !hasValue(next.kodeKantor)) {
+                next.kodeKantor = value;
+            }
+
             if (isExport && field === 'kodePelEkspor' && !hasValue(next.kodePelMuat)) {
                 next.kodePelMuat = value;
+            }
+
+            if (isExport && field === 'kodeCaraBayar' && String(value) !== '9') {
+                delete next.kodePembayar;
             }
 
             if (isExport && field === 'kodePelTujuan') {
@@ -1479,6 +1651,8 @@ export function CeisaDraftModal({
     const kemasan = Array.isArray(payload.kemasan) ? payload.kemasan : [];
     const kontainer = Array.isArray(payload.kontainer) ? payload.kontainer : [];
     const barang = Array.isArray(payload.barang) ? payload.barang : [];
+    const bankDevisa = Array.isArray(payload.bankDevisa) ? payload.bankDevisa : [];
+    const kesiapanBarang = Array.isArray(payload.kesiapanBarang) ? payload.kesiapanBarang : [];
     const importir = entitas.find((item: any) => item?.kodeEntitas === '1') || {};
     const eksportir = entitas.find((item: any) => item?.kodeEntitas === '2') || {};
     const pengirim = entitas.find((item: any) => item?.kodeEntitas === '9') || {};
@@ -1490,6 +1664,8 @@ export function CeisaDraftModal({
     const ppjk = entitas.find((item: any) => item?.kodeEntitas === '4') || {};
     const transport = pengangkut[0] || {};
     const packageRow = kemasan[0] || {};
+    const bankDevisaRow = bankDevisa[0] || {};
+    const kesiapanBarangRow = kesiapanBarang[0] || {};
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -1639,10 +1815,20 @@ export function CeisaDraftModal({
                                             {isExport ? (
                                                 <>
                                                     <div className="space-y-1.5">
-                                                        {fieldLabel('Kantor Pabean', true)}
+                                                        {fieldLabel('Kantor Pabean Pemuatan', true)}
                                                         <Input
-                                                            value={payload.kodeKantor || ''}
-                                                            onChange={(e) => updateHeader('kodeKantor', e.target.value)}
+                                                            value={payload.kodeKantorMuat || payload.kodeKantor || ''}
+                                                            onChange={(e) => updateHeader('kodeKantorMuat', e.target.value)}
+                                                            className={inputClass}
+                                                            placeholder="contoh 070100"
+                                                        />
+                                                    </div>
+                                                    {renderPortReferenceField('kodePelEkspor', 'Pelabuhan Muat Ekspor', 'Cari/kode pelabuhan, contoh IDTPE')}
+                                                    <div className="space-y-1.5">
+                                                        {fieldLabel('Kantor Pabean Ekspor', true)}
+                                                        <Input
+                                                            value={payload.kodeKantorEkspor || payload.kodeKantor || ''}
+                                                            onChange={(e) => updateHeader('kodeKantorEkspor', e.target.value)}
                                                             className={inputClass}
                                                             placeholder="contoh 070100"
                                                         />
@@ -1698,7 +1884,7 @@ export function CeisaDraftModal({
                                                         </select>
                                                     </div>
                                                     <div className="space-y-1.5">
-                                                        {fieldLabel('Cara Dagang', true)}
+                                                        {fieldLabel('Cara Perdagangan', true)}
                                                         <select
                                                             value={payload.kodeCaraDagang || '1'}
                                                             onChange={(e) => updateHeader('kodeCaraDagang', e.target.value)}
@@ -1725,11 +1911,66 @@ export function CeisaDraftModal({
                                                             ))}
                                                         </select>
                                                     </div>
+                                                    {String(payload.kodeCaraBayar || '1') === '9' && (
+                                                        <div className="space-y-1.5">
+                                                            {fieldLabel('Keterangan Pembayaran', true)}
+                                                            <Input
+                                                                value={payload.kodePembayar || ''}
+                                                                onChange={(e) => updateHeader('kodePembayar', e.target.value)}
+                                                                className={inputClass}
+                                                                placeholder="Wajib jika cara bayar 9"
+                                                            />
+                                                        </div>
+                                                    )}
+                                                    <div className="space-y-1.5">
+                                                        {fieldLabel('Komoditas', true)}
+                                                        <select
+                                                            value={payload.flagMigas || '2'}
+                                                            onChange={(e) => updateHeader('flagMigas', e.target.value)}
+                                                            className={selectClass}
+                                                        >
+                                                            {komoditasOptions.map((item) => (
+                                                                <option key={item.value} value={item.value}>
+                                                                    {item.label}
+                                                                </option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        {fieldLabel('Barang Kiriman', true)}
+                                                        <select
+                                                            value={payload.flagBarkir || 'T'}
+                                                            onChange={(e) => updateHeader('flagBarkir', e.target.value)}
+                                                            className={selectClass}
+                                                        >
+                                                            {barangKirimanOptions.map((item) => (
+                                                                <option key={item.value} value={item.value}>
+                                                                    {item.label}
+                                                                </option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                    {String(payload.flagBarkir || 'T') === 'T' && (
+                                                        <div className="space-y-1.5">
+                                                            {fieldLabel('Barang Curah', true)}
+                                                            <select
+                                                                value={payload.flagCurah || '2'}
+                                                                onChange={(e) => updateHeader('flagCurah', e.target.value)}
+                                                                className={selectClass}
+                                                            >
+                                                                {curahOptions.map((item) => (
+                                                                    <option key={item.value} value={item.value}>
+                                                                        {item.label}
+                                                                    </option>
+                                                                ))}
+                                                            </select>
+                                                        </div>
+                                                    )}
                                                 </>
                                             ) : (
                                                 <>
                                                     <div className="space-y-1.5">
-                                                        {fieldLabel('Jenis PIB')}
+                                                        {fieldLabel('Jenis PIB', true)}
                                                         <select
                                                             value={payload.kodeJenisPib || '1'}
                                                             onChange={(e) => updateHeader('kodeJenisPib', e.target.value)}
@@ -1961,18 +2202,32 @@ export function CeisaDraftModal({
                         {activeTab === 'transport' && (
                             <div className="grid gap-4 lg:grid-cols-3">
                                 <div className={portalPanelClass}>
-                                    <div className={portalPanelHeaderClass}>{isExport ? 'Jadwal Ekspor' : 'BC 1.1'}</div>
+                                    <div className={portalPanelHeaderClass}>{isExport ? 'Jadwal & Pemeriksaan' : 'BC 1.1'}</div>
                                     <div className={`${portalPanelBodyClass} space-y-4`}>
                                         {isExport ? (
                                             <>
                                                 <div className="space-y-1.5">
-                                                    {fieldLabel('Tanggal Ekspor', true)}
+                                                    {fieldLabel('Tanggal Perkiraan Ekspor', true)}
                                                     <Input
                                                         type="date"
                                                         value={payload.tanggalEkspor || ''}
                                                         onChange={(e) => updateHeader('tanggalEkspor', e.target.value)}
                                                         className={inputClass}
                                                     />
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                    {fieldLabel('Lokasi Pemeriksaan', true)}
+                                                    <select
+                                                        value={payload.kodeLokasi || '2'}
+                                                        onChange={(e) => updateHeader('kodeLokasi', e.target.value)}
+                                                        className={selectClass}
+                                                    >
+                                                        {lokasiPemeriksaanOptions.map((item) => (
+                                                            <option key={item.value} value={item.value}>
+                                                                {item.label}
+                                                            </option>
+                                                        ))}
+                                                    </select>
                                                 </div>
                                                 <div className="space-y-1.5">
                                                     {fieldLabel('Tanggal Periksa', true)}
@@ -1983,11 +2238,20 @@ export function CeisaDraftModal({
                                                         className={inputClass}
                                                     />
                                                 </div>
+                                                <div className="space-y-1.5">
+                                                    {fieldLabel('Kantor Pabean Pemeriksaan', true)}
+                                                    <Input
+                                                        value={payload.kodeKantorPeriksa || payload.kodeKantor || ''}
+                                                        onChange={(e) => updateHeader('kodeKantorPeriksa', e.target.value)}
+                                                        className={inputClass}
+                                                        placeholder="contoh 070100"
+                                                    />
+                                                </div>
                                             </>
                                         ) : (
                                             <>
                                                 <div className="space-y-1.5">
-                                                    {fieldLabel('Nomor Tutup PU')}
+                                                    {fieldLabel('Nomor Tutup PU', true)}
                                                     <select
                                                         value={payload.kodeTutupPu || ''}
                                                         onChange={(e) => updateHeader('kodeTutupPu', e.target.value)}
@@ -2002,7 +2266,7 @@ export function CeisaDraftModal({
                                                     </select>
                                                 </div>
                                                 <div className="space-y-1.5">
-                                                    {fieldLabel('Tanggal Tiba')}
+                                                    {fieldLabel('Tanggal Tiba', true)}
                                                     <Input
                                                         type="date"
                                                         value={payload.tanggalTiba || ''}
@@ -2018,21 +2282,38 @@ export function CeisaDraftModal({
                                 <div className={portalPanelClass}>
                                     <div className={portalPanelHeaderClass}>Pengangkutan</div>
                                     <div className={`${portalPanelBodyClass} grid gap-3 md:grid-cols-2`}>
+                                        {isExport && (
+                                            <div className="space-y-1.5 md:col-span-2">
+                                                {fieldLabel('Jenis Pengangkutan', true)}
+                                                <select
+                                                    value={payload.kodeJenisPengangkutan || '1'}
+                                                    onChange={(e) => updateHeader('kodeJenisPengangkutan', e.target.value)}
+                                                    className={selectClass}
+                                                >
+                                                    {jenisPengangkutanOptions.map((item) => (
+                                                        <option key={item.value} value={item.value}>
+                                                            {item.label}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        )}
                                         <div className="space-y-1.5">
-                                            {fieldLabel('Cara Pengangkutan')}
+                                            {fieldLabel('Cara Pengangkutan', true)}
                                             <select
                                                 value={transport.kodeCaraAngkut || '1'}
                                                 onChange={(e) => updateFirstArrayRow('pengangkut', 'kodeCaraAngkut', e.target.value)}
                                                 className={selectClass}
                                             >
-                                                <option value="1">1 - Laut</option>
-                                                <option value="2">2 - Kereta Api</option>
-                                                <option value="3">3 - Darat</option>
-                                                <option value="4">4 - Udara</option>
+                                                {jenisPengangkutanOptions.map((item) => (
+                                                    <option key={item.value} value={item.value}>
+                                                        {item.label}
+                                                    </option>
+                                                ))}
                                             </select>
                                         </div>
                                         <div className="space-y-1.5 md:col-span-2">
-                                            {fieldLabel('Nama Sarana Pengangkut')}
+                                            {fieldLabel('Nama Sarana Pengangkut', true)}
                                             <Input
                                                 value={transport.namaPengangkut || ''}
                                                 onChange={(e) => updateFirstArrayRow('pengangkut', 'namaPengangkut', e.target.value)}
@@ -2040,7 +2321,7 @@ export function CeisaDraftModal({
                                             />
                                         </div>
                                         <div className="space-y-1.5">
-                                            {fieldLabel('Voyage / Flight')}
+                                            {fieldLabel('Voyage / Flight', true)}
                                             <Input
                                                 value={transport.nomorPengangkut || ''}
                                                 onChange={(e) => updateFirstArrayRow('pengangkut', 'nomorPengangkut', e.target.value)}
@@ -2048,11 +2329,12 @@ export function CeisaDraftModal({
                                             />
                                         </div>
                                         <div className="space-y-1.5">
-                                            {fieldLabel('Bendera')}
+                                            {fieldLabel('Bendera', true)}
                                             <Input
                                                 value={transport.kodeBendera || ''}
                                                 onChange={(e) => updateFirstArrayRow('pengangkut', 'kodeBendera', e.target.value.toUpperCase())}
                                                 className={inputClass}
+                                                placeholder="ID"
                                             />
                                         </div>
                                     </div>
@@ -2061,20 +2343,138 @@ export function CeisaDraftModal({
                                 <div className={portalPanelClass}>
                                     <div className={portalPanelHeaderClass}>Pelabuhan & Tempat Penimbunan</div>
                                     <div className={`${portalPanelBodyClass} space-y-4`}>
-                                        {renderPortReferenceField('kodePelMuat', 'Pelabuhan Muat', 'Cari/kode pelabuhan, contoh IDTPE')}
+                                        {renderPortReferenceField(
+                                            'kodePelMuat',
+                                            isExport ? 'Pelabuhan Muat Asal' : 'Pelabuhan Muat',
+                                            'Cari/kode pelabuhan, contoh IDTPE',
+                                        )}
                                         {renderPortReferenceField('kodePelTujuan', 'Pelabuhan Tujuan', 'Cari/kode pelabuhan, contoh SAJED')}
-                                        {!isExport && (
+                                        {isExport && (
+                                            <>
+                                                {renderPortReferenceField('kodePelBongkar', 'Pelabuhan Bongkar', 'Cari/kode pelabuhan, contoh SAJED')}
+                                                <div className="space-y-1.5">
+                                                    {fieldLabel('Negara Tujuan Ekspor', true)}
+                                                    <select
+                                                        value={payload.kodeNegaraTujuan || ''}
+                                                        onChange={(e) => updateHeader('kodeNegaraTujuan', e.target.value)}
+                                                        className={selectClass}
+                                                    >
+                                                        {countryOptions.map((item) => (
+                                                            <option key={item.value || 'empty'} value={item.value}>
+                                                                {item.label}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                            </>
+                                        )}
+                                        <div className="space-y-1.5">
+                                            {fieldLabel('Tempat Penimbunan', true)}
+                                            <Input
+                                                value={payload.kodeTps || ''}
+                                                onChange={(e) => updateHeader('kodeTps', e.target.value.toUpperCase())}
+                                                className={inputClass}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {isExport && (
+                                    <div className={portalPanelClass}>
+                                        <div className={portalPanelHeaderClass}>Kesiapan Barang</div>
+                                        <div className={`${portalPanelBodyClass} grid gap-3 md:grid-cols-2`}>
                                             <div className="space-y-1.5">
-                                                {fieldLabel('Tempat Penimbunan')}
+                                                {fieldLabel('Jenis Barang', true)}
+                                                <select
+                                                    value={kesiapanBarangRow.kodeJenisBarang || '1'}
+                                                    onChange={(e) => updateFirstArrayRow('kesiapanBarang', 'kodeJenisBarang', e.target.value)}
+                                                    className={selectClass}
+                                                >
+                                                    <option value="1">1 - Barang Ekspor Gabungan</option>
+                                                    <option value="2">2 - Bahan/Barang Asal Impor Fasilitas</option>
+                                                </select>
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                {fieldLabel('Jenis Gudang', true)}
+                                                <select
+                                                    value={kesiapanBarangRow.kodeJenisGudang || '2'}
+                                                    onChange={(e) => updateFirstArrayRow('kesiapanBarang', 'kodeJenisGudang', e.target.value)}
+                                                    className={selectClass}
+                                                >
+                                                    {jenisGudangOptions.map((item) => (
+                                                        <option key={item.value} value={item.value}>
+                                                            {item.label}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                {fieldLabel('Nama PIC', true)}
                                                 <Input
-                                                    value={payload.kodeTps || ''}
-                                                    onChange={(e) => updateHeader('kodeTps', e.target.value.toUpperCase())}
+                                                    value={kesiapanBarangRow.namaPic || ''}
+                                                    onChange={(e) => updateFirstArrayRow('kesiapanBarang', 'namaPic', e.target.value)}
                                                     className={inputClass}
                                                 />
                                             </div>
-                                        )}
+                                            <div className="space-y-1.5">
+                                                {fieldLabel('Telepon PIC', true)}
+                                                <Input
+                                                    value={kesiapanBarangRow.nomorTelpPic || ''}
+                                                    onChange={(e) => updateFirstArrayRow('kesiapanBarang', 'nomorTelpPic', e.target.value)}
+                                                    className={inputClass}
+                                                />
+                                            </div>
+                                            <div className="space-y-1.5 md:col-span-2">
+                                                {fieldLabel('Alamat Siap Periksa', true)}
+                                                <Textarea
+                                                    value={kesiapanBarangRow.alamat || ''}
+                                                    onChange={(e) => updateFirstArrayRow('kesiapanBarang', 'alamat', e.target.value)}
+                                                    className={`${inputClass} min-h-20`}
+                                                />
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                {fieldLabel('Lokasi Siap Periksa', true)}
+                                                <Input
+                                                    value={kesiapanBarangRow.lokasiSiapPeriksa || ''}
+                                                    onChange={(e) => updateFirstArrayRow('kesiapanBarang', 'lokasiSiapPeriksa', e.target.value)}
+                                                    className={inputClass}
+                                                />
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                {fieldLabel('Cara Stuffing', true)}
+                                                <select
+                                                    value={kesiapanBarangRow.kodeCaraStuffing || '7'}
+                                                    onChange={(e) => updateFirstArrayRow('kesiapanBarang', 'kodeCaraStuffing', e.target.value)}
+                                                    className={selectClass}
+                                                >
+                                                    {caraStuffingOptions.map((item) => (
+                                                        <option key={item.value} value={item.value}>
+                                                            {item.label}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                {fieldLabel('Tanggal PKB', true)}
+                                                <Input
+                                                    type="date"
+                                                    value={kesiapanBarangRow.tanggalPkb || payload.tanggalPeriksa || ''}
+                                                    onChange={(e) => updateFirstArrayRow('kesiapanBarang', 'tanggalPkb', e.target.value)}
+                                                    className={inputClass}
+                                                />
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                {fieldLabel('Waktu Siap Periksa')}
+                                                <Input
+                                                    value={kesiapanBarangRow.waktuSiapPeriksa || ''}
+                                                    onChange={(e) => updateFirstArrayRow('kesiapanBarang', 'waktuSiapPeriksa', e.target.value)}
+                                                    className={inputClass}
+                                                    placeholder="YYYY-MM-DDT08:00:00.000Z"
+                                                />
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
+                                )}
                             </div>
                         )}
 
@@ -2284,7 +2684,7 @@ export function CeisaDraftModal({
                                             />
                                         </div>
                                         <div className="space-y-1.5">
-                                            {fieldLabel('Freight')}
+                                            {fieldLabel('Freight', true)}
                                             <Input
                                                 type="number"
                                                 value={payload.freight ?? 0}
@@ -2293,7 +2693,7 @@ export function CeisaDraftModal({
                                             />
                                         </div>
                                         <div className="space-y-1.5">
-                                            {fieldLabel('Asuransi')}
+                                            {fieldLabel('Asuransi', true)}
                                             <div className="grid grid-cols-[1fr_1fr] gap-2">
                                                 <select
                                                     value={payload.kodeAsuransi || 'LN'}
@@ -2336,7 +2736,7 @@ export function CeisaDraftModal({
                                     <div className={portalPanelHeaderClass}>Berat</div>
                                     <div className={`${portalPanelBodyClass} space-y-4`}>
                                         <div className="space-y-1.5">
-                                            {fieldLabel('Berat Kotor (KGM)')}
+                                            {fieldLabel('Berat Kotor (KGM)', true)}
                                             <Input
                                                 type="number"
                                                 value={payload.bruto ?? 0}
@@ -2359,6 +2759,30 @@ export function CeisaDraftModal({
                                         </div>
                                     </div>
                                 </div>
+                                {isExport && (
+                                    <div className={portalPanelClass}>
+                                        <div className={portalPanelHeaderClass}>Bank Devisa</div>
+                                        <div className={`${portalPanelBodyClass} space-y-4`}>
+                                            <div className="space-y-1.5">
+                                                {fieldLabel('Kode Bank', true)}
+                                                <Input
+                                                    value={bankDevisaRow.kodeBank || '9'}
+                                                    onChange={(e) => updateFirstArrayRow('bankDevisa', 'kodeBank', e.target.value)}
+                                                    className={inputClass}
+                                                    placeholder="contoh 9"
+                                                />
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                {fieldLabel('Nama Bank')}
+                                                <Input
+                                                    value={bankDevisaRow.namaBank || ''}
+                                                    onChange={(e) => updateFirstArrayRow('bankDevisa', 'namaBank', e.target.value)}
+                                                    className={inputClass}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
 

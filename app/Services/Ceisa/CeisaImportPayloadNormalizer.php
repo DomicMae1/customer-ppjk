@@ -215,6 +215,9 @@ class CeisaImportPayloadNormalizer
         $documents = collect($payload['dokumen'] ?? [])
             ->filter(fn ($document) => is_array($document))
             ->values();
+        $entitiesByCode = collect($payload['entitas'] ?? [])
+            ->filter(fn ($entity) => is_array($entity))
+            ->keyBy(fn (array $entity) => (string) ($entity['kodeEntitas'] ?? ''));
 
         foreach ([
             '380' => 'Invoice 380',
@@ -230,6 +233,115 @@ class CeisaImportPayloadNormalizer
 
         if (($documents->get(0)['kodeDokumen'] ?? null) !== '380' || ($documents->get(1)['kodeDokumen'] ?? null) !== '217') {
             $errors[] = 'Urutan dokumen BC 3.0 harus Invoice 380 pada baris pertama dan Packing List 217 pada baris kedua sesuai JSON Schema CEISA.';
+        }
+
+        foreach ([
+            'kodeKantor' => 'Kode kantor pendaftaran',
+            'kodeKantorMuat' => 'Kantor pabean pemuatan',
+            'kodeKantorEkspor' => 'Kantor pabean ekspor',
+            'kodeKantorPeriksa' => 'Kantor pabean pemeriksaan',
+            'kodePelMuat' => 'Pelabuhan muat asal',
+            'kodePelEkspor' => 'Pelabuhan muat ekspor',
+            'kodePelTujuan' => 'Pelabuhan tujuan',
+            'kodePelBongkar' => 'Pelabuhan bongkar',
+            'kodeTps' => 'Tempat penimbunan',
+            'tanggalPeriksa' => 'Tanggal periksa',
+            'tanggalEkspor' => 'Tanggal perkiraan ekspor',
+        ] as $field => $label) {
+            if (! $this->hasText($payload[$field] ?? null)) {
+                $errors[] = "{$label} wajib diisi untuk draft BC 3.0.";
+            }
+        }
+
+        foreach ([
+            'kodeJenisEkspor' => self::VALID_JENIS_EKSPOR,
+            'kodeKategoriEkspor' => self::VALID_KATEGORI_EKSPOR,
+            'kodeCaraDagang' => self::VALID_CARA_DAGANG_EKSPOR,
+            'kodeCaraBayar' => self::VALID_CARA_BAYAR,
+        ] as $field => $validCodes) {
+            if (! in_array((string) ($payload[$field] ?? ''), $validCodes, true)) {
+                $errors[] = "{$field} wajib mengikuti referensi CEISA.";
+            }
+        }
+
+        if (! in_array((string) ($payload['flagMigas'] ?? ''), ['1', '2'], true)) {
+            $errors[] = 'Komoditas wajib 1 untuk MIGAS atau 2 untuk NON MIGAS.';
+        }
+
+        if (! in_array((string) ($payload['flagBarkir'] ?? ''), ['Y', 'T'], true)) {
+            $errors[] = 'Barang kiriman wajib Y atau T.';
+        }
+
+        if (($payload['flagBarkir'] ?? null) === 'T' && ! in_array((string) ($payload['flagCurah'] ?? ''), ['1', '2'], true)) {
+            $errors[] = 'Flag barang curah wajib 1 atau 2 saat bukan ekspor barang kiriman.';
+        }
+
+        if (($payload['kodeCaraBayar'] ?? null) === '9' && ! $this->hasText($payload['kodePembayar'] ?? null)) {
+            $errors[] = 'Keterangan pembayaran wajib diisi jika cara bayar 9 - GABUNGAN/LAINNYA.';
+        }
+
+        if (! in_array((string) ($payload['kodeJenisPengangkutan'] ?? ''), ['1', '2', '3', '4'], true)) {
+            $errors[] = 'Jenis pengangkutan wajib mengikuti referensi CEISA.';
+        }
+
+        if (! in_array((string) ($payload['kodeLokasi'] ?? ''), ['1', '2', '3', '4', '5', '6', '7', '8'], true)) {
+            $errors[] = 'Lokasi pemeriksaan wajib mengikuti referensi CEISA.';
+        }
+
+        if (! $this->isCountryCode($payload['kodeNegaraTujuan'] ?? null)) {
+            $errors[] = 'Negara tujuan ekspor wajib 2 huruf sesuai referensi CEISA.';
+        }
+
+        foreach ([
+            '2' => 'Eksportir',
+            '7' => 'Pemilik barang',
+            '8' => 'Penerima',
+            '6' => 'Pembeli',
+        ] as $code => $label) {
+            $entity = $entitiesByCode->get($code);
+
+            if (! is_array($entity) || ! $this->hasText($entity['namaEntitas'] ?? null) || ! $this->hasText($entity['alamatEntitas'] ?? null)) {
+                $errors[] = "Entitas {$label} wajib diisi.";
+            }
+        }
+
+        foreach (['8' => 'Penerima', '6' => 'Pembeli'] as $code => $label) {
+            $country = $entitiesByCode->get($code)['kodeNegara'] ?? null;
+
+            if (! $this->isCountryCode($country)) {
+                $errors[] = "Kode negara {$label} wajib 2 huruf sesuai referensi CEISA.";
+            }
+        }
+
+        $transport = collect($payload['pengangkut'] ?? [])
+            ->first(fn ($row) => is_array($row));
+
+        if (! is_array($transport)
+            || ! $this->hasText($transport['namaPengangkut'] ?? null)
+            || ! $this->hasText($transport['nomorPengangkut'] ?? null)
+            || ! $this->hasText($transport['kodeCaraAngkut'] ?? null)
+            || ! $this->isCountryCode($transport['kodeBendera'] ?? null)
+        ) {
+            $errors[] = 'Sarana angkut wajib berisi nama, nomor/voyage, cara angkut, dan bendera.';
+        }
+
+        $bankDevisa = collect($payload['bankDevisa'] ?? [])
+            ->first(fn ($row) => is_array($row));
+
+        if (! is_array($bankDevisa) || ! $this->hasText($bankDevisa['kodeBank'] ?? null)) {
+            $errors[] = 'Bank devisa wajib memiliki kode bank.';
+        }
+
+        $kesiapanBarang = collect($payload['kesiapanBarang'] ?? [])
+            ->first(fn ($row) => is_array($row));
+
+        if (! is_array($kesiapanBarang)
+            || ! $this->hasText($kesiapanBarang['namaPic'] ?? null)
+            || ! $this->hasText($kesiapanBarang['alamat'] ?? null)
+            || ! $this->hasText($kesiapanBarang['nomorTelpPic'] ?? null)
+            || ! $this->hasText($kesiapanBarang['tanggalPkb'] ?? null)
+        ) {
+            $errors[] = 'Kesiapan barang wajib berisi PIC, alamat, telepon, dan tanggal PKB.';
         }
 
         return array_values(array_unique($errors));
