@@ -4,7 +4,6 @@ namespace App\Services\Ceisa;
 
 use App\Models\CeisaCompanyConfig;
 use App\Models\CeisaDocumentMapping;
-use App\Models\CeisaImportirPreset;
 use App\Models\DocumentTrans;
 use App\Models\Spk;
 use Illuminate\Support\Facades\Schema;
@@ -28,7 +27,6 @@ class CeisaDraftPayloadBuilder
         $today = now()->toDateString();
         $warnings = [];
 
-        $preset = $this->importirPreset($config, $spk);
         $documentRows = $this->documentRows($spk, $shipmentType, $today, $warnings);
         $kemasanRows = $this->kemasanRows($spk);
         $originCountry = $this->payloadNormalizer->countryFromValue((string) ($spk->port_of_loading ?: $spk->origin));
@@ -60,12 +58,12 @@ class CeisaDraftPayloadBuilder
             'netto' => 0,
             'ndpbm' => 0,
             'jumlahKontainer' => max(0, $this->containerCount($spk)),
-            'jabatanTtd' => $preset?->default_signer_title ?: (string) $config->default_signer_title,
-            'namaTtd' => $preset?->default_signer_name ?: (string) $config->default_signer_name,
-            'kotaTtd' => $preset?->default_signer_city ?: (string) $config->default_signer_city,
+            'jabatanTtd' => (string) $config->default_signer_title,
+            'namaTtd' => (string) $config->default_signer_name,
+            'kotaTtd' => (string) $config->default_signer_city,
             'tanggalTtd' => $today,
             'disclaimer' => '1',
-            'entitas' => $this->entityRows($config, $spk, $preset, $shipmentType, $warnings),
+            'entitas' => $this->entityRows($config, $spk, $shipmentType, $warnings),
             'dokumen' => $documentRows,
             'pengangkut' => $this->pengangkutRows($spk),
             'kemasan' => $kemasanRows,
@@ -75,15 +73,15 @@ class CeisaDraftPayloadBuilder
         ];
 
         if ($shipmentType === 'import') {
-            $kodeCaraBayar = (string) ($preset?->default_kode_cara_bayar ?: '2');
+            $kodeCaraBayar = '2';
             $kodeJenisNilai = preg_match('/^[A-Za-z]{3}$/', $kodeCaraBayar) === 1 ? strtoupper($kodeCaraBayar) : 'LAI';
 
             $payload = array_merge($payload, [
-                'kodeJenisImpor' => (string) ($preset?->default_kode_jenis_impor ?: '1'),
+                'kodeJenisImpor' => '1',
                 'kodeJenisProsedur' => '1',
                 'kodeCaraBayar' => $kodeCaraBayar,
                 'kodeJenisNilai' => $kodeJenisNilai,
-                'kodeTutupPu' => (string) ($preset?->default_kode_tutup_pu ?: '11'),
+                'kodeTutupPu' => '11',
                 'kodePelMuat' => (string) $spk->port_of_loading,
                 'kodePelTujuan' => (string) $spk->port,
                 'tanggalTiba' => optional($spk->eta_date)->toDateString() ?: $today,
@@ -93,7 +91,7 @@ class CeisaDraftPayloadBuilder
                 'kodeJenisEkspor' => '1',
                 'kodeKategoriEkspor' => '10',
                 'kodeCaraDagang' => '1',
-                'kodeCaraBayar' => (string) ($preset?->default_kode_cara_bayar ?: '1'),
+                'kodeCaraBayar' => '1',
                 'kodePelMuat' => (string) $spk->port_of_loading,
                 'kodePelTujuan' => (string) $spk->port,
                 'tanggalEkspor' => optional($spk->etd_date)->toDateString() ?: $today,
@@ -122,23 +120,10 @@ class CeisaDraftPayloadBuilder
         return Str::contains(Str::lower((string) $spk->shipment_type), ['export', 'ekspor']) ? 'export' : 'import';
     }
 
-    private function importirPreset(CeisaCompanyConfig $config, Spk $spk): ?CeisaImportirPreset
-    {
-        return CeisaImportirPreset::where('id_perusahaan', $config->id_perusahaan)
-            ->where('is_active', true)
-            ->where(function ($query) use ($spk) {
-                $query->where('id_customer', $spk->id_customer)
-                    ->orWhereNull('id_customer');
-            })
-            ->orderByRaw('CASE WHEN id_customer IS NULL THEN 1 ELSE 0 END')
-            ->latest('updated_at')
-            ->first();
-    }
-
-    private function entityRows(CeisaCompanyConfig $config, Spk $spk, ?CeisaImportirPreset $preset, string $shipmentType, array &$warnings): array
+    private function entityRows(CeisaCompanyConfig $config, Spk $spk, string $shipmentType, array &$warnings): array
     {
         $customer = $spk->customer;
-        $identity = $this->identityFromPresetOrCustomer($preset, $customer, $config);
+        $identity = $this->identityFromCustomer($customer, $config);
         $rows = [];
         $customerEntityCode = $shipmentType === 'export' ? '2' : '1';
         $ownerEntityCode = $shipmentType === 'export' ? null : '7';
@@ -157,7 +142,7 @@ class CeisaDraftPayloadBuilder
                 'kodeJenisApi' => $identity['kodeJenisApi'],
             ];
         } else {
-            $warnings[] = 'Data importir/eksportir belum lengkap. Isi importir preset atau data customer sebelum submit final.';
+            $warnings[] = 'Data entitas customer belum lengkap. Isi nama perusahaan, NPWP, NIB, dan alamat customer sebelum submit final.';
         }
 
         if ($ownerEntityCode && $identity['name'] !== '') {
@@ -234,7 +219,7 @@ class CeisaDraftPayloadBuilder
         return $rows;
     }
 
-    private function identityFromPresetOrCustomer(?CeisaImportirPreset $preset, mixed $customer, CeisaCompanyConfig $config): array
+    private function identityFromCustomer(mixed $customer, CeisaCompanyConfig $config): array
     {
         $npwp16 = $this->toNpwp16(
             ($customer?->no_npwp_16 ?: $customer?->no_npwp)
@@ -247,9 +232,9 @@ class CeisaDraftPayloadBuilder
             'npwp16' => $npwp16,
             'nitku' => (string) ($npwp16 ? $this->toNitku($npwp16) : ''),
             'nib' => (string) ($customer?->nib ?: $config->nib ?: ''),
-            'kodeJenisIdentitas' => (string) ($preset?->kode_jenis_identitas ?: '6'),
-            'kodeStatus' => (string) ($preset?->kode_status ?: '01'),
-            'kodeJenisApi' => (string) ($preset?->kode_jenis_api ?: '01'),
+            'kodeJenisIdentitas' => '6',
+            'kodeStatus' => '01',
+            'kodeJenisApi' => '01',
         ];
     }
 

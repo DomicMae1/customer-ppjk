@@ -3,8 +3,8 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+
 // use Illuminate\Database\Eloquent\SoftDeletes; // Dihapus karena di list tabel tidak ada kolom 'deleted_at'
-use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Customer extends Model
 {
@@ -61,12 +61,5 @@ class Customer extends Model
     public function users()
     {
         return $this->hasMany(User::class, 'id_customer', 'id_customer');
-    }
-
-    public function ceisaImportirPreset(): HasOne
-    {
-        return $this->hasOne(CeisaImportirPreset::class, 'id_customer', 'id_customer')
-            ->where('is_active', true)
-            ->latestOfMany();
     }
 }

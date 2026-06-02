@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\CeisaImportirPreset;
 use App\Models\Customer;
 use App\Models\Perusahaan;
 use App\Models\User;
@@ -28,10 +27,7 @@ class CustomerController extends Controller
         }
 
         // 1. Mulai Query dasar dengan relasi
-        $query = Customer::with([
-            'perusahaan',
-            'ceisaImportirPreset',
-        ]);
+        $query = Customer::with('perusahaan');
 
         $selectedCompanyId = $this->selectedCompanyId($user);
 
@@ -83,13 +79,6 @@ class CustomerController extends Controller
             'nib' => 'nullable|string|max:32',
             'alamat_lengkap' => 'nullable|string|max:1000',
             'id_perusahaan' => 'nullable|exists:perusahaan,id_perusahaan',
-            'ceisa' => 'nullable|array',
-            'ceisa.kode_jenis_identitas' => 'nullable|string|max:10',
-            'ceisa.kode_status' => 'nullable|string|max:10',
-            'ceisa.kode_jenis_api' => 'nullable|string|max:10',
-            'ceisa.default_kode_cara_bayar' => 'nullable|string|max:20',
-            'ceisa.default_kode_jenis_impor' => 'nullable|string|max:20',
-            'ceisa.default_kode_tutup_pu' => 'nullable|string|max:20',
         ]);
 
         DB::beginTransaction(); // Memulai Transaksi
@@ -117,7 +106,7 @@ class CustomerController extends Controller
                 ]);
             }
 
-            $customer = Customer::create([
+            Customer::create([
                 'uid' => (string) Str::uuid(),
                 'nama_perusahaan' => $validated['nama_perusahaan'],
                 'type' => $validated['type'],
@@ -131,8 +120,6 @@ class CustomerController extends Controller
                 'ownership' => $ownership,
                 'created_by' => $user->id_user,
             ]);
-
-            $this->upsertCeisaImportirPreset($customer, $ownership, $validated['ceisa'] ?? [], $user->id_user);
 
             // --- PERBAIKAN UTAMA DI SINI ---
             DB::commit(); // Simpan perubahan permanen ke database
@@ -175,13 +162,6 @@ class CustomerController extends Controller
             'nib' => 'nullable|string|max:32',
             'alamat_lengkap' => 'nullable|string|max:1000',
             'id_perusahaan' => 'nullable|exists:perusahaan,id_perusahaan',
-            'ceisa' => 'nullable|array',
-            'ceisa.kode_jenis_identitas' => 'nullable|string|max:10',
-            'ceisa.kode_status' => 'nullable|string|max:10',
-            'ceisa.kode_jenis_api' => 'nullable|string|max:10',
-            'ceisa.default_kode_cara_bayar' => 'nullable|string|max:20',
-            'ceisa.default_kode_jenis_impor' => 'nullable|string|max:20',
-            'ceisa.default_kode_tutup_pu' => 'nullable|string|max:20',
         ]);
 
         try {
@@ -217,8 +197,6 @@ class CustomerController extends Controller
                 'alamat_lengkap' => trim((string) ($validated['alamat_lengkap'] ?? '')) ?: null,
                 'ownership' => $ownership,
             ]);
-
-            $this->upsertCeisaImportirPreset($customer, (int) $ownership, $validated['ceisa'] ?? [], $user->id_user);
 
             DB::commit();
 
@@ -273,43 +251,6 @@ class CustomerController extends Controller
             'email_to' => $customer->email_to ?? [],
             'email_cc' => $customer->email_cc ?? [],
         ]);
-    }
-
-    private function upsertCeisaImportirPreset(Customer $customer, int $ownership, array $ceisa, int $userId): void
-    {
-        $hasCeisaData = collect([
-            $ceisa['kode_jenis_identitas'] ?? null,
-            $ceisa['kode_status'] ?? null,
-            $ceisa['kode_jenis_api'] ?? null,
-            $ceisa['default_kode_cara_bayar'] ?? null,
-            $ceisa['default_kode_jenis_impor'] ?? null,
-            $ceisa['default_kode_tutup_pu'] ?? null,
-        ])->contains(fn ($value) => filled($value));
-
-        $existing = CeisaImportirPreset::where('id_perusahaan', $ownership)
-            ->where('id_customer', $customer->id_customer)
-            ->first();
-
-        if (! $hasCeisaData && ! $existing) {
-            return;
-        }
-
-        $preset = $existing ?: new CeisaImportirPreset([
-            'id_perusahaan' => $ownership,
-            'id_customer' => $customer->id_customer,
-            'created_by' => $userId,
-        ]);
-
-        $preset->fill([
-            'kode_jenis_identitas' => trim((string) ($ceisa['kode_jenis_identitas'] ?? '')) ?: '6',
-            'kode_status' => trim((string) ($ceisa['kode_status'] ?? '')) ?: '01',
-            'kode_jenis_api' => trim((string) ($ceisa['kode_jenis_api'] ?? '')) ?: '01',
-            'default_kode_cara_bayar' => trim((string) ($ceisa['default_kode_cara_bayar'] ?? '')),
-            'default_kode_jenis_impor' => trim((string) ($ceisa['default_kode_jenis_impor'] ?? '')),
-            'default_kode_tutup_pu' => trim((string) ($ceisa['default_kode_tutup_pu'] ?? '')),
-            'is_active' => true,
-            'updated_by' => $userId,
-        ])->save();
     }
 
     private function digitsOnly(?string $value): string

@@ -136,8 +136,8 @@ export const columns = (
             cell: ({ row }) => <code className="text-muted-foreground text-xs">{row.original.nib || '-'}</code>,
         },
         {
-            id: 'ceisa_profile',
-            header: 'CEISA',
+            id: 'entity_profile',
+            header: 'Entitas',
             cell: ({ row }) => {
                 const customer = row.original;
                 const isReady = Boolean(customer.nama_perusahaan && (customer.no_npwp_16 || customer.no_npwp) && customer.nib && customer.alamat_lengkap);
@@ -150,7 +150,7 @@ export const columns = (
                                 : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200'
                         }`}
                     >
-                        {isReady ? 'Siap' : 'Belum lengkap'}
+                        {isReady ? 'Lengkap' : 'Belum lengkap'}
                     </span>
                 );
             },

@@ -77,11 +77,6 @@ class CeisaCompanyConfig extends Model
         return $this->hasOne(CeisaTokenCache::class, 'ceisa_company_config_id');
     }
 
-    public function importirPresets(): HasMany
-    {
-        return $this->hasMany(CeisaImportirPreset::class, 'id_perusahaan', 'id_perusahaan');
-    }
-
     public function referenceCache(): HasMany
     {
         return $this->hasMany(CeisaReferenceCache::class, 'id_perusahaan', 'id_perusahaan');

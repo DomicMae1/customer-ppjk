@@ -56,11 +56,6 @@ class Perusahaan extends Model
         return $this->hasMany(CeisaCompanyConfig::class, 'id_perusahaan', 'id_perusahaan');
     }
 
-    public function ceisaImportirPresets(): HasMany
-    {
-        return $this->hasMany(CeisaImportirPreset::class, 'id_perusahaan', 'id_perusahaan');
-    }
-
     public function ceisaReferenceCache(): HasMany
     {
         return $this->hasMany(CeisaReferenceCache::class, 'id_perusahaan', 'id_perusahaan');
