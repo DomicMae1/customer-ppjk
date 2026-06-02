@@ -17,6 +17,13 @@ test('it normalizes bc20 draft fields rejected by ceisa validation', function ()
         'totalDanaSawit' => 0,
         'vd' => 0,
         'flagVd' => 'T',
+        'pengangkut' => [
+            [
+                'namaPengangkut' => 'SHENG SHI FANG ZHOU',
+                'nomorPengangkut' => '333S',
+                'kodeBendera' => 'CN - CHINA',
+            ],
+        ],
         'entitas' => [
             [
                 'seriEntitas' => 1,
@@ -106,6 +113,12 @@ test('it normalizes bc20 draft fields rejected by ceisa validation', function ()
         ->toBeFalse()
         ->and(array_key_exists('flagVd', $normalized))
         ->toBeFalse()
+        ->and($normalized['pengangkut'][0]['seriPengangkut'])
+        ->toBe(1)
+        ->and($normalized['pengangkut'][0]['kodeCaraAngkut'])
+        ->toBe('1')
+        ->and($normalized['pengangkut'][0]['kodeBendera'])
+        ->toBe('CN')
         ->and($normalizer->validateDraft($normalized, 'BC20'))
         ->toBe([]);
 });

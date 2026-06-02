@@ -141,6 +141,7 @@ class CeisaImportPayloadNormalizer
             $payload['kodeJenisNilai'] = $this->jenisNilaiCode($payload['kodeJenisNilai'] ?? null) ?: ($legacyJenisNilai ?: 'LAI');
             $payload['kodeTutupPu'] = $this->tutupPuCode($payload['kodeTutupPu'] ?? null);
             $payload['entitas'] = $this->normalizeImportEntities($payload['entitas'] ?? [], $originCountry);
+            $payload['pengangkut'] = $this->normalizeImportPengangkut($payload['pengangkut'] ?? []);
             $payload['barang'] = $this->normalizeImportGoods($payload['barang'] ?? [], $originCountry, $payload['kodeValuta']);
             $payload['dokumen'] = $this->normalizeDocumentRows($payload['dokumen'] ?? [], ['380', '705', '740']);
         }
@@ -621,6 +622,26 @@ class CeisaImportPayloadNormalizer
                 'kodeCaraAngkut' => trim((string) ($row['kodeCaraAngkut'] ?? '')) ?: '1',
             ]);
         })->all();
+    }
+
+    private function normalizeImportPengangkut(mixed $rows): array
+    {
+        return collect(is_array($rows) ? $rows : [])
+            ->filter(fn ($row) => is_array($row))
+            ->values()
+            ->map(function (array $row, int $index): array {
+                $country = $this->countryFromValue((string) ($row['kodeBendera'] ?? ''));
+
+                $row['seriPengangkut'] = $index + 1;
+                $row['kodeCaraAngkut'] = trim((string) ($row['kodeCaraAngkut'] ?? '')) ?: '1';
+
+                if ($country !== '') {
+                    $row['kodeBendera'] = $country;
+                }
+
+                return $row;
+            })
+            ->all();
     }
 
     private function normalizeExportBankDevisa(mixed $rows): array

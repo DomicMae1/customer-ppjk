@@ -676,6 +676,10 @@ function isCountryCode(value: unknown): boolean {
     return normalizeCountryCode(value) !== '';
 }
 
+function hasCountryReference(value: unknown): boolean {
+    return isCountryCode(value) || isCountryCode(countryFromPortValue(value));
+}
+
 function numericValueFromReference(value: any): number | null {
     if (typeof value === 'number' && Number.isFinite(value)) return value;
 
@@ -878,8 +882,8 @@ function buildRequirements(payload: Record<string, any>, documentType: string): 
                   ok:
                       hasValue(firstPengangkut?.namaPengangkut) &&
                       hasValue(firstPengangkut?.nomorPengangkut) &&
-                      hasValue(firstPengangkut?.kodeCaraAngkut) &&
-                      isCountryCode(firstPengangkut?.kodeBendera),
+                      hasReferenceOrDefault(firstPengangkut?.kodeCaraAngkut, jenisPengangkutanValues, '1') &&
+                      hasCountryReference(firstPengangkut?.kodeBendera),
               },
               {
                   group: 'Pengangkut',
@@ -945,8 +949,8 @@ function buildRequirements(payload: Record<string, any>, documentType: string): 
                   ok:
                       hasValue(firstPengangkut?.namaPengangkut) &&
                       hasValue(firstPengangkut?.nomorPengangkut) &&
-                      hasValue(firstPengangkut?.kodeCaraAngkut) &&
-                      isCountryCode(firstPengangkut?.kodeBendera),
+                      hasReferenceOrDefault(firstPengangkut?.kodeCaraAngkut, jenisPengangkutanValues, '1') &&
+                      hasCountryReference(firstPengangkut?.kodeBendera),
               },
               { group: 'Transaksi', label: 'NDPBM/Kurs', ok: positiveNumber(payload.ndpbm) },
               { group: 'Transaksi', label: 'Valuta', ok: hasValue(payload.kodeValuta) },
@@ -1669,6 +1673,10 @@ export function CeisaDraftModal({
         commitPayload((next) => {
             const rows = ensureArray(next, arrayKey);
             if (!rows[0]) rows[0] = {};
+            if (arrayKey === 'pengangkut') {
+                rows[0].seriPengangkut = rows[0].seriPengangkut || 1;
+                rows[0].kodeCaraAngkut = rows[0].kodeCaraAngkut || '1';
+            }
             rows[0][field] = value;
         });
     };
