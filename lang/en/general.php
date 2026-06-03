@@ -336,6 +336,7 @@ return [
     // --- DOCUMENT RECEIPT FORM (NEW) ---
     'document_receipt_form' => 'Document Receipt Form',
 
+    'customer_label' => 'CUSTOMER',
     'shipper_label' => 'SHIPPER',
     'consignee_label' => 'C\'NEE',
     'bl_number_label' => 'B/L Number',

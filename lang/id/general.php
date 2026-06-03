@@ -335,6 +335,7 @@ return [
     // --- FORM PENERIMAAN DOKUMEN (BARU) ---
     'document_receipt_form' => 'Formulir Penerimaan Dokumen',
 
+    'customer_label' => 'CUSTOMER',
     'shipper_label' => 'SHIPPER',
     'consignee_label' => 'C\'NEE',
     'bl_number_label' => 'No B/L',
