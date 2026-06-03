@@ -1702,7 +1702,7 @@ class ShippingController extends Controller
             report($e);
 
             return response()->json([
-                'message' => $e->getMessage() ?: 'Kirim draft CEISA gagal.',
+                'message' => $this->friendlyCeisaSubmissionError($e->getMessage() ?: 'Kirim draft CEISA gagal.'),
                 'submissions' => $this->ceisaSubmissionsForSpk($spk->id),
             ], 422);
         }
@@ -1711,7 +1711,7 @@ class ShippingController extends Controller
 
         if ($freshSubmission->error_message) {
             return response()->json([
-                'message' => $freshSubmission->error_message,
+                'message' => $this->friendlyCeisaSubmissionError($freshSubmission->error_message),
                 'submission' => $this->serializeCeisaSubmission($freshSubmission),
                 'submissions' => $this->ceisaSubmissionsForSpk($spk->id),
             ], 422);
@@ -1722,6 +1722,35 @@ class ShippingController extends Controller
             'submission' => $this->serializeCeisaSubmission($freshSubmission),
             'submissions' => $this->ceisaSubmissionsForSpk($spk->id),
         ]);
+    }
+
+    private function friendlyCeisaSubmissionError(?string $message): string
+    {
+        $message = trim((string) $message);
+
+        if ($message === '') {
+            return 'Kirim draft CEISA gagal. Periksa field yang ditandai belum lengkap.';
+        }
+
+        $normalized = Str::lower($message);
+
+        if (Str::contains($normalized, ['$.dokumen', 'kodedokumen', 'nomordokumen', 'tanggaldokumen'])) {
+            return 'Dokumen lampiran belum lengkap. Cek tab Dokumen: pilih jenis dokumen, isi nomor dan tanggal, atau hapus baris yang tidak dipakai.';
+        }
+
+        if (Str::contains($normalized, ['$.barang', 'postarif', 'kodesatuanbarang', 'kodejeniskemasan'])) {
+            return 'Data barang belum lengkap. Cek tab Barang: isi HS, uraian, jumlah/satuan, kemasan, negara asal, dan nilai barang.';
+        }
+
+        if (Str::contains($normalized, ['kodebendera', '$.pengangkut'])) {
+            return 'Data pengangkut belum lengkap. Pilih bendera, cara angkut, nama sarana, dan voyage/flight.';
+        }
+
+        if (Str::contains($normalized, ['kodetps', 'tempat penimbunan'])) {
+            return 'Tempat penimbunan belum valid. Pilih TPS dari referensi CEISA sesuai kantor pabean.';
+        }
+
+        return $message;
     }
 
     public function lookupCeisaReference(Request $request, int $id, CeisaReferenceService $referenceService)

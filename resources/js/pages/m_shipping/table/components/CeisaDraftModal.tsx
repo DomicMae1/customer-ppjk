@@ -25,7 +25,7 @@ import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 type DraftTab = 'header' | 'entities' | 'documents' | 'transport' | 'packaging' | 'transaction' | 'goods' | 'statement' | 'advanced';
-type PortLookupTarget = 'kodePelMuat' | 'kodePelTujuan' | 'kodePelEkspor' | 'kodePelBongkar';
+type PortLookupTarget = 'kodePelMuat' | 'kodePelTransit' | 'kodePelTujuan' | 'kodePelEkspor' | 'kodePelBongkar';
 
 interface CeisaDraftModalProps {
     open: boolean;
@@ -223,6 +223,68 @@ const jenisTransaksiOptions = [
 ];
 const caraBayarValues = new Set(caraBayarOptions.map((item) => item.value));
 const jenisTransaksiValues = new Set(jenisTransaksiOptions.map((item) => item.value));
+const metodePenentuanNilaiOptions = [
+    { value: 'Metode 1', label: 'METODE 1 - Metode Nilai Transaksi Barang yang Bersangkutan' },
+    { value: 'Metode 2', label: 'METODE 2 - Metode Nilai Transaksi Barang Identik' },
+    { value: 'Metode 3', label: 'METODE 3 - Metode Nilai Transaksi Barang Serupa' },
+    { value: 'Metode 4', label: 'METODE 4 - Metode Deduksi' },
+    { value: 'Metode 5', label: 'METODE 5 - Metode Komputasi' },
+    { value: 'Metode 6', label: 'METODE 6 - Metode Fallback' },
+];
+const alasanNilaiPabeanOptions = [
+    { value: '', label: 'Pilih alasan' },
+    { value: 'KON', label: 'KON - Bukan transaksi jual beli berupa barang konsinyasi' },
+    { value: 'CMA', label: 'CMA - Bukan transaksi jual beli berupa barang hadiah/promosi/contoh' },
+    { value: 'ITM', label: 'ITM - Bukan transaksi jual beli oleh intermediary yang tidak membeli barang' },
+    { value: 'LES', label: 'LES - Bukan transaksi jual beli berupa barang sewa' },
+    { value: 'HBH', label: 'HBH - Bukan transaksi jual beli berupa barang bantuan/hibah' },
+    { value: 'BTR', label: 'BTR - Bukan transaksi jual beli lainnya' },
+    { value: 'TTS', label: 'TTS - Transaksi jual beli tidak memenuhi persyaratan nilai transaksi' },
+];
+const kondisiBarangOptions = [
+    { value: '1', label: '1 - Barang Baru' },
+    { value: '2', label: '2 - Bukan Barang Baru' },
+];
+const voluntaryDeclarationOptions = [
+    { value: 'NTR', label: 'NTR - Nilai Transaksi' },
+    { value: 'AST', label: 'AST - Assist' },
+    { value: 'FRE', label: 'FRE - Freight' },
+    { value: 'FTR', label: 'FTR - Transaksi jual beli berdasarkan harga futures' },
+    { value: 'INS', label: 'INS - Insurance' },
+    { value: 'PRO', label: 'PRO - Proceeds' },
+    { value: 'ROY', label: 'ROY - Royalty' },
+];
+const jenisTarifOptions = [
+    { value: '1', label: '1 - Advalorum' },
+    { value: '2', label: '2 - Spesifik' },
+];
+const jenisPungutanOptions = [
+    { value: 'BM', label: 'BM - Bea Masuk' },
+    { value: 'BMKITE', label: 'BMKITE - Bea Masuk KITE' },
+    { value: 'BMT', label: 'BMT - Bea Masuk Tambahan' },
+    { value: 'PPH', label: 'PPH - Pajak Penghasilan' },
+    { value: 'PPN', label: 'PPN - Pajak Pertambahan Nilai' },
+    { value: 'PPNBM', label: 'PPNBM - Pajak Penjualan Barang Mewah' },
+];
+const jenisTarifFasilitasOptions = [
+    { value: '1', label: '1 - Dibayar' },
+    { value: '2', label: '2 - Ditanggung Pemerintah' },
+    { value: '3', label: '3 - Ditangguhkan' },
+    { value: '4', label: '4 - Berkala' },
+    { value: '5', label: '5 - Dibebaskan' },
+    { value: '6', label: '6 - Tidak Dipungut' },
+    { value: '7', label: '7 - Sudah Dilunasi' },
+];
+const spesifikasiKhususOptions = [
+    { value: '1', label: '1 - Nomor Mesin' },
+    { value: '2', label: '2 - Nomor Rangka' },
+    { value: '3', label: '3 - Silinder' },
+    { value: '4', label: '4 - Tahun Pembuatan' },
+    { value: '5', label: '5 - Jenis Kendaraan' },
+    { value: '6', label: '6 - Merk' },
+    { value: '7', label: '7 - Model' },
+    { value: '8', label: '8 - Nomor Seri' },
+];
 const tutupPuOptions = [
     { value: '11', label: '11 - BC 1.1' },
     { value: '12', label: '12 - BC 1.2' },
@@ -1055,6 +1117,14 @@ function hasDocumentRow(payload: Record<string, any>, codes: string[]): boolean 
     );
 }
 
+function documentRowIncomplete(row: any): boolean {
+    const hasCode = hasValue(row?.kodeDokumen);
+    const hasNumber = hasValue(row?.nomorDokumen);
+    const hasDate = hasValue(row?.tanggalDokumen);
+
+    return (hasCode || hasNumber) && (!hasCode || !hasNumber || !hasDate);
+}
+
 function foreignEntityComplete(payload: Record<string, any>, kodeEntitas: string): boolean {
     const entitas = Array.isArray(payload.entitas) ? payload.entitas : [];
     const entity = entitas.find((item: any) => String(item?.kodeEntitas || '') === kodeEntitas);
@@ -1129,6 +1199,12 @@ export function CeisaDraftModal({
     const [portLookupKeyword, setPortLookupKeyword] = useState('');
     const [portLookupRows, setPortLookupRows] = useState<Record<string, any>[]>([]);
     const [isLookingUpPort, setIsLookingUpPort] = useState(false);
+    const [activeTpsDropdown, setActiveTpsDropdown] = useState(false);
+    const [tpsLookupRows, setTpsLookupRows] = useState<Record<string, any>[]>([]);
+    const [isLookingUpTps, setIsLookingUpTps] = useState(false);
+    const [activeHsDropdownIndex, setActiveHsDropdownIndex] = useState<number | null>(null);
+    const [hsLookupRows, setHsLookupRows] = useState<Record<string, any>[]>([]);
+    const [isLookingUpHs, setIsLookingUpHs] = useState(false);
     const [kursLookupMessage, setKursLookupMessage] = useState('');
     const [isLookingUpKurs, setIsLookingUpKurs] = useState(false);
     const { payload, error: jsonError } = useMemo(() => parsePayload(payloadText), [payloadText]);
@@ -1201,6 +1277,56 @@ export function CeisaDraftModal({
             }
         },
         [lookupPortRows, referenceEndpoint],
+    );
+
+    const lookupTpsRows = useCallback(async () => {
+        if (!referenceEndpoint || !String(payload.kodeKantor || '').trim()) return;
+
+        setIsLookingUpTps(true);
+
+        try {
+            const response = await axios.post(referenceEndpoint, {
+                lookup_type: 'gudang_tps_kode_kantor',
+                params: { kode_kantor: String(payload.kodeKantor || '').trim() },
+            });
+
+            setTpsLookupRows(extractReferenceRows(response.data));
+        } catch {
+            setTpsLookupRows([]);
+        } finally {
+            setIsLookingUpTps(false);
+        }
+    }, [payload.kodeKantor, referenceEndpoint]);
+
+    const lookupHsRows = useCallback(
+        async (keyword: string, limit = 12) => {
+            const code = keyword.replace(/\D/g, '');
+
+            if (!referenceEndpoint || code.length < 4) {
+                setHsLookupRows([]);
+
+                return;
+            }
+
+            setIsLookingUpHs(true);
+
+            try {
+                const response = await axios.post(referenceEndpoint, {
+                    lookup_type: 'tarif_hs',
+                    params: {
+                        kode_hs: code,
+                        tanggal: payload.tanggalAju || new Date().toISOString().slice(0, 10),
+                    },
+                });
+
+                setHsLookupRows(extractReferenceRows(response.data).slice(0, limit));
+            } catch {
+                setHsLookupRows([]);
+            } finally {
+                setIsLookingUpHs(false);
+            }
+        },
+        [payload.tanggalAju, referenceEndpoint],
     );
 
     const applyEntityCountry = (next: Record<string, any>, country: string, entityCodes: string[]) => {
@@ -1395,6 +1521,27 @@ export function CeisaDraftModal({
         return () => window.clearTimeout(timeout);
     }, [activePortDropdown, lookupPortsFor, portLookupKeyword]);
 
+    useEffect(() => {
+        if (activeHsDropdownIndex === null) {
+            return;
+        }
+
+        const goodsRows = Array.isArray(payload.barang) ? payload.barang : [];
+        const keyword = String(goodsRows[activeHsDropdownIndex]?.posTarif || '');
+
+        if (keyword.replace(/\D/g, '').length < 4) {
+            setHsLookupRows([]);
+
+            return;
+        }
+
+        const timeout = window.setTimeout(() => {
+            void lookupHsRows(keyword);
+        }, 350);
+
+        return () => window.clearTimeout(timeout);
+    }, [activeHsDropdownIndex, lookupHsRows, payload.barang]);
+
     const lookupKurs = async () => {
         if (!referenceEndpoint) return;
 
@@ -1529,12 +1676,12 @@ export function CeisaDraftModal({
         });
     };
 
-    const renderPortReferenceField = (target: PortLookupTarget, label: string, placeholder: string) => {
+    const renderPortReferenceField = (target: PortLookupTarget, label: string, placeholder: string, required = true) => {
         const dropdownOpen = activePortDropdown === target && portLookupTarget === target;
 
         return (
             <div className="space-y-1.5">
-                {fieldLabel(label, true)}
+                {fieldLabel(label, required)}
                 <div className="relative">
                     <div className="flex gap-2">
                         <Input
@@ -1621,6 +1768,107 @@ export function CeisaDraftModal({
         );
     };
 
+    const applyTpsReference = (row: Record<string, any>) => {
+        const code = pickRecordValue(row, ['kodeTps', 'kodeTPS', 'kodeGudang', 'kode_gudang', 'kode', 'kodeTpsGudang']);
+
+        if (!code) return;
+
+        updateHeader('kodeTps', code.toUpperCase());
+        setActiveTpsDropdown(false);
+    };
+
+    const renderTpsReferenceField = () => {
+        const keyword = String(payload.kodeTps || '').trim().toUpperCase();
+        const filteredRows = tpsLookupRows
+            .filter((row) => {
+                if (!keyword) return true;
+
+                return [
+                    pickRecordValue(row, ['kodeTps', 'kodeTPS', 'kodeGudang', 'kode_gudang', 'kode', 'kodeTpsGudang']),
+                    pickRecordValue(row, ['namaTps', 'namaTPS', 'namaGudang', 'nama_gudang', 'nama', 'uraian']),
+                ]
+                    .join(' ')
+                    .toUpperCase()
+                    .includes(keyword);
+            })
+            .slice(0, 20);
+
+        return (
+            <div className="space-y-1.5">
+                {fieldLabel('Tempat Penimbunan', true)}
+                <div className="relative">
+                    <div className="flex gap-2">
+                        <Input
+                            value={payload.kodeTps || ''}
+                            onFocus={() => {
+                                setActiveTpsDropdown(true);
+                                if (tpsLookupRows.length === 0) {
+                                    void lookupTpsRows();
+                                }
+                            }}
+                            onBlur={() => {
+                                window.setTimeout(() => setActiveTpsDropdown(false), 160);
+                            }}
+                            onChange={(e) => {
+                                updateHeader('kodeTps', e.target.value.toUpperCase());
+                                setActiveTpsDropdown(true);
+                            }}
+                            className={inputClass}
+                            placeholder="Pilih TPS"
+                            autoComplete="off"
+                        />
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onMouseDown={(event) => event.preventDefault()}
+                            onClick={() => {
+                                setActiveTpsDropdown(true);
+                                void lookupTpsRows();
+                            }}
+                            disabled={!referenceEndpoint || isLookingUpTps || !String(payload.kodeKantor || '').trim()}
+                            className="h-9 w-10 shrink-0 rounded-sm border-slate-300 p-0"
+                            title="Cari TPS"
+                        >
+                            <Search className="h-4 w-4" />
+                        </Button>
+                    </div>
+                    {activeTpsDropdown && (
+                        <div
+                            className="absolute right-0 left-0 z-40 mt-1 max-h-64 overflow-y-auto rounded-sm border border-slate-200 bg-white shadow-lg"
+                            onMouseDown={(event) => event.preventDefault()}
+                        >
+                            {isLookingUpTps && <div className="px-3 py-2 text-xs text-slate-500">Mencari referensi TPS...</div>}
+                            {!isLookingUpTps && filteredRows.length === 0 && (
+                                <div className="px-3 py-2 text-xs text-slate-500">
+                                    {String(payload.kodeKantor || '').trim()
+                                        ? 'Referensi TPS tidak ditemukan untuk kantor ini.'
+                                        : 'Isi/pilih pelabuhan tujuan dulu agar kode kantor terdeteksi.'}
+                                </div>
+                            )}
+                            {!isLookingUpTps &&
+                                filteredRows.map((row, index) => {
+                                    const code = pickRecordValue(row, ['kodeTps', 'kodeTPS', 'kodeGudang', 'kode_gudang', 'kode', 'kodeTpsGudang']);
+                                    const name = pickRecordValue(row, ['namaTps', 'namaTPS', 'namaGudang', 'nama_gudang', 'nama', 'uraian']);
+
+                                    return (
+                                        <button
+                                            key={`${code}-${index}`}
+                                            type="button"
+                                            onClick={() => applyTpsReference(row)}
+                                            className="block w-full border-b border-slate-100 px-3 py-2 text-left text-xs last:border-b-0 hover:bg-blue-50"
+                                        >
+                                            <div className="font-semibold text-slate-900">{code || '-'}</div>
+                                            <div className="mt-0.5 text-slate-600">{name || '-'}</div>
+                                        </button>
+                                    );
+                                })}
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+    };
+
     const updateEntity = (kodeEntitas: string, field: string, value: any) => {
         commitPayload((next) => {
             const entitas = ensureArray(next, 'entitas');
@@ -1647,14 +1895,14 @@ export function CeisaDraftModal({
         });
     };
 
-    const addDocument = (kodeDokumen = '380') => {
+    const addDocument = (kodeDokumen = '') => {
         commitPayload((next) => {
             const dokumen = ensureArray(next, 'dokumen');
             dokumen.push({
                 seriDokumen: dokumen.length + 1,
                 kodeDokumen,
                 nomorDokumen: '',
-                tanggalDokumen: new Date().toISOString().slice(0, 10),
+                tanggalDokumen: '',
             });
         });
     };
@@ -1760,6 +2008,8 @@ export function CeisaDraftModal({
                 alasanMetodePenentuanNilai: null,
                 statementPerbedaanHarga: 'T',
                 pernyataanLartas: 'Y',
+                barangDokumen: [],
+                barangSpekKhusus: [],
                 barangTarif: [],
                 barangVd: [],
             });
@@ -1774,6 +2024,140 @@ export function CeisaDraftModal({
                 item.seriBarang = itemIndex + 1;
             });
         });
+    };
+
+    const updateBarangNestedArray = (barangIndex: number, arrayKey: string, rowIndex: number, field: string, value: any) => {
+        commitPayload((next) => {
+            const barang = ensureArray(next, 'barang');
+            if (!barang[barangIndex]) return;
+
+            const rows = Array.isArray(barang[barangIndex][arrayKey]) ? barang[barangIndex][arrayKey] : [];
+            if (!rows[rowIndex]) return;
+
+            rows[rowIndex][field] = value;
+            barang[barangIndex][arrayKey] = rows;
+        });
+    };
+
+    const addBarangNestedRow = (barangIndex: number, arrayKey: string, template: Record<string, any>, serialField?: string) => {
+        commitPayload((next) => {
+            const barang = ensureArray(next, 'barang');
+            if (!barang[barangIndex]) return;
+
+            const rows = Array.isArray(barang[barangIndex][arrayKey]) ? barang[barangIndex][arrayKey] : [];
+            const nextRow = { ...template };
+
+            if (serialField) {
+                nextRow[serialField] = rows.length + 1;
+            }
+
+            rows.push(nextRow);
+            barang[barangIndex][arrayKey] = rows;
+        });
+    };
+
+    const removeBarangNestedRow = (barangIndex: number, arrayKey: string, rowIndex: number, serialField?: string) => {
+        commitPayload((next) => {
+            const barang = ensureArray(next, 'barang');
+            if (!barang[barangIndex]) return;
+
+            const rows = Array.isArray(barang[barangIndex][arrayKey]) ? barang[barangIndex][arrayKey] : [];
+            rows.splice(rowIndex, 1);
+
+            if (serialField) {
+                rows.forEach((item, itemIndex) => {
+                    item[serialField] = itemIndex + 1;
+                });
+            }
+
+            barang[barangIndex][arrayKey] = rows;
+        });
+    };
+
+    const addBarangDocument = (barangIndex: number) =>
+        addBarangNestedRow(barangIndex, 'barangDokumen', {
+            seriDokumen: '',
+        });
+
+    const addBarangVd = (barangIndex: number) =>
+        addBarangNestedRow(
+            barangIndex,
+            'barangVd',
+            {
+                kodeJenisVd: '',
+                nilaiBarangVd: 0,
+            },
+            'seriBarangVd',
+        );
+
+    const addBarangTarif = (barangIndex: number) =>
+        addBarangNestedRow(barangIndex, 'barangTarif', {
+            kodeJenisTarif: '1',
+            jumlahSatuan: 0,
+            kodeFasilitasTarif: '1',
+            kodeJenisPungutan: 'BM',
+            nilaiBayar: 0,
+            tarif: 0,
+            tarifFasilitas: 100,
+            nilaiFasilitas: 0,
+        });
+
+    const addBarangSpekKhusus = (barangIndex: number) =>
+        addBarangNestedRow(
+            barangIndex,
+            'barangSpekKhusus',
+            {
+                kodeSpekKhusus: '',
+                uraianBarangSpekKhusus: '',
+            },
+            'seriBarangSpekKhusus',
+        );
+
+    const refreshBarangPungutan = (barangIndex: number) => {
+        commitPayload((next) => {
+            const barang = ensureArray(next, 'barang');
+            if (!barang[barangIndex]) return;
+
+            const currentRows = Array.isArray(barang[barangIndex].barangTarif) ? barang[barangIndex].barangTarif : [];
+
+            if (currentRows.length > 0) {
+                return;
+            }
+
+            barang[barangIndex].barangTarif = [
+                {
+                    kodeJenisTarif: '1',
+                    jumlahSatuan: Number(barang[barangIndex].jumlahSatuan || 0),
+                    kodeFasilitasTarif: '1',
+                    kodeJenisPungutan: 'BM',
+                    nilaiBayar: 0,
+                    tarif: 0,
+                    tarifFasilitas: 100,
+                    nilaiFasilitas: 0,
+                },
+            ];
+        });
+    };
+
+    const applyHsReference = (barangIndex: number, row: Record<string, any>) => {
+        const code = pickRecordValue(row, ['kodeHs', 'kodeHS', 'kode_hs', 'posTarif', 'hsCode', 'kode']);
+        const description = pickRecordValue(row, ['uraianBarang', 'uraian_barang', 'uraian', 'namaBarang', 'nama_barang', 'description']);
+
+        if (!code) return;
+
+        commitPayload((next) => {
+            const barang = ensureArray(next, 'barang');
+            if (!barang[barangIndex]) return;
+
+            barang[barangIndex].posTarif = code.replace(/\D/g, '');
+
+            if (description && !hasValue(barang[barangIndex].uraian)) {
+                barang[barangIndex].uraian = description;
+            }
+        });
+
+        setActiveHsDropdownIndex(null);
+        setHsLookupRows([]);
     };
 
     const entitas = Array.isArray(payload.entitas) ? payload.entitas : [];
@@ -2261,7 +2645,7 @@ export function CeisaDraftModal({
                                         type="button"
                                         variant="outline"
                                         size="sm"
-                                        onClick={() => addDocument(isExport ? '343' : '380')}
+                                        onClick={() => addDocument()}
                                         className="h-8 gap-2 rounded-lg text-[11px] font-bold"
                                     >
                                         <Plus className="h-3.5 w-3.5" />
@@ -2278,11 +2662,16 @@ export function CeisaDraftModal({
                                             <div>Tanggal</div>
                                             <div />
                                         </div>
-                                    {dokumen.map((row: any, index: number) => (
-                                        <div
-                                            key={`${row.kodeDokumen}-${index}`}
-                                                className="grid grid-cols-[70px_220px_1fr_180px_56px] items-end gap-3 border-t border-slate-200 px-4 py-3"
-                                        >
+                                    {dokumen.map((row: any, index: number) => {
+                                        const incomplete = documentRowIncomplete(row);
+
+                                        return (
+                                            <div
+                                                key={`${row.kodeDokumen}-${index}`}
+                                                className={`grid grid-cols-[70px_220px_1fr_180px_56px] items-end gap-3 border-t px-4 py-3 ${
+                                                    incomplete ? 'border-amber-200 bg-amber-50/60' : 'border-slate-200'
+                                                }`}
+                                            >
                                                 <div className="pb-2 text-xs text-slate-600">{row.seriDokumen || index + 1}</div>
                                                 <div className="space-y-1.5">
                                                 {fieldLabel('Jenis', requiredDocumentCodes.includes(row.kodeDokumen))}
@@ -2327,8 +2716,14 @@ export function CeisaDraftModal({
                                                     <Trash2 className="h-4 w-4" />
                                                 </Button>
                                             </div>
+                                            {incomplete && (
+                                                <div className="col-span-5 -mt-1 text-xs font-medium text-amber-700">
+                                                    Baris ini belum lengkap. Isi jenis, nomor, tanggal, atau hapus kalau tidak dipakai.
+                                                </div>
+                                            )}
                                         </div>
-                                    ))}
+                                        );
+                                    })}
                                     </div>
                                 </div>
                             </div>
@@ -2465,12 +2860,17 @@ export function CeisaDraftModal({
                                         </div>
                                         <div className="space-y-1.5">
                                             {fieldLabel('Bendera', true)}
-                                            <Input
+                                            <select
                                                 value={transport.kodeBendera || ''}
-                                                onChange={(e) => updateFirstArrayRow('pengangkut', 'kodeBendera', e.target.value.toUpperCase())}
-                                                className={inputClass}
-                                                placeholder="ID"
-                                            />
+                                                onChange={(e) => updateFirstArrayRow('pengangkut', 'kodeBendera', e.target.value)}
+                                                className={selectClass}
+                                            >
+                                                {countryOptions.map((item) => (
+                                                    <option key={item.value || 'empty'} value={item.value}>
+                                                        {item.label}
+                                                    </option>
+                                                ))}
+                                            </select>
                                         </div>
                                     </div>
                                 </div>
@@ -2483,6 +2883,13 @@ export function CeisaDraftModal({
                                             isExport ? 'Pelabuhan Muat Asal' : 'Pelabuhan Muat',
                                             'Cari/kode pelabuhan, contoh IDTPE',
                                         )}
+                                        {!isExport &&
+                                            renderPortReferenceField(
+                                                'kodePelTransit',
+                                                'Pelabuhan Transit',
+                                                'Opsional, cari/kode pelabuhan',
+                                                false,
+                                            )}
                                         {!isExport && (
                                             <div className="space-y-1.5">
                                                 {fieldLabel('Pelabuhan Tujuan', true)}
@@ -2514,14 +2921,7 @@ export function CeisaDraftModal({
                                                 </div>
                                             </>
                                         )}
-                                        <div className="space-y-1.5">
-                                            {fieldLabel('Tempat Penimbunan', true)}
-                                            <Input
-                                                value={payload.kodeTps || ''}
-                                                onChange={(e) => updateHeader('kodeTps', e.target.value.toUpperCase())}
-                                                className={inputClass}
-                                            />
-                                        </div>
+                                        {renderTpsReferenceField()}
                                     </div>
                                 </div>
 
@@ -2984,7 +3384,17 @@ export function CeisaDraftModal({
                                 </div>
 
                                 <div className="space-y-4">
-                                    {barang.map((row: any, index: number) => (
+                                    {barang.map((row: any, index: number) => {
+                                        const barangDokumen = Array.isArray(row.barangDokumen) ? row.barangDokumen : [];
+                                        const barangVd = Array.isArray(row.barangVd) ? row.barangVd : [];
+                                        const barangTarif = Array.isArray(row.barangTarif) ? row.barangTarif : [];
+                                        const barangSpekKhusus = Array.isArray(row.barangSpekKhusus) ? row.barangSpekKhusus : [];
+                                        const hsDropdownOpen = activeHsDropdownIndex === index;
+                                        const dokumenOptions = dokumen.filter(
+                                            (document: any) => hasValue(document?.kodeDokumen) && hasValue(document?.nomorDokumen),
+                                        );
+
+                                        return (
                                         <div key={index} className={portalPanelClass}>
                                             <div className={`${portalPanelHeaderClass} flex items-center justify-between gap-3`}>
                                                 <div>Barang {index + 1}</div>
@@ -3004,11 +3414,72 @@ export function CeisaDraftModal({
                                             <div className={`${portalPanelBodyClass} grid gap-3 md:grid-cols-4`}>
                                                 <div className="space-y-1.5">
                                                     {fieldLabel('Pos Tarif/HS', true)}
-                                                    <Input
-                                                        value={row.posTarif || ''}
-                                                        onChange={(e) => updateBarang(index, 'posTarif', e.target.value.replace(/\D/g, ''))}
-                                                        className={inputClass}
-                                                    />
+                                                    <div className="relative">
+                                                        <Input
+                                                            value={row.posTarif || ''}
+                                                            onFocus={() => {
+                                                                setActiveHsDropdownIndex(index);
+                                                                if (String(row.posTarif || '').replace(/\D/g, '').length >= 4) {
+                                                                    void lookupHsRows(String(row.posTarif || ''));
+                                                                }
+                                                            }}
+                                                            onBlur={() => {
+                                                                window.setTimeout(() => {
+                                                                    setActiveHsDropdownIndex((current) => (current === index ? null : current));
+                                                                }, 160);
+                                                            }}
+                                                            onChange={(e) => {
+                                                                updateBarang(index, 'posTarif', e.target.value.replace(/\D/g, ''));
+                                                                setActiveHsDropdownIndex(index);
+                                                            }}
+                                                            className={inputClass}
+                                                            autoComplete="off"
+                                                        />
+                                                        {hsDropdownOpen && (
+                                                            <div
+                                                                className="absolute right-0 left-0 z-40 mt-1 max-h-64 overflow-y-auto rounded-sm border border-slate-200 bg-white shadow-lg"
+                                                                onMouseDown={(event) => event.preventDefault()}
+                                                            >
+                                                                {isLookingUpHs && <div className="px-3 py-2 text-xs text-slate-500">Mencari referensi HS...</div>}
+                                                                {!isLookingUpHs && hsLookupRows.length === 0 && (
+                                                                    <div className="px-3 py-2 text-xs text-slate-500">
+                                                                        Ketik minimal 4 digit untuk mencari referensi HS.
+                                                                    </div>
+                                                                )}
+                                                                {!isLookingUpHs &&
+                                                                    hsLookupRows.map((hsRow, hsIndex) => {
+                                                                        const code = pickRecordValue(hsRow, [
+                                                                            'kodeHs',
+                                                                            'kodeHS',
+                                                                            'kode_hs',
+                                                                            'posTarif',
+                                                                            'hsCode',
+                                                                            'kode',
+                                                                        ]);
+                                                                        const description = pickRecordValue(hsRow, [
+                                                                            'uraianBarang',
+                                                                            'uraian_barang',
+                                                                            'uraian',
+                                                                            'namaBarang',
+                                                                            'nama_barang',
+                                                                            'description',
+                                                                        ]);
+
+                                                                        return (
+                                                                            <button
+                                                                                key={`${code}-${hsIndex}`}
+                                                                                type="button"
+                                                                                onClick={() => applyHsReference(index, hsRow)}
+                                                                                className="block w-full border-b border-slate-100 px-3 py-2 text-left text-xs last:border-b-0 hover:bg-blue-50"
+                                                                            >
+                                                                                <div className="font-semibold text-slate-900">{code || '-'}</div>
+                                                                                <div className="mt-0.5 line-clamp-2 text-slate-600">{description || '-'}</div>
+                                                                            </button>
+                                                                        );
+                                                                    })}
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </div>
                                                 <div className="space-y-1.5">
                                                     {fieldLabel('Kode Barang')}
@@ -3147,21 +3618,58 @@ export function CeisaDraftModal({
                                                         onChange={(e) => updateBarang(index, 'metodePenentuanNilai', e.target.value)}
                                                         className={selectClass}
                                                     >
-                                                        <option value="Metode 1">Metode 1</option>
-                                                        <option value="Metode 2">Metode 2</option>
-                                                        <option value="Metode 3">Metode 3</option>
-                                                        <option value="Metode 4">Metode 4</option>
-                                                        <option value="Metode 5">Metode 5</option>
-                                                        <option value="Metode 6">Metode 6</option>
+                                                        {metodePenentuanNilaiOptions.map((item) => (
+                                                            <option key={item.value} value={item.value}>
+                                                                {item.label}
+                                                            </option>
+                                                        ))}
                                                     </select>
                                                 </div>
                                                 <div className="space-y-1.5">
                                                     {fieldLabel('Alasan')}
-                                                    <Input
+                                                    <select
                                                         value={row.alasanMetodePenentuanNilai || ''}
                                                         onChange={(e) => updateBarang(index, 'alasanMetodePenentuanNilai', e.target.value)}
-                                                        className={inputClass}
-                                                    />
+                                                        className={selectClass}
+                                                    >
+                                                        {alasanNilaiPabeanOptions.map((item) => (
+                                                            <option key={item.value || 'empty'} value={item.value}>
+                                                                {item.label}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                    {fieldLabel('Statement Perbedaan')}
+                                                    <div className="flex h-9 items-center gap-4 rounded-sm border border-slate-200 px-3 text-xs text-slate-700">
+                                                        <label className="flex items-center gap-1.5">
+                                                            <input
+                                                                type="radio"
+                                                                checked={String(row.statementPerbedaanHarga || 'T') === 'Y'}
+                                                                onChange={() => updateBarang(index, 'statementPerbedaanHarga', 'Y')}
+                                                            />
+                                                            Ada
+                                                        </label>
+                                                        <label className="flex items-center gap-1.5">
+                                                            <input
+                                                                type="radio"
+                                                                checked={String(row.statementPerbedaanHarga || 'T') === 'T'}
+                                                                onChange={() => updateBarang(index, 'statementPerbedaanHarga', 'T')}
+                                                            />
+                                                            Tidak Ada
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                    {fieldLabel('Pernyataan Lartas')}
+                                                    <select
+                                                        value={row.pernyataanLartas || 'Y'}
+                                                        onChange={(e) => updateBarang(index, 'pernyataanLartas', e.target.value)}
+                                                        className={selectClass}
+                                                    >
+                                                        <option value="Y">Y - Ya/Ada</option>
+                                                        <option value="T">T - Tidak/Tidak Ada</option>
+                                                    </select>
                                                 </div>
                                                 <div className="space-y-1.5">
                                                     {fieldLabel('Kondisi Barang', true)}
@@ -3170,8 +3678,11 @@ export function CeisaDraftModal({
                                                         onChange={(e) => updateBarang(index, 'kodeKondisiBarang', e.target.value)}
                                                         className={selectClass}
                                                     >
-                                                        <option value="1">1 - Baru</option>
-                                                        <option value="2">2 - Bekas</option>
+                                                        {kondisiBarangOptions.map((item) => (
+                                                            <option key={item.value} value={item.value}>
+                                                                {item.label}
+                                                            </option>
+                                                        ))}
                                                     </select>
                                                 </div>
                                                 <div className="space-y-1.5">
@@ -3181,6 +3692,14 @@ export function CeisaDraftModal({
                                                         onChange={(e) => updateBarang(index, 'merk', e.target.value)}
                                                         className={inputClass}
                                                     />
+                                                    <label className="flex items-center gap-2 text-xs text-slate-500">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={String(row.merk || '').toUpperCase() === 'TANPA MEREK'}
+                                                            onChange={(e) => updateBarang(index, 'merk', e.target.checked ? 'TANPA MEREK' : '')}
+                                                        />
+                                                        Tanpa Merek
+                                                    </label>
                                                 </div>
                                                 <div className="space-y-1.5">
                                                     {fieldLabel('Tipe', true)}
@@ -3189,6 +3708,14 @@ export function CeisaDraftModal({
                                                         onChange={(e) => updateBarang(index, 'tipe', e.target.value)}
                                                         className={inputClass}
                                                     />
+                                                    <label className="flex items-center gap-2 text-xs text-slate-500">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={String(row.tipe || '').toUpperCase() === 'TANPA TIPE'}
+                                                            onChange={(e) => updateBarang(index, 'tipe', e.target.checked ? 'TANPA TIPE' : '')}
+                                                        />
+                                                        Tanpa Tipe
+                                                    </label>
                                                 </div>
                                                 <div className="space-y-1.5">
                                                     {fieldLabel('Ukuran')}
@@ -3207,8 +3734,382 @@ export function CeisaDraftModal({
                                                     />
                                                 </div>
                                             </div>
+                                            <div className="space-y-4 border-t border-slate-200 p-4">
+                                                <div className="grid gap-4 xl:grid-cols-2">
+                                                    <div className="rounded-sm border border-slate-200 bg-white">
+                                                        <div className="flex items-center justify-between border-b border-slate-200 bg-[#f4fbfb] px-4 py-3">
+                                                            <div className="text-xs font-semibold text-slate-800">Dokumen Fasilitas/Lartas</div>
+                                                            <Button
+                                                                type="button"
+                                                                variant="outline"
+                                                                size="sm"
+                                                                onClick={() => addBarangDocument(index)}
+                                                                className="h-8 gap-2 rounded-sm text-[11px]"
+                                                            >
+                                                                <Plus className="h-3.5 w-3.5" />
+                                                                Tambah
+                                                            </Button>
+                                                        </div>
+                                                        <div className="space-y-2 p-3">
+                                                            {barangDokumen.length === 0 && (
+                                                                <div className="rounded-sm border border-dashed border-slate-200 px-3 py-4 text-center text-xs text-slate-500">
+                                                                    Belum ada dokumen yang dikaitkan ke barang ini.
+                                                                </div>
+                                                            )}
+                                                            {barangDokumen.map((documentRow: any, documentIndex: number) => (
+                                                                <div key={documentIndex} className="grid grid-cols-[1fr_40px] items-end gap-2">
+                                                                    <div className="space-y-1.5">
+                                                                        {fieldLabel('Seri Dokumen')}
+                                                                        <select
+                                                                            value={documentRow.seriDokumen || ''}
+                                                                            onChange={(e) =>
+                                                                                updateBarangNestedArray(
+                                                                                    index,
+                                                                                    'barangDokumen',
+                                                                                    documentIndex,
+                                                                                    'seriDokumen',
+                                                                                    e.target.value,
+                                                                                )
+                                                                            }
+                                                                            className={selectClass}
+                                                                        >
+                                                                            <option value="">Pilih dokumen</option>
+                                                                            {dokumenOptions.map((document: any) => (
+                                                                                <option
+                                                                                    key={`${document.seriDokumen}-${document.kodeDokumen}`}
+                                                                                    value={String(document.seriDokumen || '')}
+                                                                                >
+                                                                                    {document.seriDokumen} - {document.kodeDokumen} {document.nomorDokumen}
+                                                                                </option>
+                                                                            ))}
+                                                                        </select>
+                                                                    </div>
+                                                                    <Button
+                                                                        type="button"
+                                                                        variant="ghost"
+                                                                        size="sm"
+                                                                        onClick={() => removeBarangNestedRow(index, 'barangDokumen', documentIndex)}
+                                                                        className="h-9 w-9 p-0 text-rose-500"
+                                                                    >
+                                                                        <Trash2 className="h-4 w-4" />
+                                                                    </Button>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="rounded-sm border border-slate-200 bg-white">
+                                                        <div className="flex items-center justify-between border-b border-slate-200 bg-[#f4fbfb] px-4 py-3">
+                                                            <div className="text-xs font-semibold text-slate-800">Jenis Voluntary Declaration</div>
+                                                            <Button
+                                                                type="button"
+                                                                variant="outline"
+                                                                size="sm"
+                                                                onClick={() => addBarangVd(index)}
+                                                                className="h-8 gap-2 rounded-sm text-[11px]"
+                                                            >
+                                                                <Plus className="h-3.5 w-3.5" />
+                                                                Tambah
+                                                            </Button>
+                                                        </div>
+                                                        <div className="space-y-2 p-3">
+                                                            {barangVd.length === 0 && (
+                                                                <div className="rounded-sm border border-dashed border-slate-200 px-3 py-4 text-center text-xs text-slate-500">
+                                                                    Belum ada voluntary declaration.
+                                                                </div>
+                                                            )}
+                                                            {barangVd.map((vdRow: any, vdIndex: number) => (
+                                                                <div key={vdIndex} className="grid gap-2 md:grid-cols-[1fr_160px_40px] md:items-end">
+                                                                    <div className="space-y-1.5">
+                                                                        {fieldLabel('Jenis Nilai')}
+                                                                        <select
+                                                                            value={vdRow.kodeJenisVd || ''}
+                                                                            onChange={(e) =>
+                                                                                updateBarangNestedArray(index, 'barangVd', vdIndex, 'kodeJenisVd', e.target.value)
+                                                                            }
+                                                                            className={selectClass}
+                                                                        >
+                                                                            <option value="">Pilih jenis</option>
+                                                                            {voluntaryDeclarationOptions.map((item) => (
+                                                                                <option key={item.value} value={item.value}>
+                                                                                    {item.label}
+                                                                                </option>
+                                                                            ))}
+                                                                        </select>
+                                                                    </div>
+                                                                    <div className="space-y-1.5">
+                                                                        {fieldLabel('Nilai Barang VD')}
+                                                                        <Input
+                                                                            type="number"
+                                                                            value={vdRow.nilaiBarangVd ?? 0}
+                                                                            onChange={(e) =>
+                                                                                updateBarangNestedArray(
+                                                                                    index,
+                                                                                    'barangVd',
+                                                                                    vdIndex,
+                                                                                    'nilaiBarangVd',
+                                                                                    numberValue(e.target.value),
+                                                                                )
+                                                                            }
+                                                                            className={inputClass}
+                                                                        />
+                                                                    </div>
+                                                                    <Button
+                                                                        type="button"
+                                                                        variant="ghost"
+                                                                        size="sm"
+                                                                        onClick={() => removeBarangNestedRow(index, 'barangVd', vdIndex, 'seriBarangVd')}
+                                                                        className="h-9 w-9 p-0 text-rose-500"
+                                                                    >
+                                                                        <Trash2 className="h-4 w-4" />
+                                                                    </Button>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="grid gap-4 xl:grid-cols-2">
+                                                    <div className="rounded-sm border border-slate-200 bg-white">
+                                                        <div className="flex items-center justify-between border-b border-slate-200 bg-[#f4fbfb] px-4 py-3">
+                                                            <div className="text-xs font-semibold text-slate-800">Pungutan</div>
+                                                            <div className="flex gap-2">
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="outline"
+                                                                    size="sm"
+                                                                    onClick={() => refreshBarangPungutan(index)}
+                                                                    className="h-8 rounded-sm text-[11px]"
+                                                                >
+                                                                    Refresh Pungutan
+                                                                </Button>
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="outline"
+                                                                    size="sm"
+                                                                    onClick={() => addBarangTarif(index)}
+                                                                    className="h-8 gap-2 rounded-sm text-[11px]"
+                                                                >
+                                                                    <Plus className="h-3.5 w-3.5" />
+                                                                    Tambah
+                                                                </Button>
+                                                            </div>
+                                                        </div>
+                                                        <div className="space-y-3 p-3">
+                                                            {barangTarif.length === 0 && (
+                                                                <div className="rounded-sm border border-dashed border-slate-200 px-3 py-4 text-center text-xs text-slate-500">
+                                                                    Belum ada pungutan per barang.
+                                                                </div>
+                                                            )}
+                                                            {barangTarif.map((tarifRow: any, tarifIndex: number) => (
+                                                                <div key={tarifIndex} className="rounded-sm border border-slate-200 p-3">
+                                                                    <div className="grid gap-2 md:grid-cols-4">
+                                                                        <div className="space-y-1.5">
+                                                                            {fieldLabel('Jenis Pungutan')}
+                                                                            <select
+                                                                                value={tarifRow.kodeJenisPungutan || 'BM'}
+                                                                                onChange={(e) =>
+                                                                                    updateBarangNestedArray(
+                                                                                        index,
+                                                                                        'barangTarif',
+                                                                                        tarifIndex,
+                                                                                        'kodeJenisPungutan',
+                                                                                        e.target.value,
+                                                                                    )
+                                                                                }
+                                                                                className={selectClass}
+                                                                            >
+                                                                                {jenisPungutanOptions.map((item) => (
+                                                                                    <option key={item.value} value={item.value}>
+                                                                                        {item.label}
+                                                                                    </option>
+                                                                                ))}
+                                                                            </select>
+                                                                        </div>
+                                                                        <div className="space-y-1.5">
+                                                                            {fieldLabel('Jenis Tarif')}
+                                                                            <select
+                                                                                value={tarifRow.kodeJenisTarif || '1'}
+                                                                                onChange={(e) =>
+                                                                                    updateBarangNestedArray(
+                                                                                        index,
+                                                                                        'barangTarif',
+                                                                                        tarifIndex,
+                                                                                        'kodeJenisTarif',
+                                                                                        e.target.value,
+                                                                                    )
+                                                                                }
+                                                                                className={selectClass}
+                                                                            >
+                                                                                {jenisTarifOptions.map((item) => (
+                                                                                    <option key={item.value} value={item.value}>
+                                                                                        {item.label}
+                                                                                    </option>
+                                                                                ))}
+                                                                            </select>
+                                                                        </div>
+                                                                        <div className="space-y-1.5">
+                                                                            {fieldLabel('Kode Fasilitas')}
+                                                                            <select
+                                                                                value={tarifRow.kodeFasilitasTarif || '1'}
+                                                                                onChange={(e) =>
+                                                                                    updateBarangNestedArray(
+                                                                                        index,
+                                                                                        'barangTarif',
+                                                                                        tarifIndex,
+                                                                                        'kodeFasilitasTarif',
+                                                                                        e.target.value,
+                                                                                    )
+                                                                                }
+                                                                                className={selectClass}
+                                                                            >
+                                                                                {jenisTarifFasilitasOptions.map((item) => (
+                                                                                    <option key={item.value} value={item.value}>
+                                                                                        {item.label}
+                                                                                    </option>
+                                                                                ))}
+                                                                            </select>
+                                                                        </div>
+                                                                        <div className="space-y-1.5">
+                                                                            {fieldLabel('Tarif Fasilitas')}
+                                                                            <Input
+                                                                                type="number"
+                                                                                value={tarifRow.tarifFasilitas ?? 100}
+                                                                                onChange={(e) =>
+                                                                                    updateBarangNestedArray(
+                                                                                        index,
+                                                                                        'barangTarif',
+                                                                                        tarifIndex,
+                                                                                        'tarifFasilitas',
+                                                                                        numberValue(e.target.value),
+                                                                                    )
+                                                                                }
+                                                                                className={inputClass}
+                                                                            />
+                                                                        </div>
+                                                                        {[
+                                                                            ['jumlahSatuan', 'Jumlah Satuan'],
+                                                                            ['tarif', 'Tarif'],
+                                                                            ['nilaiBayar', 'Nilai Bayar'],
+                                                                            ['nilaiFasilitas', 'Nilai Fasilitas'],
+                                                                        ].map(([field, label]) => (
+                                                                            <div key={field} className="space-y-1.5">
+                                                                                {fieldLabel(label)}
+                                                                                <Input
+                                                                                    type="number"
+                                                                                    value={tarifRow[field] ?? 0}
+                                                                                    onChange={(e) =>
+                                                                                        updateBarangNestedArray(
+                                                                                            index,
+                                                                                            'barangTarif',
+                                                                                            tarifIndex,
+                                                                                            field,
+                                                                                            numberValue(e.target.value),
+                                                                                        )
+                                                                                    }
+                                                                                    className={inputClass}
+                                                                                />
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                    <div className="mt-2 flex justify-end">
+                                                                        <Button
+                                                                            type="button"
+                                                                            variant="ghost"
+                                                                            size="sm"
+                                                                            onClick={() => removeBarangNestedRow(index, 'barangTarif', tarifIndex)}
+                                                                            className="h-8 gap-1.5 text-rose-500"
+                                                                        >
+                                                                            <Trash2 className="h-3.5 w-3.5" />
+                                                                            Hapus
+                                                                        </Button>
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="rounded-sm border border-slate-200 bg-white">
+                                                        <div className="flex items-center justify-between border-b border-slate-200 bg-[#f4fbfb] px-4 py-3">
+                                                            <div className="text-xs font-semibold text-slate-800">Spesifikasi Khusus</div>
+                                                            <Button
+                                                                type="button"
+                                                                variant="outline"
+                                                                size="sm"
+                                                                onClick={() => addBarangSpekKhusus(index)}
+                                                                className="h-8 gap-2 rounded-sm text-[11px]"
+                                                            >
+                                                                <Plus className="h-3.5 w-3.5" />
+                                                                Tambah
+                                                            </Button>
+                                                        </div>
+                                                        <div className="space-y-2 p-3">
+                                                            {barangSpekKhusus.length === 0 && (
+                                                                <div className="rounded-sm border border-dashed border-slate-200 px-3 py-4 text-center text-xs text-slate-500">
+                                                                    Belum ada spesifikasi khusus.
+                                                                </div>
+                                                            )}
+                                                            {barangSpekKhusus.map((spekRow: any, spekIndex: number) => (
+                                                                <div key={spekIndex} className="grid gap-2 md:grid-cols-[220px_1fr_40px] md:items-end">
+                                                                    <div className="space-y-1.5">
+                                                                        {fieldLabel('Jenis Spesifikasi')}
+                                                                        <select
+                                                                            value={spekRow.kodeSpekKhusus || ''}
+                                                                            onChange={(e) =>
+                                                                                updateBarangNestedArray(
+                                                                                    index,
+                                                                                    'barangSpekKhusus',
+                                                                                    spekIndex,
+                                                                                    'kodeSpekKhusus',
+                                                                                    e.target.value ? Number(e.target.value) : '',
+                                                                                )
+                                                                            }
+                                                                            className={selectClass}
+                                                                        >
+                                                                            <option value="">Pilih jenis</option>
+                                                                            {spesifikasiKhususOptions.map((item) => (
+                                                                                <option key={item.value} value={item.value}>
+                                                                                    {item.label}
+                                                                                </option>
+                                                                            ))}
+                                                                        </select>
+                                                                    </div>
+                                                                    <div className="space-y-1.5">
+                                                                        {fieldLabel('Uraian')}
+                                                                        <Input
+                                                                            value={spekRow.uraianBarangSpekKhusus || ''}
+                                                                            onChange={(e) =>
+                                                                                updateBarangNestedArray(
+                                                                                    index,
+                                                                                    'barangSpekKhusus',
+                                                                                    spekIndex,
+                                                                                    'uraianBarangSpekKhusus',
+                                                                                    e.target.value,
+                                                                                )
+                                                                            }
+                                                                            className={inputClass}
+                                                                        />
+                                                                    </div>
+                                                                    <Button
+                                                                        type="button"
+                                                                        variant="ghost"
+                                                                        size="sm"
+                                                                        onClick={() =>
+                                                                            removeBarangNestedRow(index, 'barangSpekKhusus', spekIndex, 'seriBarangSpekKhusus')
+                                                                        }
+                                                                        className="h-9 w-9 p-0 text-rose-500"
+                                                                    >
+                                                                        <Trash2 className="h-4 w-4" />
+                                                                    </Button>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             </div>
                         )}

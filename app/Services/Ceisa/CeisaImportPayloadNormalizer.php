@@ -160,6 +160,9 @@ class CeisaImportPayloadNormalizer
         }
 
         $errors = [];
+        $documents = collect($payload['dokumen'] ?? [])
+            ->filter(fn ($document) => is_array($document))
+            ->values();
 
         if (! in_array((string) ($payload['kodeTutupPu'] ?? ''), self::VALID_TUTUP_PU, true)) {
             $errors[] = 'Kode Tutup PU wajib salah satu dari 11, 12, atau 14.';
@@ -175,6 +178,33 @@ class CeisaImportPayloadNormalizer
 
         if (! in_array((string) ($payload['kodeJenisNilai'] ?? ''), self::VALID_JENIS_NILAI, true)) {
             $errors[] = 'Kode jenis transaksi wajib mengikuti referensi CEISA, misalnya LAI.';
+        }
+
+        foreach ($documents as $index => $document) {
+            $hasCode = $this->hasText($document['kodeDokumen'] ?? null);
+            $hasNumber = $this->hasText($document['nomorDokumen'] ?? null);
+            $hasDate = $this->hasText($document['tanggalDokumen'] ?? null);
+
+            if (($hasCode || $hasNumber) && (! $hasCode || ! $hasNumber || ! $hasDate)) {
+                $errors[] = 'Dokumen baris '.($index + 1).' belum lengkap. Pilih jenis dokumen, isi nomor dan tanggal, atau hapus baris.';
+            }
+        }
+
+        foreach ([
+            '380' => 'Invoice 380',
+        ] as $code => $label) {
+            $code = (string) $code;
+            $document = $documents->first(fn (array $row) => (string) ($row['kodeDokumen'] ?? '') === $code);
+
+            if (! is_array($document) || ! $this->hasText($document['nomorDokumen'] ?? null) || ! $this->hasText($document['tanggalDokumen'] ?? null)) {
+                $errors[] = "Dokumen {$label} wajib diisi dengan nomor dan tanggal dokumen.";
+            }
+        }
+
+        $transportDocument = $documents->first(fn (array $row) => in_array((string) ($row['kodeDokumen'] ?? ''), ['705', '740'], true));
+
+        if (! is_array($transportDocument) || ! $this->hasText($transportDocument['nomorDokumen'] ?? null) || ! $this->hasText($transportDocument['tanggalDokumen'] ?? null)) {
+            $errors[] = 'Dokumen pengangkutan wajib diisi: pilih B/L 705 atau AWB 740, lalu isi nomor dan tanggal.';
         }
 
         $entitiesByCode = collect($payload['entitas'] ?? [])
@@ -204,6 +234,10 @@ class CeisaImportPayloadNormalizer
 
             if (! array_key_exists('alasanMetodePenentuanNilai', $barang)) {
                 $errors[] = "Barang {$seri}: alasanMetodePenentuanNilai wajib ada walaupun nilainya kosong.";
+            }
+
+            if (($barang['metodePenentuanNilai'] ?? 'Metode 1') !== 'Metode 1' && ! $this->hasText($barang['alasanMetodePenentuanNilai'] ?? null)) {
+                $errors[] = "Barang {$seri}: alasan nilai pabean wajib dipilih jika metode penentuan nilai bukan Metode 1.";
             }
 
             if (! $this->isCountryCode($barang['kodeNegaraAsal'] ?? null)) {
@@ -469,6 +503,12 @@ class CeisaImportPayloadNormalizer
                 }
 
                 return ['row' => $row, 'index' => $index];
+            })
+            ->filter(function (array $item): bool {
+                $row = $item['row'];
+
+                return $this->hasText($row['kodeDokumen'] ?? null)
+                    || $this->hasText($row['nomorDokumen'] ?? null);
             })
             ->sortBy([
                 fn (array $item) => $priority[(string) ($item['row']['kodeDokumen'] ?? '')] ?? 999,
@@ -914,6 +954,27 @@ class CeisaImportPayloadNormalizer
                     $item['barangTarif'] = [];
                 }
 
+                $item['barangTarif'] = collect($item['barangTarif'])
+                    ->filter(fn ($row) => is_array($row) && $this->hasText($row['kodeJenisPungutan'] ?? null))
+                    ->values()
+                    ->all();
+
+                $item['barangDokumen'] = collect($item['barangDokumen'] ?? [])
+                    ->filter(fn ($row) => is_array($row) && $this->hasText($row['seriDokumen'] ?? null))
+                    ->values()
+                    ->all();
+
+                $item['barangSpekKhusus'] = collect($item['barangSpekKhusus'] ?? [])
+                    ->filter(fn ($row) => is_array($row) && $this->hasText($row['kodeSpekKhusus'] ?? null) && $this->hasText($row['uraianBarangSpekKhusus'] ?? null))
+                    ->values()
+                    ->map(function (array $row, int $rowIndex): array {
+                        $row['seriBarangSpekKhusus'] = $rowIndex + 1;
+                        $row['kodeSpekKhusus'] = (int) $row['kodeSpekKhusus'];
+
+                        return $row;
+                    })
+                    ->all();
+
                 if (empty($item['barangVd']) || ! is_array($item['barangVd'])) {
                     $nilaiBarang = (float) ($item['fob'] ?? $item['cif'] ?? 0);
                     $item['barangVd'] = [[
@@ -923,6 +984,30 @@ class CeisaImportPayloadNormalizer
                         'kodeValuta' => $currencyCode,
                         'ndpbm' => 0,
                     ]];
+                } else {
+                    $item['barangVd'] = collect($item['barangVd'])
+                        ->filter(fn ($row) => is_array($row) && $this->hasText($row['kodeJenisVd'] ?? null))
+                        ->values()
+                        ->map(function (array $row, int $rowIndex) use ($currencyCode): array {
+                            $row['seriBarangVd'] = $rowIndex + 1;
+                            $row['nilaiBarangVd'] = (float) ($row['nilaiBarangVd'] ?? 0);
+                            $row['kodeValuta'] = $row['kodeValuta'] ?? $currencyCode;
+                            $row['ndpbm'] = (float) ($row['ndpbm'] ?? 0);
+
+                            return $row;
+                        })
+                        ->all();
+
+                    if ($item['barangVd'] === []) {
+                        $nilaiBarang = (float) ($item['fob'] ?? $item['cif'] ?? 0);
+                        $item['barangVd'] = [[
+                            'seriBarangVd' => 1,
+                            'kodeJenisVd' => 'NTR',
+                            'nilaiBarangVd' => $nilaiBarang,
+                            'kodeValuta' => $currencyCode,
+                            'ndpbm' => 0,
+                        ]];
+                    }
                 }
 
                 return $item;

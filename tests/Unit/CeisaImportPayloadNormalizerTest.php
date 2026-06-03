@@ -71,6 +71,26 @@ test('it normalizes bc20 draft fields rejected by ceisa validation', function ()
                 'metodePenentuanNilai' => 'Metode 1',
             ],
         ],
+        'dokumen' => [
+            [
+                'seriDokumen' => 1,
+                'kodeDokumen' => '380',
+                'nomorDokumen' => 'INV-001',
+                'tanggalDokumen' => '2026-06-01',
+            ],
+            [
+                'seriDokumen' => 2,
+                'kodeDokumen' => '705',
+                'nomorDokumen' => 'BL-001',
+                'tanggalDokumen' => '2026-06-01',
+            ],
+            [
+                'seriDokumen' => 3,
+                'kodeDokumen' => '',
+                'nomorDokumen' => '',
+                'tanggalDokumen' => '2026-06-01',
+            ],
+        ],
     ];
 
     $normalized = $normalizer->normalizeForSubmit($payload, 'BC20');
@@ -119,6 +139,8 @@ test('it normalizes bc20 draft fields rejected by ceisa validation', function ()
         ->toBe('1')
         ->and($normalized['pengangkut'][0]['kodeBendera'])
         ->toBe('CN')
+        ->and($normalized['dokumen'])
+        ->toHaveCount(2)
         ->and($normalizer->validateDraft($normalized, 'BC20'))
         ->toBe([]);
 });

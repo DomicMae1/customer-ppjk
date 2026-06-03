@@ -459,6 +459,8 @@ class CeisaDraftPayloadBuilder
             'alasanMetodePenentuanNilai' => null,
             'statementPerbedaanHarga' => 'T',
             'pernyataanLartas' => 'Y',
+            'barangDokumen' => [],
+            'barangSpekKhusus' => [],
             'barangTarif' => [],
             'barangVd' => [],
         ];

@@ -201,6 +201,69 @@ const getYouTubeId = (url: string): string | null => {
     return match && match[2].length === 11 ? match[2] : null;
 };
 
+const hasCeisaValue = (value: unknown): boolean => value !== null && value !== undefined && String(value).trim() !== '';
+
+const friendlyCeisaDraftError = (message?: string): string => {
+    const raw = String(message || '').trim();
+    const normalized = raw.toLowerCase();
+
+    if (!raw) return 'Kirim draft CEISA gagal. Periksa field yang ditandai belum lengkap.';
+
+    if (normalized.includes('$.dokumen') || normalized.includes('kodedokumen') || normalized.includes('nomordokumen')) {
+        return 'Dokumen lampiran belum lengkap. Cek tab Dokumen: pilih jenis dokumen, isi nomor dan tanggal, atau hapus baris yang tidak dipakai.';
+    }
+
+    if (normalized.includes('$.barang') || normalized.includes('postarif') || normalized.includes('kodesatuanbarang')) {
+        return 'Data barang belum lengkap. Cek tab Barang: isi HS, uraian, jumlah/satuan, kemasan, negara asal, dan nilai barang.';
+    }
+
+    if (normalized.includes('kodetps') || normalized.includes('tempat penimbunan')) {
+        return 'Tempat penimbunan belum valid. Pilih TPS dari referensi CEISA sesuai kantor pabean.';
+    }
+
+    return raw;
+};
+
+const sanitizeCeisaDraftPayload = (payload: Record<string, any>): Record<string, any> => {
+    const next = JSON.parse(JSON.stringify(payload));
+
+    if (Array.isArray(next.dokumen)) {
+        next.dokumen = next.dokumen
+            .filter((row: any) => row && typeof row === 'object' && (hasCeisaValue(row.kodeDokumen) || hasCeisaValue(row.nomorDokumen)))
+            .map((row: any, index: number) => ({ ...row, seriDokumen: index + 1 }));
+    }
+
+    if (Array.isArray(next.barang)) {
+        next.barang = next.barang.map((item: any, index: number) => {
+            const row = { ...item, seriBarang: index + 1 };
+
+            if (Array.isArray(row.barangDokumen)) {
+                row.barangDokumen = row.barangDokumen.filter((documentRow: any) => hasCeisaValue(documentRow?.seriDokumen));
+            }
+
+            if (Array.isArray(row.barangVd)) {
+                row.barangVd = row.barangVd
+                    .filter((vdRow: any) => hasCeisaValue(vdRow?.kodeJenisVd))
+                    .map((vdRow: any, vdIndex: number) => ({ ...vdRow, seriBarangVd: vdIndex + 1 }));
+            }
+
+            if (Array.isArray(row.barangTarif)) {
+                row.barangTarif = row.barangTarif.filter((tarifRow: any) => hasCeisaValue(tarifRow?.kodeJenisPungutan));
+            }
+
+            if (Array.isArray(row.barangSpekKhusus)) {
+                row.barangSpekKhusus = row.barangSpekKhusus
+                    .filter((spekRow: any) => hasCeisaValue(spekRow?.kodeSpekKhusus) && hasCeisaValue(spekRow?.uraianBarangSpekKhusus))
+                    .map((spekRow: any, spekIndex: number) => ({ ...spekRow, seriBarangSpekKhusus: spekIndex + 1 }));
+            }
+
+            return row;
+        });
+    }
+
+    return next;
+};
+
 export default function ViewCustomerForm({
     customer,
     shipmentDataProp,
@@ -883,6 +946,8 @@ export default function ViewCustomerForm({
             return;
         }
 
+        payload = sanitizeCeisaDraftPayload(payload);
+        setCeisaDraftPayloadText(JSON.stringify(payload, null, 2));
         setIsSubmittingCeisaDraft(true);
 
         try {
@@ -908,7 +973,7 @@ export default function ViewCustomerForm({
                 setCeisaSubmissions(error.response.data.submissions);
             }
 
-            toast.error(error?.response?.data?.message || 'Kirim draft CEISA gagal');
+            toast.error(friendlyCeisaDraftError(error?.response?.data?.message || 'Kirim draft CEISA gagal'));
         } finally {
             setIsSubmittingCeisaDraft(false);
         }
