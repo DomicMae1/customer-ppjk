@@ -16,7 +16,7 @@ type SpkItem = {
     penjaluran?: string | null;
     register_number?: string | null;
     register_date?: string | null;
-
+    customer_name?: string | null;
     shipper?: string | null;
     consignee?: string | null;
     vessel?: string | null;
@@ -175,6 +175,10 @@ export default function DataShippingFormView({ spk, documents = [], flash }: Pro
 
                     {(() => {
                         const leftItems = [
+                            {
+                                label: trans.customer_label || 'CUSTOMER',
+                                value: spk?.customer_name,
+                            },
                             {
                                 label: trans.shipper_label || 'SHIPPER',
                                 value: spk?.shipper,
