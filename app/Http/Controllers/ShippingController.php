@@ -509,6 +509,10 @@ class ShippingController extends Controller
                 'register_number' => $spk->register_number,
                 'register_date' => $spk->register_date,
 
+                // Customer
+                'id_customer' => $spk->id_customer,
+                'customer_name' => $spk->customer?->nama_perusahaan,
+
                 // field tambahan baru
                 'shipper' => $spk->shipper,
                 'consignee' => $spk->consignee,
