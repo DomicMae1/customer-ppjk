@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { router, usePage } from '@inertiajs/react';
 import axios from 'axios';
-import { AlertTriangle, Archive, ChevronDown, ChevronUp, CircleHelp, FileText, Play, Plus, Save, Search, Trash2, Undo2, X } from 'lucide-react';
+import { AlertTriangle, Archive, ChevronDown, ChevronUp, CircleHelp, FileText, Play, Plus, Save, Search, Trash2, Undo2, UploadCloud, X } from 'lucide-react';
 import { nanoid } from 'nanoid';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -39,6 +39,7 @@ interface ShipmentData {
     penjaluran: string | null;
     register_date?: string;
     eta_date?: string;
+    etd_date?: string;
     shipper?: string;
     consignee?: string;
     vessel?: string;
@@ -190,6 +191,14 @@ export default function ViewCustomerForm({
     const [isLoadingDocs, setIsLoadingDocs] = useState(false);
     const [isSavingDocs, setIsSavingDocs] = useState(false);
 
+    // Merged PDF upload states
+    const [isMergedPdfModalOpen, setIsMergedPdfModalOpen] = useState(false);
+    const [mergedPdfFile, setMergedPdfFile] = useState<File | null>(null);
+    const [mergedPdfPreviewUrl, setMergedPdfPreviewUrl] = useState<string | null>(null);
+    const [selectedMergedDocIds, setSelectedMergedDocIds] = useState<number[]>([]);
+    const [isSavingMergedPdf, setIsSavingMergedPdf] = useState(false);
+    const [mergedDocSearchQuery, setMergedDocSearchQuery] = useState('');
+
     //Modal Sections
     const [isAddSectionModalOpen, setIsAddSectionModalOpen] = useState(false);
     const [availableSections, setAvailableSections] = useState<any[]>([]);
@@ -316,6 +325,8 @@ export default function ViewCustomerForm({
     // ETA Date State
     const [etaDate, setEtaDate] = useState(shipmentDataProp?.eta_date ? shipmentDataProp.eta_date.split('T')[0].split(' ')[0] : '');
     const [isSavingEtaDate, setIsSavingEtaDate] = useState(false);
+    const [etdDate, setEtdDate] = useState(shipmentDataProp?.etd_date ? shipmentDataProp.etd_date.split('T')[0].split(' ')[0] : '');
+    const [isSavingEtdDate, setIsSavingEtdDate] = useState(false);
 
     // Job Date & Inspection Date States
     const [jobDate, setJobDate] = useState(shipmentDataProp?.job_date ? shipmentDataProp.job_date.split('T')[0].split(' ')[0] : '');
@@ -599,6 +610,12 @@ export default function ViewCustomerForm({
         }
     }, [shipmentDataProp?.eta_date]);
 
+    useEffect(() => {
+        if (shipmentDataProp?.etd_date) {
+            setEtdDate(shipmentDataProp.etd_date.split('T')[0].split(' ')[0]);
+        }
+    }, [shipmentDataProp?.etd_date]);
+
     // NEW: Sync Job Date for real-time updates
     useEffect(() => {
         if (shipmentDataProp?.job_date) {
@@ -631,6 +648,24 @@ export default function ViewCustomerForm({
 
         return () => clearTimeout(timeoutId);
     }, [etaDate]);
+
+    // AUTO-SAVE: ETD Date
+    const isEtdInitialMount = useRef(true);
+    useEffect(() => {
+        if (isEtdInitialMount.current) {
+            isEtdInitialMount.current = false;
+            return;
+        }
+
+        const propValue = shipmentDataProp?.etd_date ? shipmentDataProp.etd_date.split('T')[0].split(' ')[0] : '';
+        if (etdDate === propValue) return;
+
+        const timeoutId = setTimeout(() => {
+            handleSaveEtdDate();
+        }, 500);
+
+        return () => clearTimeout(timeoutId);
+    }, [etdDate]);
 
     // AUTO-SAVE: Job Date
     const isJobInitialMount = useRef(true);
@@ -1097,6 +1132,139 @@ export default function ViewCustomerForm({
         });
         return map;
     }, [sectionsTransProp, processDocumentsForRender]);
+
+    const mergedPdfDocumentGroups = useMemo(() => {
+        const query = mergedDocSearchQuery.trim().toLowerCase();
+
+        return (sectionsTransProp || [])
+            .map((section: SectionTrans) => {
+                const documents = (processedSectionDocs.get(section.id) || [])
+                    .map((item) => item.current)
+                    .filter((doc) => {
+                        const docName = (doc.master_document?.nama_dokumen || doc.nama_file || '').toLowerCase();
+                        const sectionName = (section.section_name || '').toLowerCase();
+
+                        return !query || docName.includes(query) || sectionName.includes(query);
+                    });
+
+                return { section, documents };
+            })
+            .filter((group) => group.documents.length > 0);
+    }, [mergedDocSearchQuery, processedSectionDocs, sectionsTransProp]);
+
+    const mergedPdfDocumentCount = useMemo(() => {
+        return (sectionsTransProp || []).reduce((total, section) => total + (processedSectionDocs.get(section.id)?.length || 0), 0);
+    }, [processedSectionDocs, sectionsTransProp]);
+
+    const visibleMergedDocIds = useMemo(() => {
+        return mergedPdfDocumentGroups.flatMap((group) => group.documents.map((doc) => doc.id));
+    }, [mergedPdfDocumentGroups]);
+
+    const allVisibleMergedDocsSelected =
+        visibleMergedDocIds.length > 0 && visibleMergedDocIds.every((docId) => selectedMergedDocIds.includes(docId));
+
+    useEffect(() => {
+        if (!mergedPdfFile) {
+            setMergedPdfPreviewUrl(null);
+            return;
+        }
+
+        const objectUrl = URL.createObjectURL(mergedPdfFile);
+        setMergedPdfPreviewUrl(objectUrl);
+
+        return () => URL.revokeObjectURL(objectUrl);
+    }, [mergedPdfFile]);
+
+    const handleOpenMergedPdfModal = () => {
+        setMergedDocSearchQuery('');
+        setSelectedMergedDocIds([]);
+        setMergedPdfFile(null);
+        setIsMergedPdfModalOpen(true);
+    };
+
+    const handleMergedPdfFileChange = (file: File | null) => {
+        if (!file) {
+            setMergedPdfFile(null);
+            return;
+        }
+
+        const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+        const maxSize = 50 * 1024 * 1024;
+
+        if (!isPdf) {
+            setMergedPdfFile(null);
+            toast.error('File harus berupa PDF.');
+            return;
+        }
+
+        if (file.size > maxSize) {
+            setMergedPdfFile(null);
+            toast.error('Ukuran file maksimal 50MB.');
+            return;
+        }
+
+        setMergedPdfFile(file);
+    };
+
+    const handleMergedDocCheckboxChange = (docId: number, checked: boolean) => {
+        setSelectedMergedDocIds((prev) => (checked ? [...new Set([...prev, docId])] : prev.filter((id) => id !== docId)));
+    };
+
+    const handleToggleAllVisibleMergedDocs = () => {
+        if (allVisibleMergedDocsSelected) {
+            setSelectedMergedDocIds((prev) => prev.filter((id) => !visibleMergedDocIds.includes(id)));
+            return;
+        }
+
+        setSelectedMergedDocIds((prev) => [...new Set([...prev, ...visibleMergedDocIds])]);
+    };
+
+    const resetMergedPdfModal = () => {
+        setMergedPdfFile(null);
+        setSelectedMergedDocIds([]);
+        setMergedDocSearchQuery('');
+    };
+
+    const handleSaveMergedPdf = async () => {
+        if (!mergedPdfFile) {
+            toast.error('Silakan pilih merged PDF terlebih dahulu.');
+            return;
+        }
+
+        if (selectedMergedDocIds.length === 0) {
+            toast.error('Pilih minimal satu dokumen.');
+            return;
+        }
+
+        setIsSavingMergedPdf(true);
+
+        try {
+            const formData = new FormData();
+            formData.append('spk_id', String(shipmentData.id_spk));
+            formData.append('file', mergedPdfFile);
+            selectedMergedDocIds.forEach((docId, index) => {
+                formData.append(`document_ids[${index}]`, String(docId));
+            });
+
+            const response = await axios.post('/shipping/merged-pdf-upload', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+            });
+
+            if (response.data.success) {
+                toast.success(response.data.message || 'Merged PDF berhasil disimpan.');
+                setIsMergedPdfModalOpen(false);
+                resetMergedPdfModal();
+                router.reload({ only: ['sectionsTransProp', 'shipmentDataProp'] });
+            } else {
+                toast.error(response.data.message || 'Gagal menyimpan merged PDF.');
+            }
+        } catch (error: any) {
+            console.error('Error saving merged PDF:', error);
+            toast.error(error.response?.data?.message || error.response?.data?.error || 'Gagal menyimpan merged PDF.');
+        } finally {
+            setIsSavingMergedPdf(false);
+        }
+    };
 
     const toggleHistory = (id: number) => {
         setOpenHistoryIds((prev) => (prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]));
@@ -1654,6 +1822,25 @@ export default function ViewCustomerForm({
         }
     };
 
+    const handleSaveEtdDate = async () => {
+        setIsSavingEtdDate(true);
+        try {
+            const response = await axios.post(`/shipping/${shipmentData.id_spk}/update-etd-date`, {
+                etd_date: etdDate,
+            });
+            if (response.data.success) {
+                toast.success('ETD Date berhasil diperbarui');
+            } else {
+                toast.error(response.data.message || 'Gagal memperbarui ETD Date');
+            }
+        } catch (error: any) {
+            console.error('Error updating etd date:', error);
+            toast.error(error.response?.data?.message || 'Gagal memperbarui ETD Date');
+        } finally {
+            setIsSavingEtdDate(false);
+        }
+    };
+
     const handleSaveJobDate = async () => {
         setIsSavingJobDate(true);
         try {
@@ -1745,6 +1932,24 @@ export default function ViewCustomerForm({
                             {trans.last_updated || 'Last updated'}: {shipmentData.spkDate}{' '}
                             {shipmentData.updated_by_name ? `by ${shipmentData.updated_by_name}` : ''}
                         </div>
+
+                        {isInternalUser && (
+                            <div className="mt-5 border-t border-slate-100 pt-4">
+                                <Label className="mb-2 block text-[11px] font-bold tracking-wider text-slate-500 uppercase">
+                                    {trans.merged_pdf || 'Merged PDF'}
+                                </Label>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={handleOpenMergedPdfModal}
+                                    disabled={mergedPdfDocumentCount === 0}
+                                    className="h-9 w-full justify-center gap-2 rounded-lg border-slate-200 bg-white text-xs font-bold text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                                >
+                                    <UploadCloud className="h-4 w-4" />
+                                    {trans.upload_merged_pdf || 'Upload Merged PDF'}
+                                </Button>
+                            </div>
+                        )}
 
                         {/* SUPERVISOR: Assign Staff */}
                         {isSupervisor && (
@@ -1922,6 +2127,29 @@ export default function ViewCustomerForm({
                                         onChange={(e) => setEtaDate(e.target.value)}
                                         className="date-input-dark h-9 rounded-lg border-slate-200 bg-white text-xs text-slate-700 focus:ring-blue-500/20 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300"
                                         disabled={!isInternalUser || isSavingEtaDate}
+                                    />
+                                </div>
+                            </div>
+                            {/* ETD Date Field */}
+                            <div className="col-span-2 mt-2 space-y-1.5 border-t border-slate-200/60 pt-3 dark:border-zinc-800">
+                                <div className="flex items-center justify-between">
+                                    <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
+                                        {trans.etd_date || 'ETD Date'}
+                                    </div>
+                                    {isSavingEtdDate && (
+                                        <div className="flex items-center gap-1.5 text-[9px] font-medium text-blue-500 animate-pulse">
+                                            <div className="h-1 w-1 rounded-full bg-blue-500"></div>
+                                            Saving...
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <Input
+                                        type="date"
+                                        value={etdDate}
+                                        onChange={(e) => setEtdDate(e.target.value)}
+                                        className="date-input-dark h-9 rounded-lg border-slate-200 bg-white text-xs text-slate-700 focus:ring-blue-500/20 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300"
+                                        disabled={!isInternalUser || isSavingEtdDate}
                                     />
                                 </div>
                             </div>
@@ -2992,6 +3220,150 @@ export default function ViewCustomerForm({
 
                 </div>
             </div>
+
+            <Dialog
+                open={isMergedPdfModalOpen}
+                onOpenChange={(open) => {
+                    setIsMergedPdfModalOpen(open);
+                    if (!open) resetMergedPdfModal();
+                }}
+            >
+                <DialogContent className="flex max-h-[92vh] max-w-[95vw] flex-col overflow-hidden rounded-xl p-0 sm:max-w-5xl">
+                    <DialogHeader className="shrink-0 border-b px-5 py-4">
+                        <DialogTitle className="flex items-center gap-2 text-left text-lg font-bold">
+                            <UploadCloud className="h-5 w-5 text-blue-600" />
+                            {trans.upload_merged_pdf || 'Upload Merged PDF'}
+                        </DialogTitle>
+                    </DialogHeader>
+
+                    <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto p-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.85fr)] lg:overflow-hidden">
+                        <div className="flex min-h-[420px] flex-col gap-3 lg:min-h-0">
+                            <div className="space-y-1.5">
+                                <Label className="text-xs font-bold tracking-wide text-slate-500 uppercase">PDF</Label>
+                                <Input
+                                    type="file"
+                                    accept="application/pdf,.pdf"
+                                    className="h-10 rounded-lg border-slate-300 text-sm file:mr-3 file:rounded-md file:bg-slate-100 file:px-3 file:text-slate-700"
+                                    onChange={(event) => handleMergedPdfFileChange(event.target.files?.[0] ?? null)}
+                                />
+                            </div>
+
+                            <div className="min-h-0 flex-1 overflow-hidden rounded-lg border border-slate-200 bg-slate-50 dark:border-zinc-800 dark:bg-zinc-950">
+                                {mergedPdfPreviewUrl ? (
+                                    <iframe src={mergedPdfPreviewUrl} title="Merged PDF preview" className="h-full min-h-[360px] w-full bg-white" />
+                                ) : (
+                                    <div className="flex h-full min-h-[360px] items-center justify-center px-6 text-center text-sm font-medium text-slate-400">
+                                        {trans.choose_pdf_file || 'Pilih file PDF'}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="flex min-h-[360px] flex-col rounded-lg border border-slate-200 bg-white dark:border-zinc-800 dark:bg-zinc-900 lg:min-h-0">
+                            <div className="shrink-0 space-y-3 border-b p-3">
+                                <div className="flex items-center justify-between gap-2">
+                                    <div>
+                                        <div className="text-sm font-bold text-slate-900 dark:text-zinc-100">
+                                            {trans.documents || 'Dokumen'}
+                                        </div>
+                                        <div className="text-xs text-slate-500">
+                                            {selectedMergedDocIds.length} / {mergedPdfDocumentCount} selected
+                                        </div>
+                                    </div>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={handleToggleAllVisibleMergedDocs}
+                                        disabled={visibleMergedDocIds.length === 0}
+                                        className="h-8 rounded-md px-3 text-xs font-semibold"
+                                    >
+                                        {allVisibleMergedDocsSelected ? trans.clear || 'Clear' : trans.select_all || 'Select All'}
+                                    </Button>
+                                </div>
+
+                                <div className="relative">
+                                    <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                                    <Input
+                                        placeholder={trans.search_keyword || 'Search'}
+                                        className="h-9 rounded-md border-gray-300 pl-9 text-sm focus-visible:border-black focus-visible:ring-0"
+                                        value={mergedDocSearchQuery}
+                                        onChange={(e) => setMergedDocSearchQuery(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3">
+                                {mergedPdfDocumentGroups.length === 0 ? (
+                                    <div className="py-8 text-center text-sm text-gray-500">{trans.no_documents || 'Tidak ada dokumen'}</div>
+                                ) : (
+                                    <div className="space-y-4">
+                                        {mergedPdfDocumentGroups.map(({ section, documents }) => (
+                                            <div key={section.id} className="space-y-2">
+                                                <div className="text-[11px] font-bold tracking-wide text-slate-400 uppercase">
+                                                    {section.section_name}
+                                                </div>
+                                                <div className="space-y-2">
+                                                    {documents.map((doc) => {
+                                                        const docName = doc.master_document?.nama_dokumen || doc.nama_file;
+                                                        const checkboxId = `merged-doc-${doc.id}`;
+
+                                                        return (
+                                                            <label
+                                                                key={doc.id}
+                                                                htmlFor={checkboxId}
+                                                                className="flex cursor-pointer items-start gap-3 rounded-md border border-slate-100 p-2 transition-colors hover:bg-slate-50 dark:border-zinc-800 dark:hover:bg-zinc-800"
+                                                            >
+                                                                <Checkbox
+                                                                    id={checkboxId}
+                                                                    checked={selectedMergedDocIds.includes(doc.id)}
+                                                                    onCheckedChange={(checked) => handleMergedDocCheckboxChange(doc.id, checked as boolean)}
+                                                                    className="mt-0.5 h-5 w-5 rounded border-2 border-slate-400 data-[state=checked]:border-blue-600 data-[state=checked]:bg-blue-600 data-[state=checked]:text-white"
+                                                                />
+                                                                <span className="min-w-0 flex-1">
+                                                                    <span className="block truncate text-sm font-semibold text-slate-800 dark:text-zinc-100">
+                                                                        {docName}
+                                                                    </span>
+                                                                    <span className="text-[11px] text-slate-400">
+                                                                        {doc.url_path_file ? trans.will_replace || 'Will replace existing file' : trans.no_file || 'No file uploaded'}
+                                                                    </span>
+                                                                </span>
+                                                            </label>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    <DialogFooter className="shrink-0 gap-3 border-t bg-slate-50 px-5 py-4 dark:bg-zinc-950">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => {
+                                setIsMergedPdfModalOpen(false);
+                                resetMergedPdfModal();
+                            }}
+                            disabled={isSavingMergedPdf}
+                            className="rounded-lg"
+                        >
+                            {trans.cancel || 'Batal'}
+                        </Button>
+                        <Button
+                            type="button"
+                            onClick={handleSaveMergedPdf}
+                            disabled={isSavingMergedPdf || !mergedPdfFile || selectedMergedDocIds.length === 0}
+                            className="rounded-lg bg-blue-600 px-5 text-white hover:bg-blue-700 disabled:opacity-50"
+                        >
+                            {isSavingMergedPdf ? trans.saving || 'Saving...' : trans.save_changes || 'Save Changes'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
                 <DialogContent className="max-w-85 rounded-xl p-0 sm:max-w-100">

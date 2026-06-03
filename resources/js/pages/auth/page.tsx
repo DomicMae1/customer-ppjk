@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
-import { Role, User, type BreadcrumbItem } from '@/types';
+import { Role, type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
@@ -39,6 +39,7 @@ export default function ManageUsers() {
     const [editName, setEditName] = useState('');
     const [editEmail, setEditEmail] = useState('');
     const [editRoleInternalId, setEditRoleInternalId] = useState<string>('');
+    const [editCompanyId, setEditCompanyId] = useState<string>('');
     const [isExternalUser, setIsExternalUser] = useState(false);
 
     const userToDelete = users.find((u) => (u.id_user || u.id) === userIdToDelete);
@@ -57,6 +58,7 @@ export default function ManageUsers() {
             setUserIdToEdit(id);
             setEditName(user.name);
             setEditEmail(user.email);
+            setEditCompanyId(user.id_perusahaan ? String(user.id_perusahaan) : '');
 
             // Cek Tipe User
             if (user.role === 'eksternal') {
@@ -65,19 +67,10 @@ export default function ManageUsers() {
             } else {
                 setIsExternalUser(false);
 
-                // --- LOGIC BARU (Mengambil dari user.roles) ---
-                // Cek apakah array roles ada dan tidak kosong
                 if (user.roles && user.roles.length > 0) {
-                    // Ambil nama role pertama (misal: 'staff')
-                    const userRoleName = user.roles[0].name;
-
-                    // Cari role di list master 'roles' yang namanya cocok (case-insensitive)
-                    const matchingRole = roles.find((r) => r.name.toLowerCase() === userRoleName.toLowerCase());
-
-                    // Set ID role ke state (untuk dropdown select)
-                    setEditRoleInternalId(matchingRole ? String(matchingRole.id) : '');
+                    const assignedRole = user.roles.find((role: Role) => role.role_type === 'internal') || user.roles[0];
+                    setEditRoleInternalId(assignedRole ? String(assignedRole.id) : '');
                 } else {
-                    // Fallback jika tidak ada role
                     setEditRoleInternalId('');
                 }
             }
@@ -138,6 +131,7 @@ export default function ManageUsers() {
             // Jika external -> kirim null atau tidak diupdate
             // Jika internal -> kirim nama role baru
             role_internal: isExternalUser ? null : roleNameToSend,
+            role_id: isExternalUser ? null : Number(editRoleInternalId),
         };
 
         if (userIdToEdit !== null) {
@@ -160,6 +154,7 @@ export default function ManageUsers() {
         setEditName('');
         setEditEmail('');
         setEditRoleInternalId('');
+        setEditCompanyId('');
         setIsExternalUser(false);
     };
 
@@ -238,7 +233,7 @@ export default function ManageUsers() {
                                     </SelectTrigger>
                                     <SelectContent>
                                         {roles
-                                            .filter((role: Role) => role.role_type === 'internal')
+                                            .filter((role: Role) => role.role_type === 'internal' && String(role.id_perusahaan) === editCompanyId)
                                             .map((role: Role) => (
                                                 <SelectItem key={role.id} value={String(role.id)}>
                                                     {role.name.charAt(0).toUpperCase() + role.name.slice(1)}

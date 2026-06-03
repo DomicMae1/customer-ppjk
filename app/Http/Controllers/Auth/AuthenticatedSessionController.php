@@ -4,9 +4,9 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -19,32 +19,31 @@ class AuthenticatedSessionController extends Controller
      */
     public function create(Request $request): Response
     {
-        // 1. Ambil URL (Origin)
         $origin = $request->getHost();
 
-        // 2. Logic: Origin -> Domain -> Tenant -> Perusahaan
-        $companyData = null;
+        $companyData = Cache::remember('login.company.'.sha1($origin), now()->addMinutes(10), function () use ($origin) {
+            $domainRecord = Domain::with('tenant.perusahaan')
+                ->where('domain', $origin)
+                ->first();
 
-        // Cek tabel Domains
-        $domainRecord = Domain::where('domain', $origin)->first();
+            $company = $domainRecord?->tenant?->perusahaan;
 
-        if ($domainRecord) {
-            $company = $domainRecord->tenant?->perusahaan;
-            
-            $companyData = [
+            if (! $domainRecord || ! $company) {
+                return [];
+            }
+
+            return [
                 'nama_perusahaan' => $company->nama_perusahaan,
-                'path_company_logo' => $domainRecord->path_company_logo 
-                    ? asset('storage/' . $domainRecord->path_company_logo) 
+                'path_company_logo' => $domainRecord->path_company_logo
+                    ? asset('storage/'.$domainRecord->path_company_logo)
                     : null,
             ];
-        }
+        });
 
-        // 3. Render Halaman Login dengan menyertakan data Company
         return Inertia::render('auth/login', [
             'canResetPassword' => Route::has('password.request'),
             'status' => session('status'),
-            // Kirim data perusahaan ke Frontend
-            'company' => $companyData, 
+            'company' => $companyData ?: null,
         ]);
     }
 
@@ -87,16 +86,16 @@ class AuthenticatedSessionController extends Controller
         // ---------------------------------------------------------------------
         // SET SESSION
         // ---------------------------------------------------------------------
-        
+
         // Jika rantai relasi (Domain -> Tenant -> Perusahaan) lengkap dan data ditemukan:
         if ($company) {
             session([
-                'company_id'   => $company->id,               // ID dari tabel perusahaan
+                'company_id' => $company->id_perusahaan,    // ID dari tabel perusahaan
                 'company_name' => $company->nama_perusahaan,  // Nama dari tabel perusahaan
                 'company_logo' => $domainRecord->path_company_logo
-                    ? asset('storage/' . $domainRecord->path_company_logo)
+                    ? asset('storage/'.$domainRecord->path_company_logo)
                     : null,
-                'company_url'  => $origin,                    // URL akses saat ini
+                'company_url' => $origin,                    // URL akses saat ini
             ]);
         }
 
@@ -118,15 +117,15 @@ class AuthenticatedSessionController extends Controller
         // Logout via Inertia -> always XHR
         if ($request->expectsJson()) {
             return response()->json([
-                'redirect' => $origin 
-                    ? 'http://' . $origin
+                'redirect' => $origin
+                    ? 'http://'.$origin
                     : url('/'),
             ]);
         }
 
         // Logout via browser biasa
         if ($origin) {
-            return redirect()->away('http://' . $origin);
+            return redirect()->away('http://'.$origin);
         }
 
         return redirect('/');

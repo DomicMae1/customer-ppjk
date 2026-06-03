@@ -26,6 +26,7 @@ interface DocumentData {
     nama_file: string;
     description_file: string;
     is_internal: boolean;
+    is_confirmed: boolean;
     import_mandatory: boolean;
     export_mandatory: boolean;
     is_ori: boolean;
@@ -70,16 +71,6 @@ export default function ManageDocuments() {
     const isManager = ['manager', 'supervisor'].includes(userRole);
     const isAdmin = userRole === 'admin';
 
-    const toTitleCase = (text: string) => {
-        return text
-            .trim()
-            .toLowerCase()
-            .split(' ')
-            .filter(Boolean)
-            .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-            .join(' ');
-    };
-
     // --- STATE EDIT ---
     const [openEdit, setOpenEdit] = useState(false);
     const [docIdToEdit, setDocIdToEdit] = useState<number | null>(null);
@@ -119,13 +110,6 @@ export default function ManageDocuments() {
         }
     };
 
-    const handleEditNamaFileBlur = () => {
-        setEditForm((prev) => ({
-            ...prev,
-            nama_file: toTitleCase(prev.nama_file),
-        }));
-    };
-
     // --- HANDLER EDIT ---
     const onEditClick = (id: number) => {
         if (!auth.user.permissions.includes('update-document')) {
@@ -143,7 +127,7 @@ export default function ManageDocuments() {
 
             setDocIdToEdit(id);
             setEditForm({
-                nama_file: toTitleCase(doc.nama_file || ''),
+                nama_file: doc.nama_file || '',
                 id_section: String(doc.id_section),
                 description_file: doc.description_file || '',
                 is_internal: Boolean(doc.is_internal),
@@ -188,7 +172,6 @@ export default function ManageDocuments() {
                 {
                     _method: 'put',
                     ...payload,
-                    nama_file: toTitleCase(payload.nama_file),
                 },
                 {
                     onSuccess: () => {
@@ -280,7 +263,6 @@ export default function ManageDocuments() {
                                 id="edit_nama_file"
                                 value={editForm.nama_file}
                                 onChange={(e) => setEditForm({ ...editForm, nama_file: e.target.value })}
-                                onBlur={handleEditNamaFileBlur}
                                 className="mt-1"
                             />
                         </div>
@@ -290,20 +272,7 @@ export default function ManageDocuments() {
                                 {trans_doc.label_section}
                                 <span className="text-red-500"> *</span>
                             </Label>
-                            <Select
-                                value={editForm.id_section}
-                                onValueChange={(val) => {
-                                    setEditForm((prev) => {
-                                        const newState = { ...prev, id_section: val };
-                                        // Auto-reset mandatory if Global section selected
-                                        if (val === '6') {
-                                            newState.import_mandatory = false;
-                                            newState.export_mandatory = false;
-                                        }
-                                        return newState;
-                                    });
-                                }}
-                            >
+                            <Select value={editForm.id_section} onValueChange={(val) => setEditForm((prev) => ({ ...prev, id_section: val }))}>
                                 <SelectTrigger className="mt-1 w-full">
                                     <SelectValue placeholder={trans_doc.placeholder_section} />
                                 </SelectTrigger>
@@ -339,61 +308,6 @@ export default function ManageDocuments() {
                                     </Button>
                                 </div>
                             </div>
-
-                            {Number(editForm.id_section) !== 6 && (
-                                <div className="col-span-1 sm:col-span-2 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                                    <div>
-                                        <FieldLabelWithTooltip
-                                            label={trans_doc.label_must_shipping_import || 'Must in Shipping (Import)'}
-                                            tooltip={trans_doc.label_must_shipping_import_desc || 'Determines whether this document is required in the import shipping process.'}
-                                            required
-                                        />
-                                        <div className="flex w-full gap-2">
-                                            <Button
-                                                type="button"
-                                                variant={editForm.import_mandatory ? 'default' : 'outline'}
-                                                onClick={() => handleEditBooleanChange('import_mandatory', true)}
-                                                className="flex-1"
-                                            >
-                                                {trans_doc.btn_yes}
-                                            </Button>
-                                            <Button
-                                                type="button"
-                                                variant={!editForm.import_mandatory ? 'default' : 'outline'}
-                                                onClick={() => handleEditBooleanChange('import_mandatory', false)}
-                                                className="flex-1"
-                                            >
-                                                {trans_doc.btn_no}
-                                            </Button>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <FieldLabelWithTooltip
-                                            label={trans_doc.label_must_shipping_export || 'Must in Shipping (Export)'}
-                                            tooltip={trans_doc.label_must_shipping_export_desc || 'Determines whether this document is required in the export shipping process.'}
-                                            required
-                                        />
-                                        <div className="flex w-full gap-2">
-                                            <Button
-                                                type="button"
-                                                variant={editForm.export_mandatory ? 'default' : 'outline'}
-                                                onClick={() => handleEditBooleanChange('export_mandatory', true)}
-                                                className="flex-1"
-                                            >
-                                                {trans_doc.btn_yes}
-                                            </Button>
-                                            <Button
-                                                type="button"
-                                                variant={!editForm.export_mandatory ? 'default' : 'outline'}
-                                                onClick={() => handleEditBooleanChange('export_mandatory', false)}
-                                                className="flex-1"
-                                            >
-                                                {trans_doc.btn_no}
-                                            </Button>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
 
                             <div>
                                 <FieldLabelWithTooltip

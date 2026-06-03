@@ -108,4 +108,9 @@ return [
 
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
 
+    'login_rate_limits' => [
+        'page_per_minute' => env('LOGIN_PAGE_RATE_LIMIT', 60),
+        'submit_per_minute' => env('LOGIN_SUBMIT_RATE_LIMIT', 20),
+    ],
+
 ];

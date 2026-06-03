@@ -100,9 +100,9 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_peru
     });
 
     return (
-        <div className="w-full space-y-4">
+        <div className="bg-background w-full overflow-hidden rounded-2xl border shadow-sm">
             {/* --- DESKTOP VIEW: HEADER --- */}
-            <div className="hidden items-center justify-between gap-2 px-1 md:flex">
+            <div className="hidden items-center justify-between gap-3 border-b p-4 md:flex">
                 <div className="flex flex-1 items-center gap-2">
                     <div className="relative w-full max-w-sm">
                         <Search className="text-muted-foreground absolute top-2.5 left-2.5 h-4 w-4" />
@@ -121,7 +121,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_peru
             </div>
 
             {/* --- MOBILE VIEW: HEADER --- */}
-            <div className="flex flex-col gap-3 px-1 md:hidden">
+            <div className="flex flex-col gap-3 border-b p-4 md:hidden">
                 <div className="flex items-center justify-between gap-2">
                     <h2 className="text-foreground text-xl font-bold">{trans.page_title || 'Manajemen Perusahaan'}</h2>
                     <Button size="icon" onClick={() => setOpenCreate(true)} className="shrink-0 rounded-full shadow-md">
@@ -151,7 +151,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_peru
             </div>
 
             {/* --- DESKTOP TABLE --- */}
-            <div className="border-border bg-card hidden overflow-hidden rounded-md border shadow-sm md:block">
+            <div className="hidden overflow-x-auto md:block">
                 <Table>
                     <TableHeader className="bg-muted">
                         {' '}
@@ -189,7 +189,7 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_peru
             </div>
 
             {/* --- MOBILE CARD VIEW --- */}
-            <div className="flex flex-col gap-4 md:hidden">
+            <div className="flex flex-col gap-4 p-4 md:hidden">
                 {table.getRowModel().rows.length > 0 ? (
                     table.getRowModel().rows.map((row) => {
                         const original = row.original as any;
@@ -238,7 +238,9 @@ export function DataTable<TData, TValue>({ columns, data, filterKey = 'nama_peru
                 )}
             </div>
 
-            <DataTablePagination table={table} />
+            <div className="border-t">
+                <DataTablePagination table={table} />
+            </div>
 
             {/* Dialog Tambah */}
             <Dialog open={openCreate} onOpenChange={setOpenCreate}>

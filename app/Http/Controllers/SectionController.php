@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\MasterSection;
 use App\Models\MasterSectionTrans;
 use App\Models\Tenant;
+use App\Models\User;
+use App\Services\AdminCompanyContextService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -24,9 +26,9 @@ class SectionController extends Controller
 
         $sections = [];
 
-        // --- 1. LOGIC MANAGER/SUPERVISOR (TENANT-SPECIFIC) ---
-        if ($user->hasRole(['manager', 'supervisor'])) {
-            $tenant = Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
+        // --- 1. LOGIC COMPANY CONTEXT (TENANT-SPECIFIC) ---
+        if ($user->hasRole(['admin', 'manager', 'supervisor'])) {
+            $tenant = $this->tenantForUser($user);
             if ($tenant) {
                 tenancy()->initialize($tenant);
                 
@@ -48,7 +50,7 @@ class SectionController extends Controller
                     });
             }
 
-        // --- 2. LOGIC ADMIN (GLOBAL/BLUEPRINT) ---
+        // --- 2. LEGACY FALLBACK (GLOBAL/BLUEPRINT) ---
         } elseif ($user->hasRole('admin')) {
             $sections = MasterSection::on('tako-user')
                 ->orderBy('section_order', 'asc')
@@ -101,26 +103,20 @@ class SectionController extends Controller
             $validated['attribute_section'] = null;
         }
 
-        if ($user->hasRole('admin')) {
-            $lastOrder = MasterSection::on('tako-user')->max('section_order');
+        if ($user->hasRole(['admin', 'manager', 'supervisor'])) {
+            $tenant = $this->tenantForUser($user);
+            if (!$tenant) {
+                return redirect()->back()->withErrors(['error' => 'Tenant perusahaan tidak ditemukan.']);
+            }
+
+            tenancy()->initialize($tenant);
+
+            $lastOrder = MasterSectionTrans::max('section_order');
             $nextOrder = ($lastOrder ?? 0) + 1;
 
             $validated['section_order'] = $nextOrder;
 
-            MasterSection::on('tako-user')->create($validated);
-
-        } elseif ($user->hasRole(['manager', 'supervisor'])) {
-            $tenant = Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
-            if ($tenant) {
-                tenancy()->initialize($tenant);
-                
-                $lastOrder = MasterSectionTrans::max('section_order');
-                $nextOrder = ($lastOrder ?? 0) + 1;
-
-                $validated['section_order'] = $nextOrder;
-
-                MasterSectionTrans::create($validated);
-            }
+            MasterSectionTrans::create($validated);
         }
 
         return redirect()->back()->with('success', 'Section berhasil ditambahkan.');
@@ -150,17 +146,15 @@ class SectionController extends Controller
             $validated['attribute_section'] = null;
         }
 
-        if ($user->hasRole('admin')) {
-            $section = MasterSection::on('tako-user')->findOrFail($id);
-            $section->update($validated);
-
-        } elseif ($user->hasRole(['manager', 'supervisor'])) {
-            $tenant = Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
-            if ($tenant) {
-                tenancy()->initialize($tenant);
-                $section = MasterSectionTrans::findOrFail($id);
-                $section->update($validated);
+        if ($user->hasRole(['admin', 'manager', 'supervisor'])) {
+            $tenant = $this->tenantForUser($user);
+            if (!$tenant) {
+                return redirect()->back()->withErrors(['error' => 'Tenant perusahaan tidak ditemukan.']);
             }
+
+            tenancy()->initialize($tenant);
+            $section = MasterSectionTrans::findOrFail($id);
+            $section->update($validated);
         }
 
         return redirect()->back()->with('success', 'Section berhasil diperbarui.');
@@ -173,19 +167,30 @@ class SectionController extends Controller
     {
         $user = Auth::user();
 
-        if ($user->hasRole('admin')) {
-            $section = MasterSection::on('tako-user')->findOrFail($id);
-            $section->delete();
-
-        } elseif ($user->hasRole(['manager', 'supervisor'])) {
-            $tenant = Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
-            if ($tenant) {
-                tenancy()->initialize($tenant);
-                $section = MasterSectionTrans::findOrFail($id);
-                $section->delete();
+        if ($user->hasRole(['admin', 'manager', 'supervisor'])) {
+            $tenant = $this->tenantForUser($user);
+            if (!$tenant) {
+                return redirect()->back()->withErrors(['error' => 'Tenant perusahaan tidak ditemukan.']);
             }
+
+            tenancy()->initialize($tenant);
+            $section = MasterSectionTrans::findOrFail($id);
+            $section->delete();
         }
 
         return redirect()->back()->with('success', 'Section berhasil dihapus.');
+    }
+
+    private function tenantForUser(User $user): ?Tenant
+    {
+        $companyId = $user->hasRole('admin')
+            ? app(AdminCompanyContextService::class)->selectedCompanyIdForUser($user)
+            : ($user->id_perusahaan ? (int) $user->id_perusahaan : null);
+
+        if (!$companyId) {
+            return null;
+        }
+
+        return Tenant::where('perusahaan_id', $companyId)->first();
     }
 }

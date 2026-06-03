@@ -2,40 +2,35 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use App\Models\Customer;
-use App\Models\DocumentTrans;
-use App\Models\HsCode;
-use App\Models\MasterDocument;
-use App\Models\MasterDocumentTrans;
-use App\Models\Spk;
-use App\Models\Perusahaan;
-use App\Models\Tenant;
-use App\Models\User;
-use App\Models\MasterSection;
-use App\Models\MasterSectionTrans;
-use App\Models\SectionTrans;
-use App\Models\DocumentStatus;
 use App\Events\ShippingDataUpdated;
-use App\Models\SpkStatus;
-use Illuminate\Database\Eloquent\Relations\HasMany;
-use Carbon\Carbon;
-use Illuminate\Support\Facades\DB;
-use Inertia\Inertia;
-use Illuminate\Support\Facades\Storage;
-use Spatie\Permission\Exceptions\UnauthorizedException;
-use Illuminate\Support\Facades\Log;
-use Barryvdh\DomPDF\Facade\Pdf;
-use Clegginabox\PDFMerger\PDFMerger;
-use Illuminate\Support\Str;
-use Spatie\Browsershot\Browsershot;
-use Symfony\Component\Process\Process;
-use App\Services\SectionReminderService;
-use App\Services\NotificationService;
 use App\Jobs\GhostscriptCompressionJob;
 use App\Jobs\SendShippingComposeEmailJob;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Mail;
+use App\Models\Customer;
+use App\Models\DocumentStatus;
+use App\Models\DocumentTrans;
+use App\Models\HsCode;
+use App\Models\MasterDocumentTrans;
+use App\Models\MasterSectionTrans;
+use App\Models\Perusahaan;
+use App\Models\SectionTrans;
+use App\Models\ShippingPackage;
+use App\Models\Spk;
+use App\Models\SpkStatus;
+use App\Models\Tenant;
+use App\Models\User;
+use App\Services\AdminCompanyContextService;
+use App\Services\NotificationService;
+use App\Services\SectionReminderService;
+use App\Services\ShippingGenerationService;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use Inertia\Inertia;
+use Spatie\Permission\Exceptions\UnauthorizedException;
+use Symfony\Component\Process\Process;
 
 class ShippingController extends Controller
 {
@@ -44,7 +39,12 @@ class ShippingController extends Controller
         $tenant = null;
         $idPerusahaan = null;
 
-        if ($user && $user->id_perusahaan) {
+        if ($user && $user->hasRole('admin')) {
+            $idPerusahaan = app(AdminCompanyContextService::class)->selectedCompanyIdForUser($user);
+            if ($idPerusahaan) {
+                $tenant = Tenant::where('perusahaan_id', $idPerusahaan)->first();
+            }
+        } elseif ($user && $user->id_perusahaan) {
             $idPerusahaan = (int) $user->id_perusahaan;
             $tenant = Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
         } elseif ($user && $user->id_customer) {
@@ -58,12 +58,90 @@ class ShippingController extends Controller
         return [$tenant, $idPerusahaan];
     }
 
+    private function findAccessibleSpkOrFail($id, $user, ?int $idPerusahaan = null, array $with = []): Spk
+    {
+        $query = Spk::query();
+
+        if (! empty($with)) {
+            $query->with($with);
+        }
+
+        $this->scopeSpkQueryToUser($query, $user, $idPerusahaan);
+
+        $spk = $query->findOrFail($id);
+        $this->authorizeSpkAccess($user, $spk, $idPerusahaan);
+
+        return $spk;
+    }
+
+    private function scopeSpkQueryToUser($query, $user, ?int $idPerusahaan = null): void
+    {
+        if (! $user) {
+            $query->whereRaw('1 = 0');
+
+            return;
+        }
+
+        if ($user->role === 'eksternal') {
+            $user->id_customer
+                ? $query->where('id_customer', (int) $user->id_customer)
+                : $query->whereRaw('1 = 0');
+
+            return;
+        }
+
+        if ($this->isAdminUser($user)) {
+            if ($idPerusahaan) {
+                $query->where('id_perusahaan', $idPerusahaan);
+            }
+
+            return;
+        }
+
+        $idPerusahaan
+            ? $query->where('id_perusahaan', $idPerusahaan)
+            : $query->whereRaw('1 = 0');
+    }
+
+    private function authorizeSpkAccess($user, Spk $spk, ?int $idPerusahaan = null): void
+    {
+        if (! $user) {
+            abort(403);
+        }
+
+        if ($user->role === 'eksternal') {
+            if (! $user->id_customer || (int) $spk->id_customer !== (int) $user->id_customer) {
+                abort(404);
+            }
+
+            return;
+        }
+
+        if ($this->isAdminUser($user)) {
+            if ($idPerusahaan && (int) $spk->id_perusahaan !== $idPerusahaan) {
+                abort(404);
+            }
+
+            return;
+        }
+
+        if (! $idPerusahaan || (int) $spk->id_perusahaan !== $idPerusahaan) {
+            abort(404);
+        }
+    }
+
+    private function isAdminUser($user): bool
+    {
+        return $user && ($user->role_internal === 'admin' || $user->hasRole('admin'));
+    }
+
     // buildShippingPdf has been moved to App\Services\ShippingPdfService
 
     public function index()
     {
         $user = auth('web')->user();
         $externalCustomers = [];
+        [$tenant, $idPerusahaan] = $this->resolveTenantAndPerusahaanId($user);
 
         // LOGIC 1: Jika User Adalah EKSTERNAL
         if ($user->role === 'eksternal') {
@@ -92,16 +170,18 @@ class ShippingController extends Controller
             $roleInternal = strtolower(trim((string) $user->role_internal));
             $isMarketingRole = Str::contains($roleInternal, 'marketing');
 
-            $customerQuery->where('customers.ownership', $user->id_perusahaan);
+            if ($idPerusahaan) {
+                $customerQuery->where('customers.ownership', $idPerusahaan);
+            }
 
             if ($isMarketingRole) {
                 $customerQuery
                     ->whereNotNull('customers.uid_marketing')
                     ->whereRaw("TRIM(CAST(customers.uid_marketing AS TEXT)) != ''")
-                    ->whereRaw("TRIM(CAST(customers.uid_marketing AS TEXT)) = ?", [
+                    ->whereRaw('TRIM(CAST(customers.uid_marketing AS TEXT)) = ?', [
                         trim((string) $user->uid),
                     ]);
-            } else {
+            } elseif (! $user->hasRole('admin')) {
                 $customerQuery->where(function ($query) use ($user) {
                     $query
                         ->whereNull('customers.uid_marketing')
@@ -113,21 +193,8 @@ class ShippingController extends Controller
             $externalCustomers = $customerQuery->get();
         }
 
-        if (!$user->can('view-master-shipping')) {
+        if (! $user->can('view-master-shipping')) {
             abort(403);
-        }
-
-        $tenant = null;
-
-        if ($user->id_perusahaan) {
-            // Jika User Internal, ambil tenant dari id_perusahaan user
-            $tenant = \App\Models\Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
-        } elseif ($user->id_customer) {
-            // Jika User Eksternal, cari customer dulu, baru ambil tenant dari ownership
-            $customer = \App\Models\Customer::find($user->id_customer);
-            if ($customer && $customer->ownership) {
-                $tenant = \App\Models\Tenant::where('perusahaan_id', $customer->ownership)->first();
-            }
         }
 
         $spkData = [];
@@ -142,7 +209,7 @@ class ShippingController extends Controller
                 'customer',
                 'creator',
                 'latestStatus',
-                'parties', 
+                'parties',
                 'sections' => function ($q) {
                     // 1. Urutkan section agar rapi
                     $q->orderBy('section_order', 'asc');
@@ -155,7 +222,7 @@ class ShippingController extends Controller
                     $q->with(['documents' => function ($docQ) {
                         $docQ->select('id', 'id_spk', 'id_section', 'id_dokumen', 'verify');
                     }]);
-                }
+                },
             ]);
 
             // Jika user eksternal, filter hanya data miliknya
@@ -182,7 +249,7 @@ class ShippingController extends Controller
 
             // Ambil user pusat dari DB tako-user
             $internalUsers = collect();
-            if (!empty($internalUserIds)) {
+            if (! empty($internalUserIds)) {
                 $internalUsers = User::on('tako-user')
                     ->whereIn('id_user', $internalUserIds)
                     ->select('id_user', 'name', 'role_internal')
@@ -194,7 +261,7 @@ class ShippingController extends Controller
             $spkData = $spkItems->map(function ($item) use ($internalUsers) {
                 $nearestDeadlineSection = $item->sections
                     ->filter(function ($section) {
-                        return !empty($section->deadline_date);
+                        return ! empty($section->deadline_date);
                     })
                     ->sortBy(function ($section) {
                         return \Carbon\Carbon::parse($section->deadline_date)->timestamp;
@@ -240,49 +307,50 @@ class ShippingController extends Controller
                 // 2. created_by (fallback)
                 $handlerUser = null;
 
-                if (!empty($item->validated_by) && $internalUsers->has($item->validated_by)) {
+                if (! empty($item->validated_by) && $internalUsers->has($item->validated_by)) {
                     $handlerUser = $internalUsers->get($item->validated_by);
-                } elseif (!empty($item->created_by) && $internalUsers->has($item->created_by)) {
+                } elseif (! empty($item->created_by) && $internalUsers->has($item->created_by)) {
                     $handlerUser = $internalUsers->get($item->created_by);
                 }
 
                 return [
-                    'id'                    => $item->id,
-                    'spk_code'              => $item->spk_code,
-                    'shipment_type'         => $item->shipment_type,
-                    'nama_customer'         => $item->customer->nama_perusahaan ?? '-',
-                    'tanggal_status'        => $latestDocLog ? $latestDocLog->created_at : $item->created_at,
-                    'status_label'          => $item->latestStatus->status ?? 'Draft/Pending',
-                    'nama_user'             => $latestDocLog->by ?? $item->creator->name ?? 'System',
+                    'id' => $item->id,
+                    'spk_code' => $item->spk_code,
+                    'shipment_type' => $item->shipment_type,
+                    'nama_customer' => $item->customer->nama_perusahaan ?? '-',
+                    'tanggal_status' => $latestDocLog ? $latestDocLog->created_at : $item->created_at,
+                    'status_label' => $item->latestStatus->status ?? 'Draft/Pending',
+                    'nama_user' => $latestDocLog->by ?? $item->creator->name ?? 'System',
 
                     // FIELD UNTUK FILTER HANDLED BY
                     'internal_handler_name' => $handlerUser->name ?? '',
-                    'assigned_pic_name'     => $handlerUser->name ?? null,
+                    'assigned_pic_name' => $handlerUser->name ?? null,
                     'handler_role_internal' => $handlerUser->role_internal ?? null,
-                    'validated_by'          => $item->validated_by ?? null,
-                    'created_by'            => $item->created_by ?? null,
-                    'drafter'               => !empty($item->validated_by) && $internalUsers->has($item->validated_by)
+                    'validated_by' => $item->validated_by ?? null,
+                    'created_by' => $item->created_by ?? null,
+                    'drafter' => ! empty($item->validated_by) && $internalUsers->has($item->validated_by)
                         ? $internalUsers->get($item->validated_by)->name
                         : '-',
-                    'eta_date'              => $item->eta_date ?? null,
+                    'eta_date' => $item->eta_date ?? null,
+                    'etd_date' => $item->etd_date ?? null,
 
-                    'jalur'                 => $item->penjaluran,
-                    'jalur_filter'          => $item->penjaluran,
-                    'deadline_date'         => $minDeadline,
+                    'jalur' => $item->penjaluran,
+                    'jalur_filter' => $item->penjaluran,
+                    'deadline_date' => $minDeadline,
                     'deadline_section_name' => $deadlineSectionName,
-                    'progress'              => $progress,
-                    'vessel'                => $item->vessel,
-                    'origin'                => $item->origin,
-                    'port'                  => $item->port,
-                    'port_of_loading'       => $item->port_of_loading,
-                    'comodity'              => $item->comodity,
+                    'progress' => $progress,
+                    'vessel' => $item->vessel,
+                    'origin' => $item->origin,
+                    'port' => $item->port,
+                    'port_of_loading' => $item->port_of_loading,
+                    'comodity' => $item->comodity,
                     'party_summary' => $item->parties->map(function ($p) {
                         if ($p->party_type === 'LCL') {
                             return "{$p->party_qty} {$p->party_size} (LCL)";
                         }
 
                         if ($p->party_type === 'FCL') {
-                            $cleanCategory = $p->party_category 
+                            $cleanCategory = $p->party_category
                                 ? preg_replace('/^\d+\s*-\s*/', '', $p->party_category)
                                 : '';
 
@@ -303,15 +371,20 @@ class ShippingController extends Controller
                 ->orderBy('section_order', 'asc')
                 ->select('id_section', 'section_name')
                 ->get();
+
+            $shippingPackages = ShippingPackage::where('is_active', true)
+                ->orderBy('shipment_type', 'asc')
+                ->orderBy('name', 'asc')
+                ->get(['id', 'name', 'shipment_type']);
         }
 
         // NEW: Fetch Internal Staff for Supervisor Assignment
         $internalStaff = [];
-        if ($user->role === 'internal') {
+        if ($user->role === 'internal' && $idPerusahaan) {
             $internalStaff = User::on('tako-user')
                 ->where('role', 'internal')
                 ->where('role_internal', 'staff')
-                ->where('id_perusahaan', $user->id_perusahaan)
+                ->where('id_perusahaan', $idPerusahaan)
                 ->select('id_user', 'name')
                 ->get();
         }
@@ -326,6 +399,7 @@ class ShippingController extends Controller
                 'logo' => session('company_logo'),
             ],
             'checklistSections' => $checklistSections ?? [], // Pass to frontend
+            'shippingPackages' => $shippingPackages ?? [],
             'flash' => [
                 'success' => session('success'),
                 'error' => session('error'),
@@ -340,15 +414,15 @@ class ShippingController extends Controller
     {
         $user = auth('web')->user();
 
-        if (!$user->hasPermissionTo('create-master-shipping')) {
+        if (! $user->hasPermissionTo('create-master-shipping')) {
             throw UnauthorizedException::forPermissions(['create-master-shipping']);
         }
 
         return Inertia::render('m_shipping/table/add-data-form', [
             'flash' => [
                 'success' => session('success'),
-                'error' => session('error')
-            ]
+                'error' => session('error'),
+            ],
         ]);
     }
 
@@ -359,24 +433,15 @@ class ShippingController extends Controller
     {
         $user = auth('web')->user();
 
-        $tenant = null;
+        [$tenant, $idPerusahaan] = $this->resolveTenantAndPerusahaanId($user);
 
-        if ($user->id_perusahaan) {
-            $tenant = \App\Models\Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
-        } elseif ($user->id_customer) {
-            $customer = \App\Models\Customer::find($user->id_customer);
-            if ($customer && $customer->ownership) {
-                $tenant = \App\Models\Tenant::where('perusahaan_id', $customer->ownership)->first();
-            }
-        }
-
-        if (!$tenant) {
+        if (! $tenant) {
             abort(404, 'Tenant tidak ditemukan');
         }
 
         tenancy()->initialize($tenant);
 
-        $spk = \App\Models\Spk::with('parties')->findOrFail($id);
+        $spk = $this->findAccessibleSpkOrFail($id, $user, $idPerusahaan, ['parties']);
 
         $documents = \App\Models\DocumentTrans::query()
             ->leftJoin('section_trans', function ($join) {
@@ -418,7 +483,7 @@ class ShippingController extends Controller
                     'nama_file' => $item->nama_file,
                     'url_path_file' => $item->url_path_file,
                     'verify' => $item->verify,
-                    'is_updated' => !empty($item->url_path_file),
+                    'is_updated' => ! empty($item->url_path_file),
 
                     'updated_at' => optional($item->updated_at)->format('d M Y'),
                     'updated_at_full' => optional($item->updated_at)->format('d-m-Y H:i:s'),
@@ -458,7 +523,7 @@ class ShippingController extends Controller
                     }
 
                     if ($p->party_type === 'FCL') {
-                        $cleanCategory = $p->party_category 
+                        $cleanCategory = $p->party_category
                             ? preg_replace('/^\d+\s*-\s*/', '', $p->party_category)
                             : '';
 
@@ -486,31 +551,19 @@ class ShippingController extends Controller
     {
         $user = auth('web')->user();
 
-        $tenant = null;
-        $idPerusahaan = null;
+        [$tenant, $idPerusahaan] = $this->resolveTenantAndPerusahaanId($user);
 
-        if ($user->id_perusahaan) {
-            $idPerusahaan = $user->id_perusahaan;
-            $tenant = \App\Models\Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
-        } elseif ($user->id_customer) {
-            $customer = \App\Models\Customer::find($user->id_customer);
-            if ($customer && $customer->ownership) {
-                $idPerusahaan = $customer->ownership;
-                $tenant = \App\Models\Tenant::where('perusahaan_id', $customer->ownership)->first();
-            }
-        }
-
-        if (!$tenant) {
+        if (! $tenant) {
             abort(404, 'Tenant tidak ditemukan');
         }
 
         tenancy()->initialize($tenant);
 
-        $spk = Spk::findOrFail($id);
+        $spk = $this->findAccessibleSpkOrFail($id, $user, $idPerusahaan);
         $template = $request->boolean('template', false);
         $karantina = $request->boolean('karantina', false);
 
-        $pdfService = new \App\Services\ShippingPdfService();
+        $pdfService = new \App\Services\ShippingPdfService;
         [$pdf, $filename] = $pdfService->build($spk, $tenant, $user, $idPerusahaan, $template, $karantina);
 
         return $pdf->download($filename);
@@ -526,68 +579,96 @@ class ShippingController extends Controller
         $userId = $user->id_user;
         $userName = $user->name;
 
-        if (!$user->hasPermissionTo('create-master-shipping')) {
+        if (! $user->hasPermissionTo('create-master-shipping')) {
             throw UnauthorizedException::forPermissions(['create-master-shipping']);
         }
 
         $validated = $request->validate([
             'tanggal_dokumen' => 'required|date',
-            'shipment_type'   => 'required|in:Import,Export',
-            'bl_number'       => 'required|string',
-            'id_customer'     => 'required|exists:customers,id_customer',
-            'hs_codes'        => 'required|array|min:1',
+            'shipment_type' => 'required|in:Import,Export',
+            'bl_number' => 'required|string',
+            'id_customer' => 'required|exists:customers,id_customer',
+            'hs_codes' => 'required|array|min:1',
             'hs_codes.*.code' => 'required|string',
             'hs_codes.*.link' => 'nullable|string',
             'hs_codes.*.file' => 'nullable|file|image|mimes:jpeg,png,jpg|max:5120',
-            'assigned_pic'    => 'nullable|integer|exists:users,id_user', // Validasi Assigned PIC
-            'vessel'          => 'nullable|string',
-            'origin'          => 'nullable|string',
-            'port'            => 'nullable|string',
-            'comodity'        => 'nullable|string',
+            'assigned_pic' => 'nullable|integer|exists:users,id_user', // Validasi Assigned PIC
+            'shipping_package_id' => 'nullable|integer',
+            'vessel' => 'nullable|string',
+            'origin' => 'nullable|string',
+            'port' => 'nullable|string',
+            'comodity' => 'nullable|string',
         ]);
 
-        // --- Logic Tenant ---
-        $tenant = null;
-        if ($user->id_perusahaan) {
-            $tenant = Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
-        } elseif ($user->id_customer) {
-            $customer = Customer::find($user->id_customer);
-            if ($customer && $customer->ownership) {
-                $tenant = Tenant::where('perusahaan_id', $customer->ownership)->first();
-            }
-        }
+        [$tenant, $idPerusahaan] = $this->resolveTenantAndPerusahaanId($user);
 
-        if (!$tenant) {
+        if (! $tenant || ! $idPerusahaan) {
             return redirect()->back()->withErrors(['error' => 'Gagal menentukan Tenant.']);
         }
 
+        $selectedCustomer = Customer::find($validated['id_customer']);
+        if (! $selectedCustomer || (int) $selectedCustomer->ownership !== (int) $idPerusahaan) {
+            return redirect()->back()->withErrors([
+                'id_customer' => 'Customer tidak valid untuk perusahaan aktif.',
+            ])->withInput();
+        }
+
+        if (! empty($validated['assigned_pic'])) {
+            $assignedPicExists = User::on('tako-user')
+                ->where('id_user', $validated['assigned_pic'])
+                ->where('role', 'internal')
+                ->where('id_perusahaan', $idPerusahaan)
+                ->exists();
+
+            if (! $assignedPicExists) {
+                return redirect()->back()->withErrors([
+                    'assigned_pic' => 'Staff tidak valid untuk perusahaan aktif.',
+                ])->withInput();
+            }
+        }
+
         tenancy()->initialize($tenant);
+
+        $shippingPackage = null;
+        if (! empty($validated['shipping_package_id'])) {
+            $shippingPackage = ShippingPackage::where('id', $validated['shipping_package_id'])
+                ->where('shipment_type', $validated['shipment_type'])
+                ->where('is_active', true)
+                ->first();
+
+            if (! $shippingPackage) {
+                return redirect()->back()->withErrors([
+                    'shipping_package_id' => 'Package shipping tidak valid untuk tipe shipment ini.',
+                ])->withInput();
+            }
+        }
 
         DB::beginTransaction();
 
         try {
             // 1. CREATE SPK (Hanya Sekali)
             $spk = Spk::create([
-                'spk_code'          => $validated['bl_number'],
-                'shipment_type'     => $validated['shipment_type'],
-                'tanggal_dokumen'   => $validated['tanggal_dokumen'],
-                'id_perusahaan_int' => $tenant->perusahaan_id ?? $user->id_perusahaan,
-                'id_customer'       => $validated['id_customer'],
-                'created_by'        => $userId,
-                'penjaluran'        => null,
-                'vessel'            => $validated['vessel'] ?? null,
-                'origin'            => $validated['origin'] ?? null,
-                'port'              => $validated['port'] ?? null,
-                'comodity'          => $validated['comodity'] ?? null,
+                'spk_code' => $validated['bl_number'],
+                'shipment_type' => $validated['shipment_type'],
+                'shipping_package_id' => $shippingPackage?->id,
+                'tanggal_dokumen' => $validated['tanggal_dokumen'],
+                'id_perusahaan' => $idPerusahaan,
+                'id_customer' => $validated['id_customer'],
+                'created_by' => $userId,
+                'penjaluran' => null,
+                'vessel' => $validated['vessel'] ?? null,
+                'origin' => $validated['origin'] ?? null,
+                'port' => $validated['port'] ?? null,
+                'comodity' => $validated['comodity'] ?? null,
             ]);
 
             $statusId = 6;
             $statusPriority = 'Created';
 
             SpkStatus::create([
-                'id_spk'    => $spk->id,
+                'id_spk' => $spk->id,
                 'id_status' => $statusId,
-                'status'  => "SPK $statusPriority",
+                'status' => "SPK $statusPriority",
             ]);
 
             // 2. LOOP CREATE HS CODES
@@ -597,7 +678,7 @@ class ShippingController extends Controller
 
                 if (isset($hsData['file']) && $hsData['file'] instanceof \Illuminate\Http\UploadedFile) {
                     $extension = $hsData['file']->getClientOriginalExtension();
-                    $fileNameToSave = $spk->spk_code . '_' . $hsData['code'] . '_' . uniqid() . '.' . $extension;
+                    $fileNameToSave = $spk->spk_code.'_'.$hsData['code'].'_'.uniqid().'.'.$extension;
 
                     $path = $hsData['file']->storeAs(
                         'documents/hs_codes',
@@ -608,100 +689,29 @@ class ShippingController extends Controller
                 }
 
                 $newHsCode = HsCode::create([
-                    'id_spk'         => $spk->id,
-                    'hs_code'        => $hsData['code'],
-                    'link_insw'      => $fileNameToSave ?? ($hsData['link'] ?? null),
+                    'id_spk' => $spk->id,
+                    'hs_code' => $hsData['code'],
+                    'link_insw' => $fileNameToSave ?? ($hsData['link'] ?? null),
                     'path_link_insw' => $filePath,
-                    'created_by'     => $userId,
-                    'updated_by'     => $userId,
-                    'logs'           => json_encode(['action' => 'created', 'by' => $userName, 'at' => now()]),
+                    'created_by' => $userId,
+                    'updated_by' => $userId,
+                    'logs' => json_encode(['action' => 'created', 'by' => $userName, 'at' => now()]),
                 ]);
             }
 
-            // --- 3. GENERATE SECTION TRANSAKSI ---
-            // Simpan yang Core Mandatory (is_checklist false & attribute_section true)
-            // PLUS yang dicentang user di modal (selected_sections)
-            $selectedChecklistIds = $request->input('selected_sections', []); // Array of id_section
-
-            $masterSections = MasterSectionTrans::where(function ($q) use ($selectedChecklistIds) {
-                $q->where(function ($sq) {
-                    $sq->where('is_checklist', false)
-                        ->where('id_section', '!=', 6)
-                        ->where('attribute_section', true);
-                })
-                    ->orWhereIn('id_section', $selectedChecklistIds);
-            })
-                ->where('id_section', '!=', 6)
-                ->orderBy('section_order', 'asc')
-                ->get();
-
-            foreach ($masterSections as $masterSec) {
-                SectionTrans::create([
-                    'id_section'    => $masterSec->id_section,
-                    'id_spk'        => $spk->id,
-                    'section_name'  => $masterSec->section_name,
-                    'section_order' => $masterSec->section_order,
-                    'deadline'      => false,
-                    'created_at'    => now(),
-                    'updated_at'    => now(),
-                ]);
-            }
-
-            // --- 4. GENERATE DOKUMEN TRANSAKSI (MANDATORY ONLY) ---
-            // Hanya dokumen dengan import_mandatory/export_mandatory = true yang otomatis ditambahkan saat SPK/Section dibuat.
-            $allowedSectionIds = $masterSections->pluck('id_section')->toArray();
-
-            $mandatoryColumn = $validated['shipment_type'] === 'Import' ? 'import_mandatory' : 'export_mandatory';
-
-            $finalDocs = MasterDocumentTrans::where('is_active', true)
-                ->where($mandatoryColumn, true)
-                ->whereIn('id_section', $allowedSectionIds)
-                ->orderBy('id_dokumen', 'asc')
-                ->get()
-                ->unique(function ($doc) {
-                    return $doc->id_section . '|' . \Illuminate\Support\Str::lower(trim($doc->nama_file));
-                })
-                ->sortBy([
-                    ['id_section', 'asc'],
-                    ['id_dokumen', 'asc'],
-                ])
-                ->values();
-
-            foreach ($finalDocs as $doc) {
-                $section = MasterSectionTrans::where('id_section', $doc->id_section)
-                    ->first();
-
-                $sectionName = $section ? $section->section_name : 'Unknown Section';
-                $logMessage = "Document {$sectionName} requested " . now()->format('d-m-Y H:i') . " WIB";
-
-                $newDocTrans = DocumentTrans::create([
-                    'id_spk'                => $spk->id,
-                    'id_dokumen'            => $doc->id_dokumen,
-                    'id_section'            => $doc->id_section,
-                    'nama_file'             => $doc->nama_file,
-                    'is_internal'           => $doc->is_internal ?? false,
-                    'is_verification'       => $doc->is_verification ?? true,
-                    'url_path_file'         => null,
-                    'verify'                => false,
-                    'correction_attachment' => false,
-                    'kuota_revisi'          => $doc->kuota_revisi ?: 3,
-                    'updated_by'            => $userId,
-                    'logs'                  => $logMessage,
-                    'created_at'            => now(),
-                    'updated_at'            => now(),
-                ]);
-
-                DocumentStatus::create([
-                    'id_dokumen_trans' => $newDocTrans->id,
-                    'status'           => $logMessage,
-                    'by'               => $userName,
-                    'created_at'       => now(),
-                    'updated_at'       => now(),
-                ]);
-            }
+            // --- 3. GENERATE SECTION & DOKUMEN TRANSAKSI ---
+            // Jika package dipilih, semua rule awal berasal dari Master Package Shipping.
+            // Jika tidak ada package, fallback ke flow mandatory lama agar data lama tetap aman.
+            app(ShippingGenerationService::class)->generateInitialRules(
+                $spk,
+                $shippingPackage,
+                $request->input('selected_sections', []),
+                $userId,
+                $userName
+            );
 
             if ($user->role === 'internal') {
-                if ($user->can('assign_staff-master-shipping') && !empty($validated['assigned_pic'])) {
+                if ($user->can('assign_staff-master-shipping') && ! empty($validated['assigned_pic'])) {
                     // SUPERVISOR: Assign to Selected Staff
                     $spk->update(['validated_by' => $validated['assigned_pic']]);
 
@@ -734,7 +744,7 @@ class ShippingController extends Controller
                         try {
                             SectionReminderService::sendSpkCreated($internalUser, $spk, $user);
                         } catch (\Exception $e) {
-                            Log::error("Failed to send SPK Created Email to {$internalUser->email}: " . $e->getMessage());
+                            Log::error("Failed to send SPK Created Email to {$internalUser->email}: ".$e->getMessage());
                         }
 
                         // 2. Send In-App Notification
@@ -749,11 +759,11 @@ class ShippingController extends Controller
                                     'title' => 'New SPK Created',
                                     'message' => "New SPK {$spk->spk_code} created by {$user->name}",
                                     'url' => "/shipping/{$spk->id}",
-                                    'spk_code' => $spk->spk_code
-                                ]
+                                    'spk_code' => $spk->spk_code,
+                                ],
                             ]);
                         } catch (\Exception $e) {
-                            Log::error("Failed to send SPK Created Notification to {$internalUser->id_user}: " . $e->getMessage());
+                            Log::error("Failed to send SPK Created Notification to {$internalUser->id_user}: ".$e->getMessage());
                         }
                     }
                 } elseif ($user->role === 'internal') {
@@ -765,7 +775,7 @@ class ShippingController extends Controller
                     }
 
                     // 1. If Supervisor & Assigned Staff -> Notify the Staff
-                    if ($user->can('assign_staff-master-shipping') && !empty($validated['assigned_pic'])) {
+                    if ($user->can('assign_staff-master-shipping') && ! empty($validated['assigned_pic'])) {
                         $assignedStaff = \App\Models\User::on('tako-user')->find($validated['assigned_pic']);
                         if ($assignedStaff) {
                             // 1. Email for Assigned Staff
@@ -786,8 +796,8 @@ class ShippingController extends Controller
                                         'title' => 'SPK Baru Ditugaskan',
                                         'message' => "Anda telah ditugaskan sebagai PIC untuk SPK {$spk->spk_code} oleh Supervisor {$user->name}",
                                         'url' => "/shipping/{$spk->id}",
-                                        'spk_code' => $spk->spk_code
-                                    ]
+                                        'spk_code' => $spk->spk_code,
+                                    ],
                                 ]);
                             } catch (\Exception $e) {
                             }
@@ -799,11 +809,13 @@ class ShippingController extends Controller
                         $supervisors = \App\Models\User::on('tako-user')
                             ->where('role', 'internal')
                             ->where('role_internal', 'supervisor')
-                            ->where('id_perusahaan', $user->id_perusahaan ?? (tenancy()->tenant->perusahaan_id ?? null))
+                            ->where('id_perusahaan', $idPerusahaan)
                             ->get();
 
                         foreach ($supervisors as $supervisor) {
-                            if ($supervisor->id_user == $userId) continue;
+                            if ($supervisor->id_user == $userId) {
+                                continue;
+                            }
                             try {
                                 NotificationService::send([
                                     'send_to' => $supervisor->id_user,
@@ -815,8 +827,8 @@ class ShippingController extends Controller
                                         'title' => 'SPK Baru Dibuat (Monitoring)',
                                         'message' => "SPK {$spk->spk_code} baru saja dibuat oleh {$user->name}",
                                         'url' => "/shipping/{$spk->id}",
-                                        'spk_code' => $spk->spk_code
-                                    ]
+                                        'spk_code' => $spk->spk_code,
+                                    ],
                                 ]);
                             } catch (\Exception $e) {
                             }
@@ -835,7 +847,7 @@ class ShippingController extends Controller
                         try {
                             SectionReminderService::sendSpkCreated($extUser, $spk, $user);
                         } catch (\Exception $e) {
-                            Log::error("Failed to send SPK Email to External {$extUser->email}: " . $e->getMessage());
+                            Log::error("Failed to send SPK Email to External {$extUser->email}: ".$e->getMessage());
                         }
 
                         // Notification
@@ -850,11 +862,11 @@ class ShippingController extends Controller
                                     'title' => 'SPK Baru Dibuat',
                                     'message' => "SPK Baru {$spk->spk_code} telah dibuat oleh {$user->name}",
                                     'url' => "/shipping/{$spk->id}",
-                                    'spk_code' => $spk->spk_code
-                                ]
+                                    'spk_code' => $spk->spk_code,
+                                ],
                             ]);
                         } catch (\Exception $e) {
-                            Log::error("Failed to send SPK Notification to External {$extUser->id_user}: " . $e->getMessage());
+                            Log::error("Failed to send SPK Notification to External {$extUser->id_user}: ".$e->getMessage());
                         }
                     }
                 }
@@ -863,16 +875,17 @@ class ShippingController extends Controller
                 try {
                     ShippingDataUpdated::dispatch($spk->id, 'create');
                 } catch (\Exception $e) {
-                    Log::error('Realtime update failed: ' . $e->getMessage());
+                    Log::error('Realtime update failed: '.$e->getMessage());
                 }
             } catch (\Exception $e) {
-                Log::error("Post-commit notification failed: " . $e->getMessage());
+                Log::error('Post-commit notification failed: '.$e->getMessage());
             }
 
             return Inertia::location(route('shipping.show', $spk->id));
         } catch (\Throwable $th) {
             DB::rollBack();
-            return redirect()->back()->withErrors(['error' => 'Gagal: ' . $th->getMessage()]);
+
+            return redirect()->back()->withErrors(['error' => 'Gagal: '.$th->getMessage()]);
         }
     }
 
@@ -881,33 +894,27 @@ class ShippingController extends Controller
         $user = auth('web')->user();
 
         $validated = $request->validate([
-            'hs_codes'        => 'required|array|min:1',
+            'hs_codes' => 'required|array|min:1',
             // id opsional karena data baru belum punya ID
-            'hs_codes.*.id'   => 'nullable',
+            'hs_codes.*.id' => 'nullable',
             'hs_codes.*.code' => 'required|string',
             // Link lama (string) atau file baru (binary)
             'hs_codes.*.file' => 'nullable',
         ]);
 
-        $tenant = null;
-        if ($user->id_perusahaan) {
-            $tenant = Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
-        } elseif ($user->id_customer) {
-            $customer = Customer::find($user->id_customer);
-            if ($customer && $customer->ownership) {
-                $tenant = Tenant::where('perusahaan_id', $customer->ownership)->first();
-            }
-        }
+        [$tenant, $idPerusahaan] = $this->resolveTenantAndPerusahaanId($user);
 
-        if (!$tenant) abort(404, 'Tenant not found');
+        if (! $tenant) {
+            abort(404, 'Tenant not found');
+        }
         tenancy()->initialize($tenant);
+
+        $spk = $this->findAccessibleSpkOrFail($idSpk, $user, $idPerusahaan);
 
         // 3. Mulai Transaksi Database
         DB::beginTransaction();
 
         try {
-            $spk = Spk::findOrFail($idSpk);
-
             $receivedIds = [];
 
             foreach ($validated['hs_codes'] as $item) {
@@ -919,7 +926,7 @@ class ShippingController extends Controller
                     $safeSpkCode = preg_replace('/[^A-Za-z0-9_\-]/', '_', $spk->spk_code);
                     $safeHsCode = preg_replace('/[^A-Za-z0-9_\-]/', '_', $item['code']);
 
-                    $fileNameToSave = $safeSpkCode . '_' . $safeHsCode . '_' . uniqid()  . '.' . $extension;
+                    $fileNameToSave = $safeSpkCode.'_'.$safeHsCode.'_'.uniqid().'.'.$extension;
 
                     $path = $item['file']->storeAs(
                         'documents/hs_codes',
@@ -930,11 +937,11 @@ class ShippingController extends Controller
                     $filePath = $path;
                 }
 
-                if (!empty($item['id']) && is_numeric($item['id'])) {
+                if (! empty($item['id']) && is_numeric($item['id'])) {
                     $hsCode = HsCode::find($item['id']);
                     if ($hsCode) {
                         $updateData = [
-                            'hs_code'    => $item['code'],
+                            'hs_code' => $item['code'],
                             'updated_by' => $user->id,
                             'updated_at' => now(),
                         ];
@@ -950,13 +957,13 @@ class ShippingController extends Controller
                     }
                 } else {
                     $newHsCode = HsCode::create([
-                        'id_spk'         => $spk->id,
-                        'hs_code'        => $item['code'],
-                        'link_insw'      => $fileNameToSave,
+                        'id_spk' => $spk->id,
+                        'hs_code' => $item['code'],
+                        'link_insw' => $fileNameToSave,
                         'path_link_insw' => $filePath,
-                        'created_by'     => $user->id,
-                        'updated_by'     => $user->id,
-                        'logs'           => json_encode(['action' => 'added_via_edit', 'by' => $user->name, 'at' => now()]),
+                        'created_by' => $user->id,
+                        'updated_by' => $user->id,
+                        'logs' => json_encode(['action' => 'added_via_edit', 'by' => $user->name, 'at' => now()]),
                     ]);
                     $receivedIds[] = $newHsCode->id_hscode;
                 }
@@ -965,7 +972,7 @@ class ShippingController extends Controller
                 ->whereNotIn('id_hscode', $receivedIds)
                 ->delete();
 
-            if (!empty($receivedIds)) {
+            if (! empty($receivedIds)) {
                 $spk->update(['id_hscode' => $receivedIds[0]]);
             } else {
                 $spk->update(['id_hscode' => null]);
@@ -976,7 +983,8 @@ class ShippingController extends Controller
             return redirect()->back()->with('success', 'HS Codes updated successfully');
         } catch (\Throwable $th) {
             DB::rollBack();
-            return redirect()->back()->withErrors(['error' => 'Failed to update: ' . $th->getMessage()]);
+
+            return redirect()->back()->withErrors(['error' => 'Failed to update: '.$th->getMessage()]);
         }
     }
 
@@ -985,28 +993,28 @@ class ShippingController extends Controller
         $user = auth('web')->user();
 
         // --- PERMISSION CHECK ---
-        if (!$user->can('upload-document')) {
+        if (! $user->can('upload-document')) {
             return response()->json(['error' => 'Anda tidak memiliki izin untuk mengunggah dokumen.'], 403);
         }
 
         // Validasi File
         $file = $request->file('pdf') ?? $request->file('file');
-        if (!$file) {
+        if (! $file) {
             return response()->json(['error' => 'File tidak ditemukan'], 400);
         }
 
-        $spk        = $request->input('spk_code');
-        $type        = strtolower($request->input('type'));
+        $spk = $request->input('spk_code');
+        $type = strtolower($request->input('type'));
 
-        $ext         = $file->getClientOriginalExtension();
+        $ext = $file->getClientOriginalExtension();
         $uniqueId = uniqid();
-        $filename    = "{$spk}-{$type}-{$uniqueId}.{$ext}";
+        $filename = "{$spk}-{$type}-{$uniqueId}.{$ext}";
 
-        $disk        = Storage::disk('customers_external');
-        $tempDir     = 'temp';
+        $disk = Storage::disk('customers_external');
+        $tempDir = 'temp';
 
         // Buat folder temp jika belum ada
-        if (!$disk->exists($tempDir)) {
+        if (! $disk->exists($tempDir)) {
             $disk->makeDirectory($tempDir);
         }
 
@@ -1017,12 +1025,144 @@ class ShippingController extends Controller
         $disk->put($tempRel, file_get_contents($file->getRealPath()));
 
         return response()->json([
-            'status'    => 'success',
-            'path'      => $tempRel,        // Path ini akan dikirim balik saat submit
+            'status' => 'success',
+            'path' => $tempRel,        // Path ini akan dikirim balik saat submit
             'nama_file' => $filename,
-            'is_temp'   => true,
-            'info'      => 'File uploaded to temp (uncompressed)'
+            'is_temp' => true,
+            'info' => 'File uploaded to temp (uncompressed)',
         ]);
+    }
+
+    public function uploadMergedPdf(Request $request)
+    {
+        $user = auth('web')->user();
+
+        if (! $user || $user->role === 'eksternal') {
+            return response()->json(['success' => false, 'message' => 'Hanya user internal yang dapat mengunggah merged PDF.'], 403);
+        }
+
+        if (! $user->can('upload-document')) {
+            return response()->json(['success' => false, 'message' => 'Anda tidak memiliki izin untuk mengunggah dokumen.'], 403);
+        }
+
+        [$tenant, $idPerusahaan] = $this->resolveTenantAndPerusahaanId($user);
+        if (! $tenant) {
+            return response()->json(['success' => false, 'message' => 'Tenant not found'], 404);
+        }
+
+        tenancy()->initialize($tenant);
+
+        $validated = $request->validate([
+            'spk_id' => 'required|integer',
+            'document_ids' => 'required|array|min:1',
+            'document_ids.*' => 'integer',
+            'file' => 'required|file|mimes:pdf|max:51200',
+        ]);
+
+        $documentIds = collect($validated['document_ids'])
+            ->map(fn ($id) => (int) $id)
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($documentIds->isEmpty()) {
+            return response()->json(['success' => false, 'message' => 'Pilih minimal satu dokumen.'], 422);
+        }
+
+        $spk = $this->findAccessibleSpkOrFail($validated['spk_id'], $user, $idPerusahaan);
+        $documents = DocumentTrans::where('id_spk', $spk->id)
+            ->whereIn('id', $documentIds)
+            ->get();
+
+        if ($documents->count() !== $documentIds->count()) {
+            return response()->json(['success' => false, 'message' => 'Ada dokumen yang tidak terdaftar pada SPK ini.'], 422);
+        }
+
+        $disk = Storage::disk('customers_external');
+        $finalRelPath = null;
+
+        try {
+            $file = $request->file('file');
+            $shippingFolder = 'shipping/'.date('Y/m')."/{$spk->spk_code}";
+            if (! $disk->exists($shippingFolder)) {
+                $disk->makeDirectory($shippingFolder);
+            }
+
+            $cleanSpkCode = preg_replace('/[^A-Za-z0-9]/', '_', $spk->spk_code);
+            $fileName = 'Merged_PDF_'.$cleanSpkCode.'_'.now()->format('YmdHis').'_'.Str::random(6).'.pdf';
+            $finalRelPath = "{$shippingFolder}/{$fileName}";
+
+            $stream = fopen($file->getRealPath(), 'r');
+            if ($stream === false) {
+                throw new \RuntimeException('Gagal membaca file PDF.');
+            }
+
+            try {
+                $disk->put($finalRelPath, $stream);
+            } finally {
+                if (is_resource($stream)) {
+                    fclose($stream);
+                }
+            }
+
+            DB::connection('tenant-transaction')->beginTransaction();
+
+            foreach ($documents as $doc) {
+                $doc->update([
+                    'url_path_file' => $finalRelPath,
+                    'verify' => true,
+                    'correction_attachment' => false,
+                    'correction_attachment_file' => null,
+                    'correction_description' => null,
+                    'upload_date' => now(),
+                    'verified_date' => now(),
+                ]);
+
+                DocumentStatus::create(['id_dokumen_trans' => $doc->id, 'status' => 'Uploaded', 'by' => $user->name]);
+                DocumentStatus::create(['id_dokumen_trans' => $doc->id, 'status' => 'Verified', 'by' => $user->name]);
+            }
+
+            SpkStatus::create([
+                'id_spk' => $spk->id,
+                'id_status' => 2,
+                'status' => 'Merged PDF Verified ('.$documents->count().' dokumen)',
+            ]);
+
+            DB::connection('tenant-transaction')->commit();
+
+            $absPath = $disk->path($finalRelPath);
+            if (file_exists($absPath) && filesize($absPath) > 2 * 1024 * 1024) {
+                GhostscriptCompressionJob::dispatch($absPath, $finalRelPath);
+            }
+
+            try {
+                ShippingDataUpdated::dispatch($spk->id, 'merged_pdf_upload');
+            } catch (\Exception $e) {
+                Log::error('Realtime update failed: '.$e->getMessage());
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Merged PDF berhasil disimpan untuk '.$documents->count().' dokumen.',
+                'path' => $finalRelPath,
+                'document_count' => $documents->count(),
+            ]);
+        } catch (\Throwable $e) {
+            if (DB::connection('tenant-transaction')->transactionLevel() > 0) {
+                DB::connection('tenant-transaction')->rollBack();
+            }
+
+            if ($finalRelPath && $disk->exists($finalRelPath)) {
+                $disk->delete($finalRelPath);
+            }
+
+            Log::error('Merged PDF upload failed: '.$e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal menyimpan merged PDF: '.$e->getMessage(),
+            ], 500);
+        }
     }
 
     public function submit(Request $request)
@@ -1030,22 +1170,27 @@ class ShippingController extends Controller
         return back()->with('success', 'Data berhasil disubmit.');
     }
 
-
     /**
      * Helper to resize image (Private)
      */
     private function resizeImage($path, $maxWidth, $quality = 75)
     {
-        if (!file_exists($path)) return false;
+        if (! file_exists($path)) {
+            return false;
+        }
 
         $info = @getimagesize($path);
-        if (!$info) return false;
+        if (! $info) {
+            return false;
+        }
 
         $mime = $info['mime'];
         $width = $info[0];
         $height = $info[1];
 
-        if ($width <= $maxWidth) return true;
+        if ($width <= $maxWidth) {
+            return true;
+        }
 
         $newWidth = $maxWidth;
         $newHeight = floor($height * ($maxWidth / $width));
@@ -1057,7 +1202,9 @@ class ShippingController extends Controller
             $image = @imagecreatefrompng($path);
         }
 
-        if (!$image) return false;
+        if (! $image) {
+            return false;
+        }
 
         $newImage = imagecreatetruecolor($newWidth, $newHeight);
 
@@ -1087,34 +1234,24 @@ class ShippingController extends Controller
     {
         $user = auth('web')->user();
 
-        if (!$user->can('update-master-shipping')) {
+        if (! $user->can('update-master-shipping')) {
             abort(403);
         }
         // NEW: Fetch Internal Staff for Supervisor Assignment (Consistent with index)
         // Moved here to ensure we query the CENTRAL database (tako-user) before tenancy context is switched.
         $internalStaff = [];
-        if ($user->role === 'internal') {
+        [$tenant, $idPerusahaan] = $this->resolveTenantAndPerusahaanId($user);
+
+        if ($user->role === 'internal' && $idPerusahaan) {
             $internalStaff = \App\Models\User::on('tako-user')
                 ->where('role', 'internal')
-                ->where('id_perusahaan', $user->id_perusahaan)
+                ->where('id_perusahaan', $idPerusahaan)
                 ->where('role_internal', 'staff')
                 ->select('id_user', 'name', 'role_internal', 'id_perusahaan')
                 ->get();
         }
 
-        // 2. LOGIKA MENCARI TENANT (Copy dari function store)
-        // Kita harus tahu dulu user ini milik tenant mana agar bisa buka databasenya
-        $tenant = null;
-
-        if ($user->id_perusahaan) {
-            $tenant = Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
-        } elseif ($user->id_customer) {
-            $customer = Customer::find($user->id_customer);
-            if ($customer && $customer->ownership) {
-                $tenant = Tenant::where('perusahaan_id', $customer->ownership)->first();
-            }
-        }
-        if (!$tenant) {
+        if (! $tenant) {
             abort(404, 'Tenant tidak ditemukan untuk user ini.');
         }
 
@@ -1124,18 +1261,18 @@ class ShippingController extends Controller
 
         // 4. Baru sekarang aman untuk Query ke tabel SPK
         // Karena koneksi sudah pindah ke tenant
-        $spk = Spk::with(['creator', 'hsCodes', 'customer', 'parties'])->findOrFail($id);
-        
+        $spk = $this->findAccessibleSpkOrFail($id, $user, $idPerusahaan, ['creator', 'hsCodes', 'customer', 'parties']);
+
         // --- FIRST CLICK VALIDATION ASSIGNMENT ---
         if ($user->role === 'internal' && $user->role_internal === 'staff') {
             if (is_null($spk->validated_by)) {
 
                 $notificationsToRemove = collect([]);
 
-                DB::transaction(function () use ($spk, $user, &$notificationsToRemove) {
+                DB::transaction(function () use ($spk, $user, $idPerusahaan, $tenant, &$notificationsToRemove) {
                     // 1. Assign Validator
                     $spk->update(['validated_by' => $user->id_user]);
-                     $spk->refresh();
+                    $spk->refresh();
 
                     // 2. Handle Notifications
                     // A. Update Current User's Notification (Mark as Read, KEEP it)
@@ -1147,7 +1284,7 @@ class ShippingController extends Controller
                     // We exclude Supervisors from this deletion so they keep their history.
                     $staffIdsToCleanup = \App\Models\User::on('tako-user')
                         ->where('role', 'internal')
-                        ->where('id_perusahaan', $user->id_perusahaan ?? $tenant->perusahaan_id)
+                        ->where('id_perusahaan', $idPerusahaan ?? $tenant->perusahaan_id)
                         ->where('role_internal', 'staff')
                         ->where('id_user', '!=', $user->id_user)
                         ->pluck('id_user');
@@ -1173,7 +1310,7 @@ class ShippingController extends Controller
                             // Helper to ensure 'id_spk' is sent in payload
                             broadcast(new \App\Events\NotificationRemoved($notif->send_to, $spk->id));
                         } catch (\Exception $e) {
-                            Log::error("Failed to broadcast NotificationRemoved: " . $e->getMessage());
+                            Log::error('Failed to broadcast NotificationRemoved: '.$e->getMessage());
                         }
                     }
                 }
@@ -1204,7 +1341,7 @@ class ShippingController extends Controller
         $hasPendingReview = $latestDocs->contains(function ($doc) {
             return $doc->verify != true
                 && $doc->correction_attachment == false
-                && !empty($doc->url_path_file);
+                && ! empty($doc->url_path_file);
         });
 
         // Check for Empty Documents (Not Uploaded)
@@ -1216,22 +1353,28 @@ class ShippingController extends Controller
             $id = $status->id_status;
 
             // 1. Rejected (ID 4): Hide if no active rejections
-            if ($id == 4 && !$hasActiveRejections) return false;
+            if ($id == 4 && ! $hasActiveRejections) {
+                return false;
+            }
 
             // 2. Uploaded (ID 1) & Reuploaded (ID 3): Hide if no Pending Reviews
-            if (in_array($id, [1, 3]) && !$hasPendingReview) return false;
+            if (in_array($id, [1, 3]) && ! $hasPendingReview) {
+                return false;
+            }
 
             // 3. Requested (ID 2): Hide if no Empty Docs (Meaning all are uploaded)
             // This is CRITICAL because Requested (Index 1) overrides Verified (Index 2) if not hidden.
-            if ($id == 2 && !$hasEmptyDocs) return false;
+            if ($id == 2 && ! $hasEmptyDocs) {
+                return false;
+            }
 
             return true;
         });
 
         // Sort by Index ASC (Primary), then Created At DESC (Secondary)
         $priorityStatus = $activeStatuses->sortBy([
-            fn($a, $b) => ($a->masterStatus->index ?? 999) <=> ($b->masterStatus->index ?? 999),
-            fn($a, $b) => $b->created_at <=> $a->created_at,
+            fn ($a, $b) => ($a->masterStatus->index ?? 999) <=> ($b->masterStatus->index ?? 999),
+            fn ($a, $b) => $b->created_at <=> $a->created_at,
         ])->first();
 
         // 3. Format Data sesuai kebutuhan Frontend (shipmentData)
@@ -1239,13 +1382,13 @@ class ShippingController extends Controller
             ->latest()
             ->first();
         $shipmentData = [
-            'id_spk'    => $spk->id,
-            'spkDate'   => $priorityStatus ? $priorityStatus->created_at->format('d/m/y H.i') . ' WIB' : '-',
-            'status'    => $priorityStatus ? $priorityStatus->status : 'UNKNOWN',
+            'id_spk' => $spk->id,
+            'spkDate' => $priorityStatus ? $priorityStatus->created_at->format('d/m/y H.i').' WIB' : '-',
+            'status' => $priorityStatus ? $priorityStatus->status : 'UNKNOWN',
             'updated_by_name' => $latestLog->by ?? null, // Added to show who uploaded
             'shipmentType' => $spk->shipment_type,
-            'type'      => $spk->shipment_type,
-            'spkNumber'  => $spk->spk_code, // Mapping spk_code ke siNumber
+            'type' => $spk->shipment_type,
+            'spkNumber' => $spk->spk_code, // Mapping spk_code ke siNumber
             'id_customer' => $spk->id_customer,
             'penjaluran' => $spk->penjaluran,
             'internal_can_upload' => $spk->internal_can_upload,
@@ -1254,6 +1397,7 @@ class ShippingController extends Controller
             'register_number' => $spk->register_number,
             'register_date' => $spk->register_date,
             'eta_date' => $spk->eta_date ? $spk->eta_date->toDateString() : null,
+            'etd_date' => $spk->etd_date ? $spk->etd_date->toDateString() : null,
             'shipper' => $spk->shipper,
             'consignee' => $spk->consignee,
             'vessel' => $spk->vessel,
@@ -1276,7 +1420,7 @@ class ShippingController extends Controller
         // maka array ini hanya akan berisi 1 item.
         foreach ($spk->hsCodes as $hs) {
             $shipmentData['hsCodes'][] = [
-                'id'   => $hs->id_hscode,
+                'id' => $hs->id_hscode,
                 'code' => $hs->hs_code,
                 'link' => $hs->path_link_insw,
             ];
@@ -1308,37 +1452,36 @@ class ShippingController extends Controller
         $user = auth('web')->user();
 
         // 1. Authorization Check
-        if (!$user->can('assign_staff-master-shipping')) {
+        if (! $user->can('assign_staff-master-shipping')) {
             return back()->with('error', 'Unauthorized action.');
         }
 
         $validated = $request->validate([
-            'assigned_pic' => 'required|integer|exists:users,id_user'
+            'assigned_pic' => 'required|integer|exists:users,id_user',
         ]);
 
         // 2. Resolve Tenant
-        $tenant = null;
-        if ($user->id_perusahaan) {
-            $tenant = Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
-        }
+        [$tenant, $idPerusahaan] = $this->resolveTenantAndPerusahaanId($user);
 
-        if (!$tenant) {
+        if (! $tenant) {
             return redirect()->back()->withErrors(['error' => 'Tenant not found']);
         }
 
         tenancy()->initialize($tenant);
 
+        $spk = $this->findAccessibleSpkOrFail($id, $user, $idPerusahaan);
+
         // 3. Update SPK & Handle Notification (Centralized)
         // We use NotificationService that handles transaction, SPK update, and Notification Cleanup
         try {
-            // Re-fetch SPK to ensure fresh state
-            $spk = Spk::findOrFail($id);
-
             if ($spk->validated_by == $validated['assigned_pic']) {
                 return redirect()->back()->withErrors(['assigned_pic' => 'User is already assigned.']);
             }
 
-            $assignedUser = User::on('tako-user')->find($validated['assigned_pic']);
+            $assignedUser = User::on('tako-user')
+                ->where('id_user', $validated['assigned_pic'])
+                ->where('id_perusahaan', $idPerusahaan)
+                ->first();
 
             if ($assignedUser) {
                 // 1. Update SPK assignment
@@ -1348,34 +1491,35 @@ class ShippingController extends Controller
                 try {
                     // Internal Database Notification
                     NotificationService::send([
-                        'send_to'    => $assignedUser->id_user,
+                        'send_to' => $assignedUser->id_user,
                         'created_by' => $user->id_user,
-                        'role'       => 'internal',
-                        'id_spk'     => $spk->id,
-                        'data'       => [
-                            'type'     => 'spk_assigned',
-                            'title'    => 'Penunjukan PIC SPK',
-                            'message'  => "Anda ditunjuk sebagai PIC untuk SPK {$spk->spk_code} oleh {$user->name}",
-                            'url'      => "/shipping/{$spk->id}",
+                        'role' => 'internal',
+                        'id_spk' => $spk->id,
+                        'data' => [
+                            'type' => 'spk_assigned',
+                            'title' => 'Penunjukan PIC SPK',
+                            'message' => "Anda ditunjuk sebagai PIC untuk SPK {$spk->spk_code} oleh {$user->name}",
+                            'url' => "/shipping/{$spk->id}",
                             'spk_code' => $spk->spk_code,
-                        ]
+                        ],
                     ]);
 
                     // Email Notification
                     SectionReminderService::sendStaffAssigned($spk, $user, $assignedUser);
                 } catch (\Exception $e) {
-                    Log::error("Failed to send assignment notification: " . $e->getMessage());
+                    Log::error('Failed to send assignment notification: '.$e->getMessage());
                 }
 
                 // 3. Broadcast realtime update
                 try {
                     ShippingDataUpdated::dispatch($spk->id, 'staff_assigned');
                 } catch (\Exception $e) {
-                    Log::error('Realtime update failed: ' . $e->getMessage());
+                    Log::error('Realtime update failed: '.$e->getMessage());
                 }
             }
         } catch (\Exception $e) {
-            Log::error("Failed to assign staff: " . $e->getMessage());
+            Log::error('Failed to assign staff: '.$e->getMessage());
+
             return redirect()->back()->withErrors(['error' => 'Failed to assign staff']);
         }
 
@@ -1403,11 +1547,11 @@ class ShippingController extends Controller
                         'id_spk' => $spk->id,
                         'send_to' => $cust->id_user,
                         'created_by' => $rejector->id,
-                        'role'   => 'eksternal',
+                        'role' => 'eksternal',
                         'section_name' => $sectionName,
                         'reason' => $reason,
                         'count' => $count,
-                        'spk_code' => $spk->spk_code
+                        'spk_code' => $spk->spk_code,
                     ]);
                 } catch (\Exception $e) {
                 }
@@ -1424,11 +1568,11 @@ class ShippingController extends Controller
                         'id_spk' => $spk->id,
                         'send_to' => $staff->id_user,
                         'created_by' => $rejector->id,
-                        'role'   => 'internal',
+                        'role' => 'internal',
                         'section_name' => $sectionName,
                         'reason' => $reason,
                         'count' => $count,
-                        'spk_code' => $spk->spk_code
+                        'spk_code' => $spk->spk_code,
                     ]);
                 } catch (\Exception $e) {
                 }
@@ -1444,7 +1588,9 @@ class ShippingController extends Controller
             ->get();
 
         foreach ($supervisors as $supervisor) {
-            if ($supervisor->id_user == $rejector->id) continue;
+            if ($supervisor->id_user == $rejector->id) {
+                continue;
+            }
             // 1. Email for Supervisor
             try {
                 SectionReminderService::sendBatchDocumentRejected($spk, $sectionName, $rejector, $supervisor, $reason, $count);
@@ -1457,11 +1603,11 @@ class ShippingController extends Controller
                     'id_spk' => $spk->id,
                     'send_to' => $supervisor->id_user,
                     'created_by' => $rejector->id,
-                    'role'   => 'internal',
+                    'role' => 'internal',
                     'section_name' => $sectionName,
                     'reason' => $reason,
                     'count' => $count,
-                    'spk_code' => $spk->spk_code
+                    'spk_code' => $spk->spk_code,
                 ]);
             } catch (\Exception $e) {
             }
@@ -1493,14 +1639,14 @@ class ShippingController extends Controller
                         'id_spk' => $spk->id,
                         'send_to' => $cust->id_user,
                         'created_by' => $verifier->id,
-                        'role'   => 'eksternal',
-                        'data'   => [
-                            'type'    => 'document_verified',
-                            'title'   => 'Dokumen Diverifikasi',
+                        'role' => 'eksternal',
+                        'data' => [
+                            'type' => 'document_verified',
+                            'title' => 'Dokumen Diverifikasi',
                             'message' => "{$count} dokumen pada section {$sectionName} telah diverifikasi oleh {$verifier->name}.",
-                            'url'     => "/shipping/{$spk->id}",
+                            'url' => "/shipping/{$spk->id}",
                             'spk_code' => $spk->spk_code,
-                        ]
+                        ],
                     ]);
                 } catch (\Exception $e) {
                 }
@@ -1520,14 +1666,14 @@ class ShippingController extends Controller
                         'id_spk' => $spk->id,
                         'send_to' => $staff->id_user,
                         'created_by' => $verifier->id,
-                        'role'   => 'internal',
-                        'data'   => [
-                            'type'    => 'document_verified',
-                            'title'   => 'Dokumen Diverifikasi',
+                        'role' => 'internal',
+                        'data' => [
+                            'type' => 'document_verified',
+                            'title' => 'Dokumen Diverifikasi',
                             'message' => "{$count} dokumen pada section {$sectionName} telah diverifikasi oleh Customer {$verifier->name}",
-                            'url'     => "/shipping/{$spk->id}",
+                            'url' => "/shipping/{$spk->id}",
                             'spk_code' => $spk->spk_code,
-                        ]
+                        ],
                     ]);
                 } catch (\Exception $e) {
                 }
@@ -1543,7 +1689,9 @@ class ShippingController extends Controller
             ->get();
 
         foreach ($supervisors as $supervisor) {
-            if ($supervisor->id_user == $verifier->id) continue;
+            if ($supervisor->id_user == $verifier->id) {
+                continue;
+            }
             // 1. Email for Supervisor
             try {
                 SectionReminderService::sendDocumentVerified($spk, $sectionName, $verifier, $supervisor);
@@ -1556,14 +1704,14 @@ class ShippingController extends Controller
                     'id_spk' => $spk->id,
                     'send_to' => $supervisor->id_user,
                     'created_by' => $verifier->id,
-                    'role'   => 'internal',
-                    'data'   => [
-                        'type'    => 'document_verified',
-                        'title'   => 'Dokumen Diverifikasi (Monitoring)',
-                        'message' => "{$count} dokumen pada section {$sectionName} telah diverifikasi oleh " . ($verifier->role == 'internal' ? "Staff {$verifier->name}" : "Customer {$verifier->name}"),
-                        'url'     => "/shipping/{$spk->id}",
+                    'role' => 'internal',
+                    'data' => [
+                        'type' => 'document_verified',
+                        'title' => 'Dokumen Diverifikasi (Monitoring)',
+                        'message' => "{$count} dokumen pada section {$sectionName} telah diverifikasi oleh ".($verifier->role == 'internal' ? "Staff {$verifier->name}" : "Customer {$verifier->name}"),
+                        'url' => "/shipping/{$spk->id}",
                         'spk_code' => $spk->spk_code,
-                    ]
+                    ],
                 ]);
             } catch (\Exception $e) {
             }
@@ -1598,8 +1746,8 @@ class ShippingController extends Controller
                             'title' => 'Dokumen Baru Diupload',
                             'message' => "Staff {$uploader->name} mengupload {$count} dokumen pada section {$sectionName}.",
                             'url' => "/shipping/{$spk->id}",
-                            'spk_code' => $spk->spk_code
-                        ]
+                            'spk_code' => $spk->spk_code,
+                        ],
                     ]);
                 } catch (\Exception $e) {
                 }
@@ -1622,8 +1770,8 @@ class ShippingController extends Controller
                             'title' => 'Dokumen Baru Diupload',
                             'message' => "Customer {$uploader->name} mengupload {$count} dokumen pada section {$sectionName}.",
                             'url' => "/shipping/{$spk->id}",
-                            'spk_code' => $spk->spk_code
-                        ]
+                            'spk_code' => $spk->spk_code,
+                        ],
                     ]);
                 } catch (\Exception $e) {
                 }
@@ -1639,7 +1787,9 @@ class ShippingController extends Controller
             ->get();
 
         foreach ($supervisors as $supervisor) {
-            if ($supervisor->id_user == $uploader->id) continue;
+            if ($supervisor->id_user == $uploader->id) {
+                continue;
+            }
             // 1. Email for Supervisor
             try {
                 SectionReminderService::sendDocumentUploaded($spk, $sectionName, $uploader, $supervisor);
@@ -1656,16 +1806,15 @@ class ShippingController extends Controller
                     'data' => [
                         'type' => 'document_uploaded',
                         'title' => 'Dokumen Baru Diupload (Monitoring)',
-                        'message' => ($uploader->role == 'internal' ? "Staff {$uploader->name}" : "Customer {$uploader->name}") . " mengupload {$count} dokumen pada section {$sectionName}.",
+                        'message' => ($uploader->role == 'internal' ? "Staff {$uploader->name}" : "Customer {$uploader->name}")." mengupload {$count} dokumen pada section {$sectionName}.",
                         'url' => "/shipping/{$spk->id}",
-                        'spk_code' => $spk->spk_code
-                    ]
+                        'spk_code' => $spk->spk_code,
+                    ],
                 ]);
             } catch (\Exception $e) {
             }
         }
     }
-
 
     /**
      * Show the form for editing the specified resource.
@@ -1680,7 +1829,6 @@ class ShippingController extends Controller
             'customer' => $customer->load('attachments'),
         ]);
     }
-
 
     /**
      * Update the specified resource in storage.
@@ -1739,10 +1887,12 @@ class ShippingController extends Controller
             $customer->update($validated);
 
             DB::commit();
+
             return redirect()->route('shipping.index')->with('success', 'Data Shipping berhasil diperbarui!');
         } catch (\Throwable $th) {
             DB::rollBack();
-            return redirect()->back()->withErrors(['error' => 'Terjadi kesalahan: ' . $th->getMessage()]);
+
+            return redirect()->back()->withErrors(['error' => 'Terjadi kesalahan: '.$th->getMessage()]);
         }
     }
 
@@ -1765,7 +1915,7 @@ class ShippingController extends Controller
             DB::rollBack();
 
             return redirect()->route('shipping.index')
-                ->with('error', 'Gagal menghapus Data Shipping: ' . $e->getMessage());
+                ->with('error', 'Gagal menghapus Data Shipping: '.$e->getMessage());
         }
     }
 
@@ -1776,8 +1926,8 @@ class ShippingController extends Controller
         $customer = Spk::with(['attachments', 'perusahaan'])->findOrFail($id);
         $user = auth('web')->user();
 
-        $tempDir = storage_path("app/temp");
-        if (!file_exists($tempDir)) {
+        $tempDir = storage_path('app/temp');
+        if (! file_exists($tempDir)) {
             mkdir($tempDir, 0755, true);
             Log::info("📁 Folder temp dibuat: {$tempDir}");
         }
@@ -1792,18 +1942,22 @@ class ShippingController extends Controller
         $attachmentPdfPaths = [];
 
         foreach ($customer->attachments as $attachment) {
-            if (!in_array($attachment->type, ['npwp', 'nib', 'ktp'])) continue;
+            if (! in_array($attachment->type, ['npwp', 'nib', 'ktp'])) {
+                continue;
+            }
 
             $parsedPath = parse_url($attachment->path, PHP_URL_PATH);
             $relativePath = str_replace('/storage/', '', $parsedPath);
             $localPath = storage_path("app/public/{$relativePath}");
 
-            if (!file_exists($localPath)) continue;
+            if (! file_exists($localPath)) {
+                continue;
+            }
 
             if (Str::endsWith(strtolower($localPath), '.pdf')) {
                 $attachmentPdfPaths[] = $localPath;
             } else {
-                $convertedPdfPath = "{$tempDir}/converted_" . $attachment->type . "_{$customer->id}.pdf";
+                $convertedPdfPath = "{$tempDir}/converted_".$attachment->type."_{$customer->id}.pdf";
                 $html = view('pdf.attachment-wrapper', [
                     'title' => strtoupper($attachment->type),
                     'filePath' => $localPath,
@@ -1821,22 +1975,22 @@ class ShippingController extends Controller
         try {
             $this->mergePdfsWithGhostscript(array_merge([$mainPdfPath], $attachmentPdfPaths), $mergedPath);
 
-            if (!file_exists($mergedPath) || filesize($mergedPath) < 1000) {
+            if (! file_exists($mergedPath) || filesize($mergedPath) < 1000) {
                 Log::error("❌ Merge gagal atau file terlalu kecil: {$mergedPath}");
                 throw new \Exception('Merge PDF gagal.');
             }
 
             $finalPath = $mergedPath;
         } catch (\Throwable $e) {
-            Log::error("⚠️ Ghostscript gagal, fallback ke main PDF. Error: " . $e->getMessage());
+            Log::error('⚠️ Ghostscript gagal, fallback ke main PDF. Error: '.$e->getMessage());
             $finalPath = $mainPdfPath;
         }
 
-        Log::info("✅ Proses selesai, kirim file ke user.");
+        Log::info('✅ Proses selesai, kirim file ke user.');
 
         return response()->download($finalPath, "customer_{$customer->id}.pdf", [
             'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'attachment; filename="customer_' . $customer->id . '.pdf"',
+            'Content-Disposition' => 'attachment; filename="customer_'.$customer->id.'.pdf"',
         ])->deleteFileAfterSend(true);
     }
 
@@ -1846,45 +2000,35 @@ class ShippingController extends Controller
         $gsCmd = $isWindows ? 'gswin64c' : 'gs';
 
         $inputFiles = implode(' ', array_map(function ($path) {
-            return '"' . str_replace('\\', '/', $path) . '"';
+            return '"'.str_replace('\\', '/', $path).'"';
         }, $inputPaths));
 
-        $outputFile = '"' . str_replace('\\', '/', $outputPath) . '"';
+        $outputFile = '"'.str_replace('\\', '/', $outputPath).'"';
         $cmd = "{$gsCmd} -dBATCH -dNOPAUSE -q -sDEVICE=pdfwrite -sOutputFile={$outputFile} {$inputFiles}";
 
-        exec($cmd . ' 2>&1', $output, $returnVar);
+        exec($cmd.' 2>&1', $output, $returnVar);
 
         if ($returnVar !== 0) {
             throw new \Exception("Ghostscript gagal menggabungkan PDF. Kode: {$returnVar}");
         }
     }
 
-
     /**
      * Get available documents from master_documents_trans where id_section is null or 0
      * These are documents that haven't been assigned to any section yet
-     * 
-     * @param Request $request
+     *
      * @return \Illuminate\Http\JsonResponse
      */
     public function getAvailableDocuments(Request $request)
     {
         $user = auth('web')->user();
         // Initialize tenant context FIRST
-        $tenant = null;
-        if ($user->id_perusahaan) {
-            $tenant = Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
-        } elseif ($user->id_customer) {
-            $customer = Customer::find($user->id_customer);
-            if ($customer && $customer->ownership) {
-                $tenant = Tenant::where('perusahaan_id', $customer->ownership)->first();
-            }
-        }
+        [$tenant, $idPerusahaan] = $this->resolveTenantAndPerusahaanId($user);
 
-        if (!$tenant) {
+        if (! $tenant) {
             return response()->json([
                 'success' => false,
-                'message' => 'Tenant not found'
+                'message' => 'Tenant not found',
             ], 404);
         }
 
@@ -1896,19 +2040,10 @@ class ShippingController extends Controller
             'id_section' => 'nullable|integer',
         ]);
 
-        // Security Check: Prevent IDOR for external users
-        if ($user->role === 'eksternal') {
-            $spk = \App\Models\Spk::find($request->id_spk);
-            if ($spk && $spk->id_customer !== $user->id_customer) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Unauthorized to access this SPK'
-                ], 403);
-            }
-        }
+        $spk = $this->findAccessibleSpkOrFail($request->id_spk, $user, $idPerusahaan);
 
         try {
-            $existingDocs = DocumentTrans::where('id_spk', $request->id_spk)
+            $existingDocs = DocumentTrans::where('id_spk', $spk->id)
                 ->pluck('id_dokumen')
                 ->filter()
                 ->unique()
@@ -1927,28 +2062,28 @@ class ShippingController extends Controller
                     });
                 }
             })
-            ->where('is_active', 1) // jangan lupa ini kalau memang ada kolomnya
-            ->when(!empty($existingDocs), function ($q) use ($existingDocs) {
-                $q->whereNotIn('id_dokumen', $existingDocs);
-            })
-            ->select([
-                'id_dokumen',
-                'nama_file',
-                'description_file',
-                'is_internal',
-                'is_verification',
-                'import_mandatory',
-                'export_mandatory',
-                'link_path_example_file',
-                'link_path_template_file',
-                'link_url_video_file'
-            ])
-            ->orderBy('nama_file', 'asc')
-            ->get();
+                ->where('is_active', 1) // jangan lupa ini kalau memang ada kolomnya
+                ->when(! empty($existingDocs), function ($q) use ($existingDocs) {
+                    $q->whereNotIn('id_dokumen', $existingDocs);
+                })
+                ->select([
+                    'id_dokumen',
+                    'nama_file',
+                    'description_file',
+                    'is_internal',
+                    'is_verification',
+                    'import_mandatory',
+                    'export_mandatory',
+                    'link_path_example_file',
+                    'link_path_template_file',
+                    'link_url_video_file',
+                ])
+                ->orderBy('nama_file', 'asc')
+                ->get();
 
             return response()->json([
                 'success' => true,
-                'documents' => $availableDocuments
+                'documents' => $availableDocuments,
             ]);
         } catch (\Throwable $e) {
             Log::error('Failed to fetch available documents', [
@@ -1958,7 +2093,7 @@ class ShippingController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to fetch documents: ' . $e->getMessage()
+                'message' => 'Failed to fetch documents: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -1970,25 +2105,21 @@ class ShippingController extends Controller
     {
         $user = auth('web')->user();
         // 1. Initialize Tenant Context
-        $tenant = null;
-        if ($user->id_perusahaan) {
-            $tenant = Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
-        } elseif ($user->id_customer) {
-            $customer = Customer::find($user->id_customer);
-            if ($customer && $customer->ownership) {
-                $tenant = Tenant::where('perusahaan_id', $customer->ownership)->first();
-            }
-        }
+        [$tenant, $idPerusahaan] = $this->resolveTenantAndPerusahaanId($user);
 
-        if (!$tenant) return response()->json(['success' => false, 'message' => 'Tenant not found'], 404);
+        if (! $tenant) {
+            return response()->json(['success' => false, 'message' => 'Tenant not found'], 404);
+        }
         tenancy()->initialize($tenant);
 
         $request->validate([
             'id_spk' => 'required|integer|exists:tenant-transaction.spk,id',
             'id_section' => 'required|integer',
             'document_ids' => 'required|array',
-            'document_ids.*' => 'integer|exists:master_documents_trans,id_dokumen'
+            'document_ids.*' => 'integer|exists:master_documents_trans,id_dokumen',
         ]);
+
+        $spk = $this->findAccessibleSpkOrFail($request->id_spk, $user, $idPerusahaan);
 
         try {
             DB::beginTransaction();
@@ -2005,13 +2136,13 @@ class ShippingController extends Controller
 
                 if ($masterDocTrans) {
                     // Check if already exists in this SPK to prevent duplicates
-                    $exists = DocumentTrans::where('id_spk', $spkId)
+                    $exists = DocumentTrans::where('id_spk', $spk->id)
                         ->where('id_dokumen', $masterDocTrans->id_dokumen)
                         ->exists();
 
-                    if (!$exists) {
+                    if (! $exists) {
                         DocumentTrans::create([
-                            'id_spk' => $spkId,
+                            'id_spk' => $spk->id,
                             'id_section' => $masterSectionId, // Use Master ID for correct grouping
                             'id_dokumen' => $masterDocTrans->id_dokumen,
                             'nama_file' => $masterDocTrans->nama_file,
@@ -2034,13 +2165,12 @@ class ShippingController extends Controller
 
             if ($addedCount > 0) {
                 try {
-                    ShippingDataUpdated::dispatch($spkId, 'add_document');
+                    ShippingDataUpdated::dispatch($spk->id, 'add_document');
                 } catch (\Exception $e) {
                 }
 
                 // NOTIFICATION & EMAIL TO CUSTOMER
                 try {
-                    $spk = Spk::find($spkId);
                     if ($spk && $spk->id_customer) {
                         $section = MasterSectionTrans::find($masterSectionId);
                         $sectionName = $section ? $section->section_name : 'Section';
@@ -2055,7 +2185,7 @@ class ShippingController extends Controller
                             try {
                                 SectionReminderService::sendDocumentAdded($spk, $sectionName, $user, $extUser, $addedCount);
                             } catch (\Exception $e) {
-                                Log::error("Failed to send Document Added Email: " . $e->getMessage());
+                                Log::error('Failed to send Document Added Email: '.$e->getMessage());
                             }
 
                             // 2. WebSocket Notification
@@ -2071,16 +2201,16 @@ class ShippingController extends Controller
                                         'title' => 'Dokumen Tambahan',
                                         'message' => "Ada Dokumen tambahan yang perlu anda cek pada section {$sectionName} di SPK {$spk->spk_code}",
                                         'url' => "/shipping/{$spk->id}#section-{$masterSectionId}",
-                                        'spk_code' => $spk->spk_code
-                                    ]
+                                        'spk_code' => $spk->spk_code,
+                                    ],
                                 ]);
                             } catch (\Exception $e) {
-                                Log::error("Failed to send Document Added Notification: " . $e->getMessage());
+                                Log::error('Failed to send Document Added Notification: '.$e->getMessage());
                             }
                         }
                     }
                 } catch (\Exception $e) {
-                    Log::error("Failed to process document added notifications: " . $e->getMessage());
+                    Log::error('Failed to process document added notifications: '.$e->getMessage());
                 }
             }
 
@@ -2090,20 +2220,21 @@ class ShippingController extends Controller
             } elseif ($addedCount > 0) {
                 $message = "Berhasil menambah {$addedCount} dokumen.";
             } else {
-                $message = "Tidak ada dokumen yang ditambahkan. Semua dokumen yang dipilih sudah ada di SPK ini.";
+                $message = 'Tidak ada dokumen yang ditambahkan. Semua dokumen yang dipilih sudah ada di SPK ini.';
             }
 
             return response()->json([
                 'success' => $addedCount > 0,
                 'message' => $message,
                 'added_count' => $addedCount,
-                'skipped_count' => $skippedCount
+                'skipped_count' => $skippedCount,
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
+
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to add documents: ' . $e->getMessage()
+                'message' => 'Failed to add documents: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -2119,10 +2250,11 @@ class ShippingController extends Controller
         // --- PERMISSION CHECK ---
         // 1. Check for Upload Permission
         if ($request->has('attachments') && is_array($request->attachments) && count($request->attachments) > 0) {
-            if (!$user->can('upload-document')) {
+            if (! $user->can('upload-document')) {
                 if ($request->header('X-Inertia')) {
                     return back()->withErrors(['message' => 'Anda tidak memiliki izin untuk mengunggah dokumen.']);
                 }
+
                 return response()->json(['success' => false, 'message' => 'Anda tidak memiliki izin untuk mengunggah dokumen.'], 403);
             }
         }
@@ -2132,10 +2264,11 @@ class ShippingController extends Controller
         $hasReject = ($request->has('rejections') && is_array($request->rejections) && count($request->rejections) > 0);
 
         if ($hasVerify || $hasReject) {
-            if (!$user->can('verify-document')) {
+            if (! $user->can('verify-document')) {
                 if ($request->header('X-Inertia')) {
                     return back()->withErrors(['message' => 'Anda tidak memiliki izin untuk memverifikasi atau menolak dokumen.']);
                 }
+
                 return response()->json(['success' => false, 'message' => 'Anda tidak memiliki izin untuk memverifikasi atau menolak dokumen.'], 403);
             }
         }
@@ -2155,24 +2288,17 @@ class ShippingController extends Controller
         $sectionName = $request->section_name ?? 'Document';
 
         // 1. Initialize Tenancy
-        $tenant = null;
-        if ($user->id_perusahaan) {
-            $tenant = Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
-        } elseif ($user->id_customer) {
-            $customer = \App\Models\Customer::find($user->id_customer);
-            if ($customer && $customer->ownership) {
-                $tenant = Tenant::where('perusahaan_id', $customer->ownership)->first();
-            }
-        }
-        if (!$tenant) {
+        [$tenant, $idPerusahaan] = $this->resolveTenantAndPerusahaanId($user);
+        if (! $tenant) {
             if ($request->header('X-Inertia')) {
                 return back()->withErrors(['message' => 'Tenant not found']);
             }
+
             return response()->json(['success' => false, 'message' => 'Tenant not found'], 404);
         }
         tenancy()->initialize($tenant);
 
-        $spk = Spk::findOrFail($spkId);
+        $spk = $this->findAccessibleSpkOrFail($spkId, $user, $idPerusahaan);
         $metrics = ['uploads' => 0, 'verifications' => 0, 'rejections' => 0, 'deadline' => false];
 
         DB::beginTransaction();
@@ -2185,13 +2311,19 @@ class ShippingController extends Controller
 
                 foreach ($request->attachments as $att) {
                     $tempPath = $att['path'];
-                    if (!Storage::disk('customers_external')->exists($tempPath)) {
+                    if (! Storage::disk('customers_external')->exists($tempPath)) {
                         $tempPath = ltrim($tempPath, '/');
-                        if (!Storage::disk('customers_external')->exists($tempPath)) continue;
+                        if (! Storage::disk('customers_external')->exists($tempPath)) {
+                            continue;
+                        }
                     }
 
-                    $targetDoc = DocumentTrans::with('sectionTrans')->find($att['document_id']);
-                    if (!$targetDoc) continue;
+                    $targetDoc = DocumentTrans::with('sectionTrans')
+                        ->where('id_spk', $spk->id)
+                        ->find($att['document_id']);
+                    if (! $targetDoc) {
+                        continue;
+                    }
 
                     if ($targetDoc->sectionTrans) {
                         $uniqueSections[$targetDoc->sectionTrans->id] = $targetDoc->sectionTrans->section_name;
@@ -2199,15 +2331,19 @@ class ShippingController extends Controller
 
                     // Re-upload logic: only replicate if it already has a file OR is marked as correction.
                     // IMPORTANT: If url_path_file is empty, we just update the existing record to avoid "empty v1" duplicates.
-                    $isReupload = ($targetDoc->correction_attachment && !empty($targetDoc->url_path_file)) || !empty($targetDoc->url_path_file);
-                    if ($isReupload) $hasAnyReupload = true;
+                    $isReupload = ($targetDoc->correction_attachment && ! empty($targetDoc->url_path_file)) || ! empty($targetDoc->url_path_file);
+                    if ($isReupload) {
+                        $hasAnyReupload = true;
+                    }
 
                     // Processing
                     $fileContent = Storage::disk('customers_external')->get($tempPath);
                     $ext = strtolower(pathinfo($tempPath, PATHINFO_EXTENSION));
-                    $shippingFolder = "shipping/" . date('Y/m') . "/{$spk->spk_code}";
+                    $shippingFolder = 'shipping/'.date('Y/m')."/{$spk->spk_code}";
 
-                    if (!Storage::disk('customers_external')->exists($shippingFolder)) Storage::disk('customers_external')->makeDirectory($shippingFolder);
+                    if (! Storage::disk('customers_external')->exists($shippingFolder)) {
+                        Storage::disk('customers_external')->makeDirectory($shippingFolder);
+                    }
 
                     $cleanType = preg_replace('/[^A-Za-z0-9]/', '_', $att['type']);
                     $cleanSpkCode = preg_replace('/[^A-Za-z0-9]/', '_', $spk->spk_code);
@@ -2266,7 +2402,7 @@ class ShippingController extends Controller
 
                     // Update Status
                     $statusId = $hasAnyReupload ? 3 : 1;
-                    $statusTxt = "{$notifSec} " . ($hasAnyReupload ? 'Reuploaded' : 'Uploaded');
+                    $statusTxt = "{$notifSec} ".($hasAnyReupload ? 'Reuploaded' : 'Uploaded');
                     SpkStatus::create(['id_spk' => $spk->id, 'id_status' => $statusId, 'status' => $statusTxt]);
                 }
             }
@@ -2274,7 +2410,13 @@ class ShippingController extends Controller
             // --- B. VERIFICATIONS ---
             if ($request->has('verified_ids') && is_array($request->verified_ids)) {
                 $ids = $request->verified_ids;
-                DocumentTrans::whereIn('id', $ids)->update(['verify' => true, 'correction_attachment' => false, 'verified_date' => now(), 'updated_at' => now()]);
+                $ids = DocumentTrans::where('id_spk', $spk->id)
+                    ->whereIn('id', $ids)
+                    ->pluck('id')
+                    ->all();
+                DocumentTrans::where('id_spk', $spk->id)
+                    ->whereIn('id', $ids)
+                    ->update(['verify' => true, 'correction_attachment' => false, 'verified_date' => now(), 'updated_at' => now()]);
                 foreach ($ids as $id) {
                     DocumentStatus::create(['id_dokumen_trans' => $id, 'status' => 'Verified', 'by' => $user->name]);
                 }
@@ -2287,12 +2429,18 @@ class ShippingController extends Controller
             if ($request->has('rejections') && is_array($request->rejections)) {
                 $rejSecs = [];
                 foreach ($request->rejections as $index => $rej) {
-                    $doc = DocumentTrans::with('sectionTrans')->findOrFail($rej['doc_id']);
-                    if ($doc->sectionTrans) $rejSecs[$doc->sectionTrans->id] = $doc->sectionTrans->section_name;
+                    $doc = DocumentTrans::with('sectionTrans')
+                        ->where('id_spk', $spk->id)
+                        ->findOrFail($rej['doc_id']);
+                    if ($doc->sectionTrans) {
+                        $rejSecs[$doc->sectionTrans->id] = $doc->sectionTrans->section_name;
+                    }
 
                     $rejPath = null; // Reset — don't carry over file from previous rejection
                     $file = $request->file("rejections.$index.file");
-                    if ($file) $rejPath = $file->store('corrections', 'customers_external');
+                    if ($file) {
+                        $rejPath = $file->store('corrections', 'customers_external');
+                    }
 
                     $doc->update(['verify' => false, 'correction_attachment' => true, 'correction_description' => $rej['note'], 'correction_attachment_file' => $rejPath]);
                     DocumentStatus::create(['id_dokumen_trans' => $doc->id, 'status' => 'Rejected', 'by' => $user->name]);
@@ -2325,14 +2473,14 @@ class ShippingController extends Controller
             try {
                 broadcast(new ShippingDataUpdated($spk->id, 'unified_save'))->toOthers();
             } catch (\Exception $e) {
-                Log::error('Realtime update failed: ' . $e->getMessage());
+                Log::error('Realtime update failed: '.$e->getMessage());
             }
 
             return redirect()->route('shipping.show', $spk->id);
         } catch (\Throwable $e) {
             DB::connection('tenant-transaction')->rollBack();
             DB::rollBack();
-            Log::error("Unified Save Fail: " . $e->getMessage());
+            Log::error('Unified Save Fail: '.$e->getMessage());
 
             return redirect()->back()->withErrors(['message' => $e->getMessage()]);
         }
@@ -2346,17 +2494,9 @@ class ShippingController extends Controller
         $user = auth('web')->user();
 
         // 1. Initialize Tenancy
-        $tenant = null;
-        if ($user->id_perusahaan) {
-            $tenant = Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
-        } elseif ($user->id_customer) {
-            $customer = Customer::find($user->id_customer);
-            if ($customer && $customer->ownership) {
-                $tenant = Tenant::where('perusahaan_id', $customer->ownership)->first();
-            }
-        }
+        [$tenant, $idPerusahaan] = $this->resolveTenantAndPerusahaanId($user);
 
-        if (!$tenant) {
+        if (! $tenant) {
             return response()->json(['success' => false, 'message' => 'Tenant not found'], 404);
         }
 
@@ -2369,22 +2509,24 @@ class ShippingController extends Controller
             'section_deadlines' => 'nullable|array',
         ]);
 
+        $spk = $this->findAccessibleSpkOrFail($request->spk_id, $user, $idPerusahaan);
+
         try {
             DB::connection('tenant-transaction')->beginTransaction();
 
             if ($request->unified) {
                 // Update all sections for this SPK
-                SectionTrans::where('id_spk', $request->spk_id)->update([
+                SectionTrans::where('id_spk', $spk->id)->update([
                     'deadline' => true,
-                    'deadline_date' => $request->global_deadline
+                    'deadline_date' => $request->global_deadline,
                 ]);
             } else {
                 // Update specific sections
                 if ($request->has('section_deadlines')) {
                     foreach ($request->section_deadlines as $sectionId => $date) {
-                        SectionTrans::where(['id_spk' => $request->spk_id, 'id' => $sectionId])->update([
+                        SectionTrans::where(['id_spk' => $spk->id, 'id' => $sectionId])->update([
                             'deadline' => true,
-                            'deadline_date' => $date
+                            'deadline_date' => $date,
                         ]);
                     }
                 }
@@ -2393,16 +2535,17 @@ class ShippingController extends Controller
             DB::connection('tenant-transaction')->commit();
 
             try {
-                broadcast(new ShippingDataUpdated($request->spk_id, 'deadline_update'))->toOthers();
+                broadcast(new ShippingDataUpdated($spk->id, 'deadline_update'))->toOthers();
             } catch (\Exception $e) {
-                Log::error('Realtime update failed: ' . $e->getMessage());
+                Log::error('Realtime update failed: '.$e->getMessage());
             }
 
             return response()->json(['success' => true, 'message' => 'Deadline updated successfully']);
         } catch (\Exception $e) {
             DB::connection('tenant-transaction')->rollBack();
-            Log::error('Failed to update deadline: ' . $e->getMessage());
-            return response()->json(['success' => false, 'message' => 'Failed to update deadline: ' . $e->getMessage()], 500);
+            Log::error('Failed to update deadline: '.$e->getMessage());
+
+            return response()->json(['success' => false, 'message' => 'Failed to update deadline: '.$e->getMessage()], 500);
         }
     }
 
@@ -2414,55 +2557,49 @@ class ShippingController extends Controller
         $user = auth('web')->user();
 
         // Supervisor-only guard
-        if (!$user->can('assign_staff-master-shipping')) {
+        if (! $user->can('assign_staff-master-shipping')) {
             return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
         }
 
         // Initialize tenant context FIRST
-        $tenant = null;
-        if ($user->id_perusahaan) {
-            $tenant = Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
-        } elseif ($user->id_customer) {
-            $customer = Customer::find($user->id_customer);
-            if ($customer && $customer->ownership) {
-                $tenant = Tenant::where('perusahaan_id', $customer->ownership)->first();
-            }
-        }
+        [$tenant, $idPerusahaan] = $this->resolveTenantAndPerusahaanId($user);
 
-        if (!$tenant) {
+        if (! $tenant) {
             return response()->json(['success' => false, 'message' => 'Tenant not found'], 404);
         }
 
         tenancy()->initialize($tenant);
 
         $validated = $request->validate([
-            'id_spk'              => 'required|integer',
+            'id_spk' => 'required|integer',
             'internal_can_upload' => 'required|boolean',
         ]);
 
+        $spk = $this->findAccessibleSpkOrFail($validated['id_spk'], $user, $idPerusahaan);
+
         try {
-            $spk = Spk::findOrFail($validated['id_spk']);
             $spk->update(['internal_can_upload' => $validated['internal_can_upload']]);
 
             Log::info('internal_can_upload updated', [
-                'spk_id'              => $spk->id,
+                'spk_id' => $spk->id,
                 'internal_can_upload' => $validated['internal_can_upload'],
-                'by'                  => $user->id_user,
+                'by' => $user->id_user,
             ]);
 
             try {
                 ShippingDataUpdated::dispatch($spk->id, 'internal_can_upload_update');
             } catch (\Exception $e) {
-                Log::error('Realtime update failed: ' . $e->getMessage());
+                Log::error('Realtime update failed: '.$e->getMessage());
             }
 
             return response()->json([
-                'success'             => true,
-                'message'             => 'Upload mode updated',
+                'success' => true,
+                'message' => 'Upload mode updated',
                 'internal_can_upload' => $validated['internal_can_upload'],
             ]);
         } catch (\Throwable $e) {
-            Log::error('Failed to update internal_can_upload: ' . $e->getMessage());
+            Log::error('Failed to update internal_can_upload: '.$e->getMessage());
+
             return response()->json(['success' => false, 'message' => 'Failed to update upload mode'], 500);
         }
     }
@@ -2475,35 +2612,28 @@ class ShippingController extends Controller
         $user = auth('web')->user();
 
         // Initialize tenant context FIRST
-        $tenant = null;
-        if ($user->id_perusahaan) {
-            $tenant = Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
-        } elseif ($user->id_customer) {
-            $customer = Customer::find($user->id_customer);
-            if ($customer && $customer->ownership) {
-                $tenant = Tenant::where('perusahaan_id', $customer->ownership)->first();
-            }
-        }
+        [$tenant, $idPerusahaan] = $this->resolveTenantAndPerusahaanId($user);
 
-        if (!$tenant) {
+        if (! $tenant) {
             return response()->json(['success' => false, 'message' => 'Tenant not found'], 404);
         }
 
         tenancy()->initialize($tenant);
 
         $validated = $request->validate([
-            'id_spk'          => 'required|integer',
-            'penjaluran'      => 'required|string|in:merah,hijau',
+            'id_spk' => 'required|integer',
+            'penjaluran' => 'required|string|in:merah,hijau',
             'register_number' => 'required|string|max:50',
-            'register_date'   => 'required|date',
+            'register_date' => 'required|date',
         ]);
 
+        $spk = $this->findAccessibleSpkOrFail($validated['id_spk'], $user, $idPerusahaan);
+
         try {
-            $spk = Spk::findOrFail($validated['id_spk']);
             $spk->update([
-                'penjaluran'      => $validated['penjaluran'],
+                'penjaluran' => $validated['penjaluran'],
                 'register_number' => $validated['register_number'],
-                'register_date'   => $validated['register_date'],
+                'register_date' => $validated['register_date'],
             ]);
 
             Log::info('Penjaluran updated', ['spk_id' => $spk->id, 'penjaluran' => $validated['penjaluran']]);
@@ -2511,12 +2641,13 @@ class ShippingController extends Controller
             try {
                 ShippingDataUpdated::dispatch($spk->id, 'penjaluran_update');
             } catch (\Exception $e) {
-                Log::error('Realtime update failed: ' . $e->getMessage());
+                Log::error('Realtime update failed: '.$e->getMessage());
             }
 
             return response()->json(['success' => true, 'message' => 'Penjaluran updated', 'penjaluran' => $validated['penjaluran']]);
         } catch (\Throwable $e) {
-            Log::error('Failed to update penjaluran: ' . $e->getMessage());
+            Log::error('Failed to update penjaluran: '.$e->getMessage());
+
             return response()->json(['success' => false, 'message' => 'Failed to update penjaluran'], 500);
         }
     }
@@ -2530,23 +2661,15 @@ class ShippingController extends Controller
         $user = auth('web')->user();
 
         // Resolve tenant
-        $tenant = null;
-        if ($user->id_perusahaan) {
-            $tenant = Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
-        } elseif ($user->id_customer) {
-            $customer = Customer::find($user->id_customer);
-            if ($customer && $customer->ownership) {
-                $tenant = Tenant::where('perusahaan_id', $customer->ownership)->first();
-            }
-        }
+        [$tenant, $idPerusahaan] = $this->resolveTenantAndPerusahaanId($user);
 
-        if (!$tenant) {
+        if (! $tenant) {
             return response()->json(['error' => 'Tenant not found'], 404);
         }
 
         tenancy()->initialize($tenant);
 
-        $spk = Spk::findOrFail($id);
+        $spk = $this->findAccessibleSpkOrFail($id, $user, $idPerusahaan);
 
         // Ambil semua dokumen yang sudah punya file (url_path_file tidak kosong)
         $allDocs = DocumentTrans::where('id_spk', $spk->id)
@@ -2558,9 +2681,9 @@ class ShippingController extends Controller
         // Hanya ambil versi TERBARU per id_dokumen (id terbesar = paling baru)
         $latestDocs = $allDocs
             ->groupBy('id_dokumen')
-            ->map(fn($group) => $group->sortByDesc('id')->first())
+            ->map(fn ($group) => $group->sortByDesc('id')->first())
             ->values()
-            ->filter(fn($doc) => !empty($doc->url_path_file));
+            ->filter(fn ($doc) => ! empty($doc->url_path_file));
 
         if ($latestDocs->isEmpty()) {
             return response()->json(['error' => 'Tidak ada dokumen yang tersedia untuk diunduh.'], 404);
@@ -2571,9 +2694,9 @@ class ShippingController extends Controller
         $zipFileName = "dokumen_{$spkCode}.zip";
 
         // Gunakan sys_get_temp_dir() untuk temporary file
-        $tempZipPath = sys_get_temp_dir() . DIRECTORY_SEPARATOR . $zipFileName;
+        $tempZipPath = sys_get_temp_dir().DIRECTORY_SEPARATOR.$zipFileName;
 
-        $zip = new \ZipArchive();
+        $zip = new \ZipArchive;
         if ($zip->open($tempZipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
             return response()->json(['error' => 'Gagal membuat file ZIP.'], 500);
         }
@@ -2584,8 +2707,9 @@ class ShippingController extends Controller
         foreach ($latestDocs as $doc) {
             $filePath = $disk->path($doc->url_path_file);
 
-            if (!file_exists($filePath)) {
+            if (! file_exists($filePath)) {
                 Log::warning("downloadZip: file tidak ditemukan: {$filePath}");
+
                 continue;
             }
 
@@ -2593,7 +2717,7 @@ class ShippingController extends Controller
             $originalName = $doc->nama_file ?? basename($doc->url_path_file);
             $ext = pathinfo($doc->url_path_file, PATHINFO_EXTENSION);
             $safeBaseName = Str::slug($originalName, '_');
-            if ($ext && !Str::endsWith($safeBaseName, ".{$ext}")) {
+            if ($ext && ! Str::endsWith($safeBaseName, ".{$ext}")) {
                 $safeBaseName .= ".{$ext}";
             }
 
@@ -2615,6 +2739,7 @@ class ShippingController extends Controller
 
         if ($addedCount === 0) {
             @unlink($tempZipPath);
+
             return response()->json(['error' => 'Tidak ada file fisik yang ditemukan.'], 404);
         }
 
@@ -2632,18 +2757,9 @@ class ShippingController extends Controller
         ]);
 
         // Tentukan tenant
-        $tenant = null;
+        [$tenant, $idPerusahaan] = $this->resolveTenantAndPerusahaanId($user);
 
-        if ($user->id_perusahaan) {
-            $tenant = \App\Models\Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
-        } elseif ($user->id_customer) {
-            $customer = \App\Models\Customer::find($user->id_customer);
-            if ($customer && $customer->ownership) {
-                $tenant = \App\Models\Tenant::where('perusahaan_id', $customer->ownership)->first();
-            }
-        }
-
-        if (!$tenant) {
+        if (! $tenant) {
             return response()->json([
                 'success' => false,
                 'message' => 'Tenant tidak ditemukan.',
@@ -2656,12 +2772,13 @@ class ShippingController extends Controller
 
         // Pastikan SPK ada di tenant
         $spk = \App\Models\Spk::find($idSpk);
-        if (!$spk) {
+        if (! $spk) {
             return response()->json([
                 'success' => false,
                 'message' => 'SPK tidak ditemukan.',
             ], 404);
         }
+        $this->authorizeSpkAccess($user, $spk, $idPerusahaan);
 
         // Ambil id_section yang sudah ada di section_trans
         $existingSectionIds = SectionTrans::where('id_spk', $idSpk)
@@ -2671,7 +2788,7 @@ class ShippingController extends Controller
             ->toArray();
 
         // Ambil master section yang belum dipakai (dari DB Tenant)
-        $sections = MasterSectionTrans::when(!empty($existingSectionIds), function ($query) use ($existingSectionIds) {
+        $sections = MasterSectionTrans::when(! empty($existingSectionIds), function ($query) use ($existingSectionIds) {
             $query->whereNotIn('id_section', $existingSectionIds);
         })
             ->where('id_section', '!=', 6)
@@ -2702,18 +2819,9 @@ class ShippingController extends Controller
         ]);
 
         // Tentukan tenant
-        $tenant = null;
+        [$tenant, $idPerusahaan] = $this->resolveTenantAndPerusahaanId($user);
 
-        if ($user->id_perusahaan) {
-            $tenant = \App\Models\Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
-        } elseif ($user->id_customer) {
-            $customer = \App\Models\Customer::find($user->id_customer);
-            if ($customer && $customer->ownership) {
-                $tenant = \App\Models\Tenant::where('perusahaan_id', $customer->ownership)->first();
-            }
-        }
-
-        if (!$tenant) {
+        if (! $tenant) {
             return response()->json([
                 'success' => false,
                 'message' => 'Tenant tidak ditemukan.',
@@ -2726,12 +2834,13 @@ class ShippingController extends Controller
         $sectionIds = collect($request->section_ids)->unique()->values()->toArray();
 
         $spk = \App\Models\Spk::find($idSpk);
-        if (!$spk) {
+        if (! $spk) {
             return response()->json([
                 'success' => false,
                 'message' => 'SPK tidak ditemukan.',
             ], 404);
         }
+        $this->authorizeSpkAccess($user, $spk, $idPerusahaan);
 
         \Illuminate\Support\Facades\DB::beginTransaction();
 
@@ -2780,25 +2889,25 @@ class ShippingController extends Controller
                     ->get();
 
                 foreach ($masterDocs as $mDoc) {
-                    $logMessage = "Document {$masterSec->section_name} requested " . now()->format('d-m-Y H:i') . " WIB";
+                    $logMessage = "Document {$masterSec->section_name} requested ".now()->format('d-m-Y H:i').' WIB';
 
                     $newDoc = DocumentTrans::create([
-                        'id_spk'          => $idSpk,
-                        'id_dokumen'      => $mDoc->id_dokumen,
-                        'id_section'      => $mDoc->id_section,
-                        'nama_file'       => $mDoc->nama_file,
-                        'is_internal'     => $mDoc->is_internal ?? false,
+                        'id_spk' => $idSpk,
+                        'id_dokumen' => $mDoc->id_dokumen,
+                        'id_section' => $mDoc->id_section,
+                        'nama_file' => $mDoc->nama_file,
+                        'is_internal' => $mDoc->is_internal ?? false,
                         'is_verification' => $mDoc->is_verification ?? true,
-                        'verify'          => false,
-                        'kuota_revisi'    => $mDoc->kuota_revisi ?: 3,
-                        'updated_by'      => $user->id_user,
-                        'logs'            => $logMessage,
+                        'verify' => false,
+                        'kuota_revisi' => $mDoc->kuota_revisi ?: 3,
+                        'updated_by' => $user->id_user,
+                        'logs' => $logMessage,
                     ]);
 
                     DocumentStatus::create([
                         'id_dokumen_trans' => $newDoc->id,
-                        'status'           => $logMessage,
-                        'by'               => $user->name,
+                        'status' => $logMessage,
+                        'by' => $user->name,
                     ]);
                 }
             }
@@ -2809,7 +2918,7 @@ class ShippingController extends Controller
             try {
                 \App\Events\ShippingDataUpdated::dispatch($idSpk, 'update');
             } catch (\Exception $e) {
-                \Illuminate\Support\Facades\Log::error('Realtime update failed in addSectionsToSpk: ' . $e->getMessage());
+                \Illuminate\Support\Facades\Log::error('Realtime update failed in addSectionsToSpk: '.$e->getMessage());
             }
 
             // NOTIFICATION & EMAIL TO CUSTOMER
@@ -2827,7 +2936,7 @@ class ShippingController extends Controller
                         try {
                             SectionReminderService::sendSectionAdded($spk, $sectionNames, $user, $extUser, $sectionCount);
                         } catch (\Exception $e) {
-                            \Illuminate\Support\Facades\Log::error("Failed to send Section Added Email: " . $e->getMessage());
+                            \Illuminate\Support\Facades\Log::error('Failed to send Section Added Email: '.$e->getMessage());
                         }
 
                         try {
@@ -2841,16 +2950,16 @@ class ShippingController extends Controller
                                     'title' => 'Section Tambahan',
                                     'message' => "Ada section tambahan yang perlu anda cek pada SPK {$spk->spk_code} ({$sectionNames})",
                                     'url' => "/shipping/{$spk->id}",
-                                    'spk_code' => $spk->spk_code
-                                ]
+                                    'spk_code' => $spk->spk_code,
+                                ],
                             ]);
                         } catch (\Exception $e) {
-                            \Illuminate\Support\Facades\Log::error("Failed to send Section Added Notification: " . $e->getMessage());
+                            \Illuminate\Support\Facades\Log::error('Failed to send Section Added Notification: '.$e->getMessage());
                         }
                     }
                 }
             } catch (\Exception $e) {
-                \Illuminate\Support\Facades\Log::error("Failed to process section added notifications: " . $e->getMessage());
+                \Illuminate\Support\Facades\Log::error('Failed to process section added notifications: '.$e->getMessage());
             }
 
             return response()->json([
@@ -2867,12 +2976,13 @@ class ShippingController extends Controller
             ], 500);
         }
     }
+
     public function removeSectionFromSpk(Request $request)
     {
         $user = auth('web')->user();
 
         // Security check: Only internal supervisors can remove sections
-        if (!$user->can('assign_staff-master-shipping')) {
+        if (! $user->can('assign_staff-master-shipping')) {
             return response()->json(['success' => false, 'message' => 'Hanya Supervisor yang diperbolehkan menghapus section.'], 403);
         }
 
@@ -2881,22 +2991,15 @@ class ShippingController extends Controller
             'id' => 'required|integer', // This is the PK of SectionTrans
         ]);
 
-        // Resolve Tenant
-        $tenant = null;
-        if ($user->id_perusahaan) {
-            $tenant = \App\Models\Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
-        } elseif ($user->id_customer) {
-            $customer = \App\Models\Customer::find($user->id_customer);
-            if ($customer && $customer->ownership) {
-                $tenant = \App\Models\Tenant::where('perusahaan_id', $customer->ownership)->first();
-            }
-        }
+        // Resolve tenant from the active company context.
+        [$tenant, $idPerusahaan] = $this->resolveTenantAndPerusahaanId($user);
 
-        if (!$tenant) {
+        if (! $tenant) {
             return response()->json(['success' => false, 'message' => 'Tenant not found.'], 404);
         }
 
         tenancy()->initialize($tenant);
+        $this->findAccessibleSpkOrFail($request->id_spk, $user, $idPerusahaan);
 
         try {
             DB::beginTransaction();
@@ -2906,7 +3009,7 @@ class ShippingController extends Controller
                 ->where('id_spk', $request->id_spk)
                 ->first();
 
-            if (!$section) {
+            if (! $section) {
                 return response()->json(['success' => false, 'message' => 'Section not found.'], 404);
             }
 
@@ -2934,6 +3037,7 @@ class ShippingController extends Controller
         } catch (\Throwable $th) {
             DB::connection('tenant-transaction')->rollBack();
             DB::rollBack();
+
             return response()->json(['success' => false, 'message' => 'Failed to remove section.', 'error' => $th->getMessage()], 500);
         }
     }
@@ -2949,20 +3053,16 @@ class ShippingController extends Controller
             'eta_date' => 'required|date',
         ]);
 
-        $tenant = null;
-        if ($user->id_perusahaan) {
-            $tenant = Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
-        }
+        [$tenant, $idPerusahaan] = $this->resolveTenantAndPerusahaanId($user);
 
-        if (!$tenant) {
+        if (! $tenant) {
             abort(404, 'Tenant not found');
         }
 
         tenancy()->initialize($tenant);
+        $spk = $this->findAccessibleSpkOrFail($idSpk, $user, $idPerusahaan);
 
         try {
-            $spk = Spk::findOrFail($idSpk);
-
             // Format to start of day to avoid timezone shifting during storage
             $date = \Carbon\Carbon::parse($validated['eta_date'])->startOfDay();
 
@@ -2974,12 +3074,54 @@ class ShippingController extends Controller
             try {
                 \App\Events\ShippingDataUpdated::dispatch($spk->id, 'update');
             } catch (\Exception $e) {
-                \Illuminate\Support\Facades\Log::error('Realtime update failed: ' . $e->getMessage());
+                \Illuminate\Support\Facades\Log::error('Realtime update failed: '.$e->getMessage());
             }
 
             return response()->json([
                 'success' => true,
-                'eta_date' => $date->toDateString() // Send back YYYY-MM-DD
+                'eta_date' => $date->toDateString(), // Send back YYYY-MM-DD
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    public function updateEtdDate(Request $request, $idSpk)
+    {
+        $user = auth('web')->user();
+        if ($user->role === 'eksternal') {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'etd_date' => 'required|date',
+        ]);
+
+        [$tenant, $idPerusahaan] = $this->resolveTenantAndPerusahaanId($user);
+
+        if (! $tenant) {
+            abort(404, 'Tenant not found');
+        }
+
+        tenancy()->initialize($tenant);
+        $spk = $this->findAccessibleSpkOrFail($idSpk, $user, $idPerusahaan);
+
+        try {
+            $date = \Carbon\Carbon::parse($validated['etd_date'])->startOfDay();
+
+            $spk->update([
+                'etd_date' => $date,
+            ]);
+
+            try {
+                \App\Events\ShippingDataUpdated::dispatch($spk->id, 'update');
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error('Realtime update failed: '.$e->getMessage());
+            }
+
+            return response()->json([
+                'success' => true,
+                'etd_date' => $date->toDateString(),
             ]);
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
@@ -2997,19 +3139,16 @@ class ShippingController extends Controller
             'job_date' => 'required|date',
         ]);
 
-        $tenant = null;
-        if ($user->id_perusahaan) {
-            $tenant = Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
-        }
+        [$tenant, $idPerusahaan] = $this->resolveTenantAndPerusahaanId($user);
 
-        if (!$tenant) {
+        if (! $tenant) {
             abort(404, 'Tenant not found');
         }
 
         tenancy()->initialize($tenant);
+        $spk = $this->findAccessibleSpkOrFail($idSpk, $user, $idPerusahaan);
 
         try {
-            $spk = Spk::findOrFail($idSpk);
             $date = \Carbon\Carbon::parse($validated['job_date'])->startOfDay();
 
             $spk->update([
@@ -3019,12 +3158,12 @@ class ShippingController extends Controller
             try {
                 \App\Events\ShippingDataUpdated::dispatch($spk->id, 'update');
             } catch (\Exception $e) {
-                \Illuminate\Support\Facades\Log::error('Realtime update failed: ' . $e->getMessage());
+                \Illuminate\Support\Facades\Log::error('Realtime update failed: '.$e->getMessage());
             }
 
             return response()->json([
                 'success' => true,
-                'job_date' => $date->toDateString()
+                'job_date' => $date->toDateString(),
             ]);
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
@@ -3042,19 +3181,16 @@ class ShippingController extends Controller
             'inspection_date' => 'required|date',
         ]);
 
-        $tenant = null;
-        if ($user->id_perusahaan) {
-            $tenant = Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
-        }
+        [$tenant, $idPerusahaan] = $this->resolveTenantAndPerusahaanId($user);
 
-        if (!$tenant) {
+        if (! $tenant) {
             abort(404, 'Tenant not found');
         }
 
         tenancy()->initialize($tenant);
+        $spk = $this->findAccessibleSpkOrFail($idSpk, $user, $idPerusahaan);
 
         try {
-            $spk = Spk::findOrFail($idSpk);
             $date = \Carbon\Carbon::parse($validated['inspection_date'])->startOfDay();
 
             $spk->update([
@@ -3064,12 +3200,12 @@ class ShippingController extends Controller
             try {
                 \App\Events\ShippingDataUpdated::dispatch($spk->id, 'update');
             } catch (\Exception $e) {
-                \Illuminate\Support\Facades\Log::error('Realtime update failed: ' . $e->getMessage());
+                \Illuminate\Support\Facades\Log::error('Realtime update failed: '.$e->getMessage());
             }
 
             return response()->json([
                 'success' => true,
-                'inspection_date' => $date->toDateString()
+                'inspection_date' => $date->toDateString(),
             ]);
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
@@ -3083,25 +3219,16 @@ class ShippingController extends Controller
     {
         $user = auth('web')->user();
 
-        $tenant = null;
-        if ($user->id_perusahaan) {
-            $tenant = Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
-        } elseif ($user->id_customer) {
-            $customer = Customer::find($user->id_customer);
-            if ($customer && $customer->ownership) {
-                $tenant = Tenant::where('perusahaan_id', $customer->ownership)->first();
-            }
-        }
+        [$tenant, $idPerusahaan] = $this->resolveTenantAndPerusahaanId($user);
 
-        if (!$tenant) {
+        if (! $tenant) {
             return response()->json(['success' => false, 'message' => 'Tenant not found'], 404);
         }
 
         tenancy()->initialize($tenant);
+        $spk = $this->findAccessibleSpkOrFail($idSpk, $user, $idPerusahaan);
 
         try {
-            $spk = Spk::findOrFail($idSpk);
-
             $data = $request->only([
                 'shipper',
                 'consignee',
@@ -3113,7 +3240,7 @@ class ShippingController extends Controller
                 'party_qty',
                 'party_size',
                 'aju',
-                'j_o'
+                'j_o',
             ]);
 
             $spk->update($data);
@@ -3134,7 +3261,8 @@ class ShippingController extends Controller
 
             return response()->json(['success' => true, 'message' => 'Form fields auto-saved successfully']);
         } catch (\Throwable $th) {
-            Log::error("Failed to update form fields: " . $th->getMessage());
+            Log::error('Failed to update form fields: '.$th->getMessage());
+
             return response()->json(['success' => false, 'error' => $th->getMessage()], 500);
         }
     }
@@ -3146,24 +3274,16 @@ class ShippingController extends Controller
     {
         $user = auth('web')->user();
 
-        $tenant = null;
-        if ($user->id_perusahaan) {
-            $tenant = Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
-        } elseif ($user->id_customer) {
-            $customer = Customer::find($user->id_customer);
-            if ($customer && $customer->ownership) {
-                $tenant = Tenant::where('perusahaan_id', $customer->ownership)->first();
-            }
-        }
+        [$tenant, $idPerusahaan] = $this->resolveTenantAndPerusahaanId($user);
 
-        if (!$tenant) {
+        if (! $tenant) {
             return response()->json(['success' => false, 'message' => 'Tenant not found'], 404);
         }
 
         tenancy()->initialize($tenant);
+        $spk = $this->findAccessibleSpkOrFail($idSpk, $user, $idPerusahaan);
 
         try {
-            $spk = Spk::findOrFail($idSpk);
             $documents = $request->input('documents', []);
 
             foreach ($documents as $item) {
@@ -3180,7 +3300,8 @@ class ShippingController extends Controller
 
             return response()->json(['success' => true, 'message' => 'ORI dates updated successfully']);
         } catch (\Throwable $th) {
-            Log::error("Failed to update ORI dates: " . $th->getMessage());
+            Log::error('Failed to update ORI dates: '.$th->getMessage());
+
             return response()->json(['success' => false, 'error' => $th->getMessage()], 500);
         }
     }
@@ -3189,29 +3310,21 @@ class ShippingController extends Controller
     {
         $user = auth('web')->user();
 
-        $tenant = null;
-        if ($user->id_perusahaan) {
-            $tenant = Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
-        } elseif ($user->id_customer) {
-            $customer = Customer::find($user->id_customer);
-            if ($customer && $customer->ownership) {
-                $tenant = Tenant::where('perusahaan_id', $customer->ownership)->first();
-            }
-        }
+        [$tenant, $idPerusahaan] = $this->resolveTenantAndPerusahaanId($user);
 
-        if (!$tenant) {
+        if (! $tenant) {
             return response()->json(['success' => false, 'message' => 'Tenant not found'], 404);
         }
 
         tenancy()->initialize($tenant);
 
-        $spk = Spk::findOrFail($idSpk);
+        $spk = $this->findAccessibleSpkOrFail($idSpk, $user, $idPerusahaan);
         $mandatoryColumn = $spk->shipment_type === 'Import' ? 'import_mandatory' : 'export_mandatory';
 
         // Find NPD section (contains 'npd' case insensitive)
         $npdSection = MasterSectionTrans::whereRaw('LOWER(section_name) LIKE ?', ['%npd%'])->first();
 
-        if (!$npdSection) {
+        if (! $npdSection) {
             return response()->json(['success' => false, 'message' => 'NPD section not found in MasterSectionTrans'], 404);
         }
 
@@ -3230,13 +3343,13 @@ class ShippingController extends Controller
 
         $sections = array_unique([
             $npdSection->id_section,
-            6
+            6,
         ]);
 
         $additionalDocs = MasterDocumentTrans::whereIn('id_section', $sections)
             ->where('is_active', 1)
             ->where($mandatoryColumn, false)
-            ->when(!empty($existingDocs), function ($q) use ($existingDocs) {
+            ->when(! empty($existingDocs), function ($q) use ($existingDocs) {
                 $q->whereNotIn('id_dokumen', $existingDocs);
             })
             ->get();
@@ -3262,26 +3375,17 @@ class ShippingController extends Controller
             'additional_documents' => 'nullable|array',
         ]);
 
-        $tenant = null;
-        if ($user->id_perusahaan) {
-            $tenant = Tenant::where('perusahaan_id', $user->id_perusahaan)->first();
-        } elseif ($user->id_customer) {
-            $customer = Customer::find($user->id_customer);
-            if ($customer && $customer->ownership) {
-                $tenant = Tenant::where('perusahaan_id', $customer->ownership)->first();
-            }
-        }
+        [$tenant, $idPerusahaan] = $this->resolveTenantAndPerusahaanId($user);
 
-        if (!$tenant) {
+        if (! $tenant) {
             return response()->json(['success' => false, 'message' => 'Tenant not found'], 404);
         }
 
         tenancy()->initialize($tenant);
+        $spk = $this->findAccessibleSpkOrFail($idSpk, $user, $idPerusahaan);
 
         \Illuminate\Support\Facades\DB::beginTransaction();
         try {
-            $spk = Spk::findOrFail($idSpk);
-
             // Format to start of day to avoid timezone shifting during storage
             $npdDate = $request->npd_date ? \Carbon\Carbon::parse($request->npd_date)->startOfDay() : null;
 
@@ -3290,13 +3394,13 @@ class ShippingController extends Controller
                 'npd_date' => $npdDate,
             ]);
 
-            if (!$request->is_npd) {
+            if (! $request->is_npd) {
                 // Ambil semua section yang mengandung 'npd'
                 $npdSections = MasterSectionTrans::whereRaw('LOWER(section_name) LIKE ?', ['%npd%'])
                     ->pluck('id_section')
                     ->toArray();
 
-                if (!empty($npdSections)) {
+                if (! empty($npdSections)) {
 
                     // Hapus semua document_trans terkait NPD sections
                     DocumentTrans::where('id_spk', $idSpk)
@@ -3313,7 +3417,7 @@ class ShippingController extends Controller
             // If checked and section ID provided, automatically assign section and upload attachments
             if ($request->is_npd && $request->id_section) {
                 $existingSection = SectionTrans::where('id_spk', $idSpk)->where('id_section', $request->id_section)->first();
-                if (!$existingSection) {
+                if (! $existingSection) {
                     $masterSec = MasterSectionTrans::where('id_section', $request->id_section)->first();
                     if ($masterSec) {
                         $existingSection = SectionTrans::create([
@@ -3328,7 +3432,6 @@ class ShippingController extends Controller
                 }
 
                 if ($existingSection) {
-                    $spk = Spk::findOrFail($idSpk);
                     $mandatoryColumn = $spk->shipment_type === 'Import' ? 'import_mandatory' : 'export_mandatory';
 
                     // Generate mandatory docs + selected additional docs
@@ -3336,7 +3439,7 @@ class ShippingController extends Controller
                         ->where('is_active', true)
                         ->where(function ($query) use ($request, $mandatoryColumn) {
                             $query->where($mandatoryColumn, true);
-                            if (!empty($request->additional_documents) && is_array($request->additional_documents)) {
+                            if (! empty($request->additional_documents) && is_array($request->additional_documents)) {
                                 $query->orWhereIn('id_dokumen', $request->additional_documents);
                             }
                         })
@@ -3348,34 +3451,34 @@ class ShippingController extends Controller
                         ->toArray();
 
                     foreach ($masterDocs as $mDoc) {
-                        if (!in_array($mDoc->id_dokumen, $existingDocIds)) {
-                            $logMessage = "Document {$existingSection->section_name} requested " . now()->format('d-m-Y H:i') . " WIB";
+                        if (! in_array($mDoc->id_dokumen, $existingDocIds)) {
+                            $logMessage = "Document {$existingSection->section_name} requested ".now()->format('d-m-Y H:i').' WIB';
 
                             $newDoc = DocumentTrans::create([
-                                'id_spk'          => $idSpk,
-                                'id_dokumen'      => $mDoc->id_dokumen,
-                                'id_section'      => $mDoc->id_section,
-                                'nama_file'       => $mDoc->nama_file,
-                                'url_path_file'   => $request->attachments[$mDoc->id_dokumen] ?? null,
-                                'is_internal'     => $mDoc->is_internal ?? false,
+                                'id_spk' => $idSpk,
+                                'id_dokumen' => $mDoc->id_dokumen,
+                                'id_section' => $mDoc->id_section,
+                                'nama_file' => $mDoc->nama_file,
+                                'url_path_file' => $request->attachments[$mDoc->id_dokumen] ?? null,
+                                'is_internal' => $mDoc->is_internal ?? false,
                                 'is_verification' => $mDoc->is_verification ?? true,
-                                'verify'          => null,
-                                'kuota_revisi'    => $mDoc->kuota_revisi ?: 3,
-                                'updated_by'      => $user->id_user,
-                                'logs'            => (!empty($request->attachments) && isset($request->attachments[$mDoc->id_dokumen])) ? "Berhasil Mengubah data Document" : $logMessage,
+                                'verify' => null,
+                                'kuota_revisi' => $mDoc->kuota_revisi ?: 3,
+                                'updated_by' => $user->id_user,
+                                'logs' => (! empty($request->attachments) && isset($request->attachments[$mDoc->id_dokumen])) ? 'Berhasil Mengubah data Document' : $logMessage,
                             ]);
 
                             DocumentStatus::create([
                                 'id_dokumen_trans' => $newDoc->id,
-                                'status'           => $logMessage,
-                                'by'               => $user->name,
+                                'status' => $logMessage,
+                                'by' => $user->name,
                             ]);
 
-                            if (!empty($request->attachments) && isset($request->attachments[$mDoc->id_dokumen])) {
+                            if (! empty($request->attachments) && isset($request->attachments[$mDoc->id_dokumen])) {
                                 DocumentStatus::create([
                                     'id_dokumen_trans' => $newDoc->id,
-                                    'status'           => 'File Uploaded',
-                                    'by'               => collect(explode(' ', trim($user->name)))->take(2)->implode(' '),
+                                    'status' => 'File Uploaded',
+                                    'by' => collect(explode(' ', trim($user->name)))->take(2)->implode(' '),
                                 ]);
                             }
                         }
@@ -3394,7 +3497,8 @@ class ShippingController extends Controller
             return response()->json(['success' => true, 'message' => 'NPD info updated successfully']);
         } catch (\Throwable $th) {
             \Illuminate\Support\Facades\DB::rollBack();
-            Log::error("Failed to update NPD: " . $th->getMessage());
+            Log::error('Failed to update NPD: '.$th->getMessage());
+
             return response()->json(['success' => false, 'error' => $th->getMessage()], 500);
         }
     }
@@ -3405,7 +3509,7 @@ class ShippingController extends Controller
 
         [$tenant, $idPerusahaan] = $this->resolveTenantAndPerusahaanId($user);
 
-        if (!$tenant) {
+        if (! $tenant) {
             return response()->json(['message' => 'Tenant tidak ditemukan'], 404);
         }
 
@@ -3427,7 +3531,7 @@ class ShippingController extends Controller
             'attach_spk_non_karantina_pdf' => ['nullable', 'boolean'],
         ]);
 
-        $spk = Spk::findOrFail($id);
+        $spk = $this->findAccessibleSpkOrFail($id, $user, $idPerusahaan);
 
         $attachOverviewPdf = $request->boolean('attach_spk_overview_pdf', false);
         $attachKarantinaPdf = $request->boolean('attach_spk_karantina_pdf', false);
@@ -3439,7 +3543,7 @@ class ShippingController extends Controller
         $body = strip_tags($body, '<p><br><strong><b><em><i><u><s><strike><a><ol><ul><li><blockquote><h1><h2><h3><span><div>');
 
         $latestDocs = DocumentTrans::with('masterDocument')
-            ->where('id_spk', $id)
+            ->where('id_spk', $spk->id)
             ->orderByDesc('id')
             ->get()
             ->groupBy('id_dokumen')
@@ -3466,18 +3570,19 @@ class ShippingController extends Controller
         $attachIds = $selectedIds->merge($requiredIds)->unique();
 
         $hasAnyAttachment = $attachIds->count() > 0
-            || !empty($request->file('files'))
+            || ! empty($request->file('files'))
             || $attachOverviewPdf
             || $attachKarantinaPdf
             || $attachNonKarantinaPdf;
 
-        if (!$hasAnyAttachment) {
+        if (! $hasAnyAttachment) {
             return response()->json(['message' => 'Attachment wajib ada'], 422);
         }
 
         $missingSelected = $attachIds->filter(function ($idDokumen) use ($latestDocs) {
             $doc = $latestDocs->get($idDokumen);
-            return !$doc || empty($doc->url_path_file);
+
+            return ! $doc || empty($doc->url_path_file);
         });
 
         if ($missingSelected->count() > 0) {
@@ -3489,9 +3594,11 @@ class ShippingController extends Controller
         $totalBytes = 0;
         foreach ($attachIds as $idDokumen) {
             $doc = $latestDocs->get($idDokumen);
-            if (!$doc || !$doc->url_path_file) continue;
+            if (! $doc || ! $doc->url_path_file) {
+                continue;
+            }
             $normPath = ltrim($doc->url_path_file, '/');
-            if (!$disk->exists($normPath)) {
+            if (! $disk->exists($normPath)) {
                 return response()->json(['message' => 'Attachment dokumen tidak ditemukan di server'], 422);
             }
             try {
@@ -3516,7 +3623,9 @@ class ShippingController extends Controller
         $totalBytes += ($estimatedPdfSize * 1024 * 1024);
 
         foreach (($request->file('files') ?? []) as $file) {
-            if (!$file) continue;
+            if (! $file) {
+                continue;
+            }
 
             $fileSize = 0;
             try {
@@ -3529,11 +3638,12 @@ class ShippingController extends Controller
                 $cleanupTempFiles();
                 $mb = round(($totalBytes + $fileSize) / 1024 / 1024, 1);
                 $limitMb = round($maxBytes / 1024 / 1024, 0);
+
                 return response()->json(['message' => "Total attachment terlalu besar ({$mb} MB). Maksimum {$limitMb} MB."], 422);
             }
 
-            $storedName = Str::uuid()->toString() . '-' . $file->getClientOriginalName();
-            $storedPath = $file->storeAs('email-attachments/spk-' . $id, $storedName, 'customers_external');
+            $storedName = Str::uuid()->toString().'-'.$file->getClientOriginalName();
+            $storedPath = $file->storeAs('email-attachments/spk-'.$spk->id, $storedName, 'customers_external');
             $tempFiles[] = ['path' => $storedPath, 'name' => $file->getClientOriginalName()];
             $totalBytes += $fileSize;
         }
@@ -3568,13 +3678,13 @@ class ShippingController extends Controller
     {
         $user = auth('web')->user();
 
-        if (!$user->can('delete-shipping-document') && !$user->hasRole('admin')) {
+        if (! $user->can('delete-shipping-document') && ! $user->hasRole('admin')) {
             abort(403, 'Unauthorized action.');
         }
 
         [$tenant, $idPerusahaan] = $this->resolveTenantAndPerusahaanId($user);
 
-        if (!$tenant) {
+        if (! $tenant) {
             return redirect()->back()->withErrors(['error' => 'Tenant tidak ditemukan']);
         }
 
@@ -3582,9 +3692,11 @@ class ShippingController extends Controller
 
         $document = \App\Models\DocumentTrans::find($id);
 
-        if (!$document) {
+        if (! $document) {
             return redirect()->back()->withErrors(['error' => 'Dokumen tidak ditemukan']);
         }
+
+        $this->findAccessibleSpkOrFail($document->id_spk, $user, $idPerusahaan);
 
         if ($document->url_path_file) {
             $disk = Storage::disk('customers_external');

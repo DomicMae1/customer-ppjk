@@ -5,13 +5,13 @@ namespace App\Http\Controllers;
 use App\Models\Perusahaan;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Services\RolePermissionService;
 use Illuminate\Http\Request;
-use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use Illuminate\Support\Facades\DB;
-use Stancl\Tenancy\Database\Models\Domain;
+use Inertia\Inertia;
 
 class PerusahaanController extends Controller
 {
@@ -20,23 +20,19 @@ class PerusahaanController extends Controller
      */
     public function index()
     {
-        $user = Auth::user();
+        $this->authorizeAdmin();
 
-        if (!$user->hasRole('admin')) {
-            abort(403, 'Unauthorized access. Only admin can access this page.');
-        }
-
-        $perusahaans = Perusahaan::with(['user', 'users','tenant','tenant.domains'])->get();
+        $perusahaans = Perusahaan::with(['user', 'users', 'tenant', 'tenant.domains'])->get();
         $perusahaans->transform(function ($company) {
             // Ambil domain pertama dari tenant
             $domainRecord = $company->tenant->domains->first() ?? null;
-            
+
             $logoPath = $domainRecord ? $domainRecord->path_company_logo : null;
 
             if ($logoPath) {
                 // Kita gunakan helper asset() atau Storage::url() agar URL-nya benar
                 // Hasilnya: http://domain-anda.com/storage/company_logo/xxx.jpg
-                $company->path_company_logo = asset('storage/' . $logoPath);
+                $company->path_company_logo = asset('storage/'.$logoPath);
             } else {
                 $company->path_company_logo = null;
             }
@@ -51,8 +47,8 @@ class PerusahaanController extends Controller
             'users' => $users,
             'flash' => [
                 'success' => session('success'),
-                'error' => session('error')
-            ]
+                'error' => session('error'),
+            ],
         ]);
     }
 
@@ -61,7 +57,7 @@ class PerusahaanController extends Controller
      */
     public function create()
     {
-        //
+        $this->authorizeAdmin();
     }
 
     /**
@@ -69,9 +65,11 @@ class PerusahaanController extends Controller
      */
     public function store(Request $request)
     {
+        $this->authorizeAdmin();
+
         $validated = $request->validate([
             'nama_perusahaan' => 'required|string|max:255',
-            'domain'          => 'required|string|max:255|unique:domains,domain',
+            'domain' => 'required|string|max:255|unique:domains,domain',
             'company_logo' => 'nullable|image|mimes:jpg,jpeg,png,webp,svg|max:2048',
         ]);
 
@@ -81,8 +79,8 @@ class PerusahaanController extends Controller
             return back()->withErrors(['error' => "ID Perusahaan '$tenantId' sudah ada."]);
         }
 
-        $logoPath = $request->hasFile('company_logo') 
-                ? $request->file('company_logo')->store('company_logo', 'public') 
+        $logoPath = $request->hasFile('company_logo')
+                ? $request->file('company_logo')->store('company_logo', 'public')
                 : null;
 
         try {
@@ -94,21 +92,22 @@ class PerusahaanController extends Controller
 
             // 3. Buat Tenant (Ini yang biasanya memicu CREATE DATABASE secara otomatis)
             $tenant = Tenant::create([
-                'id'            => $tenantId, 
+                'id' => $tenantId,
                 'perusahaan_id' => $perusahaan->id_perusahaan,
             ]);
 
             // 4. Buat Domain & Masukkan Logo
             $appDomain = preg_replace('#^https?://#', '', env('APP_DOMAIN', 'localhost'));
-            $fullDomain = $validated['domain'] . '.' . $appDomain;
+            $fullDomain = $validated['domain'].'.'.$appDomain;
 
             $domainRecord = $tenant->domains()->create([
-                'domain'            => $fullDomain,
+                'domain' => $fullDomain,
                 'path_company_logo' => $logoPath,
             ]);
 
             // 5. Update relasi id_domain di tabel perusahaan
             $perusahaan->update(['id_domain' => $domainRecord->id]);
+            app(RolePermissionService::class)->ensureCompanyRoles((int) $perusahaan->id_perusahaan);
 
             return back()->with('success', "Perusahaan {$validated['nama_perusahaan']} berhasil dibuat.");
 
@@ -117,11 +116,11 @@ class PerusahaanController extends Controller
             if ($logoPath && Storage::disk('public')->exists($logoPath)) {
                 Storage::disk('public')->delete($logoPath);
             }
-            
-            // Log error untuk debug
-            \Log::error("Gagal membuat perusahaan: " . $e->getMessage());
 
-            return back()->withErrors(['error' => "Terjadi kesalahan: " . $e->getMessage()]);
+            // Log error untuk debug
+            \Log::error('Gagal membuat perusahaan: '.$e->getMessage());
+
+            return back()->withErrors(['error' => 'Terjadi kesalahan: '.$e->getMessage()]);
         }
     }
 
@@ -130,6 +129,8 @@ class PerusahaanController extends Controller
      */
     public function show(Perusahaan $perusahaan)
     {
+        $this->authorizeAdmin();
+
         return response()->json([
             'data' => $perusahaan->load(['user', 'users']),
         ]);
@@ -140,6 +141,8 @@ class PerusahaanController extends Controller
      */
     public function edit(Perusahaan $perusahaan)
     {
+        $this->authorizeAdmin();
+
         return response()->json([
             'data' => $perusahaan->load('users'),
         ]);
@@ -150,6 +153,8 @@ class PerusahaanController extends Controller
      */
     public function update(Request $request, Perusahaan $perusahaan)
     {
+        $this->authorizeAdmin();
+
         // 1. VALIDASI
         $tenant = Tenant::where('perusahaan_id', $perusahaan->id_perusahaan)->first();
         $currentDomain = $tenant ? $tenant->domains()->first() : null;
@@ -157,8 +162,8 @@ class PerusahaanController extends Controller
 
         $validated = $request->validate([
             'nama_perusahaan' => 'required|string|max:255',
-            'domain'          => 'required|string|max:255|unique:domains,domain,' . ($domainId ?? 'NULL'),
-            'company_logo'    => 'nullable|image|mimes:jpg,jpeg,png,webp,svg|max:2048',
+            'domain' => 'required|string|max:255|unique:domains,domain,'.($domainId ?? 'NULL'),
+            'company_logo' => 'nullable|image|mimes:jpg,jpeg,png,webp,svg|max:2048',
         ]);
 
         $path = $currentDomain ? $currentDomain->path_company_logo : null;
@@ -179,9 +184,9 @@ class PerusahaanController extends Controller
         ]);
 
         // 4. UPDATE TENANT & DOMAIN
-        if (!$tenant) {
+        if (! $tenant) {
             $tenant = Tenant::create([
-                'id'            => Str::slug($validated['nama_perusahaan']),
+                'id' => Str::slug($validated['nama_perusahaan']),
                 'perusahaan_id' => $perusahaan->id_perusahaan,
             ]);
         }
@@ -189,7 +194,7 @@ class PerusahaanController extends Controller
         // Update Domain: Hapus yang lama, buat yang baru
         $tenant->domains()->delete();
         $newDomain = $tenant->domains()->create([
-            'domain'            => $validated['domain'],
+            'domain' => $validated['domain'],
             'path_company_logo' => $path, // Simpan ke kolom di tabel domains
         ]);
 
@@ -204,6 +209,8 @@ class PerusahaanController extends Controller
      */
     public function destroy(Perusahaan $perusahaan)
     {
+        $this->authorizeAdmin();
+
         try {
             $tenant = \App\Models\Tenant::where('perusahaan_id', $perusahaan->id_perusahaan)->first();
 
@@ -229,13 +236,16 @@ class PerusahaanController extends Controller
             return redirect()->back()->with('success', 'Perusahaan dan semua database terkait berhasil dihapus.');
 
         } catch (\Exception $e) {
-            \Log::error("Gagal hapus database transaksi: " . $e->getMessage());
+            \Log::error('Gagal hapus database transaksi: '.$e->getMessage());
+
             return redirect()->back()->with('error', 'Gagal menghapus database transaksi.');
         }
     }
 
     public function checkManagerExistence($idPerusahaan)
     {
+        $this->authorizeAdmin();
+
         $perusahaan = Perusahaan::with(['users' => function ($query) {
             $query->wherePivot('role', 'manager');
         }])->find($idPerusahaan);
@@ -243,5 +253,14 @@ class PerusahaanController extends Controller
         return response()->json([
             'manager_exists' => $perusahaan && $perusahaan->users->isNotEmpty(),
         ]);
+    }
+
+    private function authorizeAdmin(): void
+    {
+        $user = Auth::user();
+
+        if (! $user || ! $user->hasRole('admin')) {
+            abort(403, 'Unauthorized access. Only admin can access this page.');
+        }
     }
 }

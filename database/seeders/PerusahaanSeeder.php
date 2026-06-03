@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use Illuminate\Database\Seeder;
 use App\Models\Perusahaan;
 use App\Models\Tenant; // Pastikan Model Tenant di-import
+use App\Services\RolePermissionService;
 
 class PerusahaanSeeder extends Seeder
 {
@@ -48,6 +49,8 @@ class PerusahaanSeeder extends Seeder
             $perusahaan->update([
                 'id_domain' => $domainRecord->id,
             ]);
+
+            app(RolePermissionService::class)->ensureCompanyRoles((int) $perusahaan->id_perusahaan);
         }
     }
 }

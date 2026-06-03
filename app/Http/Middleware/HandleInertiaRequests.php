@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\AdminCompanyContextService;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -37,6 +38,7 @@ class HandleInertiaRequests extends Middleware
     public function share(Request $request): array
     {
         [$message, $author] = str(Inspiring::quotes()->random())->explode('-');
+        $companyContext = app(AdminCompanyContextService::class);
 
         return [
             ...parent::share($request),
@@ -70,11 +72,8 @@ class HandleInertiaRequests extends Middleware
             'trans_sec' => __('section'),
             'trans_role' => __('role'),
             'trans_company' => __('company'),
-            'company' => [
-                'id' => session('company_id'),
-                'name' => session('company_name'),
-                'logo' => session('company_logo'), // sudah asset('storage/...') dari controller login
-            ],
+            'company' => fn () => $companyContext->companySharedPayload($request->user()),
+            'adminCompanyContext' => fn () => $companyContext->adminContextPayload($request->user()),
             'flash' => [
                 'success' => $request->session()->get('success'),
                 'error' => $request->session()->get('error'),

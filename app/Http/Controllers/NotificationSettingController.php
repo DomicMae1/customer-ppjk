@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\NotificationChannelSetting;
 use App\Models\NotificationReminderSetting;
 use App\Models\Perusahaan;
+use App\Services\AdminCompanyContextService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\DB;
@@ -26,13 +27,20 @@ class NotificationSettingController extends Controller
         // Fetch all companies for the dropdown
         $companies = Perusahaan::select('id_perusahaan', 'nama_perusahaan')->orderBy('nama_perusahaan')->get();
 
-        // Fetch internal roles and append 'eksternal'
-        $internalRoles = \App\Models\Role::where('role_type', 'internal')->pluck('name')->toArray();
+        // Fetch unique internal role names and append 'eksternal'
+        $internalRoles = \App\Models\Role::where('role_type', 'internal')
+            ->whereNotNull('id_perusahaan')
+            ->select('name')
+            ->distinct()
+            ->orderBy('name')
+            ->pluck('name')
+            ->toArray();
         $roles = array_merge($internalRoles, ['eksternal']);
 
         return Inertia::render('notification_settings/page', [
             'companies' => $companies,
             'roles' => $roles,
+            'selectedCompanyId' => app(AdminCompanyContextService::class)->selectedCompanyIdForUser($user),
             'flash' => [
                 'success' => session('success'),
                 'error' => session('error')

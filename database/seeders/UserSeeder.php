@@ -3,25 +3,22 @@
 namespace Database\Seeders;
 
 use App\Models\User;
-use App\Models\Perusahaan;
+use App\Services\RolePermissionService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
-use Spatie\Permission\Models\Role;
 use Illuminate\Support\Str;
 
 class UserSeeder extends Seeder
 {
     public function run(): void
     {
-        // 1. Setup Roles
-        $roles = ['staff','marketing', 'manager', 'supervisor', 'admin', 'customer'];
-        foreach ($roles as $roleName) {
-            Role::firstOrCreate(['name' => $roleName, 'guard_name' => 'web']);
-        }
+        $roleService = app(RolePermissionService::class);
+        $roleService->seedGlobalRoles();
+        $roleService->seedCompanyRoles();
 
-        // 2. Setup Internal Users
+        // 1. Setup Internal Users
         $internalUsers = [
             // Perusahaan 1
             ['name' => 'John Doe', 'email' => 'staff@gmail.com', 'password' => 'Ppjk_tako@2026', 'role_internal' => 'staff',      'id_perusahaan' => 1],
@@ -69,10 +66,14 @@ class UserSeeder extends Seeder
                 ]
             );
 
-            $user->syncRoles([$data['role_internal']]);
+            $roleService->assignRoleToUser(
+                $user,
+                $data['role_internal'],
+                $data['id_perusahaan'] ? (int) $data['id_perusahaan'] : null
+            );
         }
 
-        // 3. Setup External Users
+        // 2. Setup External Users
         $externalUsers = [
             [
                 'user_name' => 'Budi Santoso', 
@@ -162,7 +163,7 @@ class UserSeeder extends Seeder
                 ]
             );
 
-            $user->syncRoles(['customer']);
+            $roleService->assignRoleToUser($user, 'customer', (int) $custData['ownership']);
         }
 
         if (DB::connection('tako-user')->getDriverName() === 'pgsql') {
