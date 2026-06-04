@@ -576,11 +576,13 @@ const countryAliases: Record<string, string> = {
     HAMBURG: 'DE',
 };
 
-const inputClass = 'h-9 rounded-sm border-slate-300 bg-white text-xs text-slate-700 shadow-none focus:border-blue-500 focus:ring-blue-500/20';
+const inputClass =
+    'h-9 rounded-sm border-slate-300 bg-white text-xs text-slate-700 shadow-none focus:border-blue-500 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-blue-400 dark:focus:ring-blue-400/20';
 const selectClass =
-    'h-9 w-full rounded-sm border border-slate-300 bg-white px-3 text-xs text-slate-700 shadow-none focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20';
-const portalPanelClass = 'border border-slate-200 bg-white';
-const portalPanelHeaderClass = 'border-b border-slate-200 bg-[#f4fbfb] px-5 py-4 text-sm font-semibold text-slate-700';
+    'h-9 w-full rounded-sm border border-slate-300 bg-white px-3 text-xs text-slate-700 shadow-none focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:focus:border-blue-400 dark:focus:ring-blue-400/20';
+const portalPanelClass = 'border border-slate-200 bg-white dark:border-zinc-800 dark:bg-zinc-900';
+const portalPanelHeaderClass =
+    'border-b border-slate-200 bg-[#f4fbfb] px-5 py-4 text-sm font-semibold text-slate-700 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100';
 const portalPanelBodyClass = 'p-5';
 
 function parsePayload(payloadText: string): { payload: Record<string, any>; error: string | null } {
@@ -1172,7 +1174,7 @@ function filterResolvedWarnings(warnings: string[], payload: Record<string, any>
 
 function fieldLabel(label: string, required = false) {
     return (
-        <Label className="text-xs font-medium text-slate-700">
+        <Label className="text-xs font-medium text-slate-700 dark:text-zinc-200">
             {label}
             {required && <span className="ml-1 text-rose-500">*</span>}
         </Label>
@@ -1722,7 +1724,7 @@ export function CeisaDraftModal({
                                 void lookupPortsFor(target, keyword, { limit: 10 });
                             }}
                             disabled={!referenceEndpoint || isLookingUpPort || !String(payload[target] || portLookupKeyword).trim()}
-                            className="h-9 w-10 shrink-0 rounded-sm border-slate-300 p-0"
+                            className="h-9 w-10 shrink-0 rounded-sm border-slate-300 p-0 dark:border-zinc-700 dark:text-zinc-100 dark:hover:bg-zinc-800"
                             title={`Cari ${label}`}
                         >
                             <Search className="h-4 w-4" />
@@ -1730,12 +1732,12 @@ export function CeisaDraftModal({
                     </div>
                     {dropdownOpen && (isLookingUpPort || portLookupRows.length > 0 || portLookupKeyword.trim().length >= 2) && (
                         <div
-                            className="absolute right-0 left-0 z-40 mt-1 max-h-64 overflow-y-auto rounded-sm border border-slate-200 bg-white shadow-lg"
+                            className="absolute right-0 left-0 z-40 mt-1 max-h-64 overflow-y-auto rounded-sm border border-slate-200 bg-white shadow-lg dark:border-zinc-700 dark:bg-zinc-950"
                             onMouseDown={(event) => event.preventDefault()}
                         >
-                            {isLookingUpPort && <div className="px-3 py-2 text-xs text-slate-500">Mencari referensi pelabuhan...</div>}
+                            {isLookingUpPort && <div className="px-3 py-2 text-xs text-slate-500 dark:text-zinc-400">Mencari referensi pelabuhan...</div>}
                             {!isLookingUpPort && portLookupRows.length === 0 && (
-                                <div className="px-3 py-2 text-xs text-slate-500">Referensi pelabuhan tidak ditemukan.</div>
+                                <div className="px-3 py-2 text-xs text-slate-500 dark:text-zinc-400">Referensi pelabuhan tidak ditemukan.</div>
                             )}
                             {!isLookingUpPort &&
                                 portLookupRows.map((row, index) => {
@@ -1751,11 +1753,11 @@ export function CeisaDraftModal({
                                             key={`${target}-${code}-${index}`}
                                             type="button"
                                             onClick={() => applyPortReference(row, target)}
-                                            className="block w-full border-b border-slate-100 px-3 py-2 text-left text-xs last:border-b-0 hover:bg-blue-50"
+                                            className="block w-full border-b border-slate-100 px-3 py-2 text-left text-xs last:border-b-0 hover:bg-blue-50 dark:border-zinc-800 dark:hover:bg-zinc-800"
                                         >
-                                            <div className="font-semibold text-slate-900">{code || '-'}</div>
-                                            <div className="mt-0.5 text-slate-600">{name || '-'}</div>
-                                            <div className="mt-1 text-[11px] text-slate-400">
+                                            <div className="font-semibold text-slate-900 dark:text-zinc-100">{code || '-'}</div>
+                                            <div className="mt-0.5 text-slate-600 dark:text-zinc-300">{name || '-'}</div>
+                                            <div className="mt-1 text-[11px] text-slate-400 dark:text-zinc-500">
                                                 Kantor: {office || '-'} {country ? `| Negara: ${country}` : ''}
                                             </div>
                                         </button>
@@ -1826,7 +1828,7 @@ export function CeisaDraftModal({
                                 void lookupTpsRows();
                             }}
                             disabled={!referenceEndpoint || isLookingUpTps || !String(payload.kodeKantor || '').trim()}
-                            className="h-9 w-10 shrink-0 rounded-sm border-slate-300 p-0"
+                            className="h-9 w-10 shrink-0 rounded-sm border-slate-300 p-0 dark:border-zinc-700 dark:text-zinc-100 dark:hover:bg-zinc-800"
                             title="Cari TPS"
                         >
                             <Search className="h-4 w-4" />
@@ -1834,12 +1836,12 @@ export function CeisaDraftModal({
                     </div>
                     {activeTpsDropdown && (
                         <div
-                            className="absolute right-0 left-0 z-40 mt-1 max-h-64 overflow-y-auto rounded-sm border border-slate-200 bg-white shadow-lg"
+                            className="absolute right-0 left-0 z-40 mt-1 max-h-64 overflow-y-auto rounded-sm border border-slate-200 bg-white shadow-lg dark:border-zinc-700 dark:bg-zinc-950"
                             onMouseDown={(event) => event.preventDefault()}
                         >
-                            {isLookingUpTps && <div className="px-3 py-2 text-xs text-slate-500">Mencari referensi TPS...</div>}
+                            {isLookingUpTps && <div className="px-3 py-2 text-xs text-slate-500 dark:text-zinc-400">Mencari referensi TPS...</div>}
                             {!isLookingUpTps && filteredRows.length === 0 && (
-                                <div className="px-3 py-2 text-xs text-slate-500">
+                                <div className="px-3 py-2 text-xs text-slate-500 dark:text-zinc-400">
                                     {String(payload.kodeKantor || '').trim()
                                         ? 'Referensi TPS tidak ditemukan untuk kantor ini.'
                                         : 'Isi/pilih pelabuhan tujuan dulu agar kode kantor terdeteksi.'}
@@ -1855,10 +1857,10 @@ export function CeisaDraftModal({
                                             key={`${code}-${index}`}
                                             type="button"
                                             onClick={() => applyTpsReference(row)}
-                                            className="block w-full border-b border-slate-100 px-3 py-2 text-left text-xs last:border-b-0 hover:bg-blue-50"
+                                            className="block w-full border-b border-slate-100 px-3 py-2 text-left text-xs last:border-b-0 hover:bg-blue-50 dark:border-zinc-800 dark:hover:bg-zinc-800"
                                         >
-                                            <div className="font-semibold text-slate-900">{code || '-'}</div>
-                                            <div className="mt-0.5 text-slate-600">{name || '-'}</div>
+                                            <div className="font-semibold text-slate-900 dark:text-zinc-100">{code || '-'}</div>
+                                            <div className="mt-0.5 text-slate-600 dark:text-zinc-300">{name || '-'}</div>
                                         </button>
                                     );
                                 })}
@@ -2184,30 +2186,30 @@ export function CeisaDraftModal({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="flex h-[96vh] max-h-[96vh] max-w-[98vw] flex-col overflow-hidden rounded-md border-slate-200 bg-[#f4f5f9] p-0 text-slate-800 sm:max-w-[1560px]">
-                <DialogHeader className="shrink-0 border-b border-slate-200 bg-white px-5 py-4">
+            <DialogContent className="flex h-[96vh] max-h-[96vh] max-w-[98vw] flex-col overflow-hidden rounded-md border-slate-200 bg-[#f4f5f9] p-0 text-slate-800 sm:max-w-[1560px] dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100">
+                <DialogHeader className="shrink-0 border-b border-slate-200 bg-white px-5 py-4 dark:border-zinc-800 dark:bg-zinc-900">
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                         <div>
-                            <DialogTitle className="text-left text-base font-semibold text-slate-900">
+                            <DialogTitle className="text-left text-base font-semibold text-slate-900 dark:text-zinc-50">
                                 {documentType || payload.kodeDokumen || 'BC 2.0'} -{' '}
                                 {isExport ? 'PEMBERITAHUAN EKSPOR BARANG' : 'PEMBERITAHUAN IMPOR BARANG'}
                             </DialogTitle>
-                            <DialogDescription className="mt-1 text-left text-xs text-slate-500">
+                            <DialogDescription className="mt-1 text-left text-xs text-slate-500 dark:text-zinc-400">
                                 Draft internal. Tombol kirim selalu memakai isFinal=false.
                             </DialogDescription>
                         </div>
                         <div className="grid gap-2 text-xs sm:grid-cols-3 lg:min-w-[560px]">
-                            <div className="rounded-sm border border-slate-200 bg-slate-50 px-3 py-2">
-                                <div className="text-slate-500">Nomor Aju</div>
-                                <div className="mt-1 font-semibold break-all text-slate-900">{nomorAju || payload.nomorAju || '-'}</div>
+                            <div className="rounded-sm border border-slate-200 bg-slate-50 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-950">
+                                <div className="text-slate-500 dark:text-zinc-400">Nomor Aju</div>
+                                <div className="mt-1 font-semibold break-all text-slate-900 dark:text-zinc-50">{nomorAju || payload.nomorAju || '-'}</div>
                             </div>
-                            <div className="rounded-sm border border-slate-200 bg-slate-50 px-3 py-2">
-                                <div className="text-slate-500">Mode</div>
-                                <div className="mt-1 font-semibold text-slate-900">Draft CEISA</div>
+                            <div className="rounded-sm border border-slate-200 bg-slate-50 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-950">
+                                <div className="text-slate-500 dark:text-zinc-400">Mode</div>
+                                <div className="mt-1 font-semibold text-slate-900 dark:text-zinc-50">Draft CEISA</div>
                             </div>
-                            <div className="rounded-sm border border-slate-200 bg-slate-50 px-3 py-2">
-                                <div className="text-slate-500">Kelengkapan</div>
-                                <div className="mt-1 font-semibold text-slate-900">
+                            <div className="rounded-sm border border-slate-200 bg-slate-50 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-950">
+                                <div className="text-slate-500 dark:text-zinc-400">Kelengkapan</div>
+                                <div className="mt-1 font-semibold text-slate-900 dark:text-zinc-50">
                                     {completedCount}/{requirements.length} wajib
                                 </div>
                             </div>
@@ -2215,7 +2217,7 @@ export function CeisaDraftModal({
                     </div>
                 </DialogHeader>
 
-                <div className="shrink-0 border-b border-slate-200 bg-white px-5">
+                <div className="shrink-0 border-b border-slate-200 bg-white px-5 dark:border-zinc-800 dark:bg-zinc-900">
                     <div className="flex gap-8 overflow-x-auto">
                         {tabConfig.map((tab) => {
                             const Icon = tab.icon;
@@ -2228,10 +2230,10 @@ export function CeisaDraftModal({
                                     onClick={() => setActiveTab(tab.key)}
                                     className={`relative flex h-14 shrink-0 items-center gap-2 border-b-2 px-1 text-sm font-medium transition ${
                                         activeTab === tab.key
-                                            ? 'border-blue-500 text-green-700'
+                                            ? 'border-blue-500 text-green-700 dark:text-emerald-300'
                                             : hasMissing
-                                              ? 'border-transparent text-rose-600 hover:text-rose-700'
-                                              : 'border-transparent text-green-700 hover:text-green-800'
+                                              ? 'border-transparent text-rose-600 hover:text-rose-700 dark:text-rose-300 dark:hover:text-rose-200'
+                                              : 'border-transparent text-green-700 hover:text-green-800 dark:text-emerald-300 dark:hover:text-emerald-200'
                                     }`}
                                 >
                                     <Icon className="h-4 w-4" />
@@ -2251,18 +2253,18 @@ export function CeisaDraftModal({
                 <div className="min-h-0 flex-1 overflow-y-auto p-5">
                     <div className="mx-auto max-w-[1500px]">
                         <div className="mb-4 grid gap-3 lg:grid-cols-[1fr_420px]">
-                            <div className="rounded-sm border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-800">
+                            <div className="rounded-sm border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-800 dark:border-amber-500/40 dark:bg-amber-950/40 dark:text-amber-100">
                                 Submit dari form ini hanya membuat/memperbarui draft CEISA. Final submit tetap dipisahkan nanti.
                             </div>
                             {missingRequirements.length > 0 && (
-                                <div className="rounded-sm border border-amber-200 bg-white p-3">
+                                <div className="rounded-sm border border-amber-200 bg-white p-3 dark:border-amber-500/40 dark:bg-zinc-900">
                                     <div className="mb-2 flex items-center gap-2 text-xs font-bold text-amber-800 dark:text-amber-200">
                                         <AlertTriangle className="h-4 w-4" />
                                         Belum lengkap
                                     </div>
                                     <div className="grid gap-1 text-[11px] sm:grid-cols-2">
                                         {missingRequirements.slice(0, 8).map((item) => (
-                                            <div key={`${item.group}-${item.label}`} className="font-medium text-amber-800">
+                                            <div key={`${item.group}-${item.label}`} className="font-medium text-amber-800 dark:text-amber-100">
                                                 {item.group}: {item.label}
                                             </div>
                                         ))}
@@ -2277,20 +2279,20 @@ export function CeisaDraftModal({
                         </div>
 
                         {jsonError && (
-                            <div className="mb-4 rounded-sm border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-semibold text-rose-700">
+                            <div className="mb-4 rounded-sm border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-semibold text-rose-700 dark:border-rose-500/40 dark:bg-rose-950/40 dark:text-rose-100">
                                 JSON belum valid: {jsonError}
                             </div>
                         )}
 
                         {visibleWarnings.length > 0 && (
-                            <div className="mb-4 rounded-sm border border-slate-200 bg-white p-3">
-                                <div className="mb-2 flex items-center gap-2 text-xs font-bold text-slate-700">
+                            <div className="mb-4 rounded-sm border border-slate-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900">
+                                <div className="mb-2 flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-zinc-100">
                                     <AlertTriangle className="h-4 w-4 text-amber-500" />
                                     Catatan sistem
                                 </div>
                                 <div className="space-y-1.5">
                                     {visibleWarnings.map((warning, index) => (
-                                        <div key={`${warning}-${index}`} className="text-xs text-slate-500">
+                                        <div key={`${warning}-${index}`} className="text-xs text-slate-500 dark:text-zinc-400">
                                             {warning}
                                         </div>
                                     ))}
@@ -2309,7 +2311,7 @@ export function CeisaDraftModal({
                                                 <Input
                                                     value={payload.nomorAju || nomorAju || ''}
                                                     readOnly
-                                                    className={`${inputClass} bg-slate-50 font-semibold`}
+                                                    className={`${inputClass} bg-slate-50 font-semibold dark:bg-zinc-900 dark:text-zinc-100`}
                                                 />
                                             </div>
                                             <div className="space-y-1.5">
@@ -2357,7 +2359,7 @@ export function CeisaDraftModal({
                                                         <Input
                                                             value={payload.kodeKantor || ''}
                                                             readOnly
-                                                            className={`${inputClass} bg-slate-50 font-semibold text-slate-900`}
+                                                            className={`${inputClass} bg-slate-50 font-semibold text-slate-900 dark:bg-zinc-900 dark:text-zinc-100`}
                                                             placeholder="Terisi dari Pelabuhan Tujuan"
                                                         />
                                                     </div>
@@ -2654,8 +2656,8 @@ export function CeisaDraftModal({
                                 </div>
 
                                 <div className={`${portalPanelBodyClass} overflow-x-auto`}>
-                                    <div className="min-w-[760px] border border-slate-200">
-                                        <div className="grid grid-cols-[70px_220px_1fr_180px_56px] bg-[#f4fbfb] px-4 py-3 text-xs font-semibold text-slate-700">
+                                    <div className="min-w-[760px] border border-slate-200 dark:border-zinc-800">
+                                        <div className="grid grid-cols-[70px_220px_1fr_180px_56px] bg-[#f4fbfb] px-4 py-3 text-xs font-semibold text-slate-700 dark:bg-zinc-950 dark:text-zinc-200">
                                             <div>Seri</div>
                                             <div>Jenis</div>
                                             <div>Nomor</div>
@@ -2669,10 +2671,12 @@ export function CeisaDraftModal({
                                             <div
                                                 key={`${row.kodeDokumen}-${index}`}
                                                 className={`grid grid-cols-[70px_220px_1fr_180px_56px] items-end gap-3 border-t px-4 py-3 ${
-                                                    incomplete ? 'border-amber-200 bg-amber-50/60' : 'border-slate-200'
+                                                    incomplete
+                                                        ? 'border-amber-200 bg-amber-50/60 dark:border-amber-500/40 dark:bg-amber-950/30'
+                                                        : 'border-slate-200 dark:border-zinc-800'
                                                 }`}
                                             >
-                                                <div className="pb-2 text-xs text-slate-600">{row.seriDokumen || index + 1}</div>
+                                                <div className="pb-2 text-xs text-slate-600 dark:text-zinc-400">{row.seriDokumen || index + 1}</div>
                                                 <div className="space-y-1.5">
                                                 {fieldLabel('Jenis', requiredDocumentCodes.includes(row.kodeDokumen))}
                                                 <select
@@ -2717,7 +2721,7 @@ export function CeisaDraftModal({
                                                 </Button>
                                             </div>
                                             {incomplete && (
-                                                <div className="col-span-5 -mt-1 text-xs font-medium text-amber-700">
+                                                <div className="col-span-5 -mt-1 text-xs font-medium text-amber-700 dark:text-amber-200">
                                                     Baris ini belum lengkap. Isi jenis, nomor, tanggal, atau hapus kalau tidak dipakai.
                                                 </div>
                                             )}
@@ -2896,7 +2900,7 @@ export function CeisaDraftModal({
                                                 <Input
                                                     value={payload.kodePelTujuan || ''}
                                                     readOnly
-                                                    className={`${inputClass} bg-slate-50 font-semibold text-slate-900`}
+                                                    className={`${inputClass} bg-slate-50 font-semibold text-slate-900 dark:bg-zinc-900 dark:text-zinc-100`}
                                                     placeholder="Diatur dari Header"
                                                 />
                                             </div>
@@ -3029,14 +3033,14 @@ export function CeisaDraftModal({
                                 <div className={portalPanelClass}>
                                     <div className={portalPanelHeaderClass}>Kemasan</div>
                                     <div className={`${portalPanelBodyClass} space-y-4`}>
-                                        <div className="grid grid-cols-[70px_1fr_1fr_1fr] gap-3 border border-slate-200 bg-[#f4fbfb] px-4 py-3 text-xs font-semibold text-slate-700">
+                                        <div className="grid grid-cols-[70px_1fr_1fr_1fr] gap-3 border border-slate-200 bg-[#f4fbfb] px-4 py-3 text-xs font-semibold text-slate-700 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-200">
                                             <div>Seri</div>
                                             <div>Jumlah</div>
                                             <div>Jenis</div>
                                             <div>Merek</div>
                                         </div>
-                                        <div className="grid grid-cols-[70px_1fr_1fr_1fr] items-end gap-3 border border-t-0 border-slate-200 px-4 py-3">
-                                            <div className="pb-2 text-xs text-slate-600">{packageRow.seriKemasan || 1}</div>
+                                        <div className="grid grid-cols-[70px_1fr_1fr_1fr] items-end gap-3 border border-t-0 border-slate-200 px-4 py-3 dark:border-zinc-800">
+                                            <div className="pb-2 text-xs text-slate-600 dark:text-zinc-400">{packageRow.seriKemasan || 1}</div>
                                         <div className="space-y-1.5">
                                                 {fieldLabel('Jumlah', true)}
                                             <Input
@@ -3088,18 +3092,22 @@ export function CeisaDraftModal({
                                     </div>
                                     <div className={`${portalPanelBodyClass} space-y-3`}>
                                         {kontainer.length === 0 && (
-                                            <div className="border border-dashed border-slate-200 p-4 text-center text-xs text-slate-500">
+                                            <div className="border border-dashed border-slate-200 p-4 text-center text-xs text-slate-500 dark:border-zinc-800 dark:text-zinc-400">
                                                 Belum ada kontainer.
                                             </div>
                                         )}
                                         {kontainer.map((row: any, index: number) => (
                                             <div
                                                 key={index}
-                                                className="grid gap-3 border border-slate-200 p-3 md:grid-cols-[70px_1fr_140px_140px_160px_40px]"
+                                                className="grid gap-3 border border-slate-200 p-3 md:grid-cols-[70px_1fr_140px_140px_160px_40px] dark:border-zinc-800"
                                             >
                                                 <div className="space-y-1.5">
                                                     {fieldLabel('Seri')}
-                                                    <Input value={row.seriKontainer || index + 1} readOnly className={`${inputClass} bg-slate-50`} />
+                                                    <Input
+                                                        value={row.seriKontainer || index + 1}
+                                                        readOnly
+                                                        className={`${inputClass} bg-slate-50 dark:bg-zinc-900 dark:text-zinc-100`}
+                                                    />
                                                 </div>
                                                 <div className="space-y-1.5">
                                                     {fieldLabel('Nomor Kontainer')}
@@ -3207,7 +3215,7 @@ export function CeisaDraftModal({
                                                     {isLookingUpKurs ? <RefreshCw className="h-4 w-4 animate-spin" /> : 'Ambil Kurs'}
                                                 </Button>
                                             </div>
-                                            {kursLookupMessage && <div className="text-[11px] text-slate-500">{kursLookupMessage}</div>}
+                                            {kursLookupMessage && <div className="text-[11px] text-slate-500 dark:text-zinc-400">{kursLookupMessage}</div>}
                                         </div>
                                         {!isExport && (
                                             <div className="space-y-1.5">
@@ -3334,7 +3342,7 @@ export function CeisaDraftModal({
                                                 className={inputClass}
                                             />
                                         </div>
-                                        <div className="rounded-sm border border-slate-200 bg-slate-50 p-3 text-xs text-slate-500">
+                                        <div className="rounded-sm border border-slate-200 bg-slate-50 p-3 text-xs text-slate-500 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400">
                                             Nilai CIF otomatis dihitung dari FOB + Freight + Asuransi. Tetap bisa dioverride kalau angka dari dokumen
                                             berbeda.
                                         </div>
@@ -3370,7 +3378,7 @@ export function CeisaDraftModal({
                         {activeTab === 'goods' && (
                             <div className="space-y-4">
                                 <div className="flex items-center justify-between gap-3">
-                                    <div className="text-sm font-semibold text-slate-800">Barang</div>
+                                    <div className="text-sm font-semibold text-slate-800 dark:text-zinc-100">Barang</div>
                                     <Button
                                         type="button"
                                         variant="outline"
@@ -3437,12 +3445,14 @@ export function CeisaDraftModal({
                                                         />
                                                         {hsDropdownOpen && (
                                                             <div
-                                                                className="absolute right-0 left-0 z-40 mt-1 max-h-64 overflow-y-auto rounded-sm border border-slate-200 bg-white shadow-lg"
+                                                                className="absolute right-0 left-0 z-40 mt-1 max-h-64 overflow-y-auto rounded-sm border border-slate-200 bg-white shadow-lg dark:border-zinc-700 dark:bg-zinc-950"
                                                                 onMouseDown={(event) => event.preventDefault()}
                                                             >
-                                                                {isLookingUpHs && <div className="px-3 py-2 text-xs text-slate-500">Mencari referensi HS...</div>}
+                                                                {isLookingUpHs && (
+                                                                    <div className="px-3 py-2 text-xs text-slate-500 dark:text-zinc-400">Mencari referensi HS...</div>
+                                                                )}
                                                                 {!isLookingUpHs && hsLookupRows.length === 0 && (
-                                                                    <div className="px-3 py-2 text-xs text-slate-500">
+                                                                    <div className="px-3 py-2 text-xs text-slate-500 dark:text-zinc-400">
                                                                         Ketik minimal 4 digit untuk mencari referensi HS.
                                                                     </div>
                                                                 )}
@@ -3470,10 +3480,12 @@ export function CeisaDraftModal({
                                                                                 key={`${code}-${hsIndex}`}
                                                                                 type="button"
                                                                                 onClick={() => applyHsReference(index, hsRow)}
-                                                                                className="block w-full border-b border-slate-100 px-3 py-2 text-left text-xs last:border-b-0 hover:bg-blue-50"
+                                                                                className="block w-full border-b border-slate-100 px-3 py-2 text-left text-xs last:border-b-0 hover:bg-blue-50 dark:border-zinc-800 dark:hover:bg-zinc-800"
                                                                             >
-                                                                                <div className="font-semibold text-slate-900">{code || '-'}</div>
-                                                                                <div className="mt-0.5 line-clamp-2 text-slate-600">{description || '-'}</div>
+                                                                                <div className="font-semibold text-slate-900 dark:text-zinc-100">{code || '-'}</div>
+                                                                                <div className="mt-0.5 line-clamp-2 text-slate-600 dark:text-zinc-300">
+                                                                                    {description || '-'}
+                                                                                </div>
                                                                             </button>
                                                                         );
                                                                     })}
@@ -3641,7 +3653,7 @@ export function CeisaDraftModal({
                                                 </div>
                                                 <div className="space-y-1.5">
                                                     {fieldLabel('Statement Perbedaan')}
-                                                    <div className="flex h-9 items-center gap-4 rounded-sm border border-slate-200 px-3 text-xs text-slate-700">
+                                                    <div className="flex h-9 items-center gap-4 rounded-sm border border-slate-200 px-3 text-xs text-slate-700 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200">
                                                         <label className="flex items-center gap-1.5">
                                                             <input
                                                                 type="radio"
@@ -3692,7 +3704,7 @@ export function CeisaDraftModal({
                                                         onChange={(e) => updateBarang(index, 'merk', e.target.value)}
                                                         className={inputClass}
                                                     />
-                                                    <label className="flex items-center gap-2 text-xs text-slate-500">
+                                                    <label className="flex items-center gap-2 text-xs text-slate-500 dark:text-zinc-400">
                                                         <input
                                                             type="checkbox"
                                                             checked={String(row.merk || '').toUpperCase() === 'TANPA MEREK'}
@@ -3708,7 +3720,7 @@ export function CeisaDraftModal({
                                                         onChange={(e) => updateBarang(index, 'tipe', e.target.value)}
                                                         className={inputClass}
                                                     />
-                                                    <label className="flex items-center gap-2 text-xs text-slate-500">
+                                                    <label className="flex items-center gap-2 text-xs text-slate-500 dark:text-zinc-400">
                                                         <input
                                                             type="checkbox"
                                                             checked={String(row.tipe || '').toUpperCase() === 'TANPA TIPE'}
@@ -3734,11 +3746,11 @@ export function CeisaDraftModal({
                                                     />
                                                 </div>
                                             </div>
-                                            <div className="space-y-4 border-t border-slate-200 p-4">
+                                            <div className="space-y-4 border-t border-slate-200 p-4 dark:border-zinc-800">
                                                 <div className="grid gap-4 xl:grid-cols-2">
-                                                    <div className="rounded-sm border border-slate-200 bg-white">
-                                                        <div className="flex items-center justify-between border-b border-slate-200 bg-[#f4fbfb] px-4 py-3">
-                                                            <div className="text-xs font-semibold text-slate-800">Dokumen Fasilitas/Lartas</div>
+                                                    <div className="rounded-sm border border-slate-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
+                                                        <div className="flex items-center justify-between border-b border-slate-200 bg-[#f4fbfb] px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900">
+                                                            <div className="text-xs font-semibold text-slate-800 dark:text-zinc-100">Dokumen Fasilitas/Lartas</div>
                                                             <Button
                                                                 type="button"
                                                                 variant="outline"
@@ -3752,7 +3764,7 @@ export function CeisaDraftModal({
                                                         </div>
                                                         <div className="space-y-2 p-3">
                                                             {barangDokumen.length === 0 && (
-                                                                <div className="rounded-sm border border-dashed border-slate-200 px-3 py-4 text-center text-xs text-slate-500">
+                                                                <div className="rounded-sm border border-dashed border-slate-200 px-3 py-4 text-center text-xs text-slate-500 dark:border-zinc-800 dark:text-zinc-400">
                                                                     Belum ada dokumen yang dikaitkan ke barang ini.
                                                                 </div>
                                                             )}
@@ -3798,9 +3810,9 @@ export function CeisaDraftModal({
                                                         </div>
                                                     </div>
 
-                                                    <div className="rounded-sm border border-slate-200 bg-white">
-                                                        <div className="flex items-center justify-between border-b border-slate-200 bg-[#f4fbfb] px-4 py-3">
-                                                            <div className="text-xs font-semibold text-slate-800">Jenis Voluntary Declaration</div>
+                                                    <div className="rounded-sm border border-slate-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
+                                                        <div className="flex items-center justify-between border-b border-slate-200 bg-[#f4fbfb] px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900">
+                                                            <div className="text-xs font-semibold text-slate-800 dark:text-zinc-100">Jenis Voluntary Declaration</div>
                                                             <Button
                                                                 type="button"
                                                                 variant="outline"
@@ -3814,7 +3826,7 @@ export function CeisaDraftModal({
                                                         </div>
                                                         <div className="space-y-2 p-3">
                                                             {barangVd.length === 0 && (
-                                                                <div className="rounded-sm border border-dashed border-slate-200 px-3 py-4 text-center text-xs text-slate-500">
+                                                                <div className="rounded-sm border border-dashed border-slate-200 px-3 py-4 text-center text-xs text-slate-500 dark:border-zinc-800 dark:text-zinc-400">
                                                                     Belum ada voluntary declaration.
                                                                 </div>
                                                             )}
@@ -3870,9 +3882,9 @@ export function CeisaDraftModal({
                                                 </div>
 
                                                 <div className="grid gap-4 xl:grid-cols-2">
-                                                    <div className="rounded-sm border border-slate-200 bg-white">
-                                                        <div className="flex items-center justify-between border-b border-slate-200 bg-[#f4fbfb] px-4 py-3">
-                                                            <div className="text-xs font-semibold text-slate-800">Pungutan</div>
+                                                    <div className="rounded-sm border border-slate-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
+                                                        <div className="flex items-center justify-between border-b border-slate-200 bg-[#f4fbfb] px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900">
+                                                            <div className="text-xs font-semibold text-slate-800 dark:text-zinc-100">Pungutan</div>
                                                             <div className="flex gap-2">
                                                                 <Button
                                                                     type="button"
@@ -3897,12 +3909,12 @@ export function CeisaDraftModal({
                                                         </div>
                                                         <div className="space-y-3 p-3">
                                                             {barangTarif.length === 0 && (
-                                                                <div className="rounded-sm border border-dashed border-slate-200 px-3 py-4 text-center text-xs text-slate-500">
+                                                                <div className="rounded-sm border border-dashed border-slate-200 px-3 py-4 text-center text-xs text-slate-500 dark:border-zinc-800 dark:text-zinc-400">
                                                                     Belum ada pungutan per barang.
                                                                 </div>
                                                             )}
                                                             {barangTarif.map((tarifRow: any, tarifIndex: number) => (
-                                                                <div key={tarifIndex} className="rounded-sm border border-slate-200 p-3">
+                                                                <div key={tarifIndex} className="rounded-sm border border-slate-200 p-3 dark:border-zinc-800 dark:bg-zinc-900">
                                                                     <div className="grid gap-2 md:grid-cols-4">
                                                                         <div className="space-y-1.5">
                                                                             {fieldLabel('Jenis Pungutan')}
@@ -4029,9 +4041,9 @@ export function CeisaDraftModal({
                                                         </div>
                                                     </div>
 
-                                                    <div className="rounded-sm border border-slate-200 bg-white">
-                                                        <div className="flex items-center justify-between border-b border-slate-200 bg-[#f4fbfb] px-4 py-3">
-                                                            <div className="text-xs font-semibold text-slate-800">Spesifikasi Khusus</div>
+                                                    <div className="rounded-sm border border-slate-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
+                                                        <div className="flex items-center justify-between border-b border-slate-200 bg-[#f4fbfb] px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900">
+                                                            <div className="text-xs font-semibold text-slate-800 dark:text-zinc-100">Spesifikasi Khusus</div>
                                                             <Button
                                                                 type="button"
                                                                 variant="outline"
@@ -4045,7 +4057,7 @@ export function CeisaDraftModal({
                                                         </div>
                                                         <div className="space-y-2 p-3">
                                                             {barangSpekKhusus.length === 0 && (
-                                                                <div className="rounded-sm border border-dashed border-slate-200 px-3 py-4 text-center text-xs text-slate-500">
+                                                                <div className="rounded-sm border border-dashed border-slate-200 px-3 py-4 text-center text-xs text-slate-500 dark:border-zinc-800 dark:text-zinc-400">
                                                                     Belum ada spesifikasi khusus.
                                                                 </div>
                                                             )}
@@ -4157,7 +4169,7 @@ export function CeisaDraftModal({
                                 <div className={portalPanelClass}>
                                     <div className={portalPanelHeaderClass}>Disclaimer</div>
                                     <div className={`${portalPanelBodyClass} space-y-4`}>
-                                        <label className="flex items-start gap-3 text-sm text-slate-700">
+                                        <label className="flex items-start gap-3 text-sm text-slate-700 dark:text-zinc-200">
                                             <input
                                                 type="checkbox"
                                                 checked={String(payload.disclaimer || '1') === '1'}
@@ -4166,7 +4178,7 @@ export function CeisaDraftModal({
                                             />
                                             <span>Data draft sudah dicek berdasarkan dokumen customer dan siap dikirim sebagai draft CEISA.</span>
                                         </label>
-                                        <div className="rounded-sm border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                                        <div className="rounded-sm border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-500/40 dark:bg-amber-950/40 dark:text-amber-100">
                                             Ini bukan final submit. Setelah draft berhasil, status dapat dicek dengan nomor aju yang sama.
                                         </div>
                                     </div>
@@ -4202,7 +4214,7 @@ export function CeisaDraftModal({
                     </div>
                 </div>
 
-                <DialogFooter className="shrink-0 gap-2 border-t border-slate-200 bg-white px-6 py-4">
+                <DialogFooter className="shrink-0 gap-2 border-t border-slate-200 bg-white px-6 py-4 dark:border-zinc-800 dark:bg-zinc-900">
                     <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting} className="rounded-sm">
                         Tutup
                     </Button>
@@ -4236,7 +4248,11 @@ function EntitySection({ title, required, children }: { title: string; required?
         <div className={portalPanelClass}>
             <div className={`${portalPanelHeaderClass} flex items-center gap-2`}>
                 {title}
-                {required && <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[10px] text-rose-700">Wajib</span>}
+                {required && (
+                    <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[10px] text-rose-700 dark:bg-rose-950/50 dark:text-rose-200">
+                        Wajib
+                    </span>
+                )}
             </div>
             <div className={portalPanelBodyClass}>{children}</div>
         </div>
