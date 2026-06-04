@@ -333,6 +333,7 @@ class ShippingController extends Controller
                         : '-',
                     'eta_date' => $item->eta_date ?? null,
                     'etd_date' => $item->etd_date ?? null,
+                    'stuffing_date' => $item->stuffing_date ?? null,
 
                     'jalur' => $item->penjaluran,
                     'jalur_filter' => $item->penjaluran,
@@ -1402,6 +1403,7 @@ class ShippingController extends Controller
             'register_date' => $spk->register_date,
             'eta_date' => $spk->eta_date ? $spk->eta_date->toDateString() : null,
             'etd_date' => $spk->etd_date ? $spk->etd_date->toDateString() : null,
+            'stuffing_date' => $spk->stuffing_date ? $spk->stuffing_date->toDateString() : null,
             'shipper' => $spk->shipper,
             'consignee' => $spk->consignee,
             'vessel' => $spk->vessel,
@@ -3210,6 +3212,48 @@ class ShippingController extends Controller
             return response()->json([
                 'success' => true,
                 'inspection_date' => $date->toDateString(),
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    public function updateStuffingDate(Request $request, $idSpk)
+    {
+        $user = auth('web')->user();
+        if ($user->role === 'eksternal') {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'stuffing_date' => 'required|date',
+        ]);
+
+        [$tenant, $idPerusahaan] = $this->resolveTenantAndPerusahaanId($user);
+
+        if (! $tenant) {
+            abort(404, 'Tenant not found');
+        }
+
+        tenancy()->initialize($tenant);
+        $spk = $this->findAccessibleSpkOrFail($idSpk, $user, $idPerusahaan);
+
+        try {
+            $date = \Carbon\Carbon::parse($validated['stuffing_date'])->startOfDay();
+
+            $spk->update([
+                'stuffing_date' => $date,
+            ]);
+
+            try {
+                \App\Events\ShippingDataUpdated::dispatch($spk->id, 'update');
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error('Realtime update failed: '.$e->getMessage());
+            }
+
+            return response()->json([
+                'success' => true,
+                'stuffing_date' => $date->toDateString(),
             ]);
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 500);

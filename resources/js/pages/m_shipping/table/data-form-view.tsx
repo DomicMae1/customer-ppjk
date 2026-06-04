@@ -349,6 +349,10 @@ export default function ViewCustomerForm({
     const [isSavingEtaDate, setIsSavingEtaDate] = useState(false);
     const [etdDate, setEtdDate] = useState(shipmentDataProp?.etd_date ? shipmentDataProp.etd_date.split('T')[0].split(' ')[0] : '');
     const [isSavingEtdDate, setIsSavingEtdDate] = useState(false);
+    const [stuffingDate, setStuffingDate] = useState(
+        shipmentDataProp?.stuffing_date ? shipmentDataProp.stuffing_date.split('T')[0].split(' ')[0] : '',
+    );
+    const [isSavingStuffingDate, setIsSavingStuffingDate] = useState(false);
 
     // Job Date & Inspection Date States
     const [jobDate, setJobDate] = useState(shipmentDataProp?.job_date ? shipmentDataProp.job_date.split('T')[0].split(' ')[0] : '');
@@ -638,6 +642,12 @@ export default function ViewCustomerForm({
         }
     }, [shipmentDataProp?.etd_date]);
 
+    useEffect(() => {
+        if (shipmentDataProp?.stuffing_date) {
+            setStuffingDate(shipmentDataProp.stuffing_date.split('T')[0].split(' ')[0]);
+        }
+    }, [shipmentDataProp?.stuffing_date]);
+
     // NEW: Sync Job Date for real-time updates
     useEffect(() => {
         if (shipmentDataProp?.job_date) {
@@ -688,6 +698,24 @@ export default function ViewCustomerForm({
 
         return () => clearTimeout(timeoutId);
     }, [etdDate]);
+
+    // AUTO-SAVE: Stuffing Date
+    const isStuffingInitialMount = useRef(true);
+    useEffect(() => {
+        if (isStuffingInitialMount.current) {
+            isStuffingInitialMount.current = false;
+            return;
+        }
+
+        const propValue = shipmentDataProp?.stuffing_date ? shipmentDataProp.stuffing_date.split('T')[0].split(' ')[0] : '';
+        if (stuffingDate === propValue) return;
+
+        const timeoutId = setTimeout(() => {
+            handleSaveStuffingDate();
+        }, 500);
+
+        return () => clearTimeout(timeoutId);
+    }, [stuffingDate]);
 
     // AUTO-SAVE: Job Date
     const isJobInitialMount = useRef(true);
@@ -1855,6 +1883,25 @@ export default function ViewCustomerForm({
         }
     };
 
+    const handleSaveStuffingDate = async () => {
+        setIsSavingStuffingDate(true);
+        try {
+            const response = await axios.post(`/shipping/${shipmentData.id_spk}/update-stuffing-date`, {
+                stuffing_date: stuffingDate,
+            });
+            if (response.data.success) {
+                toast.success('Stuffing Date berhasil diperbarui');
+            } else {
+                toast.error(response.data.message || 'Gagal memperbarui Stuffing Date');
+            }
+        } catch (error: any) {
+            console.error('Error updating stuffing date:', error);
+            toast.error(error.response?.data?.message || 'Gagal memperbarui Stuffing Date');
+        } finally {
+            setIsSavingStuffingDate(false);
+        }
+    };
+
     const handleSaveJobDate = async () => {
         setIsSavingJobDate(true);
         try {
@@ -2176,6 +2223,29 @@ export default function ViewCustomerForm({
                                         onChange={(e) => setEtdDate(e.target.value)}
                                         className="date-input-dark h-9 rounded-lg border-slate-200 bg-white text-xs text-slate-700 focus:ring-blue-500/20 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300"
                                         disabled={!isInternalUser || isSavingEtdDate}
+                                    />
+                                </div>
+                            </div>
+                            {/* Stuffing Date Field */}
+                            <div className="col-span-2 mt-2 space-y-1.5 border-t border-slate-200/60 pt-3 dark:border-zinc-800">
+                                <div className="flex items-center justify-between">
+                                    <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
+                                        {trans.stuffing_date || 'Stuffing Date'}
+                                    </div>
+                                    {isSavingStuffingDate && (
+                                        <div className="flex animate-pulse items-center gap-1.5 text-[9px] font-medium text-blue-500">
+                                            <div className="h-1 w-1 rounded-full bg-blue-500"></div>
+                                            Saving...
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <Input
+                                        type="date"
+                                        value={stuffingDate}
+                                        onChange={(e) => setStuffingDate(e.target.value)}
+                                        className="date-input-dark h-9 rounded-lg border-slate-200 bg-white text-xs text-slate-700 focus:ring-blue-500/20 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300"
+                                        disabled={!isInternalUser || isSavingStuffingDate}
                                     />
                                 </div>
                             </div>
