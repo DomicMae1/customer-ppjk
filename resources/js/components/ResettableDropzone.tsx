@@ -201,11 +201,15 @@ export function ResettableDropzone({
             }
         }
 
+        if (fileStatus.previewUrl.startsWith('blob:') || fileStatus.previewUrl.startsWith('data:')) {
+            return fileStatus.previewUrl;
+        }
+
         if (fileStatus.previewUrl.startsWith('documents/temp')) {
             return `/file/view/${fileStatus.previewUrl}`;
         }
 
-        return fileStatus.previewUrl.startsWith('/') ? fileStatus.previewUrl : `/shipping/${fileStatus.previewUrl}`;
+        return fileStatus.previewUrl.startsWith('/') ? fileStatus.previewUrl : `/file/view/${fileStatus.previewUrl}`;
     }, [fileStatus?.previewUrl]);
 
     return (

@@ -106,10 +106,6 @@ Route::get('/file/view/{path}', [FileController::class, 'view'])->middleware('au
     ->where('path', '.*')
     ->name('file.view');
 
-Route::get('/shipping/{path}', [FileController::class, 'view'])->middleware('auth')
-    ->where('path', '.*')
-    ->name('file.view');
-
 Route::get('lang/{locale}', function ($locale) {
     if (in_array($locale, ['en', 'id'])) {
         Session::put('locale', $locale);
