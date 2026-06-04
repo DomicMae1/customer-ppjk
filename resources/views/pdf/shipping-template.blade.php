@@ -147,6 +147,8 @@
             $party = !empty($party) ? $party : '-';
             $aju = !empty($spk->aju) ? $spk->aju : '-';
             $jo = !empty($spk->j_o) ? $spk->j_o : '-';
+            $comodity = !empty($spk->comodity) ? $spk->comodity : '-';
+            $eta_date = !empty($spk->eta_date) ? \Carbon\Carbon::parse($spk->eta_date)->format('d-m-Y') : '-';
             $tanggalDiterima = !empty($spk->tanggal_dokumen) ? \Carbon\Carbon::parse($spk->tanggal_dokumen)->format('d-m-Y') : '-';
         @endphp
 
@@ -166,14 +168,14 @@
             <tr>
                 <td class="label">B/L:</td>
                 <td class="value">{{ $blNumber }}</td>
-                <td class="label"></td>
-                <td class="value"></td>
+                <td class="label">COMMODITY:</td>
+                <td class="value">{{ $comodity }}</td>
             </tr>
             <tr>
                 <td class="label">VESSEL:</td>
                 <td class="value">{{ $vessel }}</td>
-                <td class="label"></td>
-                <td class="value"></td>
+                <td class="label">ETA DATE:</td>
+                <td class="value">{{ $eta_date }}</td>
             </tr>
             <tr>
                 <td class="label">PARTY:</td>
