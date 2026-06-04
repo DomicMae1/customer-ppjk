@@ -287,6 +287,7 @@ return [
     'select_staff_placeholder' => 'Select Staff',
     'eta_date' => 'ETA Date',
     'etd_date' => 'ETD Date',
+    'stuffing_date' => 'Stuffing Date',
     'job_date' => 'Job Date',
     'inspection_date' => 'Inspection Date',
     'document_receipt_form' => 'Document Receipt Form',
