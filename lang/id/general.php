@@ -286,6 +286,7 @@ return [
     'select_staff_placeholder' => 'Pilih Staff',
     'eta_date' => 'Tanggal ETA',
     'etd_date' => 'Tanggal ETD',
+    'stuffing_date' => 'Tanggal Stuffing',
     'job_date' => 'Tanggal Job',
     'inspection_date' => 'Tanggal Pemeriksaan',
     'document_receipt_form' => 'Formulir Penerimaan Dokumen',
