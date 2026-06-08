@@ -40,6 +40,7 @@ interface ShipmentData {
     register_date?: string;
     eta_date?: string;
     etd_date?: string;
+    stuffing_date?: string;
     shipper?: string;
     consignee?: string;
     vessel?: string;
@@ -2230,7 +2231,7 @@ export default function ViewCustomerForm({
                             <div className="col-span-2 mt-2 space-y-1.5 border-t border-slate-200/60 pt-3 dark:border-zinc-800">
                                 <div className="flex items-center justify-between">
                                     <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
-                                        {trans.stuffing_date || 'Stuffing Date'}
+                                        {shipmentData.type === 'Import' ? 'Dooring Date' : 'Stuffing Date'}
                                     </div>
                                     {isSavingStuffingDate && (
                                         <div className="flex animate-pulse items-center gap-1.5 text-[9px] font-medium text-blue-500">
